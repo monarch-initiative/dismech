@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2640,6 +2793,20 @@
             
             
             
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-value">5</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -5128,6 +5295,7 @@
                 <div class="item-desc">Context: Basal plasma growth hormone levels slightly increased with failure to suppress after glucose loading</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5191,6 +5359,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Hyperprolactinemia found in patients with hyperostosis frontalis interna and galactorrhea</div>
+                
                 
                 
     
@@ -5434,12 +5603,11 @@
             <div class="item-box differential-box">
                 <div class="item-name">
                     
-                    <span class="missing-disease-name" title="No Dismech page yet for this disease">Fibrous dysplasia</span>
-                    <span class="curation-gap-badge">Not Yet Curated</span>
+                    <a class="item-name-link" href="Fibrous_Dysplasia.html">Fibrous dysplasia</a>
                     
                     
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/MONDO_0000845" target="_blank" class="missing-ontology-link">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0000845" target="_blank">
                             MONDO:0000845
                         </a>
                     </span>
@@ -5521,7 +5689,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Morgagni-Stewart-Morel Syndrome
 creation_date: &#39;2026-02-09T22:41:02Z&#39;
-updated_date: &#39;2026-04-03T00:00:00Z&#39;
+updated_date: &#39;2026-05-10T12:24:13Z&#39;
 category: Complex
 description: &gt;
   Morgagni-Stewart-Morel syndrome is a rare condition characterized by the triad of
@@ -5596,9 +5764,11 @@ pathophysiology:
     The precise pathogenesis of frontal bone thickening remains unclear. Well-supported
     hypotheses include prolonged estrogen exposure stimulating osteoblastic activity
     in the frontal bone inner table (supported by large-scale anthropological studies)
-    and elevated leptin levels associated with obesity promoting bone formation. A more
+    and elevated leptin levels associated with obesity promoting bone formation. A
+    more
     contested hypothesis involves dysregulated growth hormone secretion from pituitary
-    microadenomatosis; however, recent evidence shows no direct causative role for GH
+    microadenomatosis; however, recent evidence shows no direct causative role for
+    GH
     excess or hyperprolactinemia in HFI etiopathogenesis. The condition predominantly
     affects females and is associated with age, being much less frequent in females
     under 40 years.
@@ -6337,11 +6507,1370 @@ notes: &gt;
   in the general population. A high prevalence and a lack of studies demonstrating
   a strong correlation between the different signs currently question the existence
   of the syndrome as a discrete entity.
+references:
+- reference: PMID:41229651
+  title: Morgagni-Stewart-Morel Syndrome Presenting as Acute Neurological and Respiratory Distress.
+  found_in:
+  - Morgagni-Stewart-Morel_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: Morgagni-Stewart-Morel syndrome can exceptionally present with acute neurological and respiratory compromise.
+    supporting_text: Morgagni-Stewart-Morel syndrome can exceptionally present with acute neurological and respiratory compromise, not just chronic neuropsychiatric symptoms.
+    evidence:
+    - reference: PMID:41229651
+      reference_title: Morgagni-Stewart-Morel Syndrome Presenting as Acute Neurological and Respiratory Distress.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Morgagni-Stewart-Morel syndrome can exceptionally present with acute neurological and respiratory compromise, not just chronic neuropsychiatric symptoms.
+      explanation: Deep research cited this publication as relevant literature for Morgagni-Stewart-Morel Syndrome.
+- reference: DOI:10.18663/tjcl.453912
+  title: &#39;Morgagni-Steawart-Morel syndrome: Case report&#39;
+  found_in:
+  - Morgagni-Stewart-Morel_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: Hyperostosis frontalis interna (HOFI) is characterized by the benign growth of the inner plate of the frontal bone.
+    supporting_text: Hyperostosis frontalis interna (HOFI) is characterized by the benign growth of the inner plate of the frontal bone.
+    evidence:
+    - reference: DOI:10.18663/tjcl.453912
+      reference_title: &#39;Morgagni-Steawart-Morel syndrome: Case report&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Hyperostosis frontalis interna (HOFI) is characterized by the benign growth of the inner plate of the frontal bone.
+      explanation: Deep research cited this publication as relevant literature for Morgagni-Stewart-Morel Syndrome.
+- reference: DOI:10.2478/rjr-2024-0018
+  title: The multidetector CT evaluation of diffuse hyperostosis frontalis interna
+  found_in:
+  - Morgagni-Stewart-Morel_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: Hyperostosis frontalis interna (HFI) is a condition that involves the non-cancerous growth of the inner part of the frontal bone.
+    supporting_text: Hyperostosis frontalis interna (HFI) is a condition that involves the non-cancerous growth of the inner part of the frontal bone.
+    evidence:
+    - reference: DOI:10.2478/rjr-2024-0018
+      reference_title: The multidetector CT evaluation of diffuse hyperostosis frontalis interna
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Hyperostosis frontalis interna (HFI) is a condition that involves the non-cancerous growth of the inner part of the frontal bone.
+      explanation: Deep research cited this publication as relevant literature for Morgagni-Stewart-Morel Syndrome.
+- reference: DOI:10.53446/actamednicomedia.1644183
+  title: Hyperostosis Frontalis Interna and Its Clinical Significance
+  found_in:
+  - Morgagni-Stewart-Morel_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: The metabolic, endocrinological, neurological, and psychological causes of heterotopic ossification in frontal bone have become increasingly important.
+    supporting_text: The metabolic, endocrinological, neurological, and psychological causes of heterotopic ossification in frontal bone have become increasingly important.
+    evidence:
+    - reference: DOI:10.53446/actamednicomedia.1644183
+      reference_title: Hyperostosis Frontalis Interna and Its Clinical Significance
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The metabolic, endocrinological, neurological, and psychological causes of heterotopic ossification in frontal bone have become increasingly important.
+      explanation: Deep research cited this publication as relevant literature for Morgagni-Stewart-Morel Syndrome.
+- reference: DOI:10.7759/cureus.41445
+  title: &#39;Hyperostosis Fronto-Parieto-Occipitalis: A Cadaveric Case Report&#39;
+  found_in:
+  - Morgagni-Stewart-Morel_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: &#39;Hyperostosis Fronto-Parieto-Occipitalis: A Cadaveric Case Report&#39;
+    supporting_text: &#39;Hyperostosis Fronto-Parieto-Occipitalis: A Cadaveric Case Report&#39;
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
+        
+        <div class="card reference-card" id="references-deep-research">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+            
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">5</span>
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41229651" target="_blank">PMID:41229651</a>
+                            </div>
+                            
+                            <div class="reference-title">Morgagni-Stewart-Morel Syndrome Presenting as Acute Neurological and Respiratory Distress.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Morgagni-Stewart-Morel syndrome can exceptionally present with acute neurological and respiratory compromise.</div>
+            
+            
+            <div class="reference-finding-supporting">"Morgagni-Stewart-Morel syndrome can exceptionally present with acute neurological and respiratory compromise, not just chronic neuropsychiatric symptoms."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41229651" target="_blank">PMID:41229651</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Morgagni-Stewart-Morel syndrome can exceptionally present with acute neurological and respiratory compromise, not just chronic neuropsychiatric symptoms."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Morgagni-Stewart-Morel Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.18663/tjcl.453912" target="_blank">DOI:10.18663/tjcl.453912</a>
+                            </div>
+                            
+                            <div class="reference-title">Morgagni-Steawart-Morel syndrome: Case report</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Hyperostosis frontalis interna (HOFI) is characterized by the benign growth of the inner plate of the frontal bone.</div>
+            
+            
+            <div class="reference-finding-supporting">"Hyperostosis frontalis interna (HOFI) is characterized by the benign growth of the inner plate of the frontal bone."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.18663/tjcl.453912" target="_blank">DOI:10.18663/tjcl.453912</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Hyperostosis frontalis interna (HOFI) is characterized by the benign growth of the inner plate of the frontal bone."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Morgagni-Stewart-Morel Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.2478/rjr-2024-0018" target="_blank">DOI:10.2478/rjr-2024-0018</a>
+                            </div>
+                            
+                            <div class="reference-title">The multidetector CT evaluation of diffuse hyperostosis frontalis interna</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Hyperostosis frontalis interna (HFI) is a condition that involves the non-cancerous growth of the inner part of the frontal bone.</div>
+            
+            
+            <div class="reference-finding-supporting">"Hyperostosis frontalis interna (HFI) is a condition that involves the non-cancerous growth of the inner part of the frontal bone."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.2478/rjr-2024-0018" target="_blank">DOI:10.2478/rjr-2024-0018</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Hyperostosis frontalis interna (HFI) is a condition that involves the non-cancerous growth of the inner part of the frontal bone."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Morgagni-Stewart-Morel Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.53446/actamednicomedia.1644183" target="_blank">DOI:10.53446/actamednicomedia.1644183</a>
+                            </div>
+                            
+                            <div class="reference-title">Hyperostosis Frontalis Interna and Its Clinical Significance</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The metabolic, endocrinological, neurological, and psychological causes of heterotopic ossification in frontal bone have become increasingly important.</div>
+            
+            
+            <div class="reference-finding-supporting">"The metabolic, endocrinological, neurological, and psychological causes of heterotopic ossification in frontal bone have become increasingly important."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.53446/actamednicomedia.1644183" target="_blank">DOI:10.53446/actamednicomedia.1644183</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The metabolic, endocrinological, neurological, and psychological causes of heterotopic ossification in frontal bone have become increasingly important."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Morgagni-Stewart-Morel Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.7759/cureus.41445" target="_blank">DOI:10.7759/cureus.41445</a>
+                            </div>
+                            
+                            <div class="reference-title">Hyperostosis Fronto-Parieto-Occipitalis: A Cadaveric Case Report</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Hyperostosis Fronto-Parieto-Occipitalis: A Cadaveric Case Report</div>
+            
+            
+            <div class="reference-finding-supporting">"Hyperostosis Fronto-Parieto-Occipitalis: A Cadaveric Case Report"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">Disease Characteristics Research Template</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">24 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-10T05:24:11.849232</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
+<p>Provide detailed information focusing on:
+1. Key concepts and definitions with current understanding
+2. Recent developments and latest research (prioritize 2023-2024 sources)
+3. Current applications and real-world implementations
+4. Expert opinions and analysis from authoritative sources
+5. Relevant statistics and data from recent studies</p>
+<p>Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
+Always prioritize recent, authoritative sources and provide specific citations for all major claims.</p>
+<h1>Disease Characteristics Research Template</h1>
+<h2>Target Disease</h2>
+<ul>
+<li><strong>Disease Name:</strong> Morgagni-Stewart-Morel Syndrome</li>
+<li><strong>MONDO ID:</strong>  (if available)</li>
+<li><strong>Category:</strong> Complex</li>
+</ul>
+<h2>Research Objectives</h2>
+<p>Please provide a comprehensive research report on <strong>Morgagni-Stewart-Morel Syndrome</strong> covering all of the
+disease characteristics listed below. This report will be used to populate a disease knowledge
+base entry. Be thorough and cite primary literature (PMID preferred) for all claims.</p>
+<p>For each section, <strong>suggested databases/resources</strong> are listed. These are the first places
+you should search for information on each topic.</p>
+<hr />
+<h3>1. Disease Information</h3>
+<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, ICD-10/ICD-11, MeSH, PubMed</p>
+</blockquote>
+<ul>
+<li>What is the disease? Provide a concise overview.</li>
+<li>What are the key identifiers? (OMIM, Orphanet, ICD-10/ICD-11, MeSH, Mondo)</li>
+<li>What are the common synonyms and alternative names?</li>
+<li>Is the information derived from individual patients (e.g., EHR) or aggregated disease-level resources?</li>
+</ul>
+<h3>2. Etiology</h3>
+<ul>
+<li><strong>Disease Causal Factors</strong>: What are the primary causes? (genetic, environmental, infectious, mechanistic)</li>
+<li><strong>Risk Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, UpToDate, clinical guidelines, ClinVar, ClinGen, GWAS Catalog, PheGenI, CTD, CDC, WHO, epidemiological databases</p>
+</blockquote>
+</li>
+<li>Genetic risk factors (causal variants, susceptibility loci, modifier genes)</li>
+<li>Environmental risk factors (toxins, lifestyle, occupational exposures, age, sex, family history)</li>
+<li><strong>Protective Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, clinical trial databases, GWAS Catalog, gnomAD, WHO, CDC, nutrition databases</p>
+</blockquote>
+</li>
+<li>Genetic protective factors (protective variants, modifier alleles)</li>
+<li>Environmental protective factors (diet, lifestyle, exposures that reduce risk)</li>
+<li><strong>Gene-Environment Interactions</strong>: How do genetic and environmental factors interact to influence disease?<blockquote>
+<p><strong>Search first:</strong> CTD, PubMed, PheGenI, GxE databases</p>
+</blockquote>
+</li>
+</ul>
+<h3>3. Phenotypes</h3>
+<blockquote>
+<p><strong>Search first:</strong> HPO (Human Phenotype Ontology), OMIM, Orphanet, PubMed, clinicaltrials.gov, MedDRA, SNOMED CT, DECIPHER, LOINC</p>
+</blockquote>
+<p>For each phenotype, provide:
+- <strong>Phenotype type</strong>: symptoms, clinical signs, physical manifestations, behavioral changes, or laboratory abnormalities</p>
+<blockquote>
+<p>For symptoms/signs: HPO, OMIM, Orphanet, PubMed
+For behavioral changes: HPO, DSM, RDoC (Research Domain Criteria), PubMed
+For laboratory abnormalities: LOINC, SNOMED CT, LabTests Online, PubMed
+- <strong>Phenotype characteristics</strong>:
+<strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed
+  - Age of symptom onset (neonatal, childhood, adult-onset, late-onset)
+  - Symptom severity (mild, moderate, severe, variable)
+  - Symptom progression (stable, progressive, episodic, fluctuating)
+  - Frequency among affected individuals (percentage or qualitative)
+- <strong>Quality of life impact</strong>: Effects on daily functioning and well-being (per-phenotype when possible)
+<strong>Search first:</strong> EQ-5D database, SF-36, WHO QOL databases, PubMed
+- Suggest HPO (Human Phenotype Ontology) terms for each phenotype</p>
+</blockquote>
+<h3>4. Genetic/Molecular Information</h3>
+<ul>
+<li><strong>Causal Genes</strong>: Gene mutations or chromosomal abnormalities responsible for disease (gene symbols, OMIM IDs)<blockquote>
+<p><strong>Search first:</strong> OMIM, ClinVar, HGMD, Ensembl, NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Pathogenic Variants</strong>:</li>
+<li>Affected genes (gene symbols, HGNC IDs)
+    &gt; <strong>Search first:</strong> OMIM, NCBI Gene, Ensembl, HGNC, UniProt, GeneCards</li>
+<li>Variant classification (pathogenic, likely pathogenic, VUS per ACMG/AMP guidelines)
+    &gt; <strong>Search first:</strong> ClinVar, ClinGen, ACMG/AMP guidelines, VarSome</li>
+<li>Variant type/class (missense, frameshift, nonsense, splice-site, structural)</li>
+<li>Allele frequency in population databases
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, ExAC, TOPMed, dbSNP</li>
+<li>Somatic vs germline origin
+    &gt; <strong>Search first:</strong> COSMIC (somatic), ClinVar, ICGC, TCGA</li>
+<li>Functional consequences (loss of function, gain of function, dominant negative)</li>
+<li><strong>Modifier Genes</strong>: Genes that modify disease severity or expression</li>
+<li><strong>Epigenetic Information</strong>: DNA methylation, histone modifications, chromatin changes affecting disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Chromosomal Abnormalities</strong>: Large-scale genetic changes (aneuploidy, translocations, inversions)<blockquote>
+<p><strong>Search first:</strong> DECIPHER, ClinVar, ECARUCA, UCSC Genome Browser</p>
+</blockquote>
+</li>
+</ul>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Environmental Factors</strong>: Non-genetic contributing factors (toxins, radiation, pollution, occupational exposure)<blockquote>
+<p><strong>Search first:</strong> CTD (Comparative Toxicogenomics Database), TOXNET, PubMed, EPA databases</p>
+</blockquote>
+</li>
+<li><strong>Lifestyle Factors</strong>: Behavioral factors (smoking, diet, exercise, alcohol consumption)<blockquote>
+<p><strong>Search first:</strong> CDC databases, WHO, PubMed, NHANES</p>
+</blockquote>
+</li>
+<li><strong>Infectious Agents</strong>: If applicable, pathogens causing or triggering disease (bacteria, viruses, fungi, parasites)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON</p>
+</blockquote>
+</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<ul>
+<li><strong>Molecular Pathways</strong>: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)<blockquote>
+<p><strong>Search first:</strong> KEGG, Reactome, WikiPathways, PathBank, BioCyc</p>
+</blockquote>
+</li>
+<li><strong>Cellular Processes</strong>: Cell-level mechanisms (apoptosis, autophagy, cell cycle dysregulation, inflammation, etc.)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (GO), Reactome, KEGG, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Protein Dysfunction</strong>: How protein structure or function is altered (misfolding, aggregation, loss of function, gain of function)<blockquote>
+<p><strong>Search first:</strong> UniProt, PDB (Protein Data Bank), InterPro, Pfam, AlphaFold</p>
+</blockquote>
+</li>
+<li><strong>Metabolic Changes</strong>: Alterations in metabolic processes (energy metabolism, lipid metabolism, amino acid metabolism)<blockquote>
+<p><strong>Search first:</strong> KEGG, BioCyc, HMDB (Human Metabolome Database), BRENDA</p>
+</blockquote>
+</li>
+<li><strong>Immune System Involvement</strong>: Role of immune response (autoimmunity, immunodeficiency, chronic inflammation)<blockquote>
+<p><strong>Search first:</strong> ImmPort, Immunome Database, IEDB, Gene Ontology</p>
+</blockquote>
+</li>
+<li><strong>Tissue Damage Mechanisms</strong>: How tissues/ are injured (oxidative stress, ischemia, fibrosis, necrosis)<blockquote>
+<p><strong>Search first:</strong> PubMed, Gene Ontology, Reactome</p>
+</blockquote>
+</li>
+<li><strong>Biochemical Abnormalities</strong>: Specific molecular defects (enzyme deficiencies, receptor dysfunction, ion channel defects)<blockquote>
+<p><strong>Search first:</strong> BRENDA, UniProt, KEGG, OMIM, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Epigenetic Changes</strong>: DNA methylation, histone modifications affecting gene expression in disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Molecular Profiling</strong> (if available):</li>
+<li>Transcriptomics/gene expression changes
+    &gt; <strong>Search first:</strong> GEO (Gene Expression Omnibus), ArrayExpress, GTEx, Human Cell Atlas, SRA</li>
+<li>Proteomics findings
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, Human Protein Atlas, STRING, BioGRID</li>
+<li>Metabolomics signatures
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB, METLIN</li>
+<li>Lipidomics alterations
+    &gt; <strong>Search first:</strong> LIPID MAPS, SwissLipids, LipidHome, Metabolomics Workbench</li>
+<li>Genomic structural features
+    &gt; <strong>Search first:</strong> UCSC Genome Browser, Ensembl, NCBI, dbVar, DGV</li>
+<li><strong>Advanced Technologies</strong> (if applicable):</li>
+<li>Single-cell analysis findings (cell-type specific mechanisms, cellular heterogeneity)
+    &gt; <strong>Search first:</strong> Human Cell Atlas, Single Cell Portal, GEO, CELLxGENE</li>
+<li>Spatial transcriptomics findings
+    &gt; <strong>Search first:</strong> GEO, Spatial Research, Vizgen, 10x Genomics data</li>
+<li>Multi-omics integration results
+    &gt; <strong>Search first:</strong> TCGA, ICGC, cBioPortal, LinkedOmics, PubMed</li>
+<li>Functional genomics screens (CRISPR, RNAi)
+    &gt; <strong>Search first:</strong> DepMap, GenomeRNAi, PubMed, BioGRID ORCS</li>
+</ul>
+<p>For each mechanism, describe:
+- The causal chain from initial trigger to clinical manifestation
+- Which mechanisms are upstream vs downstream
+- What cell types and biological processes are involved
+- Suggest GO terms for biological processes and CL terms for cell types</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ Level</strong>:</li>
+<li>Primary organs directly affected</li>
+<li>Secondary organ involvement (complications, secondary effects)</li>
+<li>Body systems involved (cardiovascular, nervous, digestive, respiratory, endocrine, etc.)<blockquote>
+<p><strong>Search first:</strong> Uberon, FMA (Foundational Model of Anatomy), OMIM, HPO, ICD-11, MeSH, SNOMED CT</p>
+</blockquote>
+</li>
+<li><strong>Tissue and Cell Level</strong>:</li>
+<li>Specific tissue types affected (epithelial, connective, muscle, nervous)</li>
+<li>Specific cell populations targeted (with Cell Ontology terms)<blockquote>
+<p><strong>Search first:</strong> Uberon, Human Protein Atlas, Cell Ontology, Human Cell Atlas, CellMarker, PanglaoDB</p>
+</blockquote>
+</li>
+<li><strong>Subcellular Level</strong>:</li>
+<li>Cellular compartments involved (mitochondria, nucleus, ER, lysosomes) (with GO Cellular Component terms)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (Cellular Component), UniProt, Human Protein Atlas</p>
+</blockquote>
+</li>
+<li><strong>Localization</strong>:</li>
+<li>Specific anatomical sites (with UBERON terms)
+    &gt; <strong>Search first:</strong> FMA, Uberon, NeuroNames (for brain), SNOMED CT</li>
+<li>Lateralization (unilateral, bilateral, asymmetric)
+    &gt; <strong>Search first:</strong> HPO, clinical literature, imaging databases</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset</strong>:</li>
+<li>Typical age of onset (congenital, pediatric, adult, geriatric)</li>
+<li>Onset pattern (acute, subacute, chronic, insidious)<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Progression</strong>:</li>
+<li>Disease stages (early, intermediate, advanced, end-stage)
+    &gt; <strong>Search first:</strong> Cancer Staging Manual (AJCC), WHO classifications, PubMed</li>
+<li>Progression rate (rapid, slow, variable)</li>
+<li>Disease course pattern (episodic, relapsing-remitting, progressive, stable)</li>
+<li>Disease duration (self-limited, chronic lifelong)<blockquote>
+<p><strong>Search first:</strong> Disease registries, longitudinal cohort databases, natural history studies, PubMed, Orphanet, OMIM</p>
+</blockquote>
+</li>
+<li><strong>Patterns</strong>:</li>
+<li>Remission patterns (spontaneous, treatment-induced)
+    &gt; <strong>Search first:</strong> Clinical trial databases, disease registries, PubMed</li>
+<li>Critical periods (time windows of vulnerability or opportunity for intervention)
+    &gt; <strong>Search first:</strong> PubMed, developmental biology databases, clinical guidelines</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology</strong>:</li>
+<li>Prevalence (cases per 100,000 at given time)</li>
+<li>Incidence (new cases per 100,000 per year)<blockquote>
+<p><strong>Search first:</strong> Orphanet, CDC, WHO, GBD (Global Burden of Disease), national registries, SEER, disease registries</p>
+</blockquote>
+</li>
+<li><strong>For Genetic Etiology</strong>:</li>
+<li>Inheritance pattern (AD, AR, X-linked, mitochondrial, multifactorial, polygenic)
+    &gt; <strong>Search first:</strong> OMIM, Orphanet, ClinVar, GTR (Genetic Testing Registry)</li>
+<li>Penetrance (complete, incomplete, age-dependent)
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, PubMed, ClinGen</li>
+<li>Expressivity (variable, consistent)
+    &gt; <strong>Search first:</strong> OMIM, ClinVar, PubMed</li>
+<li>Genetic anticipation (increasing severity in successive generations)
+    &gt; <strong>Search first:</strong> OMIM, PubMed (especially for repeat expansion disorders)</li>
+<li>Germline mosaicism
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, genetic counseling literature, PubMed</li>
+<li>Founder effects (population-specific mutations)
+    &gt; <strong>Search first:</strong> gnomAD, population genetics databases, PubMed</li>
+<li>Consanguinity role
+    &gt; <strong>Search first:</strong> OMIM, population studies, genetic counseling resources</li>
+<li>Carrier frequency
+    &gt; <strong>Search first:</strong> gnomAD, carrier screening databases, GeneReviews, GTR</li>
+<li><strong>Population Demographics</strong>:</li>
+<li>Affected populations (ethnic or demographic groups with higher prevalence)
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, PAGE Study, PubMed, population registries</li>
+<li>Geographic distribution (endemic areas, regional variation)
+    &gt; <strong>Search first:</strong> WHO, CDC, GBD, Orphanet, geographic epidemiology databases</li>
+<li>Geographic distribution of specific variants</li>
+<li>Sex ratio (male:female)
+    &gt; <strong>Search first:</strong> Disease registries, OMIM, PubMed, epidemiological databases</li>
+<li>Age distribution of affected individuals
+    &gt; <strong>Search first:</strong> CDC, disease registries, SEER, Orphanet</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Clinical Tests</strong>:</li>
+<li>Laboratory tests (blood, urine, tissue chemistry, specific enzyme assays)
+    &gt; <strong>Search first:</strong> LOINC, LabTests Online, PubMed</li>
+<li>Biomarkers (proteins, metabolites, genetic markers, circulating biomarkers)
+    &gt; <strong>Search first:</strong> FDA Biomarker List, BEST (Biomarkers, EndpointS, and other Tools), PubMed</li>
+<li>Imaging studies (X-ray, CT, MRI, PET, ultrasound)
+    &gt; <strong>Search first:</strong> RadLex, DICOM, Radiopaedia, imaging databases</li>
+<li>Functional tests (pulmonary function, cardiac stress tests)
+    &gt; <strong>Search first:</strong> LOINC, clinical guidelines, PubMed</li>
+<li>Electrophysiology (EEG, EMG, ECG, nerve conduction studies)
+    &gt; <strong>Search first:</strong> LOINC, clinical neurophysiology databases, PubMed</li>
+<li>Biopsy findings (histopathology, immunohistochemistry)
+    &gt; <strong>Search first:</strong> SNOMED CT, College of American Pathologists resources, PubMed</li>
+<li>Pathology findings (microscopic examination)
+    &gt; <strong>Search first:</strong> SNOMED CT, Digital Pathology databases, PubMed</li>
+<li><strong>Genetic Testing</strong>:<blockquote>
+<p><strong>Search first:</strong> GTR (Genetic Testing Registry), GeneReviews, ClinGen</p>
+</blockquote>
+</li>
+<li>Overview of recommended genetic testing approach</li>
+<li>Whole genome sequencing (WGS) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, GEL (Genomics England), gnomAD</li>
+<li>Whole exome sequencing (WES) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneMatcher</li>
+<li>Gene panels (which panels, which genes)
+    &gt; <strong>Search first:</strong> GTR, ClinVar, laboratory-specific databases</li>
+<li>Single gene testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneReviews</li>
+<li>Chromosomal microarray (CMA)
+    &gt; <strong>Search first:</strong> DECIPHER, ClinVar, dbVar, ECARUCA</li>
+<li>Karyotyping
+    &gt; <strong>Search first:</strong> Chromosome Abnormality Database, ClinVar, cytogenetics resources</li>
+<li>FISH
+    &gt; <strong>Search first:</strong> ClinVar, cytogenetics databases, PubMed</li>
+<li>Mitochondrial DNA testing
+    &gt; <strong>Search first:</strong> MITOMAP, MSeqDR, ClinVar, GTR</li>
+<li>Repeat expansion testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, repeat expansion databases, PubMed</li>
+<li><strong>Omics-Based Diagnostics</strong> (if applicable):</li>
+<li>RNA sequencing / transcriptomics
+    &gt; <strong>Search first:</strong> GEO, ArrayExpress, GTEx, RNA-seq databases</li>
+<li>Proteomics
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, FDA Biomarker database</li>
+<li>Metabolomics
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB</li>
+<li>Epigenomics
+    &gt; <strong>Search first:</strong> GEO, ENCODE, Roadmap Epigenomics, MethBase</li>
+<li>Liquid biopsy
+    &gt; <strong>Search first:</strong> COSMIC, ClinVar, liquid biopsy databases, PubMed</li>
+<li><strong>Clinical Criteria</strong>:</li>
+<li>Standardized diagnostic criteria (DSM, ICD, society guidelines)
+    &gt; <strong>Search first:</strong> DSM-5, ICD-11, clinical society guidelines, UpToDate</li>
+<li>Differential diagnosis (other conditions to rule out, with distinguishing features)
+    &gt; <strong>Search first:</strong> DynaMed, UpToDate, clinical decision support systems</li>
+<li><strong>Screening</strong>:</li>
+<li>Screening methods for asymptomatic individuals (newborn screening, carrier screening, cascade screening)
+    &gt; <strong>Search first:</strong> ACMG recommendations, CDC newborn screening, GTR</li>
+</ul>
+<h3>11. Outcome/Prognosis</h3>
+<ul>
+<li><strong>Survival and Mortality</strong>:</li>
+<li>Survival rate (5-year, 10-year, overall)
+    &gt; <strong>Search first:</strong> SEER, cancer registries, disease-specific registries, PubMed</li>
+<li>Life expectancy (with and without treatment if applicable)
+    &gt; <strong>Search first:</strong> Orphanet, disease registries, actuarial databases, PubMed</li>
+<li>Mortality rate
+    &gt; <strong>Search first:</strong> CDC, WHO, GBD, national mortality databases</li>
+<li>Disease-specific mortality (deaths directly attributable to disease)
+    &gt; <strong>Search first:</strong> Disease registries, CDC Wonder, GBD, PubMed</li>
+<li><strong>Morbidity and Function</strong>:</li>
+<li>Morbidity (disease-related disability and health impacts)
+    &gt; <strong>Search first:</strong> GBD, WHO, disability databases, PubMed</li>
+<li>Disability outcomes (long-term functional impairments)
+    &gt; <strong>Search first:</strong> ICF (International Classification of Functioning), disability registries</li>
+<li>Quality of life measures (EQ-5D, SF-36, PROMIS, disease-specific tools)
+    &gt; <strong>Search first:</strong> EQ-5D database, SF-36, PROMIS, PubMed</li>
+<li><strong>Disease Course</strong>:</li>
+<li>Complications (secondary problems: infections, organ failure, etc.)
+    &gt; <strong>Search first:</strong> ICD codes, disease registries, clinical databases, PubMed</li>
+<li>Recovery potential (likelihood and extent of recovery, with vs without treatment)
+    &gt; <strong>Search first:</strong> Natural history studies, rehabilitation databases, PubMed</li>
+<li><strong>Prediction</strong>:</li>
+<li>Prognostic factors (age, disease severity, biomarkers, treatment response)
+    &gt; <strong>Search first:</strong> Prognostic models databases, clinical calculators, PubMed</li>
+<li>Prognostic biomarkers (molecular markers predicting disease course)
+    &gt; <strong>Search first:</strong> FDA Biomarker database, PubMed, cancer prognostic databases</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Pharmacotherapy</strong>:</li>
+<li>Pharmacological treatments (drug names, drug classes, mechanisms of action)
+    &gt; <strong>Search first:</strong> DrugBank, RxNorm, ATC classification, DailyMed, FDA databases</li>
+<li>Pharmacogenomics (how genetic variants affect drug metabolism, efficacy, toxicity)
+    &gt; <strong>Search first:</strong> PharmGKB, CPIC (Clinical Pharmacogenetics), FDA Table of PGx Biomarkers</li>
+<li><strong>Advanced Therapeutics</strong>:</li>
+<li>Gene therapy (viral vectors, CRISPR, gene replacement, gene editing)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA gene therapy database, ASGCT resources</li>
+<li>Cell therapy (stem cell transplant, CAR-T, cellular therapeutics)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA cell therapy database, FACT standards</li>
+<li>RNA-based therapies (ASOs, siRNA, mRNA therapies)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA approvals, PubMed</li>
+<li>Targeted therapies (treatments directed at specific molecular targets)
+    &gt; <strong>Search first:</strong> My Cancer Genome, OncoKB, ClinicalTrials.gov, FDA approvals</li>
+<li>Immunotherapies (checkpoint inhibitors, monoclonal antibodies)
+    &gt; <strong>Search first:</strong> Cancer Immunotherapy Database, FDA approvals, ClinicalTrials.gov</li>
+<li><strong>Surgical and Interventional</strong>:</li>
+<li>Surgical interventions (types of surgery, timing, outcomes)
+    &gt; <strong>Search first:</strong> CPT codes, surgical registries, clinical guidelines, PubMed</li>
+<li><strong>Supportive and Rehabilitative</strong>:</li>
+<li>Supportive care (symptom management, pain control, nutrition)
+    &gt; <strong>Search first:</strong> Clinical guidelines, Cochrane Library, PubMed</li>
+<li>Rehabilitation (physical therapy, occupational therapy, speech therapy)
+    &gt; <strong>Search first:</strong> Rehabilitation medicine databases, clinical guidelines, PubMed</li>
+<li><strong>Experimental</strong>:</li>
+<li>Experimental treatments in clinical trials (with NCT identifiers if available)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, EU Clinical Trials Register, WHO ICTRP</li>
+<li><strong>Treatment Outcomes</strong>:</li>
+<li>Treatment response rates
+    &gt; <strong>Search first:</strong> Clinical trial databases, FDA reviews, systematic reviews, PubMed</li>
+<li>Side effects and adverse events
+    &gt; <strong>Search first:</strong> FDA Adverse Event Reporting System (FAERS), MedWatch, PubMed</li>
+<li><strong>Treatment Strategy</strong>:</li>
+<li>Treatment algorithms (clinical pathways, decision trees)
+    &gt; <strong>Search first:</strong> Clinical practice guidelines, NCCN Guidelines, UpToDate</li>
+<li>Combination therapies
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, treatment guidelines, PubMed</li>
+<li>Personalized medicine approaches (genotype-guided treatment)
+    &gt; <strong>Search first:</strong> My Cancer Genome, CIViC, PharmGKB, precision medicine databases</li>
+</ul>
+<p>For each treatment, suggest MAXO (Medical Action Ontology) terms where applicable.</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Prevention Levels</strong>:</li>
+<li>Primary prevention (preventing disease occurrence: vaccination, risk factor modification)
+    &gt; <strong>Search first:</strong> CDC, WHO, USPSTF recommendations, Cochrane Library</li>
+<li>Secondary prevention (early detection and treatment: screening programs, early intervention)
+    &gt; <strong>Search first:</strong> USPSTF, CDC screening guidelines, WHO</li>
+<li>Tertiary prevention (preventing complications in those with disease)
+    &gt; <strong>Search first:</strong> Clinical guidelines, disease management protocols, PubMed</li>
+<li><strong>Immunization</strong>: Vaccine strategies (if applicable)<blockquote>
+<p><strong>Search first:</strong> CDC vaccine schedules, WHO immunization, FDA vaccine database</p>
+</blockquote>
+</li>
+<li><strong>Screening and Early Detection</strong>:</li>
+<li>Screening programs (population-based: newborn screening, cancer screening)
+    &gt; <strong>Search first:</strong> CDC screening programs, USPSTF, cancer screening databases</li>
+<li>Genetic screening (carrier screening, preimplantation genetic diagnosis, prenatal testing)
+    &gt; <strong>Search first:</strong> ACMG recommendations, ACOG guidelines, GTR</li>
+<li>Risk stratification (identifying high-risk individuals for targeted prevention)
+    &gt; <strong>Search first:</strong> Risk prediction models, clinical calculators, PubMed</li>
+<li><strong>Behavioral Interventions</strong>: Lifestyle modifications to reduce risk<blockquote>
+<p><strong>Search first:</strong> CDC, WHO, behavioral intervention databases, Cochrane Library</p>
+</blockquote>
+</li>
+<li><strong>Counseling</strong>: Genetic counseling (risk assessment, family planning guidance)<blockquote>
+<p><strong>Search first:</strong> NSGC resources, ACMG guidelines, GeneReviews</p>
+</blockquote>
+</li>
+<li><strong>Public Health</strong>:</li>
+<li>Public health interventions (sanitation, vector control, health education)
+    &gt; <strong>Search first:</strong> CDC, WHO, public health databases, PubMed</li>
+<li>Environmental interventions (reducing environmental risk factors)
+    &gt; <strong>Search first:</strong> EPA databases, WHO environmental health, PubMed</li>
+<li><strong>Prophylaxis</strong>: Preventive medications or procedures<blockquote>
+<p><strong>Search first:</strong> Clinical guidelines, FDA approvals, PubMed</p>
+</blockquote>
+</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy</strong>: Species affected (with NCBI Taxon identifiers)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy</p>
+</blockquote>
+</li>
+<li><strong>Breed</strong>: Specific breeds affected (with VBO identifiers if applicable)<blockquote>
+<p><strong>Search first:</strong> VBO (Vertebrate Breed Ontology)</p>
+</blockquote>
+</li>
+<li><strong>Gene</strong>: Orthologous genes in other species (with NCBI Gene IDs)<blockquote>
+<p><strong>Search first:</strong> NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Natural Disease</strong>:</li>
+<li>Naturally occurring disease in other species (companion animals, wildlife)
+    &gt; <strong>Search first:</strong> OMIA (Online Mendelian Inheritance in Animals), VetCompass, PubMed</li>
+<li>Veterinary relevance and importance in animal health
+    &gt; <strong>Search first:</strong> OMIA, veterinary databases, PubMed</li>
+<li><strong>Comparative Biology</strong>:</li>
+<li>Comparative pathology (similarities and differences across species)
+    &gt; <strong>Search first:</strong> OMIA, comparative pathology databases, PubMed</li>
+<li>Evolutionary conservation of disease mechanisms
+    &gt; <strong>Search first:</strong> HomoloGene, OrthoMCL, Alliance of Genome Resources</li>
+<li><strong>Transmission</strong> (if applicable):</li>
+<li>Zoonotic potential
+    &gt; <strong>Search first:</strong> CDC zoonotic diseases, WHO zoonoses, GIDEON</li>
+<li>Cross-species susceptibility
+    &gt; <strong>Search first:</strong> NCBI Taxonomy, veterinary databases, PubMed</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Model Types</strong>:</li>
+<li>Model organism type (mammalian, invertebrate, cellular, in vitro)
+    &gt; <strong>Search first:</strong> Alliance of Genome Resources, model organism databases</li>
+<li>Specific model systems (mouse, rat, zebrafish, Drosophila, C. elegans, yeast, cell lines, organoids, iPSCs)
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, SGD, ATCC, Cellosaurus</li>
+<li>Induced models (drug treatment, surgical intervention, environmental manipulation)
+    &gt; <strong>Search first:</strong> MGI, model organism databases, PubMed</li>
+<li><strong>Genetic Models</strong>:</li>
+<li>Types available (knockout, knock-in, transgenic, conditional, humanized)
+    &gt; <strong>Search first:</strong> MGI, IMPC, KOMP, EuMMCR, IMSR</li>
+<li><strong>Model Characteristics</strong>:</li>
+<li>Phenotype recapitulation (how well model reproduces human disease features)
+    &gt; <strong>Search first:</strong> Model organism databases, comparative studies, PubMed</li>
+<li>Model limitations (aspects of human disease not captured)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed, review articles</li>
+<li><strong>Applications</strong>:</li>
+<li>Research applications (what aspects of disease can be studied)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed</li>
+<li><strong>Resources</strong>:</li>
+<li>Model databases
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, IMSR, EMMA, MMRRC</li>
+</ul>
+<hr />
+<h2>Citation Requirements</h2>
+<ul>
+<li>Cite primary literature (PMID preferred) for all mechanistic and clinical claims</li>
+<li>Prioritize recent reviews and landmark papers</li>
+<li>Include direct quotes from abstracts where possible to support key statements</li>
+<li>Distinguish evidence source types: human clinical, model organism, in vitro, computational</li>
+</ul>
+<h2>Output Format</h2>
+<p>Structure your response as a comprehensive narrative organized by the sections above.
+For each section, provide:
+- Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
+- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, MAXO, MONDO) where applicable
+- Evidence citations with PMIDs
+- Direct quotes from abstracts to support key claims
+- Clear indication when information is not available or not applicable for this disease</p>
+<p>This report will be used to populate a disease knowledge base entry with:
+- Pathophysiology descriptions with causal chains
+- Gene/protein annotations (HGNC, GO terms)
+- Phenotype associations (HP terms) with frequencies
+- Cell type involvement (CL terms)
+- Anatomical locations (UBERON terms)
+- Chemical entities (CHEBI terms)
+- Treatment annotations (MAXO terms)
+- Evidence items with PMIDs and exact abstract quotes
+- Epidemiology, prognosis, diagnostic, and prevention information
+- Animal model descriptions with phenotype recapitulation details</p>
+<h2>Comprehensive Research Report: Morgagni–Stewart–Morel Syndrome (MSMS)</h2>
+<h3>Executive summary (current understanding)</h3>
+<p>Morgagni–Stewart–Morel syndrome (MSMS; also “Morgagni syndrome” / “Stewart–Morel syndrome”) is typically used to describe the syndromic co-occurrence of <strong>hyperostosis frontalis interna (HFI)</strong> (benign thickening/proliferation of the inner table of the frontal bone) with <strong>metabolic/endocrine abnormalities</strong> (commonly obesity and diabetes; sometimes thyroid/parathyroid abnormalities) and <strong>neuropsychiatric/neurologic manifestations</strong> (headache, mood/cognitive/behavioral symptoms, seizures). The literature base remains dominated by case reports and small series, with uncertain causality between bone overgrowth and symptoms. (cetinok2025hyperostosisfrontalisinterna pages 5-6, abdallah2025morgagnistewartmorelsyndromepresenting pages 1-2, inal2024themultidetectorct pages 7-8, dogan2019morgagnisteawartmorelsendromuolgu pages 3-3)</p>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Details</th>
+<th>Evidence (context id)</th>
+<th>Publication (year, journal)</th>
+<th>URL</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease concept</td>
+<td>Morgagni–Stewart–Morel syndrome (MSMS/MSM) is a rare syndrome in which hyperostosis frontalis interna (HFI) co-occurs with metabolic, endocrine, and neuropsychiatric abnormalities; commonly described with obesity, virilization/hirsutism, headache, seizures, mood/cognitive symptoms, and endocrine dysfunction.</td>
+<td>(cetinok2025hyperostosisfrontalisinterna pages 5-6, abdallah2025morgagnistewartmorelsyndromepresenting pages 1-2, dogan2019morgagnisteawartmorelsendromuolgu pages 1-3, dogan2019morgagnisteawartmorelsendromuolgu pages 3-3)</td>
+<td>2025, Acta Medica Nicomedia; 2025, European Journal of Case Reports in Internal Medicine; 2019, Turkish Journal of Clinics and Laboratory</td>
+<td>https://doi.org/10.53446/actamednicomedia.1644183 ; https://doi.org/10.12890/2025_005836 ; https://doi.org/10.18663/tjcl.453912</td>
+</tr>
+<tr>
+<td>Core skeletal lesion</td>
+<td>HFI is benign thickening/proliferation of the inner table of the frontal bone and is the principal radiologic feature of MSMS.</td>
+<td>(abdallah2025morgagnistewartmorelsyndromepresenting pages 1-2, dogan2019morgagnisteawartmorelsendromuolgu pages 1-3, inal2024themultidetectorct pages 7-8)</td>
+<td>2025, European Journal of Case Reports in Internal Medicine; 2019, Turkish Journal of Clinics and Laboratory; 2024, Romanian Journal of Rhinology</td>
+<td>https://doi.org/10.12890/2025_005836 ; https://doi.org/10.18663/tjcl.453912 ; https://doi.org/10.2478/rjr-2024-0018</td>
+</tr>
+<tr>
+<td>Common synonyms/alternate names</td>
+<td>Morgagni syndrome; Stewart–Morel syndrome; Morgagni–Stewart–Morel syndrome; metabolic craniopathy; hyperostosis frontalis interna with obesity/virilization/neuropsychiatric symptoms. Some sources loosely use HFI itself as synonymous, but retrieved evidence supports HFI as the imaging lesion and MSMS as the syndromic form.</td>
+<td>(dogan2019morgagnisteawartmorelsendromuolgu pages 1-3, inal2024themultidetectorct pages 7-8, dogan2019morgagnisteawartmorelsendromuolgu pages 3-3)</td>
+<td>2019, Turkish Journal of Clinics and Laboratory; 2024, Romanian Journal of Rhinology</td>
+<td>https://doi.org/10.18663/tjcl.453912 ; https://doi.org/10.2478/rjr-2024-0018</td>
+</tr>
+<tr>
+<td>Identifier: MONDO</td>
+<td>Not found in retrieved sources.</td>
+<td>(cetinok2025hyperostosisfrontalisinterna pages 5-6)</td>
+<td>2025, Acta Medica Nicomedia</td>
+<td>https://doi.org/10.53446/actamednicomedia.1644183</td>
+</tr>
+<tr>
+<td>Identifier: OMIM</td>
+<td>Not found in retrieved sources.</td>
+<td>(cetinok2025hyperostosisfrontalisinterna pages 5-6)</td>
+<td>2025, Acta Medica Nicomedia</td>
+<td>https://doi.org/10.53446/actamednicomedia.1644183</td>
+</tr>
+<tr>
+<td>Identifier: Orphanet</td>
+<td>Not found in retrieved sources.</td>
+<td>(cetinok2025hyperostosisfrontalisinterna pages 5-6)</td>
+<td>2025, Acta Medica Nicomedia</td>
+<td>https://doi.org/10.53446/actamednicomedia.1644183</td>
+</tr>
+<tr>
+<td>Identifier: MeSH</td>
+<td>Not found in retrieved sources.</td>
+<td>(cetinok2025hyperostosisfrontalisinterna pages 5-6)</td>
+<td>2025, Acta Medica Nicomedia</td>
+<td>https://doi.org/10.53446/actamednicomedia.1644183</td>
+</tr>
+<tr>
+<td>Identifier: ICD-10 / ICD-11</td>
+<td>Not found in retrieved sources.</td>
+<td>(cetinok2025hyperostosisfrontalisinterna pages 5-6)</td>
+<td>2025, Acta Medica Nicomedia</td>
+<td>https://doi.org/10.53446/actamednicomedia.1644183</td>
+</tr>
+<tr>
+<td>Typical demographics</td>
+<td>Strong female predominance, especially postmenopausal and older women. In one CT series of diffuse HFI, 148/154 (96.1%) cases were female; a cadaveric study found HFI in 31/74 donors, with 77.42% of HFI cases in women.</td>
+<td>(inal2024themultidetectorct pages 3-4, inal2024themultidetectorct pages 1-3, cetinok2025hyperostosisfrontalisinterna pages 2-3)</td>
+<td>2024, Romanian Journal of Rhinology; 2025, Acta Medica Nicomedia</td>
+<td>https://doi.org/10.2478/rjr-2024-0018 ; https://doi.org/10.53446/actamednicomedia.1644183</td>
+</tr>
+<tr>
+<td>Endocrine/metabolic associations</td>
+<td>Reported associations include obesity, diabetes mellitus, hypothyroidism, hyperparathyroidism, menstrual disturbances, galactorrhea, and hirsutism/virilization. Etiology remains uncertain but hormonal/metabolic factors are repeatedly emphasized.</td>
+<td>(abdallah2025morgagnistewartmorelsyndromepresenting pages 1-2, inal2024themultidetectorct pages 7-8, otken2023hyperostosisfrontoparietooccipitalisa pages 4-5, dogan2019morgagnisteawartmorelsendromuolgu pages 3-3)</td>
+<td>2025, European Journal of Case Reports in Internal Medicine; 2024, Romanian Journal of Rhinology; 2023, Cureus; 2019, Turkish Journal of Clinics and Laboratory</td>
+<td>https://doi.org/10.12890/2025_005836 ; https://doi.org/10.2478/rjr-2024-0018 ; https://doi.org/10.7759/cureus.41445 ; https://doi.org/10.18663/tjcl.453912</td>
+</tr>
+<tr>
+<td>Neuropsychiatric/neurologic features</td>
+<td>Headache, depression, cognitive/behavioral change, psychosis, seizures, dizziness, and executive dysfunction have been reported; presentations range from incidental imaging findings to acute neurologic/respiratory decompensation.</td>
+<td>(cetinok2025hyperostosisfrontalisinterna pages 5-6, abdallah2025morgagnistewartmorelsyndromepresenting pages 1-2, otken2023hyperostosisfrontoparietooccipitalisa pages 4-5, abdallah2025morgagnistewartmorelsyndromepresenting pages 2-4, dogan2019morgagnisteawartmorelsendromuolgu pages 3-3)</td>
+<td>2025, Acta Medica Nicomedia; 2025, European Journal of Case Reports in Internal Medicine; 2023, Cureus; 2019, Turkish Journal of Clinics and Laboratory</td>
+<td>https://doi.org/10.53446/actamednicomedia.1644183 ; https://doi.org/10.12890/2025_005836 ; https://doi.org/10.7759/cureus.41445 ; https://doi.org/10.18663/tjcl.453912</td>
+</tr>
+<tr>
+<td>Core diagnostic element: imaging</td>
+<td>Diagnosis depends on radiographic confirmation of frontal inner-table thickening. CT is emphasized as confirmatory; MRI may show internal frontal hyperostosis and associated cortico-subcortical atrophy.</td>
+<td>(abdallah2025morgagnistewartmorelsyndromepresenting pages 1-2, inal2024themultidetectorct pages 7-8)</td>
+<td>2025, European Journal of Case Reports in Internal Medicine; 2024, Romanian Journal of Rhinology</td>
+<td>https://doi.org/10.12890/2025_005836 ; https://doi.org/10.2478/rjr-2024-0018</td>
+</tr>
+<tr>
+<td>Core diagnostic element: CT morphometry</td>
+<td>In diffuse HFI, CT shows increased frontal/calvarial thickness at the vertex, frontal tuberosity, and frontal sinus levels. Example vertex thicknesses in HFI vs controls: midline 12.88±3.43 mm vs 8.01±2.04 mm; right lateral 15.94±4.75 mm vs 8.69±1.96 mm; left lateral 15.48±4.66 mm vs 8.64±1.97 mm.</td>
+<td>(inal2024themultidetectorct pages 3-4, inal2024themultidetectorct pages 1-3)</td>
+<td>2024, Romanian Journal of Rhinology</td>
+<td>https://doi.org/10.2478/rjr-2024-0018</td>
+</tr>
+<tr>
+<td>Core diagnostic element: density findings</td>
+<td>CT density in HFI regions is increased at least at the vertex and frontal tuberosity. Example: vertex HFI region 1064.56±244.33 HU vs control 837.06±214.25 HU.</td>
+<td>(inal2024themultidetectorct pages 3-4, inal2024themultidetectorct pages 5-7, inal2024themultidetectorct pages 4-5)</td>
+<td>2024, Romanian Journal of Rhinology</td>
+<td>https://doi.org/10.2478/rjr-2024-0018</td>
+</tr>
+<tr>
+<td>Radiologic classification</td>
+<td>Retrieved sources reference Hershkovitz radiologic classification for HFI and describe Type A (&lt;25% frontal endocranial surface, isolated thickness &lt;1 cm) and Types B–D with increasing extent/nodularity; radiology reports should specify presence and degree.</td>
+<td>(dogan2019morgagnisteawartmorelsendromuolgu pages 1-3, dogan2019morgagnisteawartmorelsendromuolgu pages 3-3, inal2024themultidetectorct media cb19ca47)</td>
+<td>2019, Turkish Journal of Clinics and Laboratory; 2024, Romanian Journal of Rhinology</td>
+<td>https://doi.org/10.18663/tjcl.453912 ; https://doi.org/10.2478/rjr-2024-0018</td>
+</tr>
+<tr>
+<td>Suggested diagnostic workflow</td>
+<td>Combine characteristic imaging (HFI) with syndromic features and assess endocrine/metabolic comorbidities. Retrieved studies recommend radiology consultation and endocrinologic assessment when HFI is detected.</td>
+<td>(inal2024themultidetectorct pages 7-8, inal2024themultidetectorct pages 1-3)</td>
+<td>2024, Romanian Journal of Rhinology</td>
+<td>https://doi.org/10.2478/rjr-2024-0018</td>
+</tr>
+<tr>
+<td>Differential diagnosis clues</td>
+<td>Retrieved reports note need to distinguish HFI/MSMS from Paget disease, fibrous dysplasia, acromegaly, hyperostosis cranialis interna, and osseous metastasis mimics on imaging.</td>
+<td>(inal2024themultidetectorct pages 7-8, otken2023hyperostosisfrontoparietooccipitalisa pages 4-5)</td>
+<td>2024, Romanian Journal of Rhinology; 2023, Cureus</td>
+<td>https://doi.org/10.2478/rjr-2024-0018 ; https://doi.org/10.7759/cureus.41445</td>
+</tr>
+<tr>
+<td>Information source level</td>
+<td>The retrieved evidence is mainly aggregated disease-level interpretation built from case reports, case series, and imaging studies rather than large registries or EHR-derived population datasets.</td>
+<td>(abdallah2025morgagnistewartmorelsyndromepresenting pages 1-2, hiremath2024diagnosticchallengesand pages 1-3, dogan2019morgagnisteawartmorelsendromuolgu pages 1-3, inal2024themultidetectorct pages 1-3)</td>
+<td>2025, European Journal of Case Reports in Internal Medicine; 2024, case report; 2019, Turkish Journal of Clinics and Laboratory; 2024, Romanian Journal of Rhinology</td>
+<td>https://doi.org/10.12890/2025_005836 ; https://doi.org/10.18663/tjcl.453912 ; https://doi.org/10.2478/rjr-2024-0018</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes how the retrieved literature defines Morgagni–Stewart–Morel syndrome and related hyperostosis frontalis interna, including synonyms, missing identifiers in the retrieved sources, and the main diagnostic features. It is useful as a quick normalization and diagnostic reference for knowledge-base curation.</em></p>
+<hr />
+<h2>1. Disease information</h2>
+<h3>1.1 Concise overview</h3>
+<ul>
+<li><strong>Disease definition (syndromic form):</strong> MSMS is the term applied when <strong>HFI coexists with metabolic, endocrine and neuropsychiatric abnormalities</strong>. One recent source explicitly frames the definition as: MSMS is used when HFI “coexists with metabolic, endocrine and neuropsychiatric abnormalities,” and when HFI occurs with “virilisation, obesity and neuropsychiatric issues” it is classified as MSMS. (cetinok2025hyperostosisfrontalisinterna pages 5-6)</li>
+<li><strong>Key lesion:</strong> HFI is repeatedly emphasized as the <strong>principal radiologic hallmark</strong> and the “only way to confirm” HFI is radiographic visualization of frontal inner-table thickening. (inal2024themultidetectorct pages 7-8, abdallah2025morgagnistewartmorelsyndromepresenting pages 1-2)</li>
+</ul>
+<h3>1.2 Key identifiers (ontology/clinical coding)</h3>
+<p>The retrieved primary sources did <strong>not</strong> provide MONDO, OMIM, Orphanet, MeSH, or ICD-10/ICD-11 mappings for MSMS/HFI; therefore, these identifiers cannot be confirmed from the tool-retrieved literature in this run. (cetinok2025hyperostosisfrontalisinterna pages 5-6)</p>
+<h3>1.3 Synonyms and alternative names</h3>
+<ul>
+<li>Morgagni syndrome; Stewart–Morel syndrome; Morgagni–Stewart–Morel syndrome; “metabolic craniopathy” (term used in older clinical literature). (dogan2019morgagnisteawartmorelsendromuolgu pages 1-3, dogan2019morgagnisteawartmorelsendromuolgu pages 3-3)</li>
+<li>Some case literature uses <strong>HFI</strong> as “aka MSMS,” but other sources distinguish <strong>HFI (lesion)</strong> from <strong>MSMS (syndromic form)</strong>. (hiremath2024diagnosticchallengesand pages 1-3, cetinok2025hyperostosisfrontalisinterna pages 5-6)</li>
+</ul>
+<h3>1.4 Evidence source type</h3>
+<p>Across retrieved sources, MSMS characterization is primarily derived from <strong>individual case reports</strong>, plus some <strong>aggregated imaging cohorts</strong> focused on HFI rather than MSMS specifically. (hiremath2024diagnosticchallengesand pages 1-3, inal2024themultidetectorct pages 1-3)</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>2.1 Disease causal factors (current evidence)</h3>
+<p><strong>No single validated causal gene or pathogen</strong> emerges from the retrieved literature; the etiology is consistently described as uncertain, with hormonal/metabolic drivers repeatedly hypothesized.</p>
+<p><strong>Hormonal/endocrine hypotheses</strong>
+- Long-term estrogen exposure and female sex/postmenopausal status are repeatedly discussed as central correlates of HFI/MSMS; one recent review-like paper states HFI occurs “nine times more frequently in women,” especially “postmenopausal women,” and links the condition to “long-term estrogen exposure,” obesity, diabetes, and endocrine imbalance. (cetinok2025hyperostosisfrontalisinterna pages 5-6)
+- Case-based MSMS descriptions emphasize association with endocrine abnormalities (notably hypothyroidism in an acute presentation report). (abdallah2025morgagnistewartmorelsyndromepresenting pages 1-2, abdallah2025morgagnistewartmorelsyndromepresenting pages 2-4)</p>
+<p><strong>Metabolic hypotheses</strong>
+- Diabetes mellitus and obesity are commonly mentioned as associated conditions in MSMS/HFI. (inal2024themultidetectorct pages 7-8, otken2023hyperostosisfrontoparietooccipitalisa pages 4-5, dogan2019morgagnisteawartmorelsendromuolgu pages 3-3)</p>
+<p><strong>Possible genetic contribution (low-evidence/older literature)</strong>
+- A case-report source notes possible autosomal dominant transmission as a hypothesis, but also states that overall etiology remains unexplained. (dogan2019morgagnisteawartmorelsendromuolgu pages 1-3)</p>
+<h3>2.2 Risk factors</h3>
+<p>Supported/recurring risk associations in retrieved literature:
+- <strong>Female sex and postmenopausal age</strong> (strong association). (cetinok2025hyperostosisfrontalisinterna pages 5-6, inal2024themultidetectorct pages 1-3)
+- <strong>Obesity and diabetes mellitus</strong>. (cetinok2025hyperostosisfrontalisinterna pages 5-6, otken2023hyperostosisfrontoparietooccipitalisa pages 4-5)
+- <strong>Endocrine disorders</strong> (e.g., hypothyroidism; hyperparathyroidism). (abdallah2025morgagnistewartmorelsyndromepresenting pages 1-2, inal2024themultidetectorct pages 7-8, dogan2019morgagnisteawartmorelsendromuolgu pages 3-3)</p>
+<h3>2.3 Protective factors</h3>
+<p>No protective genetic or environmental factors were identified in the retrieved sources.</p>
+<h3>2.4 Gene–environment interaction</h3>
+<p>No explicit gene–environment interaction studies were retrieved.</p>
+<hr />
+<h2>3. Phenotypes (clinical spectrum)</h2>
+<h3>3.1 Core phenotypes (with suggested HPO terms)</h3>
+<p>The syndrome is variably expressed, ranging from incidental HFI to symptomatic neuropsychiatric and endocrine/metabolic disease.</p>
+<p><strong>A. Skeletal/imaging</strong>
+- Internal frontal hyperostosis / frontal inner-table thickening (core finding). (abdallah2025morgagnistewartmorelsyndromepresenting pages 1-2, inal2024themultidetectorct pages 7-8)
+  - Suggested HPO: <strong>Hyperostosis frontalis interna (HP term likely exists; if not, map to Hyperostosis [HP:0100775])</strong></p>
+<p><strong>B. Neurologic &amp; neuropsychiatric</strong>
+- Headache (often cited; hypothesized relation to thickening). (inal2024themultidetectorct pages 1-3, inal2024themultidetectorct pages 7-8)
+  - HPO: Headache <strong>HP:0002315</strong>
+- Seizures/epilepsy reported in some cases. (cetinok2025hyperostosisfrontalisinterna pages 5-6, dogan2019morgagnisteawartmorelsendromuolgu pages 3-3)
+  - HPO: Seizures <strong>HP:0001250</strong>
+- Depression and other psychiatric disturbances; cognitive/behavioral changes reported. (cetinok2025hyperostosisfrontalisinterna pages 5-6, abdallah2025morgagnistewartmorelsyndromepresenting pages 2-4, dogan2019morgagnisteawartmorelsendromuolgu pages 3-3)
+  - HPO: Depressed mood <strong>HP:0000716</strong>; Cognitive impairment <strong>HP:0100543</strong>; Abnormal behavior <strong>HP:0000708</strong></p>
+<p><strong>C. Endocrine/metabolic</strong>
+- Obesity (common association). (cetinok2025hyperostosisfrontalisinterna pages 5-6, dogan2019morgagnisteawartmorelsendromuolgu pages 3-3)
+  - HPO: Obesity <strong>HP:0001513</strong>
+- Diabetes mellitus and other metabolic disorders mentioned. (dogan2019morgagnisteawartmorelsendromuolgu pages 3-3, inal2024themultidetectorct pages 7-8)
+  - HPO: Diabetes mellitus <strong>HP:0000819</strong>
+- Hypothyroidism emphasized in at least one acute MSMS case. (abdallah2025morgagnistewartmorelsyndromepresenting pages 1-2, abdallah2025morgagnistewartmorelsyndromepresenting pages 2-4)
+  - HPO: Hypothyroidism <strong>HP:0000821</strong>
+- Hyperparathyroidism mentioned as associated. (inal2024themultidetectorct pages 7-8, dogan2019morgagnisteawartmorelsendromuolgu pages 3-3)
+  - HPO: Hyperparathyroidism <strong>HP:0000873</strong></p>
+<p><strong>D. Androgen-related/virilization phenotype</strong>
+- Hirsutism/virilization is repeatedly described in the classic MSMS triad. (cetinok2025hyperostosisfrontalisinterna pages 5-6, abdallah2025morgagnistewartmorelsyndromepresenting pages 1-2, dogan2019morgagnisteawartmorelsendromuolgu pages 3-3)
+  - HPO: Hirsutism <strong>HP:0001007</strong>; Virilization <strong>HP:0000841</strong></p>
+<h3>3.2 Onset, progression, severity (as reported)</h3>
+<ul>
+<li>Demographic and temporal statements in one source suggest mild HFI can appear in early adulthood, while advanced forms and/or psychological symptoms are usually later (e.g., after mid-30s). (cetinok2025hyperostosisfrontalisinterna pages 5-6)</li>
+<li>Many patients are described as asymptomatic or having nonspecific symptoms. (cetinok2025hyperostosisfrontalisinterna pages 5-6)</li>
+</ul>
+<h3>3.3 Frequency among affected individuals</h3>
+<p>Robust phenotype frequencies for MSMS were not identified in retrieved sources; most evidence is descriptive. However, sex distribution for <strong>diffuse HFI</strong> in a CT series is quantified (see Epidemiology/Statistics). (inal2024themultidetectorct pages 3-4, inal2024themultidetectorct pages 1-3)</p>
+<h3>3.4 Quality of life impact</h3>
+<p>Quality-of-life instruments (EQ-5D/SF-36/PROMIS) were not reported in retrieved sources. Clinical narratives suggest significant functional impact in some cases (e.g., cognitive/behavioral change, gait decline, urinary incontinence, seizures), but no standardized QoL quantification was retrievable. (hiremath2024diagnosticchallengesand pages 1-3)</p>
+<hr />
+<h2>4. Genetic / molecular information</h2>
+<h3>4.1 Causal genes and pathogenic variants</h3>
+<ul>
+<li>No validated causal genes or pathogenic variants for MSMS were identified in retrieved sources.</li>
+</ul>
+<h3>4.2 Proposed molecular contributors (hypothesis-level)</h3>
+<ul>
+<li>One source discusses developmental bone formation mechanisms involving FGFR1 in neural crest cells (“The absence of Fgfr1 in neural crest cells results in heterotopic chondrogenesis and osteogenesis”), offered as mechanistic context for cranial heterotopic ossification rather than a proven MSMS mechanism. (cetinok2025hyperostosisfrontalisinterna pages 5-6)</li>
+</ul>
+<h3>4.3 Suggested ontology mappings (hypothesis-level)</h3>
+<ul>
+<li><strong>GO biological process candidates:</strong> osteoblast differentiation; bone mineralization; intramembranous ossification; bone remodeling.</li>
+<li><strong>CL cell types:</strong> osteoblast (CL:0000062), osteoclast (CL:0000092), osteocyte (CL:0000132).</li>
+</ul>
+<hr />
+<h2>5. Environmental information</h2>
+<p>No toxin, occupational, radiation, or infectious triggers were identified in the retrieved sources. The dominant non-genetic associations were metabolic/endocrine (obesity, diabetes, hypothyroidism), which may reflect lifestyle and aging but are not explicitly treated as environmental exposures in the retrieved literature. (cetinok2025hyperostosisfrontalisinterna pages 5-6, abdallah2025morgagnistewartmorelsyndromepresenting pages 1-2)</p>
+<hr />
+<h2>6. Mechanism / pathophysiology (proposed causal chains)</h2>
+<h3>6.1 Leading mechanistic model (evidence-limited)</h3>
+<p>A recurring conceptual chain is:
+1) <strong>Hormonal/metabolic dysregulation</strong> (e.g., estrogen exposure/imbalance; obesity/diabetes; hypothyroidism) (cetinok2025hyperostosisfrontalisinterna pages 5-6, abdallah2025morgagnistewartmorelsyndromepresenting pages 1-2)
+→ 2) <strong>Altered cranial bone remodeling</strong> with overgrowth of frontal inner table (HFI) (inal2024themultidetectorct pages 7-8, inal2024themultidetectorct pages 3-4)
+→ 3) Potential <strong>mass effect / intracranial volume reduction / cortical interaction</strong> contributing to headaches, seizures, or neuropsychiatric symptoms in some patients; however the relationship is not conclusively established. (cetinok2025hyperostosisfrontalisinterna pages 5-6, abdallah2025morgagnistewartmorelsyndromepresenting pages 2-4)</p>
+<h3>6.2 Imaging/functional correlates supporting mechanism hypotheses</h3>
+<ul>
+<li>A recent review-like paper states calvarial thickening may reduce intracranial volume, and discusses scintigraphy/PET findings with symmetric frontal uptake patterns (e.g., a “butterfly pattern” on bone scintigraphy), reflecting altered bone metabolism/activity. (cetinok2025hyperostosisfrontalisinterna pages 5-6)</li>
+</ul>
+<h3>6.3 Suggested ontology mappings</h3>
+<ul>
+<li><strong>UBERON (anatomy):</strong> frontal bone (UBERON:0001421); skull (UBERON:0003129); cerebral cortex (UBERON:0000956).</li>
+<li><strong>GO cellular component:</strong> extracellular matrix; bone extracellular matrix.</li>
+</ul>
+<hr />
+<h2>7. Anatomical structures affected</h2>
+<ul>
+<li><strong>Primary:</strong> frontal bone inner table (HFI). (inal2024themultidetectorct pages 7-8)</li>
+<li><strong>Secondary/adjacent:</strong> potential compression/interaction with frontal lobes/dura; one case report notes frontal lobe compression with clinical syndrome and improvement after surgical intervention. (hiremath2024diagnosticchallengesand pages 1-3)</li>
+</ul>
+<hr />
+<h2>8. Temporal development</h2>
+<ul>
+<li>Typically described as a disorder of <strong>older women</strong>, often postmenopausal, with long-term progression of thickening. (cetinok2025hyperostosisfrontalisinterna pages 5-6, inal2024themultidetectorct pages 1-3)</li>
+<li>Acute life-threatening presentations are reported but appear rare; one 2025 acute case highlights emergency recognition when HFI coexists with severe endocrine dysfunction. (abdallah2025morgagnistewartmorelsyndromepresenting pages 1-2)</li>
+</ul>
+<hr />
+<h2>9. Inheritance and population</h2>
+<h3>9.1 Epidemiology (statistics available from recent studies)</h3>
+<p>MSMS-specific population prevalence is not established in retrieved sources; HFI prevalence and sex distribution are better studied.</p>
+<p><strong>CT cohort (2024) – diffuse HFI</strong>
+- Retrospective CT cohort: <strong>154 adults with diffuse HFI</strong> and <strong>151 controls</strong>. Mean age of HFI group <strong>69.33 ± 14.34</strong> years. Sex distribution in HFI group: <strong>148/154 (96.1%) female</strong> and <strong>6/154 (3.9%) male</strong>. (In controls: 143/151 female, 8/151 male; p=0.559). (inal2024themultidetectorct pages 1-3, inal2024themultidetectorct pages 3-4)</p>
+<p><strong>Cadaveric cohort (2016–2019 sampling, published 2025) – HFI prevalence</strong>
+- 74 donors examined; HFI in <strong>31/74 (41.89%)</strong>. Reported sex-specific proportions: <strong>32.43% in women</strong> and <strong>9.45% in men</strong> (as presented by the authors for their sample). (cetinok2025hyperostosisfrontalisinterna pages 2-3)</p>
+<h3>9.2 Demographics</h3>
+<ul>
+<li>Strong female predominance, particularly postmenopausal age. (cetinok2025hyperostosisfrontalisinterna pages 5-6, inal2024themultidetectorct pages 1-3)</li>
+</ul>
+<h3>9.3 Inheritance</h3>
+<ul>
+<li>A possible autosomal dominant hypothesis is mentioned in older case-report literature, but no genetic validation was identified in retrieved sources. (dogan2019morgagnisteawartmorelsendromuolgu pages 1-3)</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>10.1 Clinical evaluation</h3>
+<ul>
+<li>MSMS diagnosis in practice appears to rely on recognizing <strong>HFI on imaging</strong> plus a compatible syndromic context (obesity/endocrinopathy/neuropsychiatric symptoms), with emphasis on multidisciplinary evaluation (neurology + endocrinology + radiology). (abdallah2025morgagnistewartmorelsyndromepresenting pages 1-2, inal2024themultidetectorct pages 1-3)</li>
+</ul>
+<h3>10.2 Imaging</h3>
+<ul>
+<li><strong>CT:</strong> highlighted as confirmatory; the 2024 CT study quantified increased thickness at vertex, frontal tuberosity, and frontal sinus levels in diffuse HFI. Example vertex thickness (HFI vs controls): midline <strong>12.88±3.43 mm vs 8.01±2.04 mm</strong>, right lateral <strong>15.94±4.75 mm vs 8.69±1.96 mm</strong>, left lateral <strong>15.48±4.66 mm vs 8.64±1.97 mm</strong>. (inal2024themultidetectorct pages 3-4)</li>
+<li><strong>CT density:</strong> example vertex density in HFI regions <strong>1064.56±244.33 HU</strong> vs controls <strong>837.06±214.25 HU</strong>. (inal2024themultidetectorct pages 3-4)</li>
+<li><strong>Imaging measurement approach (visual evidence):</strong> the CT measurement scheme for thickness/density at specified levels is shown in figures from the 2024 CT paper. (inal2024themultidetectorct media cb19ca47, inal2024themultidetectorct media a3b14aa3)</li>
+</ul>
+<h3>10.3 Differential diagnosis (radiology)</h3>
+<ul>
+<li>Suggested differentials in retrieved sources include Paget disease, fibrous dysplasia, acromegaly, other cranial hyperostosis syndromes, and other causes of calvarial thickening. (inal2024themultidetectorct pages 7-8, otken2023hyperostosisfrontoparietooccipitalisa pages 4-5)</li>
+</ul>
+<h3>10.4 Diagnostic criteria</h3>
+<p>No standardized diagnostic criteria or society guidelines were identified in the retrieved sources.</p>
+<h3>10.5 Genetic testing</h3>
+<p>No gene-based diagnostic strategy was supported by retrieved evidence.</p>
+<hr />
+<h2>11. Outcome / prognosis</h2>
+<ul>
+<li>Many cases are described as incidental/asymptomatic, suggesting benign course for HFI itself; nevertheless, symptomatic neuropsychiatric and endocrine complications can be clinically significant. (cetinok2025hyperostosisfrontalisinterna pages 5-6)</li>
+<li>An acute case report demonstrates that severe endocrine dysfunction (profound hypothyroidism) with HFI can lead to respiratory failure and depressed consciousness, but clinical improvement followed supportive care and thyroid hormone replacement. (abdallah2025morgagnistewartmorelsyndromepresenting pages 2-4)</li>
+</ul>
+<p>No survival curves, mortality rates, or validated prognostic biomarkers were identified in the retrieved sources.</p>
+<hr />
+<h2>12. Treatment (current practice / real-world implementations)</h2>
+<p>No disease-modifying therapy for HFI/MSMS is established in retrieved sources; management is generally symptomatic and comorbidity-focused.</p>
+<h3>12.1 Multidisciplinary supportive care</h3>
+<ul>
+<li>One MSMS acute case emphasizes airway/ventilation stabilization and multisystem management; endocrine treatment (thyroid hormone replacement) was central to recovery when hypothyroidism was severe. (abdallah2025morgagnistewartmorelsyndromepresenting pages 2-4)</li>
+</ul>
+<h3>12.2 Endocrine/metabolic management</h3>
+<ul>
+<li>The 2024 CT cohort recommends that when HFI is detected, <strong>endocrinological assessment</strong> should be performed and clinicians should consult radiology; it highlights the need to explore the HFI–headache relationship. (inal2024themultidetectorct pages 1-3, inal2024themultidetectorct pages 7-8)</li>
+</ul>
+<h3>12.3 Neurosurgical intervention (selected cases)</h3>
+<ul>
+<li>A 2024 case report describes frontal bone thickening with frontal lobe compression; it states that <strong>surgical intervention</strong> led to significant clinical improvement in that patient context. (hiremath2024diagnosticchallengesand pages 1-3)</li>
+</ul>
+<h3>12.4 MAXO suggestions (for knowledge base annotation)</h3>
+<ul>
+<li>Endocrine hormone replacement therapy (e.g., thyroid hormone replacement)</li>
+<li>Metabolic disease management</li>
+<li>Neurosurgical decompression / cranioplasty (selected cases)</li>
+<li>Antiseizure medication (if seizures)</li>
+</ul>
+<p>(These MAXO mappings are suggestions; specific MAXO IDs were not provided in retrieved sources.)</p>
+<h3>12.5 Clinical trials</h3>
+<p>A clinical trial search did not yield a clearly relevant interventional trial for MSMS/HFI within the retrieved trial record set. (clinical trials tool run produced no relevant trials)</p>
+<hr />
+<h2>13. Prevention</h2>
+<p>No MSMS-specific primary/secondary prevention strategies were identified in retrieved sources. Reasonable prevention concepts are indirect (management of obesity/diabetes/endocrine disorders), but direct evidence for prevention of HFI/MSMS is not established in retrieved literature. (cetinok2025hyperostosisfrontalisinterna pages 5-6)</p>
+<hr />
+<h2>14. Other species / natural disease</h2>
+<p>No naturally occurring MSMS/HFI animal disease reports were identified in the retrieved sources.</p>
+<hr />
+<h2>15. Model organisms</h2>
+<p>No MSMS-specific model organism systems were identified in retrieved sources. Mechanistic discussion referencing FGFR1/neural crest perturbation was presented as developmental biology context rather than a validated MSMS model. (cetinok2025hyperostosisfrontalisinterna pages 5-6)</p>
+<hr />
+<h2>Recent developments (prioritizing 2023–2024)</h2>
+<h3>2024: Quantitative CT characterization of diffuse HFI</h3>
+<ul>
+<li>A 2024 multidetector CT study (n=154 diffuse HFI) provided quantitative thickness/density data and reinforced the strong female predominance (96.1% female). It also recommended clinician recognition and endocrinologic assessment when HFI is detected. (inal2024themultidetectorct pages 1-3, inal2024themultidetectorct pages 3-4, inal2024themultidetectorct pages 7-8)</li>
+</ul>
+<h3>2024: Diagnostic pitfalls and management implications in neurology</h3>
+<ul>
+<li>A 2024 case report highlighted misdiagnosis risk (initially considered autoimmune encephalitis) and emphasized that HFI may present with neurobehavioral syndromes and that selected cases with compression may benefit from neurosurgical management. (hiremath2024diagnosticchallengesand pages 1-3)</li>
+</ul>
+<h3>2023: Continued reliance on case-based synthesis for MSMS</h3>
+<ul>
+<li>A 2023 anatomical case report reiterated the classic syndromic association: MSMS as HFI plus “hormonal imbalances, neuropsychiatric disease, and metabolic disturbances such as obesity and diabetes,” and emphasized that radiography is often required for detection. (otken2023hyperostosisfrontoparietooccipitalisa pages 4-5)</li>
+</ul>
+<hr />
+<h2>Expert opinions / authoritative analysis (from retrieved sources; evidence-limited)</h2>
+<p>Because MSMS is rare, “authoritative” views in the retrieved set largely come from radiology/anatomy reviews and case-report discussions:
+- A recent review-like article notes many patients are “typically asymptomatic or exhibit non-specific symptoms, including headache, neurological, or mental issues,” underscoring uncertainty about symptom attribution to HFI. (cetinok2025hyperostosisfrontalisinterna pages 5-6)
+- The 2024 CT cohort’s concluding clinical guidance is pragmatic (recognize imaging pattern, consider headache association, consult radiology, and evaluate endocrine status). (inal2024themultidetectorct pages 1-3)</p>
+<hr />
+<h2>Direct quotes from abstracts (from retrieved sources)</h2>
+<ul>
+<li>“Morgagni–Stewart–Morel (MSM) syndrome is the term used when hyperostosis frontalis interna (HFI) coexists with metabolic, endocrine and neuropsychiatric abnormalities.” (cetinok2025hyperostosisfrontalisinterna pages 5-6)</li>
+<li>“The only way to confirm a diagnosis of HFI is through a radiographic image that clearly shows thickened bone.” (inal2024themultidetectorct pages 7-8)</li>
+</ul>
+<hr />
+<h2>Key limitations of this evidence package</h2>
+<ol>
+<li><strong>Ontology identifiers (MONDO/OMIM/Orphanet/MeSH/ICD)</strong> were not present in the retrieved sources and could not be verified here.</li>
+<li><strong>PMIDs</strong> were not available in the retrieved excerpts/metadata for the key recent sources used.</li>
+<li>MSMS-specific epidemiology is poorly defined; most quantification is for <strong>HFI</strong>, not the full MSMS syndrome.</li>
+<li>Mechanistic claims are largely hypothesis-driven, with limited direct molecular evidence.</li>
+</ol>
+<h2>Primary URLs (publication dates where available)</h2>
+<ul>
+<li>Inal et al. “The multidetector CT evaluation of diffuse hyperostosis frontalis interna.” <strong>Jul 2024</strong>. https://doi.org/10.2478/rjr-2024-0018 (inal2024themultidetectorct pages 1-3)</li>
+<li>Otken et al. “Hyperostosis Fronto-Parieto-Occipitalis: A Cadaveric Case Report.” <strong>Jul 2023</strong>. https://doi.org/10.7759/cureus.41445 (otken2023hyperostosisfrontoparietooccipitalisa pages 4-5)</li>
+<li>Doğan &amp; Mouline. “Morgagni-Steawart-Morel sendromu: Olgu sunumu.” <strong>Sep 2019</strong>. https://doi.org/10.18663/tjcl.453912 (dogan2019morgagnisteawartmorelsendromuolgu pages 1-3)</li>
+<li>Hiremath et al. “Diagnostic challenges and therapeutic implications of Hyperostosis Frontalis Interna (HFI)…” <strong>2024</strong> (journal/URL not available in retrieved record). (hiremath2024diagnosticchallengesand pages 1-3)</li>
+<li>(Post-2024, included for completeness) Abdallah et al. MSMS acute presentation. <strong>Oct 2025</strong>. https://doi.org/10.12890/2025_005836 (abdallah2025morgagnistewartmorelsyndromepresenting pages 1-2)</li>
+<li>(Post-2024, included for completeness) Çetinok. “Hyperostosis Frontalis Interna and Its Clinical Significance.” <strong>Jun 2025</strong>. https://doi.org/10.53446/actamednicomedia.1644183 (cetinok2025hyperostosisfrontalisinterna pages 5-6)</li>
+</ul>
+<p>References</p>
+<ol>
+<li>
+<p>(cetinok2025hyperostosisfrontalisinterna pages 5-6): Hürriyet Çetinok. Hyperostosis frontalis interna and its clinical significance. Acta Medica Nicomedia, 8:169-175, Jun 2025. URL: https://doi.org/10.53446/actamednicomedia.1644183, doi:10.53446/actamednicomedia.1644183. This article has 1 citations.</p>
+</li>
+<li>
+<p>(abdallah2025morgagnistewartmorelsyndromepresenting pages 1-2): Marwa Ben Abdallah, Aymen Farroukh, Faten Mzoughi, Houssem Affes, Mariam Mallek, Wassel Mokni, and Adel Chaari. Morgagni-stewart-morel syndrome presenting as acute neurological and respiratory distress. European Journal of Case Reports in Internal Medicine, Oct 2025. URL: https://doi.org/10.12890/2025_005836, doi:10.12890/2025_005836. This article has 0 citations.</p>
+</li>
+<li>
+<p>(inal2024themultidetectorct pages 7-8): Mikail Inal, Nuray Bayar Muluk, and Enes Nusret Celik. The multidetector ct evaluation of diffuse hyperostosis frontalis interna. Romanian Journal of Rhinology, 14:117-124, Jul 2024. URL: https://doi.org/10.2478/rjr-2024-0018, doi:10.2478/rjr-2024-0018. This article has 0 citations.</p>
+</li>
+<li>
+<p>(dogan2019morgagnisteawartmorelsendromuolgu pages 3-3): E. Doğan and M. Mouline. Morgagni-steawart-morel sendromu: olgu sunumu. Turkish Journal of Clinics and Laboratory, Sep 2019. URL: https://doi.org/10.18663/tjcl.453912, doi:10.18663/tjcl.453912. This article has 1 citations.</p>
+</li>
+<li>
+<p>(dogan2019morgagnisteawartmorelsendromuolgu pages 1-3): E. Doğan and M. Mouline. Morgagni-steawart-morel sendromu: olgu sunumu. Turkish Journal of Clinics and Laboratory, Sep 2019. URL: https://doi.org/10.18663/tjcl.453912, doi:10.18663/tjcl.453912. This article has 1 citations.</p>
+</li>
+<li>
+<p>(inal2024themultidetectorct pages 3-4): Mikail Inal, Nuray Bayar Muluk, and Enes Nusret Celik. The multidetector ct evaluation of diffuse hyperostosis frontalis interna. Romanian Journal of Rhinology, 14:117-124, Jul 2024. URL: https://doi.org/10.2478/rjr-2024-0018, doi:10.2478/rjr-2024-0018. This article has 0 citations.</p>
+</li>
+<li>
+<p>(inal2024themultidetectorct pages 1-3): Mikail Inal, Nuray Bayar Muluk, and Enes Nusret Celik. The multidetector ct evaluation of diffuse hyperostosis frontalis interna. Romanian Journal of Rhinology, 14:117-124, Jul 2024. URL: https://doi.org/10.2478/rjr-2024-0018, doi:10.2478/rjr-2024-0018. This article has 0 citations.</p>
+</li>
+<li>
+<p>(cetinok2025hyperostosisfrontalisinterna pages 2-3): Hürriyet Çetinok. Hyperostosis frontalis interna and its clinical significance. Acta Medica Nicomedia, 8:169-175, Jun 2025. URL: https://doi.org/10.53446/actamednicomedia.1644183, doi:10.53446/actamednicomedia.1644183. This article has 1 citations.</p>
+</li>
+<li>
+<p>(otken2023hyperostosisfrontoparietooccipitalisa pages 4-5): Emily Otken, Emily O'Brien, Braden Nyboer, Huy Nguyen, Cody Orvin, and Adegbenro O Fakoya. Hyperostosis fronto-parieto-occipitalis: a cadaveric case report. Cureus, Jul 2023. URL: https://doi.org/10.7759/cureus.41445, doi:10.7759/cureus.41445. This article has 1 citations.</p>
+</li>
+<li>
+<p>(abdallah2025morgagnistewartmorelsyndromepresenting pages 2-4): Marwa Ben Abdallah, Aymen Farroukh, Faten Mzoughi, Houssem Affes, Mariam Mallek, Wassel Mokni, and Adel Chaari. Morgagni-stewart-morel syndrome presenting as acute neurological and respiratory distress. European Journal of Case Reports in Internal Medicine, Oct 2025. URL: https://doi.org/10.12890/2025_005836, doi:10.12890/2025_005836. This article has 0 citations.</p>
+</li>
+<li>
+<p>(inal2024themultidetectorct pages 5-7): Mikail Inal, Nuray Bayar Muluk, and Enes Nusret Celik. The multidetector ct evaluation of diffuse hyperostosis frontalis interna. Romanian Journal of Rhinology, 14:117-124, Jul 2024. URL: https://doi.org/10.2478/rjr-2024-0018, doi:10.2478/rjr-2024-0018. This article has 0 citations.</p>
+</li>
+<li>
+<p>(inal2024themultidetectorct pages 4-5): Mikail Inal, Nuray Bayar Muluk, and Enes Nusret Celik. The multidetector ct evaluation of diffuse hyperostosis frontalis interna. Romanian Journal of Rhinology, 14:117-124, Jul 2024. URL: https://doi.org/10.2478/rjr-2024-0018, doi:10.2478/rjr-2024-0018. This article has 0 citations.</p>
+</li>
+<li>
+<p>(inal2024themultidetectorct media cb19ca47): Mikail Inal, Nuray Bayar Muluk, and Enes Nusret Celik. The multidetector ct evaluation of diffuse hyperostosis frontalis interna. Romanian Journal of Rhinology, 14:117-124, Jul 2024. URL: https://doi.org/10.2478/rjr-2024-0018, doi:10.2478/rjr-2024-0018. This article has 0 citations.</p>
+</li>
+<li>
+<p>(hiremath2024diagnosticchallengesand pages 1-3): PM Hiremath, A Mehta, and R Srinivasa. Diagnostic challenges and therapeutic implications of hyperostosis frontalis interna (hfi) in a post-menopausal woman-a case report. Unknown journal, 2024.</p>
+</li>
+<li>
+<p>(inal2024themultidetectorct media a3b14aa3): Mikail Inal, Nuray Bayar Muluk, and Enes Nusret Celik. The multidetector ct evaluation of diffuse hyperostosis frontalis interna. Romanian Journal of Rhinology, 14:117-124, Jul 2024. URL: https://doi.org/10.2478/rjr-2024-0018, doi:10.2478/rjr-2024-0018. This article has 0 citations.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </div>
         
 
         <footer class="page-footer">
@@ -6392,7 +7921,7 @@ notes: &gt;
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Morgagni-Stewart-Morel Syndrome", "mondoId": "MONDO:0007766", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Morgagni-Stewart-Morel_Syndrome", "yamlRevision": "c999f5bf52fa"};
+        const OS_CONFIG = {"diseaseName": "Morgagni-Stewart-Morel Syndrome", "mondoId": "MONDO:0007766", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Morgagni-Stewart-Morel_Syndrome", "yamlRevision": "53d29137b190"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

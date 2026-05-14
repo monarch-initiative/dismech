@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,7 +2570,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 13</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">hereditary disease</span>
@@ -2578,7 +2731,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">9</div>
+                <div class="stat-value">13</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -2806,6 +2959,20 @@
 	                            
 	                        </div>
 	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Serum ceruloplasmin</span>
+	                            
+	                            <span class="crosslink-desc">Ceruloplasmin loss is reflected clinically by very low serum ceruloplasmin levels.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Transferrin saturation</span>
+	                            
+	                            <span class="crosslink-desc">Ceruloplasmin-dependent iron export failure presents clinically with low transferrin saturation despite tissue iron loading.</span>
+	                            
+	                        </div>
+	                        
 	                    </div>
 	                </div>
 	                
@@ -2912,6 +3079,13 @@
 	                            <span class="crosslink-meta">Brain iron accumulation</span>
 	                            
 	                            <span class="crosslink-desc">Cerebral iron deposition drives the neurologic disease branch.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Ferritin</span>
+	                            
+	                            <span class="crosslink-desc">Systemic iron misdistribution and storage are reflected by high serum ferritin.</span>
 	                            
 	                        </div>
 	                        
@@ -3073,7 +3247,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Brain iron accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive iron deposition in deep gray matter and cerebellar structures drives the neurologic manifestations of aceruloplasminemia.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"iron ion transport\"]}}, {\"id\": \"CP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CP\"], \"association\": \"Loss of function mutation\"}}, {\"id\": \"Ceruloplasmin ferroxidase deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of ceruloplasmin impairs ferroxidase-dependent iron handling and disrupts normal copper and iron metabolism.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"iron ion transport\"], \"genes\": [\"CP\"]}}, {\"id\": \"Cognitive impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive decline can emerge as part of the neurologic phenotype in patients with progressive brain iron deposition.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100543\"}}, {\"id\": \"Diabetes mellitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pancreatic iron deposition can contribute to diabetes mellitus later in the disease course.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000819\"}}, {\"id\": \"Microcytic anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent microcytic anemia is often an early clinical clue and can precede the later neurologic syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001935\"}}, {\"id\": \"Multi-organ iron accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired ceruloplasmin-dependent iron handling causes progressive iron deposition in the brain, liver, pancreas, and retina.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"iron ion transport\"]}}, {\"id\": \"Postural instability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postural instability can emerge as part of the movement-disorder spectrum in patients with brain iron accumulation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002172\"}}, {\"id\": \"Retinopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive retinal involvement develops as part of the later disease course.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000488\"}}], \"edges\": [{\"source\": \"Ceruloplasmin ferroxidase deficiency\", \"target\": \"Multi-organ iron accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multi-organ iron accumulation\", \"target\": \"Microcytic anemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multi-organ iron accumulation\", \"target\": \"Retinopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multi-organ iron accumulation\", \"target\": \"Diabetes mellitus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multi-organ iron accumulation\", \"target\": \"Brain iron accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Brain iron accumulation\", \"target\": \"Cognitive impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Brain iron accumulation\", \"target\": \"Postural instability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CP\", \"target\": \"Ceruloplasmin ferroxidase deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Brain iron accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive iron deposition in deep gray matter and cerebellar structures drives the neurologic manifestations of aceruloplasminemia.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"iron ion transport\"]}}, {\"id\": \"CP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CP\"], \"association\": \"Loss of function mutation\"}}, {\"id\": \"Ceruloplasmin ferroxidase deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of ceruloplasmin impairs ferroxidase-dependent iron handling and disrupts normal copper and iron metabolism.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"iron ion transport\"], \"genes\": [\"CP\"]}}, {\"id\": \"Cognitive impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive decline can emerge as part of the neurologic phenotype in patients with progressive brain iron deposition.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100543\"}}, {\"id\": \"Diabetes mellitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pancreatic iron deposition can contribute to diabetes mellitus later in the disease course.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000819\"}}, {\"id\": \"Ferritin\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Iron chelation therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Iron chelation is used to reduce systemic and neurologic iron-related toxicity.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"deferiprone\"]}}, {\"id\": \"Microcytic anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent microcytic anemia is often an early clinical clue and can precede the later neurologic syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001935\"}}, {\"id\": \"Multi-organ iron accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired ceruloplasmin-dependent iron handling causes progressive iron deposition in the brain, liver, pancreas, and retina.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"iron ion transport\"]}}, {\"id\": \"Postural instability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postural instability can emerge as part of the movement-disorder spectrum in patients with brain iron accumulation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002172\"}}, {\"id\": \"Retinopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive retinal involvement develops as part of the later disease course.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000488\"}}, {\"id\": \"Serum ceruloplasmin\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\"}}, {\"id\": \"Transferrin saturation\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\"}}], \"edges\": [{\"source\": \"Ceruloplasmin ferroxidase deficiency\", \"target\": \"Multi-organ iron accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ceruloplasmin ferroxidase deficiency\", \"target\": \"Serum ceruloplasmin\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ceruloplasmin ferroxidase deficiency\", \"target\": \"Transferrin saturation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multi-organ iron accumulation\", \"target\": \"Microcytic anemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multi-organ iron accumulation\", \"target\": \"Retinopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multi-organ iron accumulation\", \"target\": \"Diabetes mellitus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multi-organ iron accumulation\", \"target\": \"Brain iron accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multi-organ iron accumulation\", \"target\": \"Ferritin\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Brain iron accumulation\", \"target\": \"Cognitive impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Brain iron accumulation\", \"target\": \"Postural instability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Iron chelation therapy\", \"target\": \"Multi-organ iron accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CP\", \"target\": \"Ceruloplasmin ferroxidase deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3459,7 +3633,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -3480,6 +3654,26 @@
                 
                 
                 <div class="evidence-explanation">This directly identifies CP as the disease gene.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_c54ee607-edd6-42dc-a4ac-f4060ae6b209-2025-11-26T180000.000Z" target="_blank">CGGV:assertion_c54ee607-edd6-42dc-a4ac-f4060ae6b209-2025-11-26T180000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"CP | HGNC:2295 | aceruloplasminemia | MONDO:0011426 | AR | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the CP-aceruloplasminemia gene-disease relationship as definitive with autosomal recessive inheritance.</div>
                 
             </div>
             
@@ -3554,6 +3748,54 @@
                 <div class="item-desc">Iron chelation is used to reduce systemic and neurologic iron-related toxicity.</div>
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+                        <strong style="color: #5b21b6;">Multi-organ iron accumulation</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Iron chelation is used to reduce iron-related toxicity downstream of multi-organ iron accumulation.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36308763" target="_blank">PMID:36308763</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Iron chelation may be utilized in the treatment to reduce the toxicity."</div>
+                
+                
+                <div class="evidence-explanation">Disease-specific review text supports iron chelation as a treatment aimed at reducing iron-related toxicity.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
+                
                 
                 
                 
@@ -3617,6 +3859,7 @@
                 <div class="item-desc">Context: Very low serum ceruloplasmin is a core laboratory abnormality.</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3662,6 +3905,7 @@
                 <div class="item-desc">Context: Hyperferritinemia reflects systemic iron overload and is often present before major neurologic manifestations.</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3705,6 +3949,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Low transferrin saturation is an early laboratory clue that accompanies the microcytic anemia and hyperferritinemia pattern.</div>
+                
                 
                 
     
@@ -3854,7 +4099,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: aceruloplasminemia
 creation_date: &#34;2026-04-15T17:35:00Z&#34;
-updated_date: &#34;2026-04-15T22:15:00Z&#34;
+updated_date: &#34;2026-05-11T03:17:50Z&#34;
 description: &gt;-
   Aceruloplasminemia is an autosomal recessive CP-related iron metabolism
   disorder characterized by absent ceruloplasmin ferroxidase activity,
@@ -3913,6 +4158,28 @@ pathophysiology:
   downstream:
   - target: Multi-organ iron accumulation
     description: Loss of ceruloplasmin ferroxidase activity causes progressive tissue iron deposition.
+  - target: Serum ceruloplasmin
+    description: Ceruloplasmin loss is reflected clinically by very low serum ceruloplasmin levels.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:36308763
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Anemia was accompanied by microcytosis, high ferritin, and low copper and ceruloplasmin levels.
+      explanation: This disease-specific case report supports low ceruloplasmin as a biochemical readout of the CP/ceruloplasmin defect.
+  - target: Transferrin saturation
+    description: Ceruloplasmin-dependent iron export failure presents clinically with low transferrin saturation despite tissue iron loading.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - impaired cellular iron export and iron sequestration
+    evidence:
+    - reference: PMID:39990010
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Patients with aceruloplasminemia often present with microcytic anemia, low transferrin saturation ratio, and high serum ferritin levels before the onset of symptoms.
+      explanation: The case series supports low transferrin saturation as part of the aceruloplasminemia iron-misdistribution laboratory pattern.
 - name: Multi-organ iron accumulation
   description: &gt;-
     Impaired ceruloplasmin-dependent iron handling causes progressive iron
@@ -3940,6 +4207,18 @@ pathophysiology:
     description: Pancreatic iron deposition contributes to diabetes mellitus.
   - target: Brain iron accumulation
     description: Cerebral iron deposition drives the neurologic disease branch.
+  - target: Ferritin
+    description: Systemic iron misdistribution and storage are reflected by high serum ferritin.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - increased iron storage and ferritin release
+    evidence:
+    - reference: PMID:39990010
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Patients with aceruloplasminemia often present with microcytic anemia, low transferrin saturation ratio, and high serum ferritin levels before the onset of symptoms.
+      explanation: The case series supports high serum ferritin as a recurring biochemical feature of aceruloplasminemia-related iron dysregulation.
 - name: Brain iron accumulation
   description: &gt;-
     Progressive iron deposition in deep gray matter and cerebellar structures
@@ -4073,6 +4352,12 @@ genetic:
       Background and Clinical Significance: Aceruloplasminemia (ACP), a member of the neurodegeneration with brain iron accumulation (NBIA) spectrum of disorders, is a rare disorder caused by mutations in the ceruloplasmin (CP) gene.
     explanation: &gt;-
       This directly identifies CP as the disease gene.
+  - reference: CGGV:assertion_c54ee607-edd6-42dc-a4ac-f4060ae6b209-2025-11-26T180000.000Z
+    reference_title: &#34;CP / aceruloplasminemia (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;CP | HGNC:2295 | aceruloplasminemia | MONDO:0011426 | AR | Definitive&#34;
+    explanation: ClinGen classifies the CP-aceruloplasminemia gene-disease relationship as definitive with autosomal recessive inheritance.
 diagnosis:
 - name: CP molecular genetic testing
   description: &gt;-
@@ -4161,6 +4446,17 @@ treatments:
       term:
         id: CHEBI:68554
         label: deferiprone
+  target_mechanisms:
+  - target: Multi-organ iron accumulation
+    treatment_effect: MODULATES
+    description: Iron chelation is used to reduce iron-related toxicity downstream of multi-organ iron accumulation.
+    evidence:
+    - reference: PMID:36308763
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Iron chelation may be utilized in the treatment to reduce the toxicity.
+      explanation: Disease-specific review text supports iron chelation as a treatment aimed at reducing iron-related toxicity.
   evidence:
   - reference: PMID:33839643
     supports: SUPPORT
@@ -4627,7 +4923,7 @@ datasets: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "aceruloplasminemia", "mondoId": "MONDO:0011426", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "aceruloplasminemia", "yamlRevision": "2e345dac36f5"};
+        const OS_CONFIG = {"diseaseName": "aceruloplasminemia", "mondoId": "MONDO:0011426", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "aceruloplasminemia", "yamlRevision": "ebfbb98da74b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

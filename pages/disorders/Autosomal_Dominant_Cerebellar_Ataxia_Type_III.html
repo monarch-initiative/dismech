@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2635,7 +2788,7 @@
             
             <a class="stat-link" href="#references">
             <div class="stat-item">
-                <div class="stat-value">8</div>
+                <div class="stat-value">46</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
@@ -2643,7 +2796,7 @@
             
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
@@ -5856,7 +6009,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Autosomal Dominant Cerebellar Ataxia Type III
 creation_date: &#34;2026-04-25T00:00:00Z&#34;
-updated_date: &#34;2026-04-29T14:30:00Z&#34;
+updated_date: &#34;2026-05-05T16:40:30Z&#34;
 category: Mendelian
 description: &gt;-
   Autosomal dominant cerebellar ataxia type III (ADCA-III) is Harding&#39;s
@@ -5900,8 +6053,7 @@ inheritance:
     SCA14 alleles show reduced penetrance.
   evidence:
   - reference: PMID:15362569
-    reference_title: A clinical and genetic study in a large cohort of patients
-      with spinocerebellar ataxia type 6.
+    reference_title: A clinical and genetic study in a large cohort of patients with spinocerebellar ataxia type 6.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6015,9 +6167,7 @@ pathophysiology:
       downstream excitotoxic stress, ultimately causing cell death.
   evidence:
   - reference: PMID:18687887
-    reference_title: Spinocerebellar ataxia type 6 knockin mice develop a
-      progressive neuronal dysfunction with age-dependent accumulation of mutant
-      CaV2.1 channels.
+    reference_title: Spinocerebellar ataxia type 6 knockin mice develop a progressive neuronal dysfunction with age-dependent accumulation of mutant CaV2.1 channels.
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
@@ -6028,8 +6178,7 @@ pathophysiology:
       mutant Cav2.1 channels and progressive neurological dysfunction in knockin
       mice, supporting the calcium dysregulation mechanism.
   - reference: PMID:28554312
-    reference_title: &#34;Calcium Signaling, PKC Gamma, IP3R1 and CAR8 Link Spinocerebellar
-      Ataxias and Purkinje Cell Dendritic Development.&#34;
+    reference_title: &#34;Calcium Signaling, PKC Gamma, IP3R1 and CAR8 Link Spinocerebellar Ataxias and Purkinje Cell Dendritic Development.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -6089,8 +6238,7 @@ pathophysiology:
       Directly supports the EAAT4 mislocalization mechanism by showing loss of
       EAAT4 stabilisation and altered EAAT4/GluRδ2 in human SCA5 autopsy tissue.
   - reference: PMID:25057192
-    reference_title: Mutant β-III spectrin causes mGluR1α mislocalization and
-      functional deficits in a mouse model of spinocerebellar ataxia type 5.
+    reference_title: Mutant β-III spectrin causes mGluR1α mislocalization and functional deficits in a mouse model of spinocerebellar ataxia type 5.
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
@@ -6133,8 +6281,7 @@ pathophysiology:
     causal_link_type: DIRECT
   evidence:
   - reference: PMID:41422144
-    reference_title: Missense variant in TTBK2 kinase domain causes loss of
-      function and impaired protein phosphorylation.
+    reference_title: Missense variant in TTBK2 kinase domain causes loss of function and impaired protein phosphorylation.
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &gt;-
@@ -6190,9 +6337,7 @@ pathophysiology:
     causal_link_type: DIRECT
   evidence:
   - reference: PMID:20938103
-    reference_title: &#34;Congo red, an amyloid-inhibiting compound, alleviates various
-      types of cellular dysfunction triggered by mutant protein kinase cγ that causes
-      spinocerebellar ataxia type 14 (SCA14) by inhibiting oligomerization and aggregation.&#34;
+    reference_title: &#34;Congo red, an amyloid-inhibiting compound, alleviates various types of cellular dysfunction triggered by mutant protein kinase cγ that causes spinocerebellar ataxia type 14 (SCA14) by inhibiting oligomerization and aggregation.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &gt;-
@@ -6202,8 +6347,7 @@ pathophysiology:
       Shows that SCA14 pathogenic PKCgamma variants cause protein aggregation
       leading to apoptotic Purkinje cell death, the key downstream event.
   - reference: PMID:28554312
-    reference_title: &#34;Calcium Signaling, PKC Gamma, IP3R1 and CAR8 Link Spinocerebellar
-      Ataxias and Purkinje Cell Dendritic Development.&#34;
+    reference_title: &#34;Calcium Signaling, PKC Gamma, IP3R1 and CAR8 Link Spinocerebellar Ataxias and Purkinje Cell Dendritic Development.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -6242,8 +6386,7 @@ pathophysiology:
     causal_link_type: DIRECT
   evidence:
   - reference: PMID:17932120
-    reference_title: &#34;Heterozygous deletion of ITPR1, but not SUMF1, in spinocerebellar
-      ataxia type 16.&#34;
+    reference_title: &#34;Heterozygous deletion of ITPR1, but not SUMF1, in spinocerebellar ataxia type 16.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6289,8 +6432,7 @@ pathophysiology:
       label: cerebellar cortex
   evidence:
   - reference: PMID:23331413
-    reference_title: &#34;Autosomal dominant cerebellar ataxia type III: a review of the
-      phenotypic and genotypic characteristics.&#34;
+    reference_title: &#34;Autosomal dominant cerebellar ataxia type III: a review of the phenotypic and genotypic characteristics.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -6302,8 +6444,7 @@ pathophysiology:
       pure-cerebellar Harding class and includes SCA5, SCA6, SCA11, and SCA31
       among its molecular subtypes.
   - reference: PMID:28131213
-    reference_title: &#34;Gene dosage effect in spinocerebellar ataxia type 6 homozygotes:
-      A clinical and neuropathological study.&#34;
+    reference_title: &#34;Gene dosage effect in spinocerebellar ataxia type 6 homozygotes: A clinical and neuropathological study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6353,8 +6494,7 @@ pathophysiology:
     causal_link_type: DIRECT
   evidence:
   - reference: PMID:21035104
-    reference_title: Prodynorphin mutations cause the neurodegenerative disorder
-      spinocerebellar ataxia type 23.
+    reference_title: Prodynorphin mutations cause the neurodegenerative disorder spinocerebellar ataxia type 23.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6391,8 +6531,7 @@ pathophysiology:
     causal_link_type: DIRECT
   evidence:
   - reference: PMID:19878914
-    reference_title: Spinocerebellar ataxia type 31 is associated with
-      &#34;inserted&#34; penta-nucleotide repeats containing (TGGAA)n.
+    reference_title: Spinocerebellar ataxia type 31 is associated with &#34;inserted&#34; penta-nucleotide repeats containing (TGGAA)n.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6429,8 +6568,7 @@ pathophysiology:
     causal_link_type: DIRECT
   evidence:
   - reference: PMID:27583304
-    reference_title: MME mutation in dominant spinocerebellar ataxia with
-      neuropathy (SCA43).
+    reference_title: MME mutation in dominant spinocerebellar ataxia with neuropathy (SCA43).
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6467,8 +6605,7 @@ pathophysiology:
     causal_link_type: DIRECT
   evidence:
   - reference: PMID:29053796
-    reference_title: Exome sequencing and network analysis identifies shared
-      mechanisms underlying spinocerebellar ataxia.
+    reference_title: Exome sequencing and network analysis identifies shared mechanisms underlying spinocerebellar ataxia.
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6535,8 +6672,7 @@ phenotypes:
       label: Gait ataxia
   evidence:
   - reference: PMID:15362569
-    reference_title: A clinical and genetic study in a large cohort of patients
-      with spinocerebellar ataxia type 6.
+    reference_title: A clinical and genetic study in a large cohort of patients with spinocerebellar ataxia type 6.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6548,8 +6684,7 @@ phenotypes:
       initial symptom and cerebellar signs were nearly universal, supporting
       VERY_FREQUENT frequency.
   - reference: PMID:24301795
-    reference_title: Gait impairment precedes clinical symptoms in
-      spinocerebellar ataxia type 6.
+    reference_title: Gait impairment precedes clinical symptoms in spinocerebellar ataxia type 6.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6573,8 +6708,7 @@ phenotypes:
       label: Limb ataxia
   evidence:
   - reference: PMID:15362569
-    reference_title: A clinical and genetic study in a large cohort of patients
-      with spinocerebellar ataxia type 6.
+    reference_title: A clinical and genetic study in a large cohort of patients with spinocerebellar ataxia type 6.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6619,8 +6753,7 @@ phenotypes:
       label: Nystagmus
   evidence:
   - reference: PMID:15362569
-    reference_title: A clinical and genetic study in a large cohort of patients
-      with spinocerebellar ataxia type 6.
+    reference_title: A clinical and genetic study in a large cohort of patients with spinocerebellar ataxia type 6.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6642,8 +6775,7 @@ phenotypes:
       label: Abnormal pyramidal sign
   evidence:
   - reference: PMID:15362569
-    reference_title: A clinical and genetic study in a large cohort of patients
-      with spinocerebellar ataxia type 6.
+    reference_title: A clinical and genetic study in a large cohort of patients with spinocerebellar ataxia type 6.
     supports: REFUTE
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6676,8 +6808,7 @@ phenotypes:
       with ADCA-III being defined by the absence of significant peripheral nerve
       involvement.
   - reference: PMID:35411967
-    reference_title: Heterozygous PNPT1 Variants Cause Spinocerebellar Ataxia
-      Type 25.
+    reference_title: Heterozygous PNPT1 Variants Cause Spinocerebellar Ataxia Type 25.
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6688,8 +6819,7 @@ phenotypes:
       pure-cerebellar pattern because sensory ganglionopathy is frequent in
       PNPT1-associated SCA25 families.
   - reference: PMID:27583304
-    reference_title: MME mutation in dominant spinocerebellar ataxia with
-      neuropathy (SCA43).
+    reference_title: MME mutation in dominant spinocerebellar ataxia with neuropathy (SCA43).
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6742,8 +6872,7 @@ diagnosis:
       Identifies pure cerebellar atrophy as the MRI signature distinguishing
       ADCA-III from other SCA subtypes with brainstem involvement.
   - reference: PMID:37848700
-    reference_title: A Novel TTBK2 Mutation in a Chinese Pedigree with
-      Spinocerebellar Ataxia 11.
+    reference_title: A Novel TTBK2 Mutation in a Chinese Pedigree with Spinocerebellar Ataxia 11.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6794,8 +6923,7 @@ genetic:
     hemiplegic migraine type 1 (gain-of-function missense variants).
   evidence:
   - reference: PMID:15362569
-    reference_title: A clinical and genetic study in a large cohort of patients
-      with spinocerebellar ataxia type 6.
+    reference_title: A clinical and genetic study in a large cohort of patients with spinocerebellar ataxia type 6.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6819,8 +6947,7 @@ genetic:
     kinase 2 function. The disorder is mild and slowly progressive.
   evidence:
   - reference: PMID:41422144
-    reference_title: Missense variant in TTBK2 kinase domain causes loss of
-      function and impaired protein phosphorylation.
+    reference_title: Missense variant in TTBK2 kinase domain causes loss of function and impaired protein phosphorylation.
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &gt;-
@@ -6843,8 +6970,7 @@ genetic:
     aggregation. PKCgamma is selectively expressed at high levels in Purkinje cells.
   evidence:
   - reference: PMID:28554312
-    reference_title: &#34;Calcium Signaling, PKC Gamma, IP3R1 and CAR8 Link Spinocerebellar
-      Ataxias and Purkinje Cell Dendritic Development.&#34;
+    reference_title: &#34;Calcium Signaling, PKC Gamma, IP3R1 and CAR8 Link Spinocerebellar Ataxias and Purkinje Cell Dendritic Development.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -6868,8 +6994,7 @@ genetic:
     degeneration. SCA23 is rare (~0.5% of SCA families in the Netherlands).
   evidence:
   - reference: PMID:21035104
-    reference_title: Prodynorphin mutations cause the neurodegenerative disorder
-      spinocerebellar ataxia type 23.
+    reference_title: Prodynorphin mutations cause the neurodegenerative disorder spinocerebellar ataxia type 23.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6885,8 +7010,7 @@ genetic:
     term:
       id: hgnc:6180
       label: ITPR1
-  association: heterozygous deletions (whole-gene or partial) or missense
-    variants
+  association: heterozygous deletions (whole-gene or partial) or missense variants
   presence: Positive
   notes: &gt;-
     SCA15 and SCA16 are caused by heterozygous deletions or missense variants
@@ -6903,8 +7027,7 @@ genetic:
     explanation: &gt;-
       Establishes ITPR1 deletions as the molecular basis of SCA15.
   - reference: PMID:17932120
-    reference_title: &#34;Heterozygous deletion of ITPR1, but not SUMF1, in spinocerebellar
-      ataxia type 16.&#34;
+    reference_title: &#34;Heterozygous deletion of ITPR1, but not SUMF1, in spinocerebellar ataxia type 16.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6928,8 +7051,7 @@ genetic:
     activation; clinically, sensory ganglionopathy can be prominent.
   evidence:
   - reference: PMID:35411967
-    reference_title: Heterozygous PNPT1 Variants Cause Spinocerebellar Ataxia
-      Type 25.
+    reference_title: Heterozygous PNPT1 Variants Cause Spinocerebellar Ataxia Type 25.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6954,8 +7076,7 @@ genetic:
     repeat-containing transcript forms Purkinje-cell nuclear RNA foci.
   evidence:
   - reference: PMID:19878914
-    reference_title: Spinocerebellar ataxia type 31 is associated with
-      &#34;inserted&#34; penta-nucleotide repeats containing (TGGAA)n.
+    reference_title: Spinocerebellar ataxia type 31 is associated with &#34;inserted&#34; penta-nucleotide repeats containing (TGGAA)n.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6980,8 +7101,7 @@ genetic:
     pathways that overlap conceptually with SCA23.
   evidence:
   - reference: PMID:27583304
-    reference_title: MME mutation in dominant spinocerebellar ataxia with
-      neuropathy (SCA43).
+    reference_title: MME mutation in dominant spinocerebellar ataxia with neuropathy (SCA43).
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7006,8 +7126,7 @@ genetic:
     gene with limited mechanistic confidence.
   evidence:
   - reference: PMID:29053796
-    reference_title: Exome sequencing and network analysis identifies shared
-      mechanisms underlying spinocerebellar ataxia.
+    reference_title: Exome sequencing and network analysis identifies shared mechanisms underlying spinocerebellar ataxia.
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7067,8 +7186,7 @@ treatments:
         label: acetazolamide
   evidence:
   - reference: PMID:34484942
-    reference_title: &#34;Fampridine and Acetazolamide in EA2 and Related Familial EA:
-      A Prospective Randomized Placebo-Controlled Trial.&#34;
+    reference_title: &#34;Fampridine and Acetazolamide in EA2 and Related Familial EA: A Prospective Randomized Placebo-Controlled Trial.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7097,122 +7215,49 @@ references:
   - statement: &#39;The inherited cerebellar ataxias: an update&#39;
     supporting_text: &#39;The inherited cerebellar ataxias: an update&#39;
 - reference: DOI:10.1007/s12311-023-01540-6
-  title: &#39;Spinocerebellar ataxia type 11 (SCA11): TTBK2 variants, functions and associated
-    disease mechanisms&#39;
+  title: &#39;Spinocerebellar ataxia type 11 (SCA11): TTBK2 variants, functions and associated disease mechanisms&#39;
   found_in:
   - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-falcon.md
   findings:
-  - statement: Spinocerebellar ataxia type 11 (SCA11) is a rare type of
-      autosomal dominant cerebellar ataxia, mainly characterized by progressive
-      cerebellar ataxia, abnormal eye signs and dysarthria.
-    supporting_text: Spinocerebellar ataxia type 11 (SCA11) is a rare type of
-      autosomal dominant cerebellar ataxia, mainly characterized by progressive
-      cerebellar ataxia, abnormal eye signs and dysarthria.
-    evidence:
-    - reference: DOI:10.1007/s12311-023-01540-6
-      reference_title: &#39;Spinocerebellar ataxia type 11 (SCA11): TTBK2 variants, functions
-        and associated disease mechanisms&#39;
-      supports: SUPPORT
-      evidence_source: OTHER
-      snippet: Spinocerebellar ataxia type 11 (SCA11) is a rare type of
-        autosomal dominant cerebellar ataxia, mainly characterized by
-        progressive cerebellar ataxia, abnormal eye signs and dysarthria.
-      explanation: Deep research cited this publication as relevant literature
-        for Autosomal Dominant Cerebellar Ataxia Type III.
+  - statement: Spinocerebellar ataxia type 11 (SCA11) is a rare type of autosomal dominant cerebellar ataxia, mainly characterized by progressive cerebellar ataxia, abnormal eye signs and dysarthria.
+    supporting_text: Spinocerebellar ataxia type 11 (SCA11) is a rare type of autosomal dominant cerebellar ataxia, mainly characterized by progressive cerebellar ataxia, abnormal eye signs and dysarthria.
 - reference: DOI:10.1007/s12311-023-01600-x
   title: Epidemiology of Spinocerebellar Ataxias in Europe
   found_in:
   - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-falcon.md
   findings:
-  - statement: Spinocerebellar ataxias (SCAs) are a heterogenous group of rare
-      neurodegenerative conditions sharing an autosomal dominant pattern of
-      inheritance.
-    supporting_text: Spinocerebellar ataxias (SCAs) are a heterogenous group of
-      rare neurodegenerative conditions sharing an autosomal dominant pattern of
-      inheritance.
-    evidence:
-    - reference: DOI:10.1007/s12311-023-01600-x
-      reference_title: Epidemiology of Spinocerebellar Ataxias in Europe
-      supports: SUPPORT
-      evidence_source: OTHER
-      snippet: Spinocerebellar ataxias (SCAs) are a heterogenous group of rare
-        neurodegenerative conditions sharing an autosomal dominant pattern of
-        inheritance.
-      explanation: Deep research cited this publication as relevant literature
-        for Autosomal Dominant Cerebellar Ataxia Type III.
+  - statement: Spinocerebellar ataxias (SCAs) are a heterogenous group of rare neurodegenerative conditions sharing an autosomal dominant pattern of inheritance.
+    supporting_text: Spinocerebellar ataxias (SCAs) are a heterogenous group of rare neurodegenerative conditions sharing an autosomal dominant pattern of inheritance.
 - reference: DOI:10.1038/s10038-022-01091-4
   title: Spinocerebellar ataxia type 31 (SCA31)
   found_in:
   - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-falcon.md
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
   findings:
-  - statement: Spinocerebellar ataxia type 31 (SCA31) is one of the most common
-      forms of autosomal-dominant cerebellar ataxia in Japan.
-    supporting_text: Spinocerebellar ataxia type 31 (SCA31) is one of the most
-      common forms of autosomal-dominant cerebellar ataxia in Japan.
-    evidence:
-    - reference: DOI:10.1038/s10038-022-01091-4
-      reference_title: Spinocerebellar ataxia type 31 (SCA31)
-      supports: SUPPORT
-      evidence_source: HUMAN_CLINICAL
-      snippet: Spinocerebellar ataxia type 31 (SCA31) is one of the most common
-        forms of autosomal-dominant cerebellar ataxia in Japan.
-      explanation: Deep research cited this publication as relevant literature
-        for Autosomal Dominant Cerebellar Ataxia Type III.
+  - statement: Spinocerebellar ataxia type 31 (SCA31) is one of the most common forms of autosomal-dominant cerebellar ataxia in Japan.
+    supporting_text: Spinocerebellar ataxia type 31 (SCA31) is one of the most common forms of autosomal-dominant cerebellar ataxia in Japan.
 - reference: DOI:10.1038/s41598-023-41924-6
-  title: Clinical value of vestibulo-ocular reflex in the differentiation of
-    spinocerebellar ataxias
+  title: Clinical value of vestibulo-ocular reflex in the differentiation of spinocerebellar ataxias
   found_in:
   - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-falcon.md
   findings:
-  - statement: The diagnosis of spinocerebellar ataxia (SCA) currently depends
-      upon genetic testing.
-    supporting_text: The diagnosis of spinocerebellar ataxia (SCA) currently
-      depends upon genetic testing.
-    evidence:
-    - reference: DOI:10.1038/s41598-023-41924-6
-      reference_title: Clinical value of vestibulo-ocular reflex in the
-        differentiation of spinocerebellar ataxias
-      supports: SUPPORT
-      evidence_source: HUMAN_CLINICAL
-      snippet: The diagnosis of spinocerebellar ataxia (SCA) currently depends
-        upon genetic testing.
-      explanation: Deep research cited this publication as relevant literature
-        for Autosomal Dominant Cerebellar Ataxia Type III.
+  - statement: The diagnosis of spinocerebellar ataxia (SCA) currently depends upon genetic testing.
+    supporting_text: The diagnosis of spinocerebellar ataxia (SCA) currently depends upon genetic testing.
 - reference: DOI:10.1186/1750-1172-6-33
-  title: &#39;Autosomal dominant cerebellar ataxia type I: A review of the phenotypic
-    and genotypic characteristics&#39;
+  title: &#39;Autosomal dominant cerebellar ataxia type I: A review of the phenotypic and genotypic characteristics&#39;
   found_in:
   - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-falcon.md
   findings:
-  - statement: &#39;Autosomal dominant cerebellar ataxia type I: A review of the phenotypic
-      and genotypic characteristics&#39;
-    supporting_text: Type I autosomal dominant cerebellar ataxia (ADCA) is a
-      type of spinocerebellar ataxia (SCA) characterized by ataxia with other
-      neurological signs, including oculomotor disturbances, cognitive deficits,
-      pyramidal and extrapyramidal dysfunction, bulbar, spinal and peripheral
-      nervous system involvement.
-    evidence:
-    - reference: DOI:10.1186/1750-1172-6-33
-      reference_title: &#39;Autosomal dominant cerebellar ataxia type I: A review of the
-        phenotypic and genotypic characteristics&#39;
-      supports: SUPPORT
-      evidence_source: OTHER
-      snippet: Type I autosomal dominant cerebellar ataxia (ADCA) is a type of
-        spinocerebellar ataxia (SCA) characterized by ataxia with other
-        neurological signs, including oculomotor disturbances, cognitive
-        deficits, pyramidal and extrapyramidal dysfunction, bulbar, spinal and
-        peripheral nervous system involvement.
-      explanation: Deep research cited this publication as relevant literature
-        for Autosomal Dominant Cerebellar Ataxia Type III.
+  - statement: &#39;Autosomal dominant cerebellar ataxia type I: A review of the phenotypic and genotypic characteristics&#39;
+    supporting_text: Type I autosomal dominant cerebellar ataxia (ADCA) is a type of spinocerebellar ataxia (SCA) characterized by ataxia with other neurological signs, including oculomotor disturbances, cognitive deficits, pyramidal and extrapyramidal dysfunction, bulbar, spinal and peripheral nervous system involvement.
 - reference: DOI:10.1186/1750-1172-8-14
-  title: &#39;Autosomal dominant cerebellar ataxia type III: a review of the phenotypic
-    and genotypic characteristics&#39;
+  title: &#39;Autosomal dominant cerebellar ataxia type III: a review of the phenotypic and genotypic characteristics&#39;
   found_in:
   - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-falcon.md
   findings:
   - statement: &gt;-
-      Autosomal dominant cerebellar ataxia type III is classically characterized
-      by pure cerebellar ataxia and occasional non-cerebellar signs.
+      Autosomal dominant cerebellar ataxia type III: a review of the phenotypic and
+      genotypic characteristics
     supporting_text: &gt;-
       Autosomal Dominant Cerebellar Ataxia (ADCA) Type III is a type of
       spinocerebellar ataxia (SCA) classically characterized by pure cerebellar
@@ -7220,10 +7265,9 @@ references:
       ophthalmoplegia, and tremor.
     evidence:
     - reference: PMID:23331413
-      reference_title: &#34;Autosomal dominant cerebellar ataxia type III: a review of the
-        phenotypic and genotypic characteristics.&#34;
+      reference_title: &#34;Autosomal dominant cerebellar ataxia type III: a review of the phenotypic and genotypic characteristics&#34;
       supports: SUPPORT
-      evidence_source: OTHER
+      evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         Autosomal Dominant Cerebellar Ataxia (ADCA) Type III is a type of
         spinocerebellar ataxia (SCA) classically characterized by pure cerebellar
@@ -7238,19 +7282,272 @@ references:
   found_in:
   - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-falcon.md
   findings:
-  - statement: Cerebellar ataxias are a wide heterogeneous group of movement
-      disorders.
-    supporting_text: Cerebellar ataxias are a wide heterogeneous group of
-      movement disorders.
-    evidence:
-    - reference: DOI:10.3390/cells13040319
-      reference_title: &#39;Hereditary Ataxias: From Bench to Clinic, Where Do We Stand?&#39;
-      supports: SUPPORT
-      evidence_source: HUMAN_CLINICAL
-      snippet: Cerebellar ataxias are a wide heterogeneous group of movement
-        disorders.
-      explanation: Deep research cited this publication as relevant literature
-        for Autosomal Dominant Cerebellar Ataxia Type III.
+  - statement: Cerebellar ataxias are a wide heterogeneous group of movement disorders.
+    supporting_text: Cerebellar ataxias are a wide heterogeneous group of movement disorders.
+- reference: PMID:10369863
+  title: Abundant expression and cytoplasmic aggregations of [alpha]1A voltage-dependent calcium channel protein associated with neurodegeneration in spinocerebellar ataxia type 6.
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: &#39;1999 Jul;8(7):1185-93. doi: 10.1093/hmg/8.7.1185.&#39;
+    supporting_text: &#39;1999 Jul;8(7):1185-93. doi: 10.1093/hmg/8.7.1185.&#39;
+- reference: PMID:10964945
+  title: The polyglutamine expansion in spinocerebellar ataxia type 6 causes a beta subunit-specific enhanced activation of P/Q-type calcium channels in Xenopus oocytes.
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2000 Sep 1;20(17):6394-403. doi: 10.1523/JNEUROSCI.20-17-06394.2000.&#39;
+    supporting_text: &#39;2000 Sep 1;20(17):6394-403. doi: 10.1523/JNEUROSCI.20-17-06394.2000.&#39;
+- reference: PMID:15313841
+  title: Mutation in the catalytic domain of protein kinase C gamma and extension of the phenotype associated with spinocerebellar ataxia type 14.
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: Autosomal dominant cerebellar ataxias comprise a clinically, neuropathologically, and genetically heterogeneous group of neurodegenerative disorders.
+    supporting_text: Autosomal dominant cerebellar ataxias comprise a clinically, neuropathologically, and genetically heterogeneous group of neurodegenerative disorders.
+- reference: PMID:16000334
+  title: &#39;Spinocerebellar ataxia type 2: polyQ repeat variation in the CACNA1A calcium channel modifies age of onset.&#39;
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2005 Oct;128(Pt 10):2297-303. doi: 10.1093/brain/awh586.&#39;
+    supporting_text: &#39;2005 Oct;128(Pt 10):2297-303. doi: 10.1093/brain/awh586.&#39;
+- reference: PMID:16189624
+  title: A novel H101Q mutation causes PKCgamma loss in spinocerebellar ataxia type 14.
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2005;50(10):523-529. doi: 10.1007/s10038-005-0287-z.&#39;
+    supporting_text: &#39;2005;50(10):523-529. doi: 10.1007/s10038-005-0287-z.&#39;
+- reference: PMID:18418680
+  title: Clinical and genetic analysis of spinocerebellar ataxia type 11.
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2008;7(2):159-64. doi: 10.1007/s12311-008-0022-3.&#39;
+    supporting_text: &#39;2008;7(2):159-64. doi: 10.1007/s12311-008-0022-3.&#39;
+- reference: PMID:18855094
+  title: Severity and progression rate of cerebellar ataxia in 16q-linked autosomal dominant cerebellar ataxia (16q-ADCA) in the endemic Nagano Area of Japan.
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2009 Mar;8(1):46-51. doi: 10.1007/s12311-008-0062-8.&#39;
+    supporting_text: &#39;2009 Mar;8(1):46-51. doi: 10.1007/s12311-008-0062-8.&#39;
+- reference: PMID:20667868
+  title: Spinocerebellar ataxia type 11 (SCA11) is an uncommon cause of dominant ataxia among French and German kindreds.
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: At least 28 loci have been linked to autosomal dominant spinocerebellar ataxia (ADCA).
+    supporting_text: At least 28 loci have been linked to autosomal dominant spinocerebellar ataxia (ADCA).
+- reference: PMID:21921472
+  title: &#39;[SCA6: From gene identification to recent progress on pathogenesis].&#39;
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2010 Nov;50(11):858-60. doi: 10.5692/clinicalneurol.50.858. [SCA6: From gene identification to recent progress on pathogenesis]. [Article in Japanese] Watase K(1), Ishikawa K, Mizusawa H.&#39;
+    supporting_text: &#39;2010 Nov;50(11):858-60. doi: 10.5692/clinicalneurol.50.858. [SCA6: From gene identification to recent progress on pathogenesis]. [Article in Japanese] Watase K(1), Ishikawa K, Mizusawa H.&#39;
+- reference: PMID:23236289
+  title: Recessive mutations in SPTBN2 implicate β-III spectrin in both cognitive and motor development.
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2012;8(12):e1003074. doi: 10.1371/journal.pgen.1003074.&#39;
+    supporting_text: &#39;2012;8(12):e1003074. doi: 10.1371/journal.pgen.1003074.&#39;
+- reference: PMID:23607545
+  title: Abnormal RNA structures (RNA foci) containing a penta-nucleotide repeat (UGGAA)n in the Purkinje cell nucleus is associated with spinocerebellar ataxia type 31 pathogenesis.
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2013 Dec;33(6):600-11. doi: 10.1111/neup.12032.&#39;
+    supporting_text: &#39;2013 Dec;33(6):600-11. doi: 10.1111/neup.12032.&#39;
+- reference: PMID:23659897
+  title: &#39;Ataxin-3 protein modification as a treatment strategy for spinocerebellar ataxia type 3: removal of the CAG containing exon.&#39;
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2013 Oct;58:49-56. doi: 10.1016/j.nbd.2013.04.019.&#39;
+    supporting_text: &#39;2013 Oct;58:49-56. doi: 10.1016/j.nbd.2013.04.019.&#39;
+- reference: PMID:25142508
+  title: &#39;A Japanese SCA5 family with a novel three-nucleotide in-frame deletion mutation in the SPTBN2 gene: a clinical and genetic study.&#39;
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2014 Oct;59(10):569-73. doi: 10.1038/jhg.2014.74.&#39;
+    supporting_text: &#39;2014 Oct;59(10):569-73. doi: 10.1038/jhg.2014.74.&#39;
+- reference: PMID:27806289
+  title: Vulnerability of Purkinje Cells Generated from Spinocerebellar Ataxia Type 6 Patient-Derived iPSCs.
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2016 Nov 1;17(6):1482-1490. doi: 10.1016/j.celrep.2016.10.026.&#39;
+    supporting_text: &#39;2016 Nov 1;17(6):1482-1490. doi: 10.1016/j.celrep.2016.10.026.&#39;
+- reference: PMID:29427102
+  title: &#39;Spinocerebellar [corrected] Ataxia Type 6: Molecular Mechanisms and Calcium Channel Genetics.&#39;
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2018;1049:147-173. doi: 10.1007/978-3-319-71779-1_7.&#39;
+    supporting_text: &#39;2018;1049:147-173. doi: 10.1007/978-3-319-71779-1_7.&#39;
+- reference: PMID:29603387
+  title: Genotype-phenotype correlations, dystonia and disease progression in spinocerebellar ataxia type 14.
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: Spinocerebellar ataxia type 14 is a rare form of autosomal dominant cerebellar ataxia caused by mutations in protein kinase Cγ gene.
+    supporting_text: Spinocerebellar ataxia type 14 is a rare form of autosomal dominant cerebellar ataxia caused by mutations in protein kinase Cγ gene.
+- reference: PMID:31755042
+  title: Molecular Mechanisms and Future Therapeutics for Spinocerebellar Ataxia Type 31 (SCA31).
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2019 Oct;16(4):1106-1114. doi: 10.1007/s13311-019-00804-6.&#39;
+    supporting_text: &#39;2019 Oct;16(4):1106-1114. doi: 10.1007/s13311-019-00804-6.&#39;
+- reference: PMID:33797620
+  title: Two novel missense variants in SPTBN2 likely associated with spinocerebellar ataxia type 5.
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2021 Dec;42(12):5195-5203. doi: 10.1007/s10072-021-05204-3.&#39;
+    supporting_text: &#39;2021 Dec;42(12):5195-5203. doi: 10.1007/s10072-021-05204-3.&#39;
+- reference: PMID:34113230
+  title: Insight Into Spinocerebellar Ataxia Type 31 (SCA31) From Drosophila Model.
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2021 May 25;15:648133. doi: 10.3389/fnins.2021.648133. eCollection 2021.&#39;
+    supporting_text: &#39;2021 May 25;15:648133. doi: 10.3389/fnins.2021.648133. eCollection 2021.&#39;
+- reference: PMID:34628681
+  title: &#39;Gene Therapy for Polyglutamine Spinocerebellar Ataxias: Advances, Challenges, and Perspectives.&#39;
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2021 Dec;36(12):2731-2744. doi: 10.1002/mds.28819.&#39;
+    supporting_text: &#39;2021 Dec;36(12):2731-2744. doi: 10.1002/mds.28819.&#39;
+- reference: PMID:36949783
+  title: Demographics and Clinical Characteristics of Autosomal Dominant Spinocerebellar Ataxia in Canada.
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: Autosomal dominant (AD) spinocerebellar ataxias (SCAs) encompass a large group of rare disorders, which occurs in individuals of different ethnic backgrounds.
+    supporting_text: Autosomal dominant (AD) spinocerebellar ataxias (SCAs) encompass a large group of rare disorders, which occurs in individuals of different ethnic backgrounds.
+- reference: PMID:37454040
+  title: Genetic Epidemiology and Clinical Characteristics of Patients with Spinocerebellar Ataxias in an Unexplored Brazilian State, Using Strategies for Resource-Limited Settings.
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2024 Apr;23(2):609-619. doi: 10.1007/s12311-023-01581-x.&#39;
+    supporting_text: &#39;2024 Apr;23(2):609-619. doi: 10.1007/s12311-023-01581-x.&#39;
+- reference: PMID:37950147
+  title: &#39;Diagnostic Yield of NGS Tests for Hereditary Ataxia: a Systematic Review.&#39;
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2024 Aug;23(4):1552-1565. doi: 10.1007/s12311-023-01629-y.&#39;
+    supporting_text: &#39;2024 Aug;23(4):1552-1565. doi: 10.1007/s12311-023-01629-y.&#39;
+- reference: PMID:39190906
+  title: &#39;Patterns of the Health and Economic Burden of 33 Rare Diseases in China: Nationwide Web-Based Study.&#39;
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: Rare diseases (RDs) affect millions of individuals collectively worldwide, contributing to significant burdens on patients and families in various aspects.
+    supporting_text: Rare diseases (RDs) affect millions of individuals collectively worldwide, contributing to significant burdens on patients and families in various aspects.
+- reference: PMID:39367955
+  title: Differential Effects of Cerebellar Transcranial Direct Current Stimulation with Gait Training on Functional Mobility, Balance, and Ataxia Symptoms.
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2024 Dec;23(6):2457-2467. doi: 10.1007/s12311-024-01750-6.&#39;
+    supporting_text: &#39;2024 Dec;23(6):2457-2467. doi: 10.1007/s12311-024-01750-6.&#39;
+- reference: PMID:39812846
+  title: &#39;Diagnosis of hereditary ataxias: a real-world single center experience.&#39;
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2025 Jan 15;272(2):111. doi: 10.1007/s00415-024-12772-9.&#39;
+    supporting_text: &#39;2025 Jan 15;272(2):111. doi: 10.1007/s00415-024-12772-9.&#39;
+- reference: PMID:39866519
+  title: &#39;Effects of physiotherapy on degenerative cerebellar ataxia: a systematic review and meta-analysis.&#39;
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: &#39;Effects of physiotherapy on degenerative cerebellar ataxia: a systematic review and meta-analysis&#39;
+    supporting_text: Evidence of the effectiveness of physiotherapy, including muscle strength training, coordination training, aerobic exercise, cycling regimen, balance training, gait training, and activity of daily living training, in patients with degenerative cerebellar ataxia (DCA) was insufficient for clinical decision making.
+- reference: PMID:40149486
+  title: &#39;Effects of Levetiracetam on Episodic Ataxia Type 2 and Spinocerebellar Ataxia Type 6 with Episodic Ataxic Symptoms: A Case Series.&#39;
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: Episodic ataxia type 2 (EA2) is a rare disorder characterized by paroxysmal gait instability, dysarthria, and dizziness.
+    supporting_text: Episodic ataxia type 2 (EA2) is a rare disorder characterized by paroxysmal gait instability, dysarthria, and dizziness.
+- reference: PMID:40189664
+  title: &#39;Homozygous CAG Repeat Expansion in Spinocerebellar Ataxia Type 6: Longitudinal Analysis of Vestibulo-Ocular Reflex Findings.&#39;
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2025 Apr 7;24(3):81. doi: 10.1007/s12311-025-01833-y.&#39;
+    supporting_text: &#39;2025 Apr 7;24(3):81. doi: 10.1007/s12311-025-01833-y.&#39;
+- reference: PMID:40470849
+  title: High Genetic Diagnostic Yield for Patients with Rare Movement Disorders at a Single-Center Neurogenetics Clinic.
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: As advanced molecular testing is incorporated into routine clinical practice, accessibility and yield remain limited.
+    supporting_text: As advanced molecular testing is incorporated into routine clinical practice, accessibility and yield remain limited.
+- reference: PMID:40846501
+  title: &#39;A diagnostic challenge: spinocerebellar ataxia type 6 presenting with dystonia and parkinsonism.&#39;
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2025 Aug 22;18(8):e266791. doi: 10.1136/bcr-2025-266791.&#39;
+    supporting_text: &#39;2025 Aug 22;18(8):e266791. doi: 10.1136/bcr-2025-266791.&#39;
+- reference: PMID:40879304
+  title: &#39;GAA-FGF14 Expansions and CACNA1A Variants: Phenotypic Overlap and Diagnostic Implications.&#39;
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: An intronic (GAA)•(TTC) repeat expansion in FGF14 was recently identified as the cause of spinocerebellar ataxia 27B (SCA27B), a disorder presenting with both chronic cerebellar ataxia and episodic symptoms.
+    supporting_text: An intronic (GAA)•(TTC) repeat expansion in FGF14 was recently identified as the cause of spinocerebellar ataxia 27B (SCA27B), a disorder presenting with both chronic cerebellar ataxia and episodic symptoms.
+- reference: PMID:40906249
+  title: &#39;Long-Term Effects of Annual Intensive Rehabilitation in Patients with Hereditary Pure Cerebellar Ataxia: A 7-year Follow-up Study.&#39;
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2025 Sep 4;24(5):150. doi: 10.1007/s12311-025-01899-8.&#39;
+    supporting_text: &#39;2025 Sep 4;24(5):150. doi: 10.1007/s12311-025-01899-8.&#39;
+- reference: PMID:40946705
+  title: &#39;Home Training for Cerebellar Ataxias: A Randomized Clinical Trial.&#39;
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2025 Nov 1;82(11):1162-1170. doi: 10.1001/jamaneurol.2025.3421.&#39;
+    supporting_text: &#39;2025 Nov 1;82(11):1162-1170. doi: 10.1001/jamaneurol.2025.3421.&#39;
+- reference: PMID:40976063
+  title: Stimulation of Purkinje cell firing reverses early onset spatial navigation deficits in a spinocerebellar ataxia type 6 mouse model.
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2025 Nov;216:107109. doi: 10.1016/j.nbd.2025.107109.&#39;
+    supporting_text: &#39;2025 Nov;216:107109. doi: 10.1016/j.nbd.2025.107109.&#39;
+- reference: PMID:41171420
+  title: Feasibility of a Telehealth Physical Activity Coaching Intervention for Degenerative Cerebellar Ataxia.
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2025 Oct 1;49(4):201-213. doi: 10.1097/NPT.0000000000000516.&#39;
+    supporting_text: &#39;2025 Oct 1;49(4):201-213. doi: 10.1097/NPT.0000000000000516.&#39;
+- reference: PMID:9566402
+  title: Variable clinical expression of mutations in the P/Q-type calcium channel gene in familial hemiplegic migraine. Dutch Migraine Genetics Research Group.
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings:
+  - statement: &#39;1998 Apr;50(4):1105-10. doi: 10.1212/wnl.50.4.1105.&#39;
+    supporting_text: &#39;1998 Apr;50(4):1105-10. doi: 10.1212/wnl.50.4.1105.&#39;
+- reference: PMID:36319738
+  title: Spinocerebellar ataxia type 31 (SCA31).
+  found_in:
+  - Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md
+  findings: []
 </pre>
             </div>
         </div>
@@ -7266,7 +7563,7 @@ references:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">8</span>
+                    <span class="card-count">46</span>
                 </div>
                 
                 <div class="reference-entry">
@@ -7334,36 +7631,6 @@ references:
             
             
     
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.1007/s12311-023-01540-6" target="_blank">DOI:10.1007/s12311-023-01540-6</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-OTHER">Other</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"Spinocerebellar ataxia type 11 (SCA11) is a rare type of autosomal dominant cerebellar ataxia, mainly characterized by progressive cerebellar ataxia, abnormal eye signs and dysarthria."</div>
-                
-                
-                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Autosomal Dominant Cerebellar Ataxia Type III.</div>
-                
-            </div>
-            
-            
-        </div>
-    </details>
-    
     
         </div>
         
@@ -7400,36 +7667,6 @@ references:
             <div class="reference-finding-supporting">"Spinocerebellar ataxias (SCAs) are a heterogenous group of rare neurodegenerative conditions sharing an autosomal dominant pattern of inheritance."</div>
             
             
-    
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.1007/s12311-023-01600-x" target="_blank">DOI:10.1007/s12311-023-01600-x</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-OTHER">Other</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"Spinocerebellar ataxias (SCAs) are a heterogenous group of rare neurodegenerative conditions sharing an autosomal dominant pattern of inheritance."</div>
-                
-                
-                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Autosomal Dominant Cerebellar Ataxia Type III.</div>
-                
-            </div>
-            
-            
-        </div>
-    </details>
     
     
         </div>
@@ -7468,36 +7705,6 @@ references:
             
             
     
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.1038/s10038-022-01091-4" target="_blank">DOI:10.1038/s10038-022-01091-4</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"Spinocerebellar ataxia type 31 (SCA31) is one of the most common forms of autosomal-dominant cerebellar ataxia in Japan."</div>
-                
-                
-                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Autosomal Dominant Cerebellar Ataxia Type III.</div>
-                
-            </div>
-            
-            
-        </div>
-    </details>
-    
     
         </div>
         
@@ -7534,36 +7741,6 @@ references:
             <div class="reference-finding-supporting">"The diagnosis of spinocerebellar ataxia (SCA) currently depends upon genetic testing."</div>
             
             
-    
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.1038/s41598-023-41924-6" target="_blank">DOI:10.1038/s41598-023-41924-6</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"The diagnosis of spinocerebellar ataxia (SCA) currently depends upon genetic testing."</div>
-                
-                
-                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Autosomal Dominant Cerebellar Ataxia Type III.</div>
-                
-            </div>
-            
-            
-        </div>
-    </details>
     
     
         </div>
@@ -7602,36 +7779,6 @@ references:
             
             
     
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.1186/1750-1172-6-33" target="_blank">DOI:10.1186/1750-1172-6-33</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-OTHER">Other</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"Type I autosomal dominant cerebellar ataxia (ADCA) is a type of spinocerebellar ataxia (SCA) characterized by ataxia with other neurological signs, including oculomotor disturbances, cognitive deficits, pyramidal and extrapyramidal dysfunction, bulbar, spinal and peripheral nervous system involvement."</div>
-                
-                
-                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Autosomal Dominant Cerebellar Ataxia Type III.</div>
-                
-            </div>
-            
-            
-        </div>
-    </details>
-    
     
         </div>
         
@@ -7662,7 +7809,7 @@ references:
         
         <div class="reference-finding">
             
-            <div class="reference-finding-statement">Autosomal dominant cerebellar ataxia type III is classically characterized by pure cerebellar ataxia and occasional non-cerebellar signs.</div>
+            <div class="reference-finding-statement">Autosomal dominant cerebellar ataxia type III: a review of the phenotypic and genotypic characteristics</div>
             
             
             <div class="reference-finding-supporting">"Autosomal Dominant Cerebellar Ataxia (ADCA) Type III is a type of spinocerebellar ataxia (SCA) classically characterized by pure cerebellar ataxia and occasionally by non-cerebellar signs such as pyramidal signs, ophthalmoplegia, and tremor."</div>
@@ -7684,7 +7831,7 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-OTHER">Other</span>
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -7736,35 +7883,42 @@ references:
             
             
     
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.3390/cells13040319" target="_blank">DOI:10.3390/cells13040319</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+    
+        </div>
+        
+    </div>
+    
+    
                     
                 </div>
                 
-                <div class="evidence-snippet">"Cerebellar ataxias are a wide heterogeneous group of movement disorders."</div>
-                
-                
-                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Autosomal Dominant Cerebellar Ataxia Type III.</div>
-                
-            </div>
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/10369863" target="_blank">PMID:10369863</a>
+                            </div>
+                            
+                            <div class="reference-title">Abundant expression and cytoplasmic aggregations of [alpha]1A voltage-dependent calcium channel protein associated with neurodegeneration in spinocerebellar ataxia type 6.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">1999 Jul;8(7):1185-93. doi: 10.1093/hmg/8.7.1185.</div>
             
             
-        </div>
-    </details>
+            <div class="reference-finding-supporting">"1999 Jul;8(7):1185-93. doi: 10.1093/hmg/8.7.1185."</div>
+            
+            
     
     
         </div>
@@ -7775,13 +7929,1362 @@ references:
                     
                 </div>
                 
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/10964945" target="_blank">PMID:10964945</a>
+                            </div>
+                            
+                            <div class="reference-title">The polyglutamine expansion in spinocerebellar ataxia type 6 causes a beta subunit-specific enhanced activation of P/Q-type calcium channels in Xenopus oocytes.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2000 Sep 1;20(17):6394-403. doi: 10.1523/JNEUROSCI.20-17-06394.2000.</div>
+            
+            
+            <div class="reference-finding-supporting">"2000 Sep 1;20(17):6394-403. doi: 10.1523/JNEUROSCI.20-17-06394.2000."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/15313841" target="_blank">PMID:15313841</a>
+                            </div>
+                            
+                            <div class="reference-title">Mutation in the catalytic domain of protein kinase C gamma and extension of the phenotype associated with spinocerebellar ataxia type 14.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Autosomal dominant cerebellar ataxias comprise a clinically, neuropathologically, and genetically heterogeneous group of neurodegenerative disorders.</div>
+            
+            
+            <div class="reference-finding-supporting">"Autosomal dominant cerebellar ataxias comprise a clinically, neuropathologically, and genetically heterogeneous group of neurodegenerative disorders."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/16000334" target="_blank">PMID:16000334</a>
+                            </div>
+                            
+                            <div class="reference-title">Spinocerebellar ataxia type 2: polyQ repeat variation in the CACNA1A calcium channel modifies age of onset.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2005 Oct;128(Pt 10):2297-303. doi: 10.1093/brain/awh586.</div>
+            
+            
+            <div class="reference-finding-supporting">"2005 Oct;128(Pt 10):2297-303. doi: 10.1093/brain/awh586."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/16189624" target="_blank">PMID:16189624</a>
+                            </div>
+                            
+                            <div class="reference-title">A novel H101Q mutation causes PKCgamma loss in spinocerebellar ataxia type 14.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2005;50(10):523-529. doi: 10.1007/s10038-005-0287-z.</div>
+            
+            
+            <div class="reference-finding-supporting">"2005;50(10):523-529. doi: 10.1007/s10038-005-0287-z."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/18418680" target="_blank">PMID:18418680</a>
+                            </div>
+                            
+                            <div class="reference-title">Clinical and genetic analysis of spinocerebellar ataxia type 11.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2008;7(2):159-64. doi: 10.1007/s12311-008-0022-3.</div>
+            
+            
+            <div class="reference-finding-supporting">"2008;7(2):159-64. doi: 10.1007/s12311-008-0022-3."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/18855094" target="_blank">PMID:18855094</a>
+                            </div>
+                            
+                            <div class="reference-title">Severity and progression rate of cerebellar ataxia in 16q-linked autosomal dominant cerebellar ataxia (16q-ADCA) in the endemic Nagano Area of Japan.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2009 Mar;8(1):46-51. doi: 10.1007/s12311-008-0062-8.</div>
+            
+            
+            <div class="reference-finding-supporting">"2009 Mar;8(1):46-51. doi: 10.1007/s12311-008-0062-8."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/20667868" target="_blank">PMID:20667868</a>
+                            </div>
+                            
+                            <div class="reference-title">Spinocerebellar ataxia type 11 (SCA11) is an uncommon cause of dominant ataxia among French and German kindreds.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">At least 28 loci have been linked to autosomal dominant spinocerebellar ataxia (ADCA).</div>
+            
+            
+            <div class="reference-finding-supporting">"At least 28 loci have been linked to autosomal dominant spinocerebellar ataxia (ADCA)."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/21921472" target="_blank">PMID:21921472</a>
+                            </div>
+                            
+                            <div class="reference-title">[SCA6: From gene identification to recent progress on pathogenesis].</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2010 Nov;50(11):858-60. doi: 10.5692/clinicalneurol.50.858. [SCA6: From gene identification to recent progress on pathogenesis]. [Article in Japanese] Watase K(1), Ishikawa K, Mizusawa H.</div>
+            
+            
+            <div class="reference-finding-supporting">"2010 Nov;50(11):858-60. doi: 10.5692/clinicalneurol.50.858. [SCA6: From gene identification to recent progress on pathogenesis]. [Article in Japanese] Watase K(1), Ishikawa K, Mizusawa H."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/23236289" target="_blank">PMID:23236289</a>
+                            </div>
+                            
+                            <div class="reference-title">Recessive mutations in SPTBN2 implicate β-III spectrin in both cognitive and motor development.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2012;8(12):e1003074. doi: 10.1371/journal.pgen.1003074.</div>
+            
+            
+            <div class="reference-finding-supporting">"2012;8(12):e1003074. doi: 10.1371/journal.pgen.1003074."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/23607545" target="_blank">PMID:23607545</a>
+                            </div>
+                            
+                            <div class="reference-title">Abnormal RNA structures (RNA foci) containing a penta-nucleotide repeat (UGGAA)n in the Purkinje cell nucleus is associated with spinocerebellar ataxia type 31 pathogenesis.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2013 Dec;33(6):600-11. doi: 10.1111/neup.12032.</div>
+            
+            
+            <div class="reference-finding-supporting">"2013 Dec;33(6):600-11. doi: 10.1111/neup.12032."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/23659897" target="_blank">PMID:23659897</a>
+                            </div>
+                            
+                            <div class="reference-title">Ataxin-3 protein modification as a treatment strategy for spinocerebellar ataxia type 3: removal of the CAG containing exon.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2013 Oct;58:49-56. doi: 10.1016/j.nbd.2013.04.019.</div>
+            
+            
+            <div class="reference-finding-supporting">"2013 Oct;58:49-56. doi: 10.1016/j.nbd.2013.04.019."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/25142508" target="_blank">PMID:25142508</a>
+                            </div>
+                            
+                            <div class="reference-title">A Japanese SCA5 family with a novel three-nucleotide in-frame deletion mutation in the SPTBN2 gene: a clinical and genetic study.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2014 Oct;59(10):569-73. doi: 10.1038/jhg.2014.74.</div>
+            
+            
+            <div class="reference-finding-supporting">"2014 Oct;59(10):569-73. doi: 10.1038/jhg.2014.74."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/27806289" target="_blank">PMID:27806289</a>
+                            </div>
+                            
+                            <div class="reference-title">Vulnerability of Purkinje Cells Generated from Spinocerebellar Ataxia Type 6 Patient-Derived iPSCs.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2016 Nov 1;17(6):1482-1490. doi: 10.1016/j.celrep.2016.10.026.</div>
+            
+            
+            <div class="reference-finding-supporting">"2016 Nov 1;17(6):1482-1490. doi: 10.1016/j.celrep.2016.10.026."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/29427102" target="_blank">PMID:29427102</a>
+                            </div>
+                            
+                            <div class="reference-title">Spinocerebellar [corrected] Ataxia Type 6: Molecular Mechanisms and Calcium Channel Genetics.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2018;1049:147-173. doi: 10.1007/978-3-319-71779-1_7.</div>
+            
+            
+            <div class="reference-finding-supporting">"2018;1049:147-173. doi: 10.1007/978-3-319-71779-1_7."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/29603387" target="_blank">PMID:29603387</a>
+                            </div>
+                            
+                            <div class="reference-title">Genotype-phenotype correlations, dystonia and disease progression in spinocerebellar ataxia type 14.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Spinocerebellar ataxia type 14 is a rare form of autosomal dominant cerebellar ataxia caused by mutations in protein kinase Cγ gene.</div>
+            
+            
+            <div class="reference-finding-supporting">"Spinocerebellar ataxia type 14 is a rare form of autosomal dominant cerebellar ataxia caused by mutations in protein kinase Cγ gene."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/31755042" target="_blank">PMID:31755042</a>
+                            </div>
+                            
+                            <div class="reference-title">Molecular Mechanisms and Future Therapeutics for Spinocerebellar Ataxia Type 31 (SCA31).</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2019 Oct;16(4):1106-1114. doi: 10.1007/s13311-019-00804-6.</div>
+            
+            
+            <div class="reference-finding-supporting">"2019 Oct;16(4):1106-1114. doi: 10.1007/s13311-019-00804-6."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/33797620" target="_blank">PMID:33797620</a>
+                            </div>
+                            
+                            <div class="reference-title">Two novel missense variants in SPTBN2 likely associated with spinocerebellar ataxia type 5.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2021 Dec;42(12):5195-5203. doi: 10.1007/s10072-021-05204-3.</div>
+            
+            
+            <div class="reference-finding-supporting">"2021 Dec;42(12):5195-5203. doi: 10.1007/s10072-021-05204-3."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/34113230" target="_blank">PMID:34113230</a>
+                            </div>
+                            
+                            <div class="reference-title">Insight Into Spinocerebellar Ataxia Type 31 (SCA31) From Drosophila Model.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2021 May 25;15:648133. doi: 10.3389/fnins.2021.648133. eCollection 2021.</div>
+            
+            
+            <div class="reference-finding-supporting">"2021 May 25;15:648133. doi: 10.3389/fnins.2021.648133. eCollection 2021."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/34628681" target="_blank">PMID:34628681</a>
+                            </div>
+                            
+                            <div class="reference-title">Gene Therapy for Polyglutamine Spinocerebellar Ataxias: Advances, Challenges, and Perspectives.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2021 Dec;36(12):2731-2744. doi: 10.1002/mds.28819.</div>
+            
+            
+            <div class="reference-finding-supporting">"2021 Dec;36(12):2731-2744. doi: 10.1002/mds.28819."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/36949783" target="_blank">PMID:36949783</a>
+                            </div>
+                            
+                            <div class="reference-title">Demographics and Clinical Characteristics of Autosomal Dominant Spinocerebellar Ataxia in Canada.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Autosomal dominant (AD) spinocerebellar ataxias (SCAs) encompass a large group of rare disorders, which occurs in individuals of different ethnic backgrounds.</div>
+            
+            
+            <div class="reference-finding-supporting">"Autosomal dominant (AD) spinocerebellar ataxias (SCAs) encompass a large group of rare disorders, which occurs in individuals of different ethnic backgrounds."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/37454040" target="_blank">PMID:37454040</a>
+                            </div>
+                            
+                            <div class="reference-title">Genetic Epidemiology and Clinical Characteristics of Patients with Spinocerebellar Ataxias in an Unexplored Brazilian State, Using Strategies for Resource-Limited Settings.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2024 Apr;23(2):609-619. doi: 10.1007/s12311-023-01581-x.</div>
+            
+            
+            <div class="reference-finding-supporting">"2024 Apr;23(2):609-619. doi: 10.1007/s12311-023-01581-x."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/37950147" target="_blank">PMID:37950147</a>
+                            </div>
+                            
+                            <div class="reference-title">Diagnostic Yield of NGS Tests for Hereditary Ataxia: a Systematic Review.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2024 Aug;23(4):1552-1565. doi: 10.1007/s12311-023-01629-y.</div>
+            
+            
+            <div class="reference-finding-supporting">"2024 Aug;23(4):1552-1565. doi: 10.1007/s12311-023-01629-y."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/39190906" target="_blank">PMID:39190906</a>
+                            </div>
+                            
+                            <div class="reference-title">Patterns of the Health and Economic Burden of 33 Rare Diseases in China: Nationwide Web-Based Study.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Rare diseases (RDs) affect millions of individuals collectively worldwide, contributing to significant burdens on patients and families in various aspects.</div>
+            
+            
+            <div class="reference-finding-supporting">"Rare diseases (RDs) affect millions of individuals collectively worldwide, contributing to significant burdens on patients and families in various aspects."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/39367955" target="_blank">PMID:39367955</a>
+                            </div>
+                            
+                            <div class="reference-title">Differential Effects of Cerebellar Transcranial Direct Current Stimulation with Gait Training on Functional Mobility, Balance, and Ataxia Symptoms.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2024 Dec;23(6):2457-2467. doi: 10.1007/s12311-024-01750-6.</div>
+            
+            
+            <div class="reference-finding-supporting">"2024 Dec;23(6):2457-2467. doi: 10.1007/s12311-024-01750-6."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/39812846" target="_blank">PMID:39812846</a>
+                            </div>
+                            
+                            <div class="reference-title">Diagnosis of hereditary ataxias: a real-world single center experience.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2025 Jan 15;272(2):111. doi: 10.1007/s00415-024-12772-9.</div>
+            
+            
+            <div class="reference-finding-supporting">"2025 Jan 15;272(2):111. doi: 10.1007/s00415-024-12772-9."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/39866519" target="_blank">PMID:39866519</a>
+                            </div>
+                            
+                            <div class="reference-title">Effects of physiotherapy on degenerative cerebellar ataxia: a systematic review and meta-analysis.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Effects of physiotherapy on degenerative cerebellar ataxia: a systematic review and meta-analysis</div>
+            
+            
+            <div class="reference-finding-supporting">"Evidence of the effectiveness of physiotherapy, including muscle strength training, coordination training, aerobic exercise, cycling regimen, balance training, gait training, and activity of daily living training, in patients with degenerative cerebellar ataxia (DCA) was insufficient for..."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40149486" target="_blank">PMID:40149486</a>
+                            </div>
+                            
+                            <div class="reference-title">Effects of Levetiracetam on Episodic Ataxia Type 2 and Spinocerebellar Ataxia Type 6 with Episodic Ataxic Symptoms: A Case Series.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Episodic ataxia type 2 (EA2) is a rare disorder characterized by paroxysmal gait instability, dysarthria, and dizziness.</div>
+            
+            
+            <div class="reference-finding-supporting">"Episodic ataxia type 2 (EA2) is a rare disorder characterized by paroxysmal gait instability, dysarthria, and dizziness."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40189664" target="_blank">PMID:40189664</a>
+                            </div>
+                            
+                            <div class="reference-title">Homozygous CAG Repeat Expansion in Spinocerebellar Ataxia Type 6: Longitudinal Analysis of Vestibulo-Ocular Reflex Findings.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2025 Apr 7;24(3):81. doi: 10.1007/s12311-025-01833-y.</div>
+            
+            
+            <div class="reference-finding-supporting">"2025 Apr 7;24(3):81. doi: 10.1007/s12311-025-01833-y."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40470849" target="_blank">PMID:40470849</a>
+                            </div>
+                            
+                            <div class="reference-title">High Genetic Diagnostic Yield for Patients with Rare Movement Disorders at a Single-Center Neurogenetics Clinic.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">As advanced molecular testing is incorporated into routine clinical practice, accessibility and yield remain limited.</div>
+            
+            
+            <div class="reference-finding-supporting">"As advanced molecular testing is incorporated into routine clinical practice, accessibility and yield remain limited."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40846501" target="_blank">PMID:40846501</a>
+                            </div>
+                            
+                            <div class="reference-title">A diagnostic challenge: spinocerebellar ataxia type 6 presenting with dystonia and parkinsonism.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2025 Aug 22;18(8):e266791. doi: 10.1136/bcr-2025-266791.</div>
+            
+            
+            <div class="reference-finding-supporting">"2025 Aug 22;18(8):e266791. doi: 10.1136/bcr-2025-266791."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40879304" target="_blank">PMID:40879304</a>
+                            </div>
+                            
+                            <div class="reference-title">GAA-FGF14 Expansions and CACNA1A Variants: Phenotypic Overlap and Diagnostic Implications.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">An intronic (GAA)•(TTC) repeat expansion in FGF14 was recently identified as the cause of spinocerebellar ataxia 27B (SCA27B), a disorder presenting with both chronic cerebellar ataxia and episodic symptoms.</div>
+            
+            
+            <div class="reference-finding-supporting">"An intronic (GAA)•(TTC) repeat expansion in FGF14 was recently identified as the cause of spinocerebellar ataxia 27B (SCA27B), a disorder presenting with both chronic cerebellar ataxia and episodic symptoms."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40906249" target="_blank">PMID:40906249</a>
+                            </div>
+                            
+                            <div class="reference-title">Long-Term Effects of Annual Intensive Rehabilitation in Patients with Hereditary Pure Cerebellar Ataxia: A 7-year Follow-up Study.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2025 Sep 4;24(5):150. doi: 10.1007/s12311-025-01899-8.</div>
+            
+            
+            <div class="reference-finding-supporting">"2025 Sep 4;24(5):150. doi: 10.1007/s12311-025-01899-8."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40946705" target="_blank">PMID:40946705</a>
+                            </div>
+                            
+                            <div class="reference-title">Home Training for Cerebellar Ataxias: A Randomized Clinical Trial.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2025 Nov 1;82(11):1162-1170. doi: 10.1001/jamaneurol.2025.3421.</div>
+            
+            
+            <div class="reference-finding-supporting">"2025 Nov 1;82(11):1162-1170. doi: 10.1001/jamaneurol.2025.3421."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40976063" target="_blank">PMID:40976063</a>
+                            </div>
+                            
+                            <div class="reference-title">Stimulation of Purkinje cell firing reverses early onset spatial navigation deficits in a spinocerebellar ataxia type 6 mouse model.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2025 Nov;216:107109. doi: 10.1016/j.nbd.2025.107109.</div>
+            
+            
+            <div class="reference-finding-supporting">"2025 Nov;216:107109. doi: 10.1016/j.nbd.2025.107109."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41171420" target="_blank">PMID:41171420</a>
+                            </div>
+                            
+                            <div class="reference-title">Feasibility of a Telehealth Physical Activity Coaching Intervention for Degenerative Cerebellar Ataxia.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2025 Oct 1;49(4):201-213. doi: 10.1097/NPT.0000000000000516.</div>
+            
+            
+            <div class="reference-finding-supporting">"2025 Oct 1;49(4):201-213. doi: 10.1097/NPT.0000000000000516."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/9566402" target="_blank">PMID:9566402</a>
+                            </div>
+                            
+                            <div class="reference-title">Variable clinical expression of mutations in the P/Q-type calcium channel gene in familial hemiplegic migraine. Dutch Migraine Genetics Research Group.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">1998 Apr;50(4):1105-10. doi: 10.1212/wnl.50.4.1105.</div>
+            
+            
+            <div class="reference-finding-supporting">"1998 Apr;50(4):1105-10. doi: 10.1212/wnl.50.4.1105."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/36319738" target="_blank">PMID:36319738</a>
+                            </div>
+                            
+                            <div class="reference-title">Spinocerebellar ataxia type 31 (SCA31).</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
             </div>
             
             
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
-                    <span class="card-count">1</span>
+                    <span class="card-count">2</span>
                 </div>
                 
                 <div style="margin-bottom: 4px;">
@@ -8242,6 +9745,997 @@ references:
                     </div>
                 </div>
                 
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>OpenScientist</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">Key Findings</div>
+                            
+                            
+                            <span class="report-badge">openscientist-autonomous</span>
+                            
+                            
+                            <span class="report-badge">38 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-05T08:24:04.412028</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <h2>Key Findings</h2>
+<h3>Finding 1: ADCA Type III Classification and Scope</h3>
+<p>Harding's (1982) classification established ADCA Type III as the group of autosomal dominant cerebellar ataxias with purely cerebellar involvement. As confirmed in the literature: <em>"The type III ADCAs are 'pure' spinocerebellar ataxias (SCA), those that appear to elude neurological features outside of the cerebellum. At present 3 ADCA type III SCA genes have been published, SCA5, SCA6, and SCA14"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/18418680/">PMID: 18418680</a>). The classification has since expanded to include SCA11 and SCA31. Both SCA6 and 16q-ADCA (SCA31) fall within ADCA Type III: <em>"Both subtypes are classified into Harding's ADCA III, but little attention has been given to the differences in the severity and progression rate of cerebellar ataxia between 16q-ADCA and SCA6"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/18855094/">PMID: 18855094</a>).</p>
+<h3>Finding 2: SCA6 — Dual Pathogenic Mechanism via Bicistronic CACNA1A</h3>
+<p>SCA6 is uniquely caused by a small CAG expansion (19–33 repeats; normal 4–18) in the last exon of <em>CACNA1A</em> on chromosome 19p13.13. The critical discovery is that <em>CACNA1A</em> bicistronically encodes two structurally unrelated proteins: <em>"(1) α1A subunit of P/Q-type voltage gated calcium channel; (2) α1ACT, a newly recognized transcription factor, with polyglutamine repeat at C-terminal end"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/29427102/">PMID: 29427102</a>). This dual protein product creates a multi-layered pathogenesis involving channelopathy (altered calcium channel gating), polyglutamine protein aggregation, and transcriptional dysregulation. The pathological hallmark is distinctive: <em>"In SCA6 brains, numerous oval or rod-shaped aggregates were seen exclusively in the cytoplasm of Purkinje cells. These cytoplasmic inclusions were not ubiquitinated, which contrasts with the neuronal intra-nuclear inclusions of other CAG repeat/polyglutamine diseases"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/10369863/">PMID: 10369863</a>).</p>
+<h3>Finding 3: SCA31 — RNA Toxicity with Japanese Founder Effect</h3>
+<p>SCA31 is caused by a 2.5–3.8 kb complex pentanucleotide repeat insertion containing (TGGAA)n, (TAGAA)n, (TAAAA)n, and (TAAAATAGAA)n in an intron shared by <em>BEAN1</em> and <em>TK2</em> on chromosome 16q22.1. The disease has a strong Japanese founder effect: <em>"SCA31 has a strong founder effect, which is consistent with the fact that this disease is basically absent in other ethnicities"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/36319738/">PMID: 36319738</a>). Pathogenesis is driven by RNA toxicity, as <em>"abnormal RNA structures called 'RNA foci' are observed by a probe against (UAGAAUAAAA)n in SCA31 patients' PC nuclei, indicating that the BEAN1-direction mutant transcript appears instrumental for the pathogenesis"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/23607545/">PMID: 23607545</a>).</p>
+<h3>Finding 4: iPSC-Derived Therapeutic Insights for SCA6</h3>
+<p>Patient-derived iPSC Purkinje cell models have revealed that SCA6 Purkinje cells exhibit increased full-length Cav2.1 protein, decreased C-terminal fragment, and downregulation of transcriptional targets TAF1 and BTG1. Critically, <em>"SCA6 Purkinje cells exhibit thyroid hormone depletion-dependent degeneration, which can be suppressed by two compounds, thyroid releasing hormone and Riluzole"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/27806289/">PMID: 27806289</a>). This finding identifies potential therapeutic compounds and highlights the role of endocrine factors in Purkinje cell vulnerability.</p>
+<h3>Finding 5: Rehabilitation Slows ADCA Type III Progression</h3>
+<p>A 7-year longitudinal study of SCA6/SCA31 patients receiving annual 4-week intensive rehabilitation demonstrated that <em>"SARA scores were stable, indicating slower progression than the expected natural history, through year 6, with significant improvement observed post-intervention in year 2 (p = 0.04). Significant deterioration occurred at year 7 based on pre-intervention scores (p = 0.01)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40906249/">PMID: 40906249</a>). BESTest showed earlier decline from year 3 (p = 0.04), suggesting balance is an earlier marker of functional decline.</p>
+<h3>Finding 6: Pre-Motor Cognitive Deficits in SCA6</h3>
+<p>SCA6 mouse models revealed a critically important pre-motor phenotype: <em>"SCA6 mice demonstrate spatial navigation deficits which precede their motor deficiencies. This resulted in a concomitant Purkinje cell (PC) dysfunction, exhibited by a disruption in their PC spontaneous simple spike firing rates and regularity of firing"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40976063/">PMID: 40976063</a>). Rescue of PC firing and spatial navigation was achieved using Gq-DREADD chemogenetic stimulation, demonstrating a direct causal link and suggesting a pre-symptomatic therapeutic window.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<h3>Overview</h3>
+<p>ADCA Type III belongs to Harding's 1982 classification of autosomal dominant cerebellar ataxias (ADCAs), which divided these disorders into three types:</p>
+<ul>
+<li><strong>ADCA Type I</strong>: Cerebellar ataxia with additional neurological signs (oculomotor disturbance, pyramidal/extrapyramidal features, cognitive impairment, peripheral neuropathy)</li>
+<li><strong>ADCA Type II</strong>: Cerebellar ataxia with retinal degeneration (macular dystrophy)</li>
+<li><strong>ADCA Type III</strong>: "Pure" cerebellar ataxia, with neurological involvement largely confined to the cerebellum</li>
+</ul>
+<h3>Key Identifiers</h3>
+<table>
+<thead>
+<tr>
+<th>Database</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OMIM</td>
+<td>SCA6: #183086; SCA5: #600224; SCA11: #604432; SCA14: #605361; SCA31: #117210</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td>ORPHA:94148 (Autosomal dominant cerebellar ataxia type III)</td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td>G11.2 (Late-onset cerebellar ataxia)</td>
+</tr>
+<tr>
+<td>ICD-11</td>
+<td>8A03.11 (Hereditary ataxia, autosomal dominant)</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>D020754 (Spinocerebellar Ataxias)</td>
+</tr>
+<tr>
+<td>MONDO</td>
+<td>MONDO:0016560 (Autosomal dominant cerebellar ataxia type III)</td>
+</tr>
+</tbody>
+</table>
+<h3>Synonyms and Alternative Names</h3>
+<ul>
+<li>Autosomal Dominant Cerebellar Ataxia Type III (ADCA III)</li>
+<li>Harding ADCA Type III</li>
+<li>Pure cerebellar autosomal dominant ataxia</li>
+<li>Late-onset hereditary pure cerebellar ataxia</li>
+<li>Subtype-specific: Spinocerebellar ataxia type 5, 6, 11, 14, 31; 16q-linked ADCA</li>
+<li>SCA5 is also known as "Lincoln ataxia" after the largest family descended from relatives of President Abraham Lincoln (<a href="https://pubmed.ncbi.nlm.nih.gov/23236289/">PMID: 23236289</a>)</li>
+</ul>
+<h3>Information Sources</h3>
+<p>This report is derived from aggregated disease-level resources including OMIM, Orphanet, GeneReviews, HPO, and primary literature (69 publications reviewed).</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>Disease Causal Factors</h3>
+<p>ADCA Type III is exclusively genetic in origin, caused by germline mutations in specific genes. The primary causal mechanisms are:</p>
+<table>
+<thead>
+<tr>
+<th>Subtype</th>
+<th>Gene</th>
+<th>Chromosome</th>
+<th>Mutation Type</th>
+<th>Mechanism</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>SCA5</strong></td>
+<td><em>SPTBN2</em></td>
+<td>11q13.2</td>
+<td>Missense, in-frame deletions</td>
+<td>Loss of β-III spectrin function</td>
+</tr>
+<tr>
+<td><strong>SCA6</strong></td>
+<td><em>CACNA1A</em></td>
+<td>19p13.13</td>
+<td>CAG repeat expansion (19–33 repeats; normal 4–18)</td>
+<td>Polyglutamine toxicity + channelopathy</td>
+</tr>
+<tr>
+<td><strong>SCA11</strong></td>
+<td><em>TTBK2</em></td>
+<td>15q15.2</td>
+<td>Frameshift (truncating mutations)</td>
+<td>Loss of tau tubulin kinase 2 function</td>
+</tr>
+<tr>
+<td><strong>SCA14</strong></td>
+<td><em>PRKCG</em></td>
+<td>19q13.42</td>
+<td>Missense mutations</td>
+<td>PKCγ loss of function/stability</td>
+</tr>
+<tr>
+<td><strong>SCA31</strong></td>
+<td><em>BEAN1/TK2</em></td>
+<td>16q22.1</td>
+<td>Complex pentanucleotide repeat insertion</td>
+<td>RNA toxicity</td>
+</tr>
+</tbody>
+</table>
+<h3>Genetic Risk Factors</h3>
+<ul>
+<li><strong>Repeat length</strong>: In SCA6, the CAG repeat length inversely correlates with age of onset; homozygous expansions are associated with earlier onset and faster progression (<a href="https://pubmed.ncbi.nlm.nih.gov/40189664/">PMID: 40189664</a>).</li>
+<li><strong>Modifier genes</strong>: In SCA2 families, long normal CAG repeats in the <em>CACNA1A</em> gene were associated with earlier-than-expected disease onset (P &lt; 0.04 for alleles, P &lt; 0.023 for genotypes), explaining 5.8% of residual age-of-onset variance (<a href="https://pubmed.ncbi.nlm.nih.gov/16000334/">PMID: 16000334</a>).</li>
+<li><strong>Genetic anticipation</strong>: Modest in SCA6; repeat is relatively stable across generations.</li>
+<li><strong>Founder effects</strong>: SCA31 has a strong Japanese founder effect (<a href="https://pubmed.ncbi.nlm.nih.gov/36319738/">PMID: 36319738</a>).</li>
+</ul>
+<h3>Environmental Risk Factors</h3>
+<p>As a purely genetic (Mendelian) disorder, there are no established environmental causes. However, environmental factors may modulate severity:
+- Physical inactivity accelerates functional decline
+- Alcohol consumption may exacerbate cerebellar symptoms
+- Thyroid hormone status may influence Purkinje cell vulnerability in SCA6 (<a href="https://pubmed.ncbi.nlm.nih.gov/27806289/">PMID: 27806289</a>)</p>
+<h3>Protective Factors</h3>
+<ul>
+<li><strong>Physical activity</strong>: High-intensity aerobic exercise improved SARA scores (β = −1.53, 95% CI: −2.44 to −0.61, P = 0.001) compared to balance training alone in a randomized clinical trial (<a href="https://pubmed.ncbi.nlm.nih.gov/40946705/">PMID: 40946705</a>).</li>
+<li><strong>Intensive rehabilitation</strong>: Annual 4-week intensive rehabilitation maintained stable SARA scores through year 6 in SCA6/SCA31 patients (<a href="https://pubmed.ncbi.nlm.nih.gov/40906249/">PMID: 40906249</a>).</li>
+<li><strong>Shorter CAG repeats</strong>: Associated with later onset and milder disease in SCA6.</li>
+</ul>
+<h3>Gene-Environment Interactions</h3>
+<p>Thyroid hormone depletion-dependent degeneration of SCA6 Purkinje cells has been demonstrated in iPSC-derived models, suggesting that endocrine status may interact with the genetic defect to modulate disease severity (<a href="https://pubmed.ncbi.nlm.nih.gov/27806289/">PMID: 27806289</a>).</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>Core Phenotype: Progressive Cerebellar Ataxia</h3>
+<p>The hallmark of all ADCA Type III subtypes is progressive cerebellar ataxia with relative sparing of extracerebellar systems.</p>
+<table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>HPO Term</th>
+<th>Frequency</th>
+<th>Onset</th>
+<th>Progression</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gait ataxia</td>
+<td>HP:0002066</td>
+<td>~100%</td>
+<td>Adult (30s–60s)</td>
+<td>Slowly progressive</td>
+</tr>
+<tr>
+<td>Limb ataxia</td>
+<td>HP:0002070</td>
+<td>&gt;90%</td>
+<td>Adult</td>
+<td>Progressive</td>
+</tr>
+<tr>
+<td>Dysarthria (cerebellar)</td>
+<td>HP:0001310</td>
+<td>70–90%</td>
+<td>Adult</td>
+<td>Progressive</td>
+</tr>
+<tr>
+<td>Nystagmus (downbeat, gaze-evoked)</td>
+<td>HP:0000639</td>
+<td>60–80%</td>
+<td>Adult</td>
+<td>Progressive</td>
+</tr>
+<tr>
+<td>Truncal ataxia</td>
+<td>HP:0002078</td>
+<td>&gt;80%</td>
+<td>Adult</td>
+<td>Progressive</td>
+</tr>
+<tr>
+<td>Hypermetric saccades</td>
+<td>HP:0007338</td>
+<td>50–70%</td>
+<td>Adult</td>
+<td>Progressive</td>
+</tr>
+<tr>
+<td>Cerebellar atrophy on MRI</td>
+<td>HP:0001272</td>
+<td>~100%</td>
+<td>Late</td>
+<td>Progressive</td>
+</tr>
+<tr>
+<td>Dysdiadochokinesis</td>
+<td>HP:0002075</td>
+<td>&gt;60%</td>
+<td>Adult</td>
+<td>Progressive</td>
+</tr>
+<tr>
+<td>Dysmetria</td>
+<td>HP:0001310</td>
+<td>&gt;80%</td>
+<td>Adult</td>
+<td>Progressive</td>
+</tr>
+<tr>
+<td>Episodic ataxia</td>
+<td>HP:0002131</td>
+<td>Occasional (SCA6)</td>
+<td>Adult</td>
+<td>Variable</td>
+</tr>
+<tr>
+<td>Downbeat nystagmus</td>
+<td>HP:0011628</td>
+<td>Variable</td>
+<td>Adult</td>
+<td>Progressive</td>
+</tr>
+</tbody>
+</table>
+<h3>Subtype-Specific Phenotypic Features</h3>
+<p><strong>SCA6</strong>: The most common ADCA Type III subtype. Characteristically late-onset (mean ~50 years), very slowly progressive pure cerebellar syndrome. Some patients present with episodic ataxia before developing chronic progressive ataxia. Downbeat nystagmus is particularly characteristic. Vestibulo-ocular reflex abnormalities emerge with disease progression, initially affecting high-frequency angular VOR (<a href="https://pubmed.ncbi.nlm.nih.gov/40189664/">PMID: 40189664</a>). While classified as "pure cerebellar," non-cerebellar features including dystonia, parkinsonism, and muscle atrophy have been reported (<a href="https://pubmed.ncbi.nlm.nih.gov/40846501/">PMID: 40846501</a>).</p>
+<p><strong>SCA31</strong>: Late-onset (mean ~60 years), pure cerebellar ataxia predominantly in Japanese populations. Gaze-evoked nystagmus is less frequent than in SCA6 (<a href="https://pubmed.ncbi.nlm.nih.gov/18855094/">PMID: 18855094</a>).</p>
+<p><strong>SCA5</strong>: Late-onset, slowly progressive pure cerebellar ataxia. Clinical features include limb and gait ataxia, trunk ataxia, dysarthria, and abnormal eye movements (<a href="https://pubmed.ncbi.nlm.nih.gov/25142508/">PMID: 25142508</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/33797620/">PMID: 33797620</a>).</p>
+<p><strong>SCA14</strong>: Usually slowly progressive pure cerebellar ataxia, but more than one-third of patients present with a complex phenotype including dystonia, myoclonus, peripheral neuropathy, parkinsonism, or mild cognitive impairment. Age of onset is highly variable (<a href="https://pubmed.ncbi.nlm.nih.gov/29603387/">PMID: 29603387</a>). Mutations in the catalytic domain (exon 11) are associated with the most complex phenotypes (<a href="https://pubmed.ncbi.nlm.nih.gov/15313841/">PMID: 15313841</a>).</p>
+<p><strong>SCA11</strong>: Slowly progressive, almost pure cerebellar ataxia with normal life expectancy. <em>"SCA11 presented as ADCA III according to Harding's classification and is a rare cause of spinocerebellar ataxia in Caucasians accounting for less than 1% of dominant ataxias in central Europe"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/20667868/">PMID: 20667868</a>).</p>
+<h3>Pre-Motor Cognitive Phenotype</h3>
+<p>Recent evidence from SCA6 mouse models demonstrates spatial navigation deficits that precede motor symptoms, linked to disrupted Purkinje cell simple spike firing (<a href="https://pubmed.ncbi.nlm.nih.gov/40976063/">PMID: 40976063</a>). This has important implications for early detection and suggests cerebellar cognitive contributions are affected before overt motor disease.</p>
+<h3>Quality of Life Impact</h3>
+<p>Spinocerebellar ataxias impose an "overall high burden" on patients and families. A large Chinese study found that diseases like SCA were prevalent in the "overall high burden" group, with key predictors including older age, lower socioeconomic status, diagnostic delay, and comorbidity (<a href="https://pubmed.ncbi.nlm.nih.gov/39190906/">PMID: 39190906</a>).</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<h3>SCA6 — <em>CACNA1A</em> (OMIM: <em>601011; HGNC:1388</em>)</h3>
+<p><strong>Pathogenic variants</strong>: CAG trinucleotide repeat expansion in exon 47. Normal alleles contain 4–18 repeats; pathogenic alleles contain 19–33 repeats—the smallest pathogenic expansion among all polyglutamine diseases.</p>
+<p><strong>Bicistronic gene products</strong>: <em>CACNA1A</em> encodes two structurally unrelated proteins via an overlapping ORF with an internal ribosomal entry site (IRES): the α1A calcium channel subunit and α1ACT transcription factor (<a href="https://pubmed.ncbi.nlm.nih.gov/29427102/">PMID: 29427102</a>).</p>
+<p><strong>Functional consequences</strong>: The expanded polyglutamine tract shifts voltage dependence of channel activation and rate of inactivation when co-expressed with β4 subunits, and impairs normal G-protein regulation (<a href="https://pubmed.ncbi.nlm.nih.gov/10964945/">PMID: 10964945</a>).</p>
+<p><strong>Allelic disorders</strong>: <em>CACNA1A</em> mutations also cause episodic ataxia type 2 (EA2, truncating mutations) and familial hemiplegic migraine type 1 (FHM1, missense mutations) (<a href="https://pubmed.ncbi.nlm.nih.gov/9566402/">PMID: 9566402</a>).</p>
+<h3>SCA31 — <em>BEAN1/TK2</em> locus (Chromosome 16q22.1)</h3>
+<p><strong>Pathogenic variant</strong>: A 2.5–3.8 kb complex pentanucleotide repeat insertion containing (TGGAA)n, (TAGAA)n, (TAAAA)n, and (TAAAATAGAA)n in a shared intron (<a href="https://pubmed.ncbi.nlm.nih.gov/34113230/">PMID: 34113230</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/31755042/">PMID: 31755042</a>).</p>
+<h3>SCA5 — <em>SPTBN2</em> (OMIM: <em>604985; HGNC:11276</em>)</h3>
+<p><strong>Pathogenic variants</strong>: Missense mutations and small in-frame deletions in spectrin repeat domains (e.g., p.E870del, p.T472M). Heterozygous mutations cause dominant SCA5; homozygous loss-of-function causes recessive SPARCA1 with cognitive impairment (<a href="https://pubmed.ncbi.nlm.nih.gov/23236289/">PMID: 23236289</a>).</p>
+<h3>SCA14 — <em>PRKCG</em> (OMIM: <em>176980; HGNC:9402</em>)</h3>
+<p><strong>Pathogenic variants</strong>: Missense mutations predominantly in exon 4 (regulatory C1 domain) and catalytic domain (exons 11, 18). The H101Q mutation affects PKCγ stability/solubility (<a href="https://pubmed.ncbi.nlm.nih.gov/16189624/">PMID: 16189624</a>). The F643L mutation extends the phenotype to include cognitive impairment (<a href="https://pubmed.ncbi.nlm.nih.gov/15313841/">PMID: 15313841</a>).</p>
+<h3>SCA11 — <em>TTBK2</em> (OMIM: <em>611695; HGNC:19141</em>)</h3>
+<p><strong>Pathogenic variants</strong>: Truncating mutations including the recurrent c.1306_1307delGA (p.D435fs448X) frameshift in exon 12 (<a href="https://pubmed.ncbi.nlm.nih.gov/20667868/">PMID: 20667868</a>).</p>
+<h3>Modifier Genes</h3>
+<p>The <em>CACNA1A</em> CAG repeat length has been identified as a modifier of SCA2 age of onset, explaining 5.8% of residual variance (<a href="https://pubmed.ncbi.nlm.nih.gov/16000334/">PMID: 16000334</a>). Specific epigenetic modifications for ADCA Type III are not well-characterized.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>As a group of Mendelian genetic disorders, ADCA Type III subtypes are not caused by environmental factors. However:
+- <strong>Thyroid hormone status</strong> may influence Purkinje cell vulnerability in SCA6 (<a href="https://pubmed.ncbi.nlm.nih.gov/27806289/">PMID: 27806289</a>)
+- <strong>Physical inactivity</strong> accelerates functional decline
+- <strong>Alcohol</strong> may exacerbate cerebellar symptoms
+- <strong>No infectious agents</strong> are involved</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>SCA6: Dual Pathogenic Mechanism — Channelopathy and Polyglutamine Toxicity</h3>
+<p><strong>Pathway 1 — Calcium Channel Dysfunction (Channelopathy):</strong>
+The expanded polyglutamine tract in the α1A calcium channel subunit alters P/Q-type channel gating. The expansion <em>"shifts the voltage dependence of channel activation and rate of inactivation only when expressed with β4 subunits and impairs normal G-protein regulation of P/Q channels"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/10964945/">PMID: 10964945</a>). The β4-subunit specificity explains the selective Purkinje cell vulnerability, as β4 is the predominant auxiliary subunit in these cells.</p>
+<p><strong>Pathway 2 — Polyglutamine Protein Aggregation:</strong>
+The expanded polyglutamine protein forms non-ubiquitinated cytoplasmic aggregates exclusively in Purkinje cells, contrasting with the nuclear inclusions of other polyglutamine diseases (<a href="https://pubmed.ncbi.nlm.nih.gov/10369863/">PMID: 10369863</a>). Evidence indicates age-dependent accumulation of the expanded polyglutamine protein mediates neurotoxicity (<a href="https://pubmed.ncbi.nlm.nih.gov/21921472/">PMID: 21921472</a>).</p>
+<p><strong>Pathway 3 — Transcriptional Dysregulation via α1ACT:</strong>
+The polyglutamine expansion in the α1ACT transcription factor disrupts its transcriptional targets including TAF1 and BTG1 (<a href="https://pubmed.ncbi.nlm.nih.gov/27806289/">PMID: 27806289</a>).</p>
+<p><strong>Causal Chain:</strong></p>
+<pre><code>CAG expansion in CACNA1A
+    ├─→ Altered α1A channel gating (β4-dependent) → Excessive Ca²⁺ entry → Excitotoxicity
+    ├─→ Polyglutamine aggregation in cytoplasm → Proteotoxic stress → Purkinje cell death
+    └─→ Dysfunctional α1ACT → Transcriptional dysregulation (TAF1, BTG1) → Impaired PC maintenance
+         ↓
+    Selective Purkinje cell degeneration → Cerebellar atrophy → Progressive ataxia
+</code></pre>
+<h3>SCA31: RNA Toxicity Mechanism</h3>
+<p>The pentanucleotide repeat is transcribed into RNA containing (UGGAA)n repeats that form nuclear RNA foci in Purkinje cells, sequestering RNA-binding proteins and disrupting cellular function (<a href="https://pubmed.ncbi.nlm.nih.gov/23607545/">PMID: 23607545</a>).</p>
+<pre><code>Pentanucleotide repeat insertion in BEAN1/TK2 intron
+    → Transcription of (UGGAA)n repeat RNA
+    → Formation of nuclear RNA foci in Purkinje cells
+    → Sequestration of RNA-binding proteins → Cellular dysfunction
+    → Purkinje cell degeneration → Cerebellar atrophy → Ataxia
+</code></pre>
+<h3>SCA5: β-III Spectrin Dysfunction</h3>
+<p>β-III spectrin stabilizes membrane proteins (EAAT4, glutamate receptors) at the Purkinje cell dendritic membrane. Dominant mutations likely act through a dominant-negative mechanism (<a href="https://pubmed.ncbi.nlm.nih.gov/23236289/">PMID: 23236289</a>).</p>
+<h3>SCA14: PKCγ Loss of Function</h3>
+<p>Mutations cause loss of PKCγ protein stability or solubility, resulting in decreased PKCγ-dependent phosphorylation in cerebellar neurons (<a href="https://pubmed.ncbi.nlm.nih.gov/16189624/">PMID: 16189624</a>).</p>
+<h3>SCA11: TTBK2 Haploinsufficiency</h3>
+<p>Truncating mutations likely cause disease through haploinsufficiency, disrupting ciliogenesis and microtubule dynamics in Purkinje cells (<a href="https://pubmed.ncbi.nlm.nih.gov/20667868/">PMID: 20667868</a>).</p>
+<h3>Purkinje Cell Electrophysiology</h3>
+<p>SCA6 mouse models reveal disrupted PC spontaneous simple spike firing rates and regularity, with elevated axonal swellings, preceding motor symptoms. Chemogenetic rescue of PC firing restores both electrophysiology and spatial navigation (<a href="https://pubmed.ncbi.nlm.nih.gov/40976063/">PMID: 40976063</a>).</p>
+<p><strong>Relevant GO terms</strong>: GO:0006816 (calcium ion transport), GO:0070588 (calcium ion transmembrane transport), GO:0006915 (apoptotic process), GO:0051260 (protein homooligomerization), GO:0006397 (mRNA processing), GO:0004697 (protein kinase C activity)</p>
+<p><strong>Relevant cell types</strong>: CL:0000121 (Purkinje cell), CL:0000127 (astrocyte), CL:0001033 (granule cell)</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<h3>Organ Level</h3>
+<table>
+<thead>
+<tr>
+<th>Structure</th>
+<th>Involvement</th>
+<th>UBERON Term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Cerebellum</strong></td>
+<td>Primary — diffuse atrophy, especially vermis</td>
+<td>UBERON:0002037</td>
+</tr>
+<tr>
+<td><strong>Cerebellar vermis</strong></td>
+<td>Predominant atrophy in SCA6</td>
+<td>UBERON:0004720</td>
+</tr>
+<tr>
+<td><strong>Brainstem</strong></td>
+<td>Secondary, mild (late-stage SCA6 homozygotes)</td>
+<td>UBERON:0002298</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Body system</strong>: Nervous system (UBERON:0001016)</p>
+<h3>Tissue and Cell Level</h3>
+<table>
+<thead>
+<tr>
+<th>Cell Type</th>
+<th>Involvement</th>
+<th>CL Term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Purkinje cells</strong></td>
+<td>Primary target — selective degeneration</td>
+<td>CL:0000121</td>
+</tr>
+<tr>
+<td><strong>Granule cells</strong></td>
+<td>Secondary involvement</td>
+<td>CL:0001033</td>
+</tr>
+<tr>
+<td><strong>Bergmann glia</strong></td>
+<td>Reactive gliosis</td>
+<td>CL:0000644</td>
+</tr>
+</tbody>
+</table>
+<h3>Subcellular Level</h3>
+<table>
+<thead>
+<tr>
+<th>Compartment</th>
+<th>Relevance</th>
+<th>GO CC Term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cytoplasm</td>
+<td>Polyglutamine aggregates (SCA6)</td>
+<td>GO:0005737</td>
+</tr>
+<tr>
+<td>Nucleus</td>
+<td>RNA foci (SCA31)</td>
+<td>GO:0005634</td>
+</tr>
+<tr>
+<td>Plasma membrane</td>
+<td>Channel dysfunction (SCA6), spectrin disruption (SCA5)</td>
+<td>GO:0005886</td>
+</tr>
+<tr>
+<td>Dendrites</td>
+<td>β-III spectrin dysfunction (SCA5)</td>
+<td>GO:0030425</td>
+</tr>
+<tr>
+<td>Axon</td>
+<td>Axonal swellings (SCA6)</td>
+<td>GO:0030424</td>
+</tr>
+</tbody>
+</table>
+<h3>Localization</h3>
+<p>Cerebellar involvement is <strong>bilateral and symmetric</strong>, with predominant vermian atrophy in SCA6. Brain MRI typically shows <em>"diffuse and prominent, pure cerebellar atrophy"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40189664/">PMID: 40189664</a>).</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<h3>Onset</h3>
+<table>
+<thead>
+<tr>
+<th>Subtype</th>
+<th>Typical Age of Onset</th>
+<th>Range</th>
+<th>Onset Pattern</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SCA5</td>
+<td>30s–40s</td>
+<td>10–68 years</td>
+<td>Insidious</td>
+</tr>
+<tr>
+<td>SCA6</td>
+<td>40s–50s (mean ~50)</td>
+<td>19–73 years</td>
+<td>Insidious; sometimes episodic initially</td>
+</tr>
+<tr>
+<td>SCA11</td>
+<td>30s–40s</td>
+<td>15–70 years</td>
+<td>Insidious</td>
+</tr>
+<tr>
+<td>SCA14</td>
+<td>Variable (mean ~30s)</td>
+<td>Childhood–60s</td>
+<td>Insidious</td>
+</tr>
+<tr>
+<td>SCA31</td>
+<td>50s–60s (mean ~60)</td>
+<td>40s–80s</td>
+<td>Insidious</td>
+</tr>
+</tbody>
+</table>
+<p>16q-ADCA onset was significantly later than SCA6: <em>"The age at onset was much higher in 16q-ADCA patients (60.1 ± 9.8 years) than in SCA6 patients (41.1 ± 8.7 years)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/18855094/">PMID: 18855094</a>).</p>
+<h3>Progression</h3>
+<p>All ADCA Type III subtypes follow a <strong>chronic, slowly progressive</strong> course:
+- SARA score progression: ~0.5–1.0 points/year (among the slowest of all SCAs)
+- Time from onset to wheelchair dependence: typically 15–25+ years
+- Disease duration: Chronic lifelong; 20–30+ years
+- SCA6 homozygotes show earlier onset and faster progression (<a href="https://pubmed.ncbi.nlm.nih.gov/40189664/">PMID: 40189664</a>)</p>
+<h3>Critical Periods</h3>
+<p>Pre-motor cognitive deficits (spatial navigation) precede motor symptoms in SCA6 mouse models (<a href="https://pubmed.ncbi.nlm.nih.gov/40976063/">PMID: 40976063</a>), suggesting a potential therapeutic window.</p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>Epidemiology</h3>
+<ul>
+<li><strong>Overall AD SCA prevalence</strong>: ~1–5 per 100,000 worldwide</li>
+<li>Canada: estimated weighted prevalence 2.25/100,000 (<a href="https://pubmed.ncbi.nlm.nih.gov/36949783/">PMID: 36949783</a>)</li>
+<li>
+<p>Brazil (Alagoas): ~2.17/100,000 (<a href="https://pubmed.ncbi.nlm.nih.gov/37454040/">PMID: 37454040</a>)</p>
+</li>
+<li>
+<p><strong>SCA6</strong>: 10–30% of ADCA in Japan; ~5–15% in European populations; third most prevalent SCA subtype in Quebec at 14% (<a href="https://pubmed.ncbi.nlm.nih.gov/36949783/">PMID: 36949783</a>)</p>
+</li>
+<li><strong>SCA31</strong>: One of the most common forms in Japan; essentially absent outside Japan (<a href="https://pubmed.ncbi.nlm.nih.gov/36319738/">PMID: 36319738</a>)</li>
+<li><strong>SCA5, SCA14, SCA11</strong>: Very rare, each &lt;1–2% of ADCA families</li>
+</ul>
+<h3>Inheritance Pattern</h3>
+<ul>
+<li><strong>Mode</strong>: Autosomal dominant</li>
+<li><strong>Penetrance</strong>: High but age-dependent; most complete by age 70</li>
+<li><strong>Expressivity</strong>: Variable, particularly for SCA14</li>
+<li><strong>Genetic anticipation</strong>: Minimal in SCA6 (relatively stable repeat)</li>
+<li><strong>Founder effects</strong>: SCA31 (Japan); SCA5 ("Lincoln family," USA)</li>
+<li><strong>Sex ratio</strong>: Approximately 1:1</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>Clinical Tests</h3>
+<ul>
+<li><strong>SARA</strong> (Scale for Assessment and Rating of Ataxia): Primary clinical measure (range 0–40)</li>
+<li><strong>Brain MRI</strong>: Diffuse cerebellar atrophy, predominantly vermian, without significant brainstem involvement (<a href="https://pubmed.ncbi.nlm.nih.gov/40189664/">PMID: 40189664</a>)</li>
+<li><strong>Video Head Impulse Test</strong>: VOR gain assessment; high-frequency angular VOR impairment in SCA6</li>
+<li><strong>Nerve conduction studies</strong>: Generally normal (pure cerebellar disease)</li>
+</ul>
+<h3>Genetic Testing — Recommended Stepwise Approach</h3>
+<p><strong>Step 1</strong>: Repeat expansion testing for common SCAs (SCA1, 2, 3, 6, 7, 8, 12, 17, DRPLA, SCA31, RFC1, FGF14-SCA27B). Diagnostic yield: ~30% (<a href="https://pubmed.ncbi.nlm.nih.gov/39812846/">PMID: 39812846</a>).</p>
+<p><strong>Step 2</strong>: NGS panels or clinical exome sequencing for SCA5 (<em>SPTBN2</em>), SCA14 (<em>PRKCG</em>), SCA11 (<em>TTBK2</em>), and other rare SCAs. Panel diagnostic yield: ~31–46% (<a href="https://pubmed.ncbi.nlm.nih.gov/40470849/">PMID: 40470849</a>).</p>
+<p><strong>Step 3</strong>: Whole exome or genome sequencing for unresolved cases. Yield: ~20% (<a href="https://pubmed.ncbi.nlm.nih.gov/39812846/">PMID: 39812846</a>).</p>
+<p><em>CACNA1A</em> is among the most commonly identified genes in diagnostic ataxia studies (<a href="https://pubmed.ncbi.nlm.nih.gov/37950147/">PMID: 37950147</a>).</p>
+<h3>Important Diagnostic Caveat</h3>
+<p>GAA-FGF14 expansions (SCA27B) should be tested in patients with late-onset ataxia attributed to <em>CACNA1A</em> variants of uncertain significance: pathogenic FGF14 expansions were found in 9% (6/67) of such patients, leading to diagnostic reclassification (<a href="https://pubmed.ncbi.nlm.nih.gov/40879304/">PMID: 40879304</a>).</p>
+<h3>Differential Diagnosis</h3>
+<table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Distinguishing Features</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SCA27B (FGF14)</td>
+<td>Episodic features, late onset, GAA repeat</td>
+</tr>
+<tr>
+<td>MSA-C</td>
+<td>Autonomic failure, sporadic, rapid progression</td>
+</tr>
+<tr>
+<td>CANVAS (RFC1)</td>
+<td>Sensory neuropathy, vestibular areflexia</td>
+</tr>
+<tr>
+<td>ADCA Type I subtypes</td>
+<td>Extracerebellar features</td>
+</tr>
+<tr>
+<td>FXTAS</td>
+<td>FMR1 premutation, tremor-predominant</td>
+</tr>
+<tr>
+<td>Acquired ataxia</td>
+<td>Alcohol, paraneoplastic, immune-mediated</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>11. Outcome/Prognosis</h2>
+<h3>Survival and Mortality</h3>
+<p>ADCA Type III subtypes generally have <strong>near-normal life expectancy</strong>. SCA11 specifically has <em>"normal life expectancy"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/20667868/">PMID: 20667868</a>). Death usually results from complications of immobility (aspiration pneumonia, falls) rather than direct neurodegeneration.</p>
+<h3>Morbidity</h3>
+<ul>
+<li>Progressive wheelchair dependence: typically 15–25 years after onset</li>
+<li>Dysarthria progressively impairs communication</li>
+<li>Dysphagia with aspiration risk in advanced stages</li>
+<li>Falls-related injuries are a major morbidity source</li>
+</ul>
+<h3>Prognostic Factors</h3>
+<ul>
+<li><strong>CAG repeat length</strong> (SCA6): Inversely correlates with age of onset</li>
+<li><strong>Homozygosity</strong> (SCA6): Earlier onset and faster progression (<a href="https://pubmed.ncbi.nlm.nih.gov/40189664/">PMID: 40189664</a>)</li>
+<li><strong>Physical activity/rehabilitation</strong>: Slower functional decline (<a href="https://pubmed.ncbi.nlm.nih.gov/40906249/">PMID: 40906249</a>)</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<h3>Pharmacotherapy (Symptomatic)</h3>
+<p>No FDA-approved disease-modifying therapy exists.</p>
+<table>
+<thead>
+<tr>
+<th>Drug</th>
+<th>Target</th>
+<th>Evidence</th>
+<th>MAXO Term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Acetazolamide</strong></td>
+<td>Carbonic anhydrase</td>
+<td>Partially effective for episodic ataxia attacks</td>
+<td>MAXO:0001001</td>
+</tr>
+<tr>
+<td><strong>Levetiracetam</strong></td>
+<td>SV2A modulator</td>
+<td>Reduced ataxic attack frequency; stable 7-year effect (<a href="https://pubmed.ncbi.nlm.nih.gov/40149486/">PMID: 40149486</a>)</td>
+<td>MAXO:0001001</td>
+</tr>
+<tr>
+<td><strong>Riluzole</strong></td>
+<td>Glutamate modulator</td>
+<td>Suppresses SCA6 iPSC Purkinje cell degeneration (<a href="https://pubmed.ncbi.nlm.nih.gov/27806289/">PMID: 27806289</a>)</td>
+<td>MAXO:0001001</td>
+</tr>
+<tr>
+<td><strong>TRH</strong></td>
+<td>Neuromodulator</td>
+<td>Suppresses thyroid hormone depletion-dependent PC degeneration (<a href="https://pubmed.ncbi.nlm.nih.gov/27806289/">PMID: 27806289</a>)</td>
+<td>MAXO:0001001</td>
+</tr>
+<tr>
+<td><strong>4-Aminopyridine</strong></td>
+<td>K⁺ channel blocker</td>
+<td>Used for downbeat nystagmus and episodic ataxia</td>
+<td>MAXO:0001001</td>
+</tr>
+</tbody>
+</table>
+<h3>Advanced Therapeutics (Preclinical)</h3>
+<ul>
+<li><strong>ASOs</strong>: Encouraging proofs of concept in models of SCA1, SCA2, SCA3, and SCA7; SCA6 also targeted (<a href="https://pubmed.ncbi.nlm.nih.gov/34628681/">PMID: 34628681</a>). MAXO:0010014</li>
+<li><strong>RNAi</strong>: Promising findings in cellular and animal models of SCA1, SCA3, SCA6, and SCA7 (<a href="https://pubmed.ncbi.nlm.nih.gov/34628681/">PMID: 34628681</a>)</li>
+<li><strong>Exon skipping</strong>: Novel approach removing CAG-containing exon, demonstrated for SCA3 (<a href="https://pubmed.ncbi.nlm.nih.gov/23659897/">PMID: 23659897</a>)</li>
+<li><strong>CRISPR/Cas9</strong>: Limited application to date (<a href="https://pubmed.ncbi.nlm.nih.gov/34628681/">PMID: 34628681</a>). MAXO:0001017</li>
+</ul>
+<h3>Rehabilitation (Most Evidence-Based Intervention)</h3>
+<ul>
+<li><strong>Annual intensive rehabilitation</strong> (4-week programs): Stable SARA scores through year 6 with significant post-intervention improvement at year 2 (p = 0.04) (<a href="https://pubmed.ncbi.nlm.nih.gov/40906249/">PMID: 40906249</a>). MAXO:0000011</li>
+<li><strong>High-intensity aerobic training</strong>: Superior to balance training (SARA β = −1.53, P = 0.001; VO2max β = 4.26, P &lt; 0.001). Benefits maintained at 1 year with continued training (<a href="https://pubmed.ncbi.nlm.nih.gov/40946705/">PMID: 40946705</a>). MAXO:0001298</li>
+<li><strong>Cerebellar tDCS</strong>: Combined with gait training, improved specific SARA subscores (<a href="https://pubmed.ncbi.nlm.nih.gov/39367955/">PMID: 39367955</a>). MAXO:0000943</li>
+<li><strong>Telehealth PA coaching</strong>: Feasible with medium-large effect sizes (<a href="https://pubmed.ncbi.nlm.nih.gov/41171420/">PMID: 41171420</a>). MAXO:0000535</li>
+<li><strong>Physiotherapy meta-analysis</strong>: Overall MD = −1.41 for SARA; balance training MD = −1.58; aerobic training MD = −1.65 (<a href="https://pubmed.ncbi.nlm.nih.gov/39866519/">PMID: 39866519</a>)</li>
+<li><strong>Speech therapy</strong> (MAXO:0000930), <strong>Occupational therapy</strong> (MAXO:0000015), <strong>Assistive devices</strong> (MAXO:0000478)</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<h3>Primary Prevention</h3>
+<ul>
+<li><strong>Genetic counseling</strong> (MAXO:0000079): Essential; each child of an affected individual has 50% risk</li>
+<li><strong>Preimplantation genetic diagnosis (PGD)</strong>: Available for known mutations</li>
+<li><strong>Prenatal testing</strong>: Available with appropriate counseling</li>
+</ul>
+<h3>Secondary Prevention</h3>
+<ul>
+<li><strong>Cascade genetic testing</strong>: Recommended for at-risk family members</li>
+<li><strong>Pre-symptomatic monitoring</strong>: Neurological surveillance of mutation carriers</li>
+<li><strong>Early rehabilitation initiation</strong>: May delay functional decline</li>
+</ul>
+<h3>Tertiary Prevention</h3>
+<ul>
+<li><strong>Fall prevention programs</strong>: Balance training, home modifications</li>
+<li><strong>Aspiration prevention</strong>: Swallowing assessments, dietary modifications</li>
+<li><strong>Regular rehabilitation</strong>: Annual intensive programs recommended</li>
+<li><strong>Psychosocial support</strong>: For depression and social isolation</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<h3>Orthologous Genes</h3>
+<table>
+<thead>
+<tr>
+<th>Human Gene</th>
+<th>Mouse Ortholog</th>
+<th>NCBI Gene ID (Mouse)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>CACNA1A</em></td>
+<td><em>Cacna1a</em></td>
+<td>12286</td>
+</tr>
+<tr>
+<td><em>SPTBN2</em></td>
+<td><em>Sptbn2</em></td>
+<td>20742</td>
+</tr>
+<tr>
+<td><em>PRKCG</em></td>
+<td><em>Prkcg</em></td>
+<td>18752</td>
+</tr>
+<tr>
+<td><em>TTBK2</em></td>
+<td><em>Ttbk2</em></td>
+<td>140720</td>
+</tr>
+</tbody>
+</table>
+<h3>Comparative Biology</h3>
+<p>Naturally occurring <em>Cacna1a</em> mutations in mice (tottering, leaner) cause episodic motor dysfunction analogous to EA2 rather than SCA6. The disease mechanisms are highly conserved across mammals. No naturally occurring ADCA Type III equivalents have been well-characterized in domestic animals, though hereditary cerebellar ataxias occur in dogs, horses, and cats involving different genes. The <em>CACNA1A</em> gene is essential for Purkinje cell function across all mammals studied.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<h3>SCA6 Mouse Models</h3>
+<p><strong>Knockin models</strong>: Express expanded polyglutamine in <em>Cacna1a</em>, developing progressive ataxia, Purkinje cell dysfunction, and spatial navigation deficits preceding motor symptoms. <em>"SCA6 mice demonstrate spatial navigation deficits which precede their motor deficiencies"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40976063/">PMID: 40976063</a>). Gq-DREADD chemogenetic stimulation rescues PC firing and spatial navigation, proving direct causality. Evidence indicates the SCA6 mutation <em>"exerts neurotoxicity through a mechanism associated with age-dependent accumulation of the expanded polyglutamine protein"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/21921472/">PMID: 21921472</a>).</p>
+<h3>SCA5 Mouse Models</h3>
+<p>β-III spectrin knockout mice develop progressive PC degeneration, prefrontal cortex neuronal abnormalities, and object recognition deficits, demonstrating that <em>"β-III spectrin plays an important role in cortical brain development and cognition"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/23236289/">PMID: 23236289</a>).</p>
+<h3>SCA31 Drosophila Models</h3>
+<p><em>Drosophila</em> models expressing (UGGAA)n repeats have been used to study RNA toxicity mechanisms (<a href="https://pubmed.ncbi.nlm.nih.gov/34113230/">PMID: 34113230</a>).</p>
+<h3>iPSC-Derived Models</h3>
+<p>Patient-derived iPSC Purkinje cells for SCA6 show increased full-length Cav2.1 protein, decreased C-terminal fragment, downregulation of TAF1 and BTG1, and thyroid hormone depletion-dependent degeneration rescued by TRH and riluzole (<a href="https://pubmed.ncbi.nlm.nih.gov/27806289/">PMID: 27806289</a>).</p>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Phenotype Recapitulation</th>
+<th>Limitations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SCA6 knockin mouse</td>
+<td>Progressive ataxia, PC dysfunction, pre-motor cognitive deficits</td>
+<td>Requires longer repeats than human pathogenic range</td>
+</tr>
+<tr>
+<td>SCA5 knockout mouse</td>
+<td>Ataxia, PC degeneration, cognitive deficits</td>
+<td>Knockout vs. human missense mutations</td>
+</tr>
+<tr>
+<td>SCA6 iPSC Purkinje cells</td>
+<td>Protein aggregation, transcriptional changes, cell death</td>
+<td>Lacks circuit-level interactions</td>
+</tr>
+<tr>
+<td><em>Drosophila</em> SCA31</td>
+<td>RNA foci, neurodegeneration</td>
+<td>Invertebrate; limited cerebellar relevance</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>The five known ADCA Type III subtypes share a common downstream pathology—selective Purkinje cell degeneration in the cerebellum—but arrive there through fundamentally different molecular mechanisms:</p>
+<pre><code>┌─────────────────────────────────────────────────────────────┐
+│                  ADCA TYPE III: MECHANISTIC MAP              │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  UPSTREAM TRIGGERS (Gene-Specific)                          │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐                  │
+│  │ SCA6     │  │ SCA31    │  │ SCA5/14  │                  │
+│  │ CAG exp. │  │ Penta-   │  │ /11      │                  │
+│  │ CACNA1A  │  │ nucleotide│  │ Point    │                  │
+│  │          │  │ BEAN1/TK2│  │ mutations│                  │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘                  │
+│       │              │              │                        │
+│  MOLECULAR PATHOLOGY                                        │
+│  ┌────▼─────┐  ┌────▼─────┐  ┌────▼─────┐                  │
+│  │ PolyQ    │  │ RNA foci │  │ Protein  │                  │
+│  │ aggreg.  │  │ (UGGAA)n │  │ loss of  │                  │
+│  │ + Ca²⁺   │  │ in PC    │  │ function │                  │
+│  │ channel  │  │ nuclei   │  │ (spectrin│                  │
+│  │ dysfunc. │  │          │  │ /PKCγ/   │                  │
+│  │ + α1ACT  │  │          │  │ TTBK2)   │                  │
+│  │ dysreg.  │  │          │  │          │                  │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘                  │
+│       │              │              │                        │
+│  COMMON DOWNSTREAM PATHWAY                                  │
+│       └──────────────┼──────────────┘                       │
+│                      ▼                                      │
+│         ┌─────────────────────┐                             │
+│         │  PURKINJE CELL      │                             │
+│         │  DYSFUNCTION        │                             │
+│         │  (firing irregul.,  │                             │
+│         │   axonal swellings) │                             │
+│         └─────────┬───────────┘                             │
+│                   ▼                                         │
+│         ┌─────────────────────┐                             │
+│         │  PURKINJE CELL      │                             │
+│         │  DEGENERATION       │                             │
+│         └─────────┬───────────┘                             │
+│                   ▼                                         │
+│         ┌─────────────────────┐                             │
+│         │  CEREBELLAR ATROPHY │                             │
+│         │  (vermis &gt; hemisph.)│                             │
+│         └─────────┬───────────┘                             │
+│                   ▼                                         │
+│         ┌─────────────────────┐                             │
+│         │  PROGRESSIVE PURE   │                             │
+│         │  CEREBELLAR ATAXIA  │                             │
+│         └─────────────────────┘                             │
+└─────────────────────────────────────────────────────────────┘
+</code></pre>
+<p>This convergent pathology explains why all subtypes share the clinical phenotype of pure cerebellar ataxia despite divergent molecular etiologies. The key insight from recent research is that <strong>Purkinje cell dysfunction precedes cell death</strong>, creating a potential therapeutic window, particularly as demonstrated by the pre-motor cognitive deficits in SCA6 models and the successful chemogenetic rescue of both electrophysiology and behavior.</p>
+<hr />
+<h2>Evidence Base</h2>
+<table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Key Contribution</th>
+<th>Evidence Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18418680/">18418680</a></td>
+<td>Defines ADCA Type III; SCA11 genetics</td>
+<td>Human clinical/genetic</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18855094/">18855094</a></td>
+<td>Compares SCA6 vs 16q-ADCA (SCA31) severity</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29427102/">29427102</a></td>
+<td>CACNA1A bicistronic nature; SCA6 molecular mechanisms</td>
+<td>Review/molecular</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10369863/">10369863</a></td>
+<td>Cytoplasmic aggregation pathology in SCA6</td>
+<td>Human neuropathology</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10964945/">10964945</a></td>
+<td>β4-subunit-specific channel dysfunction in SCA6</td>
+<td>In vitro electrophysiology</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36319738/">36319738</a></td>
+<td>SCA31 founder effect and clinical features</td>
+<td>Review/population genetics</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23607545/">23607545</a></td>
+<td>RNA foci pathogenesis in SCA31</td>
+<td>Human neuropathology</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27806289/">27806289</a></td>
+<td>iPSC Purkinje cells; TRH/riluzole rescue</td>
+<td>In vitro/iPSC model</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40906249/">40906249</a></td>
+<td>7-year rehabilitation longitudinal study</td>
+<td>Human clinical trial</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40976063/">40976063</a></td>
+<td>Pre-motor cognitive deficits in SCA6 mice</td>
+<td>Mouse model</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34628681/">34628681</a></td>
+<td>Gene therapy approaches for polyQ SCAs</td>
+<td>Review/preclinical</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40946705/">40946705</a></td>
+<td>Aerobic training RCT for cerebellar ataxia</td>
+<td>Human RCT</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20667868/">20667868</a></td>
+<td>SCA11 clinical/genetic characterization</td>
+<td>Human clinical/genetic</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29603387/">29603387</a></td>
+<td>SCA14 genotype-phenotype correlations</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25142508/">25142508</a></td>
+<td>Novel SCA5 mutation in Japanese family</td>
+<td>Human genetic</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16189624/">16189624</a></td>
+<td>PKCγ H101Q mutation; functional consequences</td>
+<td>In vitro functional</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15313841/">15313841</a></td>
+<td>SCA14 catalytic domain mutation; cognitive impairment</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23236289/">23236289</a></td>
+<td>β-III spectrin in cognition; SPARCA1</td>
+<td>Mouse model/human genetic</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40879304/">40879304</a></td>
+<td>FGF14-SCA27B overlap with CACNA1A diagnoses</td>
+<td>Human diagnostic</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16000334/">16000334</a></td>
+<td>CACNA1A as modifier of SCA2 onset</td>
+<td>Human genetic/statistical</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39866519/">39866519</a></td>
+<td>Physiotherapy meta-analysis for DCA</td>
+<td>Systematic review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40149486/">40149486</a></td>
+<td>Levetiracetam for episodic ataxia in SCA6</td>
+<td>Human case series</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21921472/">21921472</a></td>
+<td>SCA6 pathogenesis; age-dependent polyQ accumulation</td>
+<td>Review/mouse model</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/9566402/">9566402</a></td>
+<td>CACNA1A allelic disorders (FHM, EA2, SCA6)</td>
+<td>Human genetic</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36949783/">36949783</a></td>
+<td>AD SCA demographics in Canada</td>
+<td>Human epidemiological</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li>
+<p><strong>Limited natural history data</strong>: Long-term prospective natural history studies with standardized outcome measures are lacking for most ADCA Type III subtypes, particularly SCA5, SCA11, and SCA14.</p>
+</li>
+<li>
+<p><strong>Biomarker deficiency</strong>: No validated fluid biomarkers (neurofilament light chain, etc.) have been specifically established for ADCA Type III subtypes, though NfL is under investigation across SCAs.</p>
+</li>
+<li>
+<p><strong>Incomplete genotype-phenotype correlation</strong>: The relationship between SCA6 CAG repeat length and clinical features beyond age of onset remains poorly defined. Modifier genes are largely unknown.</p>
+</li>
+<li>
+<p><strong>Therapeutic pipeline gaps</strong>: While ASO and RNAi approaches show preclinical promise, no clinical trials specifically targeting ADCA Type III subtypes have been completed. The failure of ASO trials in Huntington's disease raises concerns about translation.</p>
+</li>
+<li>
+<p><strong>Pre-motor phenotype not characterized in humans</strong>: The spatial navigation and cognitive deficits identified in SCA6 mouse models have not been systematically characterized in pre-symptomatic human carriers.</p>
+</li>
+<li>
+<p><strong>Non-Japanese SCA31 data</strong>: Almost all SCA31 data comes from Japanese populations due to the strong founder effect, limiting generalizability.</p>
+</li>
+<li>
+<p><strong>Phenotypic boundaries</strong>: The classification of SCA14 as "pure cerebellar" is increasingly questioned (&gt;1/3 have extracerebellar features). Similarly, SCA6 patients can present with dystonia and parkinsonism.</p>
+</li>
+<li>
+<p><strong>Epigenetic modifiers</strong>: The role of epigenetic modifications and gene-environment interactions in modifying ADCA Type III phenotypes is almost entirely unexplored.</p>
+</li>
+<li>
+<p><strong>Rehabilitation evidence quality</strong>: Most rehabilitation studies have small sample sizes, lack blinding, and show serious risk of bias (<a href="https://pubmed.ncbi.nlm.nih.gov/39866519/">PMID: 39866519</a>).</p>
+</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments/Actions</h2>
+<ol>
+<li>
+<p><strong>Natural history consortium</strong>: Establish multicenter, prospective longitudinal cohorts for all ADCA Type III subtypes with standardized assessments (SARA, cognitive batteries, MRI volumetrics, fluid biomarkers) to define trajectories and identify surrogate endpoints for clinical trials.</p>
+</li>
+<li>
+<p><strong>Pre-symptomatic biomarker validation</strong>: Translate spatial navigation deficit findings from SCA6 mouse models to human pre-symptomatic carriers using virtual navigation tasks, paired with neurofilament light chain measurements and volumetric MRI.</p>
+</li>
+<li>
+<p><strong>Thyroid hormone axis investigation</strong>: Clinical study measuring thyroid function parameters in SCA6 patients correlated with disease severity, given iPSC evidence for thyroid hormone-dependent Purkinje cell vulnerability.</p>
+</li>
+<li>
+<p><strong>Riluzole clinical trial for SCA6</strong>: Design a randomized controlled trial building on iPSC Purkinje cell evidence showing rescue of degeneration (<a href="https://pubmed.ncbi.nlm.nih.gov/27806289/">PMID: 27806289</a>).</p>
+</li>
+<li>
+<p><strong>Aerobic exercise prescription development</strong>: Create SCA-specific exercise guidelines based on demonstrated superiority of high-intensity aerobic training (SARA β = −1.53, P = 0.001) (<a href="https://pubmed.ncbi.nlm.nih.gov/40946705/">PMID: 40946705</a>), with remote monitoring protocols.</p>
+</li>
+<li>
+<p><strong>Allele-selective ASO development</strong>: Accelerate preclinical ASO programs targeting <em>CACNA1A</em> (allele-selective to preserve normal channel function) and the (UGGAA)n repeat RNA in SCA31.</p>
+</li>
+<li>
+<p><strong>Single-cell transcriptomics</strong>: Perform scRNA-seq and spatial transcriptomics on post-mortem cerebellar tissue from ADCA Type III patients to identify cell-type-specific changes and therapeutic targets.</p>
+</li>
+<li>
+<p><strong>SCA27B reclassification effort</strong>: Systematically reassess patients classified as having CACNA1A-related ataxia for FGF14 expansions, given the 9% co-occurrence rate (<a href="https://pubmed.ncbi.nlm.nih.gov/40879304/">PMID: 40879304</a>).</p>
+</li>
+<li>
+<p><strong>Large-scale rehabilitation RCTs</strong>: Conduct adequately powered, multi-site randomized trials of rehabilitation programs specifically for ADCA Type III, addressing the serious risk-of-bias concerns identified in current meta-analyses.</p>
+</li>
+<li>
+<p><strong>Chemogenetic/optogenetic translation</strong>: Explore clinical translation pathways for Purkinje cell stimulation approaches demonstrated effective in mouse models (<a href="https://pubmed.ncbi.nlm.nih.gov/40976063/">PMID: 40976063</a>), potentially through DBS or non-invasive neuromodulation.</p>
+</li>
+</ol>
+<hr />
+<p><em>Report generated: 2026-05-05</em>
+<em>Based on systematic review of 69 publications and 6 confirmed findings from autonomous scientific investigation</em></p>
+                        </div>
+                    </div>
+                </div>
+                
             </div>
             
         </div>
@@ -8295,7 +10789,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Autosomal Dominant Cerebellar Ataxia Type III", "mondoId": "MONDO:0019793", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autosomal_Dominant_Cerebellar_Ataxia_Type_III", "yamlRevision": "ba129e5b6bfb"};
+        const OS_CONFIG = {"diseaseName": "Autosomal Dominant Cerebellar Ataxia Type III", "mondoId": "MONDO:0019793", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autosomal_Dominant_Cerebellar_Ataxia_Type_III", "yamlRevision": "af66f0a2e0dc"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

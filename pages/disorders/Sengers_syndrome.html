@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,6 +2570,8 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 20</a>
+                
                 
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
@@ -2560,16 +2715,18 @@
             
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
-                <div class="stat-value">6</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
             
             
+            <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">20</div>
                 <div class="stat-label">Pathograph</div>
             </div>
+            </a>
             
             
             <a class="stat-link" href="#genetic">
@@ -2687,6 +2844,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"Sengers syndrome (OMIM #212350) is a rare autosomal recessive disorder due to mutations in acylglycerol kinase (AGK) gene."</div>
@@ -2704,6 +2863,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -2747,14 +2908,26 @@
                 
                 
                 
+                <div class="item-meta">
+                    
+                    <span class="tag tag-gene">
+                        AGK
+                        
+                        <a href="https://bioregistry.io/hgnc:21869" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
                 
                 
                 <div class="item-meta">
                     
                     <span class="tag tag-bio">
-                        phosphatidic acid metabolic process
+                        acylglycerol kinase activity
                         
-                        <a href="http://purl.obolibrary.org/obo/GO_0032048" target="_blank" class="linkout">link</a>
+                        <a href="http://purl.obolibrary.org/obo/GO_0047620" target="_blank" class="linkout">link</a>
                         
                     </span>
                     
@@ -2762,7 +2935,7 @@
     
     
     <span class="tag tag-modifier">
-        ↕ DYSREGULATED
+        ↓ DECREASED
     </span>
     
     
@@ -2780,8 +2953,28 @@
                 
                 
                 
-                
 	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">TIM22 complex assembly defect</span>
+	                            
+	                            <span class="crosslink-desc">AGK loss disrupts AGK&#39;s structural role within the inner-membrane TIM22 carrier translocase.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Disrupted mitochondrial phospholipid metabolism</span>
+	                            
+	                            <span class="crosslink-desc">Loss of mitochondrial acylglycerol kinase activity perturbs phospholipid metabolism.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
 	                
 	                
     
@@ -2799,6 +2992,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -2843,6 +3038,20 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Reduced TIM22-mediated import of inner-membrane carrier proteins</span>
+	                            
+	                            <span class="crosslink-desc">TIM22 complex disruption impairs import of a subset of mitochondrial inner-membrane proteins.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
@@ -2859,6 +3068,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -2920,6 +3131,27 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Impaired mitochondrial one-carbon metabolism</span>
+	                            
+	                            <span class="crosslink-desc">Loss of TIM22 substrates includes sideroflexins, serine transporters, and one-carbon metabolism enzymes.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Oxidative phosphorylation deficiency</span>
+	                            
+	                            <span class="crosslink-desc">TIM22 substrate loss includes Complex I subunits and assembly factors that contribute to respiratory-chain impairment.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
@@ -2936,6 +3168,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
                     
                 </div>
                 
@@ -3014,6 +3248,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"Proteomic profiling of Sengers patient fibroblasts and AGK knockout models identifies remodeling of the mitochondrial proteome, including mitochondrial one-carbon metabolism enzymes, inner membrane serine transporters, sideroflexins, and Complex I subunits and assembly factors."</div>
@@ -3074,6 +3310,20 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Oxidative phosphorylation deficiency</span>
+	                            
+	                            <span class="crosslink-desc">Mitochondrial phospholipid disruption contributes to respiratory-chain complex dysfunction.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
@@ -3090,6 +3340,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
                     
                 </div>
                 
@@ -3113,6 +3365,50 @@
                 <div class="item-desc">Impaired respiratory chain function with reduced complex I and V activity and decreased oxygen consumption in patient cells.
 </div>
                 
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-cell">
+                        cardiac muscle cell
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    <span class="tag tag-cell">
+                        cell of skeletal muscle
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
                 
                 
                 
@@ -3151,6 +3447,55 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hypertrophic cardiomyopathy</span>
+	                            
+	                            <span class="crosslink-desc">Cardiac energy failure from impaired oxidative phosphorylation contributes to hypertrophic cardiomyopathy.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Congestive heart failure</span>
+	                            
+	                            <span class="crosslink-desc">Severe cardiomyopathy and bioenergetic failure drive heart failure in Sengers syndrome.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Mitochondrial myopathy</span>
+	                            
+	                            <span class="crosslink-desc">Skeletal muscle oxidative phosphorylation deficiency contributes to mitochondrial myopathy.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Exercise intolerance</span>
+	                            
+	                            <span class="crosslink-desc">Bioenergetic failure in skeletal muscle contributes to poor exercise tolerance.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Lactic acidosis</span>
+	                            
+	                            <span class="crosslink-desc">Respiratory-chain impairment shifts metabolism toward lactate accumulation.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Lactate</span>
+	                            
+	                            <span class="crosslink-desc">Impaired oxidative phosphorylation is reflected by elevated lactate.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
@@ -3167,6 +3512,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
                     
                 </div>
                 
@@ -3192,6 +3539,29 @@
 
         <!-- Causal Graph (Pathograph) -->
         
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
+                <h2 class="card-title">Pathograph</h2>
+            </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
+            
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for Sengers syndrome</title>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
+            </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACE inhibitor therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"ACE inhibitor therapy used for heart failure management.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"captopril\"]}}, {\"id\": \"AGK\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"AGK\"], \"association\": \"Causative\"}}, {\"id\": \"AGK loss of function disrupts lipid signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of functional AGK impairs lipid signaling activity attributed to mitochondrial acylglycerol kinase.\\n\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"acylglycerol kinase activity\"], \"genes\": [\"AGK\"]}}, {\"id\": \"B vitamin supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Vitamin B complex supplementation as part of supportive therapy.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"thiamine\", \"riboflavin\"]}}, {\"id\": \"Cardiac transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Heart transplantation for severe cardiomyopathy in Sengers syndrome.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Carnitine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"L-carnitine provided as part of mitochondrial supportive therapy.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"levocarnitine\"]}}, {\"id\": \"Coenzyme Q10 supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Coenzyme Q10 used as part of mitochondrial supportive therapy.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"coenzyme Q10\"]}}, {\"id\": \"Congestive heart failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001635\"}}, {\"id\": \"Disrupted mitochondrial phospholipid metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AGK loss alters phospholipid metabolism in mitochondrial membranes, contributing to disease pathogenesis.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"phospholipid metabolic process\"]}}, {\"id\": \"Diuretic therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Diuretics used for heart failure management in Sengers syndrome.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"furosemide\", \"spironolactone\"]}}, {\"id\": \"Exercise intolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003546\"}}, {\"id\": \"Hypertrophic cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001639\"}}, {\"id\": \"Impaired mitochondrial one-carbon metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced abundance of sideroflexins and one-carbon enzymes disrupts mitochondrial one-carbon metabolism.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"one-carbon metabolic process\"]}}, {\"id\": \"Lactate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"Elevated\", \"term_id\": \"CHEBI:24996\", \"term_label\": \"lactate\"}}, {\"id\": \"Lactic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003128\"}}, {\"id\": \"Levosimendan infusion\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Levosimendan infusions used for heart failure support.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"levosimendan\"]}}, {\"id\": \"Mitochondrial myopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003756\"}}, {\"id\": \"Oxidative phosphorylation deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired respiratory chain function with reduced complex I and V activity and decreased oxygen consumption in patient cells.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\", \"cell of skeletal muscle\"], \"biological_processes\": [\"oxidative phosphorylation\"]}}, {\"id\": \"Reduced TIM22-mediated import of inner-membrane carrier proteins\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disruption of the TIM22 complex reduces import of multi-pass carrier proteins and sideroflexins into the inner mitochondrial membrane.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein insertion into mitochondrial inner membrane\"]}}, {\"id\": \"TIM22 complex assembly defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disrupted TIM22 complex assembly at the mitochondrial inner membrane impairs the carrier protein import machinery.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"AGK loss of function disrupts lipid signaling\", \"target\": \"TIM22 complex assembly defect\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"AGK loss of function disrupts lipid signaling\", \"target\": \"Disrupted mitochondrial phospholipid metabolism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TIM22 complex assembly defect\", \"target\": \"Reduced TIM22-mediated import of inner-membrane carrier proteins\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced TIM22-mediated import of inner-membrane carrier proteins\", \"target\": \"Impaired mitochondrial one-carbon metabolism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced TIM22-mediated import of inner-membrane carrier proteins\", \"target\": \"Oxidative phosphorylation deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted mitochondrial phospholipid metabolism\", \"target\": \"Oxidative phosphorylation deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative phosphorylation deficiency\", \"target\": \"Hypertrophic cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative phosphorylation deficiency\", \"target\": \"Congestive heart failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative phosphorylation deficiency\", \"target\": \"Mitochondrial myopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative phosphorylation deficiency\", \"target\": \"Exercise intolerance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative phosphorylation deficiency\", \"target\": \"Lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative phosphorylation deficiency\", \"target\": \"Lactate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Coenzyme Q10 supplementation\", \"target\": \"Oxidative phosphorylation deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Carnitine supplementation\", \"target\": \"Oxidative phosphorylation deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"B vitamin supplementation\", \"target\": \"Oxidative phosphorylation deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ACE inhibitor therapy\", \"target\": \"Congestive heart failure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cardiac transplantation\", \"target\": \"Congestive heart failure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Diuretic therapy\", \"target\": \"Congestive heart failure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Levosimendan infusion\", \"target\": \"Congestive heart failure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"AGK\", \"target\": \"AGK loss of function disrupts lipid signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
+        </div>
+        
 
         <!-- Phenotypes -->
         
@@ -3199,7 +3569,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">7</span>
             </div>
             
             
@@ -3213,7 +3583,9 @@
                 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(1)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Constitutional<span class="pill-count">(1)</span></button>
+                
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(1)</span></button>
                 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -3261,6 +3633,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"Both infants had typical clinical features characterized by hypertrophic cardiomyopathy, bilateral cataracts, myopathy, and lactic acidosis, and heart failure was the most severe manifestation."</div>
@@ -3278,6 +3652,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -3333,6 +3709,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"Both infants had typical clinical features characterized by hypertrophic cardiomyopathy, bilateral cataracts, myopathy, and lactic acidosis, and heart failure was the most severe manifestation."</div>
@@ -3351,9 +3729,11 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
-                <div class="evidence-snippet">"NT-proBNP reached 6,076 pg/ml (reference ranges &lt;125 pg/ml) reflecting the state of the heart failure."</div>
+                <div class="evidence-snippet">"N-terminal pro-brain natriuretic peptide (NT-proBNP) reached 6,076 pg/ml (reference ranges &lt;125 pg/ml) reflecting the state of the heart failure."</div>
                 
                 
                 <div class="evidence-explanation">This case report documents biochemical evidence of heart failure in a Sengers syndrome patient.</div>
@@ -3414,6 +3794,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"Both infants had typical clinical features characterized by hypertrophic cardiomyopathy, bilateral cataracts, myopathy, and lactic acidosis, and heart failure was the most severe manifestation."</div>
@@ -3431,6 +3813,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -3495,6 +3879,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"Here we provide a 20-year follow-up in two siblings with a benign form of Sengers syndrome, expanding the phenotypical spectrum of the disease by reporting a condition of ovarian agenesis."</div>
@@ -3558,6 +3944,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"Both infants had typical clinical features characterized by hypertrophic cardiomyopathy, bilateral cataracts, myopathy, and lactic acidosis, and heart failure was the most severe manifestation."</div>
@@ -3575,6 +3963,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -3600,26 +3990,91 @@
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
+                    Constitutional
                     <span class="cat-count">1</span>
                 </summary>
                 
                 <div class="item-box phenotype-box">
                     <div class="item-name">
-                        Myopathy
+                        Exercise intolerance
+                        
+                    
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank">
+                            Exercise intolerance
+                        </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0003546)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34164355" target="_blank">PMID:34164355</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The clinical presentation includes congenital cataracts, hypertrophic cardiomyopathy, skeletal myopathy, exercise intolerance, and lactic acidosis."</div>
+                
+                
+                <div class="evidence-explanation">This review statement in the case report lists exercise intolerance among the clinical manifestations of Sengers syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+            </details>
+            
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Mitochondrial myopathy
                         
                         <span class="phenotype-freq">VERY_FREQUENT</span>
                         
                     
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0003198" target="_blank">
-                            Myopathy
+                        <a href="http://purl.obolibrary.org/obo/HP_0003756" target="_blank">
+                            Skeletal myopathy
                         </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0003198)</span>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0003756)</span>
                         </span>
                         
                     </div>
                     
+                    
+                    <div class="item-desc">Local HPO has no exact mitochondrial myopathy term; HP:0003016 resolves to Metaphyseal widening, so HP:0003756 is used with a more specific preferred term.</div>
                     
                     
                     
@@ -3639,6 +4094,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"Both infants had typical clinical features characterized by hypertrophic cardiomyopathy, bilateral cataracts, myopathy, and lactic acidosis, and heart failure was the most severe manifestation."</div>
@@ -3656,6 +4113,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -3740,6 +4199,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"Sengers syndrome (OMIM #212350) is a rare autosomal recessive disorder due to mutations in acylglycerol kinase (AGK) gene."</div>
@@ -3757,6 +4218,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -3821,10 +4284,70 @@
                 
                 
                 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        coenzyme Q10
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_46245" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
                 <div class="item-desc">Coenzyme Q10 used as part of mitochondrial supportive therapy.</div>
                 
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+                        <strong style="color: #5b21b6;">Oxidative phosphorylation deficiency</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Coenzyme Q10 supplementation is supportive mitochondrial therapy intended to improve metabolic status downstream of OXPHOS dysfunction.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34164355" target="_blank">PMID:34164355</a>
+                    </span>
+                    
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Levocarnitine (100 mg/kg daily), coenzyme Q10 (1 mg/kg daily), and vitamin B complex (vitamin B1 20 mg/day and riboflavin 10 mg/day) were administered to improve metabolic status;"</div>
+                
+                
+                <div class="evidence-explanation">Case-report treatment evidence supports CoQ10 as part of supportive metabolic therapy, but not correction of the primary AGK/TIM22 defect.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
                 
                 
                 
@@ -3845,6 +4368,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"Supplementation with coenzyme Q10, carnitine, B-vitamins, and biotin (called mitochondrial cocktail) was given daily, associated with angiotensin converting enzyme (ACE) inhibitors for cardiomyopathy management."</div>
@@ -3862,6 +4387,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -3914,10 +4441,70 @@
                 
                 
                 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        levocarnitine
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_16347" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
                 <div class="item-desc">L-carnitine provided as part of mitochondrial supportive therapy.</div>
                 
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+                        <strong style="color: #5b21b6;">Oxidative phosphorylation deficiency</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Carnitine supplementation is supportive mitochondrial therapy intended to improve metabolic status downstream of OXPHOS dysfunction.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34164355" target="_blank">PMID:34164355</a>
+                    </span>
+                    
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Levocarnitine (100 mg/kg daily), coenzyme Q10 (1 mg/kg daily), and vitamin B complex (vitamin B1 20 mg/day and riboflavin 10 mg/day) were administered to improve metabolic status;"</div>
+                
+                
+                <div class="evidence-explanation">Case-report treatment evidence supports levocarnitine as supportive metabolic therapy, but not correction of the primary AGK/TIM22 defect.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
                 
                 
                 
@@ -3938,6 +4525,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"Supplementation with coenzyme Q10, carnitine, B-vitamins, and biotin (called mitochondrial cocktail) was given daily, associated with angiotensin converting enzyme (ACE) inhibitors for cardiomyopathy management."</div>
@@ -3955,6 +4544,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -4007,10 +4598,77 @@
                 
                 
                 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        thiamine
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_18385" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-treatment">
+                        riboflavin
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_17015" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
                 <div class="item-desc">Vitamin B complex supplementation as part of supportive therapy.</div>
                 
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+                        <strong style="color: #5b21b6;">Oxidative phosphorylation deficiency</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; B-vitamin supplementation is supportive mitochondrial therapy intended to improve metabolic status downstream of OXPHOS dysfunction.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34164355" target="_blank">PMID:34164355</a>
+                    </span>
+                    
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Levocarnitine (100 mg/kg daily), coenzyme Q10 (1 mg/kg daily), and vitamin B complex (vitamin B1 20 mg/day and riboflavin 10 mg/day) were administered to improve metabolic status;"</div>
+                
+                
+                <div class="evidence-explanation">Case-report treatment evidence supports vitamin B complex as supportive metabolic therapy, but not correction of the primary AGK/TIM22 defect.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
                 
                 
                 
@@ -4031,6 +4689,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"Supplementation with coenzyme Q10, carnitine, B-vitamins, and biotin (called mitochondrial cocktail) was given daily, associated with angiotensin converting enzyme (ACE) inhibitors for cardiomyopathy management."</div>
@@ -4048,6 +4708,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -4100,18 +4762,42 @@
                 
                 
                 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        captopril
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_3380" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
                 <div class="item-desc">ACE inhibitor therapy used for heart failure management.</div>
                 
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Congestive heart failure
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -4123,6 +4809,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -4142,30 +4830,14 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"The patient received milrinone, diuretics (furosemide and spironolactone), and captopril to improve heart function."</div>
                 
                 
                 <div class="evidence-explanation">This provides direct evidence of ACE inhibitor (captopril) therapy in Sengers syndrome.</div>
-                
-            </div>
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38933059" target="_blank">PMID:38933059</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                </div>
-                
-                <div class="evidence-snippet">"Baby was on regular follow-up and was thriving well on diuretics, sacubitril-valsartan and weekly levosimendan infusions."</div>
-                
-                
-                <div class="evidence-explanation">This neonatal case reports ongoing pharmacologic heart failure management including a neprilysin inhibitor/ARB regimen.</div>
                 
             </div>
             
@@ -4217,6 +4889,18 @@
                 
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Congestive heart failure
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
     
@@ -4235,6 +4919,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"This report describes cardiac transplantation for the treatment of the cardiomyopathy associated with Sengers&#39; syndrome."</div>
@@ -4252,6 +4938,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -4304,11 +4992,42 @@
                 
                 
                 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        furosemide
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_47426" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-treatment">
+                        spironolactone
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_9241" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
                 <div class="item-desc">Diuretics used for heart failure management in Sengers syndrome.</div>
                 
                 
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Congestive heart failure
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
                 
                 
                 
@@ -4328,6 +5047,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"Baby was on regular follow-up and was thriving well on diuretics, sacubitril-valsartan and weekly levosimendan infusions."</div>
@@ -4345,6 +5066,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -4397,11 +5120,35 @@
                 
                 
                 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        levosimendan
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_50567" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
                 <div class="item-desc">Levosimendan infusions used for heart failure support.</div>
                 
                 
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Congestive heart failure
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
                 
                 
                 
@@ -4420,6 +5167,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -4463,6 +5212,7 @@
                 <div class="item-desc">Context: Lactic acidosis in Sengers syndrome</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4478,6 +5228,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -4496,6 +5248,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -4524,6 +5278,7 @@
                 <div class="item-desc">Context: Cardiac stress marker in Sengers syndrome with heart failure</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4539,6 +5294,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -4567,6 +5324,7 @@
                 <div class="item-desc">Context: Urinary organic acid analysis in Sengers syndrome</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4582,6 +5340,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -4667,6 +5427,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"Sengers syndrome (due to mutations in AGK), MEGDEL syndrome (or SERAC defect, SERAC1), Barth syndrome (or TAZ defect, TAZ)"</div>
@@ -4737,6 +5499,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"Sengers syndrome (due to mutations in AGK), MEGDEL syndrome (or SERAC defect, SERAC1), Barth syndrome (or TAZ defect, TAZ)"</div>
@@ -4797,6 +5561,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"In immunoblot analysis, the protein content of the mitochondrial adenine nucleotide translocator 1 (ANT1) was found to be strongly reduced in the muscle tissues of two unrelated patients with Sengers syndrome."</div>
@@ -4814,6 +5580,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -4859,7 +5627,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Sengers syndrome
 creation_date: &#39;2026-01-27T00:22:49Z&#39;
-updated_date: &#39;2026-02-17T21:53:14Z&#39;
+updated_date: &#39;2026-05-12T00:00:00Z&#39;
 category: Mendelian
 parents: []
 disease_term:
@@ -4873,23 +5641,21 @@ prevalence:
   evidence:
   - reference: DOI:10.3389/fped.2021.639687
     supports: SUPPORT
-    snippet: &#34;Sengers syndrome (OMIM #212350) is a rare autosomal recessive disorder
-      due to mutations in acylglycerol kinase (AGK) gene.&#34;
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Sengers syndrome (OMIM #212350) is a rare autosomal recessive disorder due to mutations in acylglycerol kinase (AGK) gene.&#34;
     explanation: This case report describes Sengers syndrome as a rare disorder.
 epidemiology:
 - name: Limited number of reported long-term survivors
   description: &gt;
     Published reports note that only a small number of cases have been followed
     into the second decade, highlighting the rarity of long-term survival data.
-  notes: Evidence is based on case-report literature rather than population
-    estimates.
+  notes: Evidence is based on case-report literature rather than population estimates.
   evidence:
   - reference: DOI:10.1186/s13052-022-01370-y
     supports: SUPPORT
-    snippet: &#34;Thus far few reported cases have survived the second decade at their
-      latest examination, and no natural history data are available for the disease.&#34;
-    explanation: This statement indicates the scarcity of long-term follow-up
-      and limited reported cases.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Thus far few reported cases have survived the second decade at their latest examination, and no natural history data are available for the disease.&#34;
+    explanation: This statement indicates the scarcity of long-term follow-up and limited reported cases.
 inheritance:
 - name: Autosomal Recessive
   description: &gt;
@@ -4899,37 +5665,47 @@ inheritance:
   evidence:
   - reference: DOI:10.3389/fped.2021.639687
     supports: SUPPORT
-    snippet: &#34;Sengers syndrome (OMIM #212350) is a rare autosomal recessive disorder
-      due to mutations in acylglycerol kinase (AGK) gene.&#34;
-    explanation: This explicitly states autosomal recessive inheritance due to
-      AGK variants.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Sengers syndrome (OMIM #212350) is a rare autosomal recessive disorder due to mutations in acylglycerol kinase (AGK) gene.&#34;
+    explanation: This explicitly states autosomal recessive inheritance due to AGK variants.
   - reference: PMID:34164355
     reference_title: &#34;Case Report: Two Chinese Infants of Sengers Syndrome Caused by Mutations in AGK Gene.&#34;
     supports: SUPPORT
-    snippet: &#34;Genetic testing of a boy revealed a homozygous pathogenic variant for
-      Sengers syndrome in AGK (c.1131+2T&gt;C) which was classified as likely pathogenic
-      according to the ACMG guideline&#34;
-    explanation: Identification of a homozygous AGK variant supports autosomal
-      recessive inheritance.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Genetic testing of a boy revealed a homozygous pathogenic variant for Sengers syndrome in AGK (c.1131+2T&gt;C) which was classified as likely pathogenic according to the ACMG guideline&#34;
+    explanation: Identification of a homozygous AGK variant supports autosomal recessive inheritance.
 pathophysiology:
 - name: AGK loss of function disrupts lipid signaling
   description: &gt;
     Loss of functional AGK impairs lipid signaling activity attributed to
     mitochondrial acylglycerol kinase.
-  biological_processes:
-  - preferred_term: phosphatidic acid metabolic process
+  molecular_functions:
+  - preferred_term: acylglycerol kinase activity
     term:
-      id: GO:0032048
-      label: cardiolipin metabolic process
-    modifier: DYSREGULATED
+      id: GO:0047620
+      label: acylglycerol kinase activity
+    modifier: DECREASED
+  chemical_entities:
+  - preferred_term: phosphatidic acid
+    term:
+      id: CHEBI:16337
+      label: phosphatidic acid
+  genes:
+  - preferred_term: AGK
+    term:
+      id: hgnc:21869
+      label: AGK
   evidence:
   - reference: DOI:10.3390/ijms222413484
     supports: SUPPORT
-    snippet: &#34;AGK, a mitochondrial acylglycerol kinase, is not only involved in lipid
-      signaling but is also a component of the TIM22 complex in the inner mitochondrial
-      membrane, which mediates the import of a subset of membrane proteins.&#34;
-    explanation: This establishes AGK&#39;s role in lipid signaling that is lost
-      with AGK deficiency.
+    evidence_source: OTHER
+    snippet: &#34;AGK, a mitochondrial acylglycerol kinase, is not only involved in lipid signaling but is also a component of the TIM22 complex in the inner mitochondrial membrane, which mediates the import of a subset of membrane proteins.&#34;
+    explanation: This establishes AGK&#39;s role in lipid signaling that is lost with AGK deficiency.
+  downstream:
+  - target: TIM22 complex assembly defect
+    description: AGK loss disrupts AGK&#39;s structural role within the inner-membrane TIM22 carrier translocase.
+  - target: Disrupted mitochondrial phospholipid metabolism
+    description: Loss of mitochondrial acylglycerol kinase activity perturbs phospholipid metabolism.
 - name: TIM22 complex assembly defect
   description: &gt;
     Disrupted TIM22 complex assembly at the mitochondrial inner membrane
@@ -4942,11 +5718,12 @@ pathophysiology:
   evidence:
   - reference: DOI:10.3390/ijms222413484
     supports: SUPPORT
-    snippet: &#34;AGK, a mitochondrial acylglycerol kinase, is not only involved in lipid
-      signaling but is also a component of the TIM22 complex in the inner mitochondrial
-      membrane, which mediates the import of a subset of membrane proteins.&#34;
-    explanation: This supports a TIM22 assembly defect at the mitochondrial
-      inner membrane in AGK deficiency.
+    evidence_source: OTHER
+    snippet: &#34;AGK, a mitochondrial acylglycerol kinase, is not only involved in lipid signaling but is also a component of the TIM22 complex in the inner mitochondrial membrane, which mediates the import of a subset of membrane proteins.&#34;
+    explanation: This supports a TIM22 assembly defect at the mitochondrial inner membrane in AGK deficiency.
+  downstream:
+  - target: Reduced TIM22-mediated import of inner-membrane carrier proteins
+    description: TIM22 complex disruption impairs import of a subset of mitochondrial inner-membrane proteins.
 - name: Reduced TIM22-mediated import of inner-membrane carrier proteins
   description: &gt;
     Disruption of the TIM22 complex reduces import of multi-pass carrier
@@ -4960,12 +5737,14 @@ pathophysiology:
   evidence:
   - reference: DOI:10.1091/mbc.e20-06-0390
     supports: SUPPORT
-    snippet: &#34;Proteomic profiling of Sengers patient fibroblasts and AGK knockout
-      models identifies remodeling of the mitochondrial proteome, including mitochondrial
-      one-carbon metabolism enzymes, inner membrane serine transporters, sideroflexins,
-      and Complex I subunits and assembly factors.&#34;
-    explanation: This supports reduced import/abundance of inner-membrane
-      carriers and sideroflexins in AGK deficiency.
+    evidence_source: IN_VITRO
+    snippet: &#34;Proteomic profiling of Sengers patient fibroblasts and AGK knockout models identifies remodeling of the mitochondrial proteome, including mitochondrial one-carbon metabolism enzymes, inner membrane serine transporters, sideroflexins, and Complex I subunits and assembly factors.&#34;
+    explanation: This supports reduced import/abundance of inner-membrane carriers and sideroflexins in AGK deficiency.
+  downstream:
+  - target: Impaired mitochondrial one-carbon metabolism
+    description: Loss of TIM22 substrates includes sideroflexins, serine transporters, and one-carbon metabolism enzymes.
+  - target: Oxidative phosphorylation deficiency
+    description: TIM22 substrate loss includes Complex I subunits and assembly factors that contribute to respiratory-chain impairment.
 - name: Impaired mitochondrial one-carbon metabolism
   description: &gt;
     Reduced abundance of sideroflexins and one-carbon enzymes disrupts
@@ -4979,12 +5758,9 @@ pathophysiology:
   evidence:
   - reference: DOI:10.1091/mbc.e20-06-0390
     supports: SUPPORT
-    snippet: &#34;Proteomic profiling of Sengers patient fibroblasts and AGK knockout
-      models identifies remodeling of the mitochondrial proteome, including mitochondrial
-      one-carbon metabolism enzymes, inner membrane serine transporters, sideroflexins,
-      and Complex I subunits and assembly factors.&#34;
-    explanation: This links AGK/TIM22 dysfunction to loss of carrier and
-      sideroflexin import with effects on one-carbon metabolism.
+    evidence_source: IN_VITRO
+    snippet: &#34;Proteomic profiling of Sengers patient fibroblasts and AGK knockout models identifies remodeling of the mitochondrial proteome, including mitochondrial one-carbon metabolism enzymes, inner membrane serine transporters, sideroflexins, and Complex I subunits and assembly factors.&#34;
+    explanation: This links AGK/TIM22 dysfunction to loss of carrier and sideroflexin import with effects on one-carbon metabolism.
 - name: Disrupted mitochondrial phospholipid metabolism
   description: &gt;
     AGK loss alters phospholipid metabolism in mitochondrial membranes,
@@ -4998,10 +5774,12 @@ pathophysiology:
   evidence:
   - reference: DOI:10.3390/ijms222413484
     supports: SUPPORT
-    snippet: &#34;AGK mutations can alter both phospholipid metabolism and mitochondrial
-      protein biogenesis, contributing to the pathogenesis of Sengers syndrome.&#34;
-    explanation: This statement links AGK mutations to altered phospholipid
-      metabolism in Sengers syndrome.
+    evidence_source: IN_VITRO
+    snippet: &#34;AGK mutations can alter both phospholipid metabolism and mitochondrial protein biogenesis, contributing to the pathogenesis of Sengers syndrome.&#34;
+    explanation: This statement links AGK mutations to altered phospholipid metabolism in Sengers syndrome.
+  downstream:
+  - target: Oxidative phosphorylation deficiency
+    description: Mitochondrial phospholipid disruption contributes to respiratory-chain complex dysfunction.
 - name: Oxidative phosphorylation deficiency
   description: &gt;
     Impaired respiratory chain function with reduced complex I and V activity
@@ -5015,12 +5793,31 @@ pathophysiology:
   evidence:
   - reference: DOI:10.3390/ijms222413484
     supports: SUPPORT
-    snippet: &#34;Decreases in the oxygen consumption rate (OCR) and the OCR:ECAR (extracellular
-      acidification rate) ratio in the patient’s fibroblasts indicated reduced electron
-      flow through the respiratory chain, and spectrophotometry revealed decreased
-      activity of OXPHOS complexes I and V.&#34;
-    explanation: This provides direct evidence of impaired oxidative
-      phosphorylation and reduced complex I and V activity.
+    evidence_source: IN_VITRO
+    snippet: &#34;Decreases in the oxygen consumption rate (OCR) and the OCR:ECAR (extracellular acidification rate) ratio in the patient’s fibroblasts indicated reduced electron flow through the respiratory chain, and spectrophotometry revealed decreased activity of OXPHOS complexes I and V.&#34;
+    explanation: This provides direct evidence of impaired oxidative phosphorylation and reduced complex I and V activity.
+  cell_types:
+  - preferred_term: cardiac muscle cell
+    term:
+      id: CL:0000746
+      label: cardiac muscle cell
+  - preferred_term: cell of skeletal muscle
+    term:
+      id: CL:0000188
+      label: cell of skeletal muscle
+  downstream:
+  - target: Hypertrophic cardiomyopathy
+    description: Cardiac energy failure from impaired oxidative phosphorylation contributes to hypertrophic cardiomyopathy.
+  - target: Congestive heart failure
+    description: Severe cardiomyopathy and bioenergetic failure drive heart failure in Sengers syndrome.
+  - target: Mitochondrial myopathy
+    description: Skeletal muscle oxidative phosphorylation deficiency contributes to mitochondrial myopathy.
+  - target: Exercise intolerance
+    description: Bioenergetic failure in skeletal muscle contributes to poor exercise tolerance.
+  - target: Lactic acidosis
+    description: Respiratory-chain impairment shifts metabolism toward lactate accumulation.
+  - target: Lactate
+    description: Impaired oxidative phosphorylation is reflected by elevated lactate.
 phenotypes:
 - name: Hypertrophic cardiomyopathy
   category: Cardiovascular
@@ -5033,18 +5830,14 @@ phenotypes:
   evidence:
   - reference: DOI:10.3389/fped.2021.639687
     supports: SUPPORT
-    snippet: &#34;Both infants had typical clinical features characterized by hypertrophic
-      cardiomyopathy, bilateral cataracts, myopathy, and lactic acidosis, and heart
-      failure was the most severe manifestation.&#34;
-    explanation: This case report documents hypertrophic cardiomyopathy as a
-      core feature of Sengers syndrome.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Both infants had typical clinical features characterized by hypertrophic cardiomyopathy, bilateral cataracts, myopathy, and lactic acidosis, and heart failure was the most severe manifestation.&#34;
+    explanation: This case report documents hypertrophic cardiomyopathy as a core feature of Sengers syndrome.
   - reference: DOI:10.1186/s13052-022-01370-y
     supports: SUPPORT
-    snippet: &#34;Sengers syndrome is characterized by congenital cataract, hypertrophic
-      cardiomyopathy, mitochondrial myopathy, and lactic acidosis associated with
-      mutations in AGK gene.&#34;
-    explanation: This longitudinal case report reiterates hypertrophic
-      cardiomyopathy as a defining feature.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Sengers syndrome is characterized by congenital cataract, hypertrophic cardiomyopathy, mitochondrial myopathy, and lactic acidosis associated with mutations in AGK gene.&#34;
+    explanation: This longitudinal case report reiterates hypertrophic cardiomyopathy as a defining feature.
 - name: Developmental cataract
   category: Ophthalmologic
   frequency: VERY_FREQUENT
@@ -5056,40 +5849,48 @@ phenotypes:
   evidence:
   - reference: DOI:10.3389/fped.2021.639687
     supports: SUPPORT
-    snippet: &#34;Both infants had typical clinical features characterized by hypertrophic
-      cardiomyopathy, bilateral cataracts, myopathy, and lactic acidosis, and heart
-      failure was the most severe manifestation.&#34;
-    explanation: This identifies bilateral cataracts as a defining phenotype in
-      Sengers syndrome.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Both infants had typical clinical features characterized by hypertrophic cardiomyopathy, bilateral cataracts, myopathy, and lactic acidosis, and heart failure was the most severe manifestation.&#34;
+    explanation: This identifies bilateral cataracts as a defining phenotype in Sengers syndrome.
   - reference: DOI:10.1186/s13052-022-01370-y
     supports: SUPPORT
-    snippet: &#34;Sengers syndrome is characterized by congenital cataract, hypertrophic
-      cardiomyopathy, mitochondrial myopathy, and lactic acidosis associated with
-      mutations in AGK gene.&#34;
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Sengers syndrome is characterized by congenital cataract, hypertrophic cardiomyopathy, mitochondrial myopathy, and lactic acidosis associated with mutations in AGK gene.&#34;
     explanation: This report highlights congenital cataract as a core feature.
-- name: Myopathy
+- name: Mitochondrial myopathy
   category: Neuromuscular
   frequency: VERY_FREQUENT
+  notes: Local HPO has no exact mitochondrial myopathy term; HP:0003016 resolves to Metaphyseal widening, so HP:0003756 is used with a more specific preferred term.
   phenotype_term:
-    preferred_term: Myopathy
+    preferred_term: Mitochondrial myopathy
     term:
-      id: HP:0003198
-      label: Myopathy
+      id: HP:0003756
+      label: Skeletal myopathy
   evidence:
   - reference: DOI:10.3389/fped.2021.639687
     supports: SUPPORT
-    snippet: &#34;Both infants had typical clinical features characterized by hypertrophic
-      cardiomyopathy, bilateral cataracts, myopathy, and lactic acidosis, and heart
-      failure was the most severe manifestation.&#34;
-    explanation: This case report includes myopathy among core Sengers syndrome
-      features.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Both infants had typical clinical features characterized by hypertrophic cardiomyopathy, bilateral cataracts, myopathy, and lactic acidosis, and heart failure was the most severe manifestation.&#34;
+    explanation: This case report includes myopathy among core Sengers syndrome features.
   - reference: DOI:10.1186/s13052-022-01370-y
     supports: SUPPORT
-    snippet: &#34;Sengers syndrome is characterized by congenital cataract, hypertrophic
-      cardiomyopathy, mitochondrial myopathy, and lactic acidosis associated with
-      mutations in AGK gene.&#34;
-    explanation: This report specifies mitochondrial myopathy as a defining
-      feature.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Sengers syndrome is characterized by congenital cataract, hypertrophic cardiomyopathy, mitochondrial myopathy, and lactic acidosis associated with mutations in AGK gene.&#34;
+    explanation: This report specifies mitochondrial myopathy as a defining feature.
+- name: Exercise intolerance
+  category: Neuromuscular
+  phenotype_term:
+    preferred_term: Exercise intolerance
+    term:
+      id: HP:0003546
+      label: Exercise intolerance
+  evidence:
+  - reference: PMID:34164355
+    reference_title: &#34;Case Report: Two Chinese Infants of Sengers Syndrome Caused by Mutations in AGK Gene.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The clinical presentation includes congenital cataracts, hypertrophic cardiomyopathy, skeletal myopathy, exercise intolerance, and lactic acidosis.&#34;
+    explanation: This review statement in the case report lists exercise intolerance among the clinical manifestations of Sengers syndrome.
 - name: Lactic acidosis
   category: Metabolic
   frequency: VERY_FREQUENT
@@ -5101,18 +5902,14 @@ phenotypes:
   evidence:
   - reference: DOI:10.3389/fped.2021.639687
     supports: SUPPORT
-    snippet: &#34;Both infants had typical clinical features characterized by hypertrophic
-      cardiomyopathy, bilateral cataracts, myopathy, and lactic acidosis, and heart
-      failure was the most severe manifestation.&#34;
-    explanation: This report documents lactic acidosis as a characteristic
-      feature of Sengers syndrome.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Both infants had typical clinical features characterized by hypertrophic cardiomyopathy, bilateral cataracts, myopathy, and lactic acidosis, and heart failure was the most severe manifestation.&#34;
+    explanation: This report documents lactic acidosis as a characteristic feature of Sengers syndrome.
   - reference: DOI:10.1186/s13052-022-01370-y
     supports: SUPPORT
-    snippet: &#34;Sengers syndrome is characterized by congenital cataract, hypertrophic
-      cardiomyopathy, mitochondrial myopathy, and lactic acidosis associated with
-      mutations in AGK gene.&#34;
-    explanation: This longitudinal case report includes lactic acidosis as a
-      defining feature.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Sengers syndrome is characterized by congenital cataract, hypertrophic cardiomyopathy, mitochondrial myopathy, and lactic acidosis associated with mutations in AGK gene.&#34;
+    explanation: This longitudinal case report includes lactic acidosis as a defining feature.
 - name: Congestive heart failure
   category: Cardiovascular
   frequency: FREQUENT
@@ -5124,18 +5921,15 @@ phenotypes:
   evidence:
   - reference: DOI:10.3389/fped.2021.639687
     supports: SUPPORT
-    snippet: &#34;Both infants had typical clinical features characterized by hypertrophic
-      cardiomyopathy, bilateral cataracts, myopathy, and lactic acidosis, and heart
-      failure was the most severe manifestation.&#34;
-    explanation: Heart failure is reported as the most severe clinical
-      manifestation in these cases.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Both infants had typical clinical features characterized by hypertrophic cardiomyopathy, bilateral cataracts, myopathy, and lactic acidosis, and heart failure was the most severe manifestation.&#34;
+    explanation: Heart failure is reported as the most severe clinical manifestation in these cases.
   - reference: PMID:34164355
     reference_title: &#34;Case Report: Two Chinese Infants of Sengers Syndrome Caused by Mutations in AGK Gene.&#34;
     supports: SUPPORT
-    snippet: &#34;NT-proBNP reached 6,076 pg/ml (reference ranges &lt;125 pg/ml) reflecting
-      the state of the heart failure.&#34;
-    explanation: This case report documents biochemical evidence of heart
-      failure in a Sengers syndrome patient.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;N-terminal pro-brain natriuretic peptide (NT-proBNP) reached 6,076 pg/ml (reference ranges &lt;125 pg/ml) reflecting the state of the heart failure.&#34;
+    explanation: This case report documents biochemical evidence of heart failure in a Sengers syndrome patient.
 - name: Aplasia of the ovary
   category: Genitourinary
   frequency: VERY_RARE
@@ -5147,29 +5941,30 @@ phenotypes:
   evidence:
   - reference: DOI:10.1186/s13052-022-01370-y
     supports: SUPPORT
-    snippet: &#34;Here we provide a 20-year follow-up in two siblings with a benign form
-      of Sengers syndrome, expanding the phenotypical spectrum of the disease by reporting
-      a condition of ovarian agenesis.&#34;
-    explanation: This report documents ovarian agenesis, consistent with ovarian
-      aplasia.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Here we provide a 20-year follow-up in two siblings with a benign form of Sengers syndrome, expanding the phenotypical spectrum of the disease by reporting a condition of ovarian agenesis.&#34;
+    explanation: This report documents ovarian agenesis, consistent with ovarian aplasia.
 genetic:
 - name: AGK
   association: Causative
   notes: Autosomal recessive; HGNC:21869
+  gene_term:
+    preferred_term: AGK
+    term:
+      id: hgnc:21869
+      label: AGK
   evidence:
   - reference: DOI:10.3389/fped.2021.639687
     supports: SUPPORT
-    snippet: &#34;Sengers syndrome (OMIM #212350) is a rare autosomal recessive disorder
-      due to mutations in acylglycerol kinase (AGK) gene.&#34;
-    explanation: This statement identifies AGK mutations as the cause of Sengers
-      syndrome with autosomal recessive inheritance.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Sengers syndrome (OMIM #212350) is a rare autosomal recessive disorder due to mutations in acylglycerol kinase (AGK) gene.&#34;
+    explanation: This statement identifies AGK mutations as the cause of Sengers syndrome with autosomal recessive inheritance.
   - reference: PMID:34164355
     reference_title: &#34;Case Report: Two Chinese Infants of Sengers Syndrome Caused by Mutations in AGK Gene.&#34;
     supports: SUPPORT
-    snippet: &#34;After genetic analysis, a novel homozygous (c.1131+2T&gt;C) variant of
-      AGK gene was identified in the proband.&#34;
-    explanation: This case report provides direct genetic evidence of a
-      pathogenic AGK variant in Sengers syndrome.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;After genetic analysis, a novel homozygous (c.1131+2T&gt;C) variant of AGK gene was identified in the proband.&#34;
+    explanation: This case report provides direct genetic evidence of a pathogenic AGK variant in Sengers syndrome.
 environmental: []
 biochemical:
 - name: Lactate
@@ -5183,19 +5978,15 @@ biochemical:
   evidence:
   - reference: DOI:10.3389/fped.2021.639687
     supports: SUPPORT
-    snippet: &#34;Both infants had typical clinical features characterized by hypertrophic
-      cardiomyopathy, bilateral cataracts, myopathy, and lactic acidosis, and heart
-      failure was the most severe manifestation.&#34;
-    explanation: This report documents lactic acidosis as a core biochemical
-      abnormality.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Both infants had typical clinical features characterized by hypertrophic cardiomyopathy, bilateral cataracts, myopathy, and lactic acidosis, and heart failure was the most severe manifestation.&#34;
+    explanation: This report documents lactic acidosis as a core biochemical abnormality.
   - reference: PMID:34164355
     reference_title: &#34;Case Report: Two Chinese Infants of Sengers Syndrome Caused by Mutations in AGK Gene.&#34;
     supports: SUPPORT
-    snippet: &#34;However, the serum lactic acid increased significantly, reaching 14.99
-      mmol/L, so appropriate limitation of physical activities is recommended in daily
-      life.&#34;
-    explanation: This case report provides quantitative evidence of markedly
-      elevated serum lactic acid.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;However, the serum lactic acid increased significantly, reaching 14.99 mmol/L, so appropriate limitation of physical activities is recommended in daily life.&#34;
+    explanation: This case report provides quantitative evidence of markedly elevated serum lactic acid.
 - name: N-terminal pro-brain natriuretic peptide (NT-proBNP)
   presence: Elevated
   context: Cardiac stress marker in Sengers syndrome with heart failure
@@ -5203,10 +5994,9 @@ biochemical:
   - reference: PMID:34164355
     reference_title: &#34;Case Report: Two Chinese Infants of Sengers Syndrome Caused by Mutations in AGK Gene.&#34;
     supports: SUPPORT
-    snippet: &#34;N-terminal pro-brain natriuretic peptide (NT-proBNP) reached 6,076 pg/ml
-      (reference ranges &lt;125 pg/ml) reflecting the state of the heart failure.&#34;
-    explanation: This provides biochemical evidence of elevated NT-proBNP in a
-      Sengers syndrome patient with heart failure.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;N-terminal pro-brain natriuretic peptide (NT-proBNP) reached 6,076 pg/ml (reference ranges &lt;125 pg/ml) reflecting the state of the heart failure.&#34;
+    explanation: This provides biochemical evidence of elevated NT-proBNP in a Sengers syndrome patient with heart failure.
 - name: 3-hydroxybutyrate
   presence: Elevated
   context: Urinary organic acid analysis in Sengers syndrome
@@ -5219,10 +6009,9 @@ biochemical:
   - reference: PMID:34164355
     reference_title: &#34;Case Report: Two Chinese Infants of Sengers Syndrome Caused by Mutations in AGK Gene.&#34;
     supports: SUPPORT
-    snippet: &#34;Urinary organic acid analysis showed increased amounts of 3-hydroxybutyrate
-      (25.5 mmol/L, normal &lt;9.0 mmol/L)&#34;
-    explanation: This report documents elevated 3-hydroxybutyrate on urinary
-      organic acid analysis.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Urinary organic acid analysis showed increased amounts of 3-hydroxybutyrate (25.5 mmol/L, normal &lt;9.0 mmol/L)&#34;
+    explanation: This report documents elevated 3-hydroxybutyrate on urinary organic acid analysis.
 treatments:
 - name: Coenzyme Q10 supplementation
   description: Coenzyme Q10 used as part of mitochondrial supportive therapy.
@@ -5230,248 +6019,225 @@ treatments:
   - reference: PMID:34164355
     reference_title: &#34;Case Report: Two Chinese Infants of Sengers Syndrome Caused by Mutations in AGK Gene.&#34;
     supports: SUPPORT
-    snippet: &#34;Supplementation with coenzyme Q10, carnitine, B-vitamins, and biotin
-      (called mitochondrial cocktail) was given daily, associated with angiotensin
-      converting enzyme (ACE) inhibitors for cardiomyopathy management.&#34;
-    explanation: This case report lists coenzyme Q10 as part of a mitochondrial
-      cocktail for Sengers syndrome.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Supplementation with coenzyme Q10, carnitine, B-vitamins, and biotin (called mitochondrial cocktail) was given daily, associated with angiotensin converting enzyme (ACE) inhibitors for cardiomyopathy management.&#34;
+    explanation: This case report lists coenzyme Q10 as part of a mitochondrial cocktail for Sengers syndrome.
   - reference: PMID:34164355
     reference_title: &#34;Case Report: Two Chinese Infants of Sengers Syndrome Caused by Mutations in AGK Gene.&#34;
     supports: SUPPORT
-    snippet: &#34;Levocarnitine (100 mg/kg daily), coenzyme Q10 (1 mg/kg daily), and vitamin
-      B complex (vitamin B1 20 mg/day and riboflavin 10 mg/day) were administered
-      to improve metabolic status;&#34;
-    explanation: This provides dosing detail confirming coenzyme Q10 use in
-      Sengers syndrome.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Levocarnitine (100 mg/kg daily), coenzyme Q10 (1 mg/kg daily), and vitamin B complex (vitamin B1 20 mg/day and riboflavin 10 mg/day) were administered to improve metabolic status;&#34;
+    explanation: This provides dosing detail confirming coenzyme Q10 use in Sengers syndrome.
   treatment_term:
     preferred_term: coenzyme Q10 supplementation
     term:
       id: MAXO:0010012
       label: coenzyme Q10 supplementation
-    qualifiers:
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: coenzyme Q10
-        term:
-          id: NCIT:C916
-          label: Coenzyme Q10
+    therapeutic_agent:
+    - preferred_term: coenzyme Q10
+      term:
+        id: CHEBI:46245
+        label: coenzyme Q10
+  target_mechanisms:
+  - target: Oxidative phosphorylation deficiency
+    treatment_effect: MODULATES
+    description: Coenzyme Q10 supplementation is supportive mitochondrial therapy intended to improve metabolic status downstream of OXPHOS dysfunction.
+    evidence:
+    - reference: PMID:34164355
+      reference_title: &#34;Case Report: Two Chinese Infants of Sengers Syndrome Caused by Mutations in AGK Gene.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Levocarnitine (100 mg/kg daily), coenzyme Q10 (1 mg/kg daily), and vitamin B complex (vitamin B1 20 mg/day and riboflavin 10 mg/day) were administered to improve metabolic status;&#34;
+      explanation: Case-report treatment evidence supports CoQ10 as part of supportive metabolic therapy, but not correction of the primary AGK/TIM22 defect.
 - name: Carnitine supplementation
   description: L-carnitine provided as part of mitochondrial supportive therapy.
   evidence:
   - reference: PMID:34164355
     reference_title: &#34;Case Report: Two Chinese Infants of Sengers Syndrome Caused by Mutations in AGK Gene.&#34;
     supports: SUPPORT
-    snippet: &#34;Supplementation with coenzyme Q10, carnitine, B-vitamins, and biotin
-      (called mitochondrial cocktail) was given daily, associated with angiotensin
-      converting enzyme (ACE) inhibitors for cardiomyopathy management.&#34;
-    explanation: This case report lists carnitine within the mitochondrial
-      cocktail for Sengers syndrome.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Supplementation with coenzyme Q10, carnitine, B-vitamins, and biotin (called mitochondrial cocktail) was given daily, associated with angiotensin converting enzyme (ACE) inhibitors for cardiomyopathy management.&#34;
+    explanation: This case report lists carnitine within the mitochondrial cocktail for Sengers syndrome.
   - reference: PMID:34164355
     reference_title: &#34;Case Report: Two Chinese Infants of Sengers Syndrome Caused by Mutations in AGK Gene.&#34;
     supports: SUPPORT
-    snippet: &#34;Levocarnitine (100 mg/kg daily), coenzyme Q10 (1 mg/kg daily), and vitamin
-      B complex (vitamin B1 20 mg/day and riboflavin 10 mg/day) were administered
-      to improve metabolic status;&#34;
-    explanation: This provides dosing detail confirming levocarnitine use in
-      Sengers syndrome.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Levocarnitine (100 mg/kg daily), coenzyme Q10 (1 mg/kg daily), and vitamin B complex (vitamin B1 20 mg/day and riboflavin 10 mg/day) were administered to improve metabolic status;&#34;
+    explanation: This provides dosing detail confirming levocarnitine use in Sengers syndrome.
   treatment_term:
     preferred_term: carnitine supplementation
     term:
       id: MAXO:0010006
       label: carnitine supplementation
-    qualifiers:
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: levocarnitine
-        term:
-          id: NCIT:C26657
-          label: Levocarnitine
+    therapeutic_agent:
+    - preferred_term: levocarnitine
+      term:
+        id: CHEBI:16347
+        label: (R)-carnitine
+  target_mechanisms:
+  - target: Oxidative phosphorylation deficiency
+    treatment_effect: MODULATES
+    description: Carnitine supplementation is supportive mitochondrial therapy intended to improve metabolic status downstream of OXPHOS dysfunction.
+    evidence:
+    - reference: PMID:34164355
+      reference_title: &#34;Case Report: Two Chinese Infants of Sengers Syndrome Caused by Mutations in AGK Gene.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Levocarnitine (100 mg/kg daily), coenzyme Q10 (1 mg/kg daily), and vitamin B complex (vitamin B1 20 mg/day and riboflavin 10 mg/day) were administered to improve metabolic status;&#34;
+      explanation: Case-report treatment evidence supports levocarnitine as supportive metabolic therapy, but not correction of the primary AGK/TIM22 defect.
 - name: B vitamin supplementation
   description: Vitamin B complex supplementation as part of supportive therapy.
   evidence:
   - reference: PMID:34164355
     reference_title: &#34;Case Report: Two Chinese Infants of Sengers Syndrome Caused by Mutations in AGK Gene.&#34;
     supports: SUPPORT
-    snippet: &#34;Supplementation with coenzyme Q10, carnitine, B-vitamins, and biotin
-      (called mitochondrial cocktail) was given daily, associated with angiotensin
-      converting enzyme (ACE) inhibitors for cardiomyopathy management.&#34;
-    explanation: This case report lists B-vitamins within the mitochondrial
-      cocktail for Sengers syndrome.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Supplementation with coenzyme Q10, carnitine, B-vitamins, and biotin (called mitochondrial cocktail) was given daily, associated with angiotensin converting enzyme (ACE) inhibitors for cardiomyopathy management.&#34;
+    explanation: This case report lists B-vitamins within the mitochondrial cocktail for Sengers syndrome.
   - reference: PMID:34164355
     reference_title: &#34;Case Report: Two Chinese Infants of Sengers Syndrome Caused by Mutations in AGK Gene.&#34;
     supports: SUPPORT
-    snippet: &#34;Levocarnitine (100 mg/kg daily), coenzyme Q10 (1 mg/kg daily), and vitamin
-      B complex (vitamin B1 20 mg/day and riboflavin 10 mg/day) were administered
-      to improve metabolic status;&#34;
-    explanation: This provides dosing detail confirming vitamin B complex use in
-      Sengers syndrome.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Levocarnitine (100 mg/kg daily), coenzyme Q10 (1 mg/kg daily), and vitamin B complex (vitamin B1 20 mg/day and riboflavin 10 mg/day) were administered to improve metabolic status;&#34;
+    explanation: This provides dosing detail confirming vitamin B complex use in Sengers syndrome.
   treatment_term:
     preferred_term: B vitamin supplementation
     term:
       id: MAXO:0000761
       label: B vitamin supplementation
-    qualifiers:
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: thiamine
-        term:
-          id: NCIT:C874
-          label: Thiamine
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: riboflavin
-        term:
-          id: NCIT:C808
-          label: Riboflavin
+    therapeutic_agent:
+    - preferred_term: thiamine
+      term:
+        id: CHEBI:18385
+        label: thiamine(1+)
+    - preferred_term: riboflavin
+      term:
+        id: CHEBI:17015
+        label: riboflavin
+  target_mechanisms:
+  - target: Oxidative phosphorylation deficiency
+    treatment_effect: MODULATES
+    description: B-vitamin supplementation is supportive mitochondrial therapy intended to improve metabolic status downstream of OXPHOS dysfunction.
+    evidence:
+    - reference: PMID:34164355
+      reference_title: &#34;Case Report: Two Chinese Infants of Sengers Syndrome Caused by Mutations in AGK Gene.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Levocarnitine (100 mg/kg daily), coenzyme Q10 (1 mg/kg daily), and vitamin B complex (vitamin B1 20 mg/day and riboflavin 10 mg/day) were administered to improve metabolic status;&#34;
+      explanation: Case-report treatment evidence supports vitamin B complex as supportive metabolic therapy, but not correction of the primary AGK/TIM22 defect.
 - name: ACE inhibitor therapy
   description: ACE inhibitor therapy used for heart failure management.
   evidence:
   - reference: PMID:34164355
     reference_title: &#34;Case Report: Two Chinese Infants of Sengers Syndrome Caused by Mutations in AGK Gene.&#34;
     supports: SUPPORT
-    snippet: &#34;Supplementation with coenzyme Q10, carnitine, B-vitamins, and biotin
-      (called mitochondrial cocktail) was given daily, associated with angiotensin
-      converting enzyme (ACE) inhibitors for cardiomyopathy management.&#34;
-    explanation: This case report notes ACE inhibitor use alongside
-      mitochondrial cocktail therapy.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Supplementation with coenzyme Q10, carnitine, B-vitamins, and biotin (called mitochondrial cocktail) was given daily, associated with angiotensin converting enzyme (ACE) inhibitors for cardiomyopathy management.&#34;
+    explanation: This case report notes ACE inhibitor use alongside mitochondrial cocktail therapy.
   - reference: PMID:34164355
     reference_title: &#34;Case Report: Two Chinese Infants of Sengers Syndrome Caused by Mutations in AGK Gene.&#34;
     supports: SUPPORT
-    snippet: &#34;The patient received milrinone, diuretics (furosemide and spironolactone),
-      and captopril to improve heart function.&#34;
-    explanation: This provides direct evidence of ACE inhibitor (captopril)
-      therapy in Sengers syndrome.
-  - reference: PMID:38933059
-    reference_title: &#34;A neonate with a spongy failing heart - What could it be?&#34;
-    supports: SUPPORT
-    snippet: &#34;Baby was on regular follow-up and was thriving well on diuretics, sacubitril-valsartan
-      and weekly levosimendan infusions.&#34;
-    explanation: This neonatal case reports ongoing pharmacologic heart failure
-      management including a neprilysin inhibitor/ARB regimen.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The patient received milrinone, diuretics (furosemide and spironolactone), and captopril to improve heart function.&#34;
+    explanation: This provides direct evidence of ACE inhibitor (captopril) therapy in Sengers syndrome.
   treatment_term:
     preferred_term: ACE inhibitor therapy
     term:
       id: MAXO:0000652
       label: ACE inhibitor therapy
-    qualifiers:
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: captopril
-        term:
-          id: NCIT:C340
-          label: Captopril
+    therapeutic_agent:
+    - preferred_term: captopril
+      term:
+        id: CHEBI:3380
+        label: captopril
+  target_phenotypes:
+  - preferred_term: Congestive heart failure
+    term:
+      id: HP:0001635
+      label: Congestive heart failure
 - name: Cardiac transplantation
-  description: Heart transplantation for severe cardiomyopathy in Sengers
-    syndrome.
+  description: Heart transplantation for severe cardiomyopathy in Sengers syndrome.
   evidence:
   - reference: PMID:8526648
     reference_title: &#34;Cardiac transplantation for hypertrophic cardiomyopathy associated with Sengers syndrome.&#34;
     supports: SUPPORT
-    snippet: &#34;This report describes cardiac transplantation for the treatment of the
-      cardiomyopathy associated with Sengers&#39; syndrome.&#34;
-    explanation: This case report documents cardiac transplantation as a
-      treatment for Sengers-associated cardiomyopathy.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;This report describes cardiac transplantation for the treatment of the cardiomyopathy associated with Sengers&#39; syndrome.&#34;
+    explanation: This case report documents cardiac transplantation as a treatment for Sengers-associated cardiomyopathy.
   - reference: PMID:38933059
     reference_title: &#34;A neonate with a spongy failing heart - What could it be?&#34;
     supports: SUPPORT
-    snippet: &#34;At 8 months of age, cardiac transplantation was successfully done and
-      baby has been doing well post-transplantation.&#34;
-    explanation: This neonatal case report describes successful cardiac
-      transplantation in Sengers syndrome.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;At 8 months of age, cardiac transplantation was successfully done and baby has been doing well post-transplantation.&#34;
+    explanation: This neonatal case report describes successful cardiac transplantation in Sengers syndrome.
   treatment_term:
     preferred_term: cardiac transplantation
     term:
       id: MAXO:0010032
       label: cardiac transplantation
+  target_phenotypes:
+  - preferred_term: Congestive heart failure
+    term:
+      id: HP:0001635
+      label: Congestive heart failure
 - name: Diuretic therapy
   description: Diuretics used for heart failure management in Sengers syndrome.
   evidence:
   - reference: PMID:38933059
     reference_title: &#34;A neonate with a spongy failing heart - What could it be?&#34;
     supports: SUPPORT
-    snippet: &#34;Baby was on regular follow-up and was thriving well on diuretics, sacubitril-valsartan
-      and weekly levosimendan infusions.&#34;
-    explanation: This case report documents ongoing diuretic therapy as part of
-      heart failure management.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Baby was on regular follow-up and was thriving well on diuretics, sacubitril-valsartan and weekly levosimendan infusions.&#34;
+    explanation: This case report documents ongoing diuretic therapy as part of heart failure management.
   - reference: PMID:34164355
     reference_title: &#34;Case Report: Two Chinese Infants of Sengers Syndrome Caused by Mutations in AGK Gene.&#34;
     supports: SUPPORT
-    snippet: &#34;The patient received milrinone, diuretics (furosemide and spironolactone),
-      and captopril to improve heart function.&#34;
-    explanation: This provides direct evidence of diuretic use in Sengers
-      syndrome.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The patient received milrinone, diuretics (furosemide and spironolactone), and captopril to improve heart function.&#34;
+    explanation: This provides direct evidence of diuretic use in Sengers syndrome.
   treatment_term:
     preferred_term: diuretic agent therapy
     term:
       id: MAXO:0000165
       label: diuretic agent therapy
-    qualifiers:
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: furosemide
-        term:
-          id: NCIT:C515
-          label: Furosemide
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: spironolactone
-        term:
-          id: NCIT:C840
-          label: Spironolactone
+    therapeutic_agent:
+    - preferred_term: furosemide
+      term:
+        id: CHEBI:47426
+        label: furosemide
+    - preferred_term: spironolactone
+      term:
+        id: CHEBI:9241
+        label: spironolactone
+  target_phenotypes:
+  - preferred_term: Congestive heart failure
+    term:
+      id: HP:0001635
+      label: Congestive heart failure
 - name: Levosimendan infusion
   description: Levosimendan infusions used for heart failure support.
   evidence:
   - reference: PMID:38933059
     reference_title: &#34;A neonate with a spongy failing heart - What could it be?&#34;
     supports: SUPPORT
-    snippet: &#34;Baby was on regular follow-up and was thriving well on diuretics, sacubitril-valsartan
-      and weekly levosimendan infusions.&#34;
-    explanation: This neonatal case report describes levosimendan infusions in
-      Sengers syndrome.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Baby was on regular follow-up and was thriving well on diuretics, sacubitril-valsartan and weekly levosimendan infusions.&#34;
+    explanation: This neonatal case report describes levosimendan infusions in Sengers syndrome.
   treatment_term:
     preferred_term: pharmacotherapy
     term:
       id: MAXO:0000058
       label: pharmacotherapy
-    qualifiers:
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: levosimendan
-        term:
-          id: NCIT:C174653
-          label: Levosimendan
+    therapeutic_agent:
+    - preferred_term: levosimendan
+      term:
+        id: CHEBI:50567
+        label: levosimendan
+  target_phenotypes:
+  - preferred_term: Congestive heart failure
+    term:
+      id: HP:0001635
+      label: Congestive heart failure
 datasets: []
 differential_diagnoses:
 - name: Barth syndrome
@@ -5485,59 +6251,46 @@ differential_diagnoses:
     that can overlap with Sengers syndrome.
   distinguishing_features:
   - X-linked inheritance and neutropenia are typical for Barth syndrome.
-  - Cardiolipin remodeling defects due to TAZ variants distinguish it from
-    AGK-related Sengers syndrome.
+  - Cardiolipin remodeling defects due to TAZ variants distinguish it from AGK-related Sengers syndrome.
   evidence:
   - reference: DOI:10.1007/s10545-014-9759-7
     supports: SUPPORT
-    snippet: &#34;Sengers syndrome (due to mutations in AGK), MEGDEL syndrome (or SERAC
-      defect, SERAC1), Barth syndrome (or TAZ defect, TAZ)&#34;
-    explanation: This review lists Barth syndrome alongside Sengers syndrome
-      among phospholipid metabolism disorders.
-- name: 3-methylglutaconic aciduria with deafness, encephalopathy, and
-    Leigh-like syndrome
+    evidence_source: OTHER
+    snippet: &#34;Sengers syndrome (due to mutations in AGK), MEGDEL syndrome (or SERAC defect, SERAC1), Barth syndrome (or TAZ defect, TAZ)&#34;
+    explanation: This review lists Barth syndrome alongside Sengers syndrome among phospholipid metabolism disorders.
+- name: 3-methylglutaconic aciduria with deafness, encephalopathy, and Leigh-like syndrome
   disease_term:
-    preferred_term: 3-methylglutaconic aciduria with deafness, encephalopathy,
-      and Leigh-like syndrome
+    preferred_term: 3-methylglutaconic aciduria with deafness, encephalopathy, and Leigh-like syndrome
     term:
       id: MONDO:0013875
-      label: 3-methylglutaconic aciduria with deafness, encephalopathy, and
-        Leigh-like syndrome
+      label: 3-methylglutaconic aciduria with deafness, encephalopathy, and Leigh-like syndrome
   description: &gt;
     SERAC1-related mitochondrial disorder (MEGDEL syndrome) with multisystem
     involvement and overlapping metabolic features.
   distinguishing_features:
   - Prominent deafness and Leigh-like neurodegeneration are typical.
-  - SERAC1-related disease has a different genetic cause than AGK-related
-    Sengers syndrome.
+  - SERAC1-related disease has a different genetic cause than AGK-related Sengers syndrome.
   evidence:
   - reference: DOI:10.1007/s10545-014-9759-7
     supports: SUPPORT
-    snippet: &#34;Sengers syndrome (due to mutations in AGK), MEGDEL syndrome (or SERAC
-      defect, SERAC1), Barth syndrome (or TAZ defect, TAZ)&#34;
-    explanation: This review lists MEGDEL syndrome as a related phospholipid
-      metabolism disorder to consider in the differential.
+    evidence_source: OTHER
+    snippet: &#34;Sengers syndrome (due to mutations in AGK), MEGDEL syndrome (or SERAC defect, SERAC1), Barth syndrome (or TAZ defect, TAZ)&#34;
+    explanation: This review lists MEGDEL syndrome as a related phospholipid metabolism disorder to consider in the differential.
 - name: Adenine nucleotide translocator 1 (ANT1) deficiency
-  description: Reduced ANT1 protein and activity can present with overlapping
-    mitochondrial cardiomyopathy and myopathy features.
+  description: Reduced ANT1 protein and activity can present with overlapping mitochondrial cardiomyopathy and myopathy features.
   distinguishing_features:
-  - ANT1 protein content and transport activity are markedly reduced in muscle,
-    yet sequence and linkage analyses may exclude ANT1 as the primary genetic
-    cause.
+  - ANT1 protein content and transport activity are markedly reduced in muscle, yet sequence and linkage analyses may exclude ANT1 as the primary genetic cause.
   evidence:
   - reference: DOI:10.1002/ana.10214
     supports: SUPPORT
-    snippet: &#34;In immunoblot analysis, the protein content of the mitochondrial adenine
-      nucleotide translocator 1 (ANT1) was found to be strongly reduced in the muscle
-      tissues of two unrelated patients with Sengers syndrome.&#34;
-    explanation: The abstract documents reduced ANT1 protein in muscle, a key
-      differential consideration.
+    evidence_source: IN_VITRO
+    snippet: &#34;In immunoblot analysis, the protein content of the mitochondrial adenine nucleotide translocator 1 (ANT1) was found to be strongly reduced in the muscle tissues of two unrelated patients with Sengers syndrome.&#34;
+    explanation: The abstract documents reduced ANT1 protein in muscle, a key differential consideration.
   - reference: DOI:10.1002/ana.10214
     supports: SUPPORT
-    snippet: &#34;Sequence analysis and linkage analysis showed that ANT1 was not the
-      primary genetic cause of Sengers syndrome.&#34;
-    explanation: This supports distinguishing ANT1 deficiency from primary
-      AGK-related Sengers syndrome.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Sequence analysis and linkage analysis showed that ANT1 was not the primary genetic cause of Sengers syndrome.&#34;
+    explanation: This supports distinguishing ANT1 deficiency from primary AGK-related Sengers syndrome.
 references:
 - reference: DOI:10.1002/iub.2767
   title: Adenine nucleotide carrier protein dysfunction in human disease
@@ -5546,12 +6299,10 @@ references:
   title: Cardiac Involvement in Mitochondrial Disorders
   findings: []
 - reference: DOI:10.1016/j.ymgme.2012.11.282
-  title: &#39;Mitochondrial citrate synthase crystals: Novel finding in Sengers syndrome
-    caused by acylglycerol kinase (AGK) mutations&#39;
+  title: &#39;Mitochondrial citrate synthase crystals: Novel finding in Sengers syndrome caused by acylglycerol kinase (AGK) mutations&#39;
   findings: []
 - reference: DOI:10.1186/s40246-025-00723-y
-  title: Sengers syndrome caused by biallelic TIMM29 variants and RNAi silencing
-    in Drosophila orthologue recapitulates the human phenotype
+  title: Sengers syndrome caused by biallelic TIMM29 variants and RNAi silencing in Drosophila orthologue recapitulates the human phenotype
   findings: []
 </pre>
             </div>
@@ -5944,7 +6695,7 @@ Affected cellular processes</li>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Sengers syndrome", "mondoId": "MONDO:0008922", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Sengers_syndrome", "yamlRevision": "f7cd83d5de05"};
+        const OS_CONFIG = {"diseaseName": "Sengers syndrome", "mondoId": "MONDO:0008922", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Sengers_syndrome", "yamlRevision": "1c5030e9db78"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

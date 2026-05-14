@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,7 +2570,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 35</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Urea Cycle Disorder</span>
@@ -2547,10 +2700,12 @@
             </div>
             
             
+            <a class="stat-link" href="#inheritance">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">1</div>
                 <div class="stat-label">Inheritance</div>
             </div>
+            </a>
             
             
             <a class="stat-link" href="#pathophysiology">
@@ -2577,7 +2732,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">11</div>
+                <div class="stat-value">35</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -2658,6 +2813,79 @@
 
         <!-- Inheritance -->
         
+        <div class="card" id="inheritance">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
+                <h2 class="card-title">Inheritance</h2>
+                <span class="card-count">1</span>
+            </div>
+            
+            <div class="item-box inheritance-box">
+                <div class="item-name">
+                    Autosomal recessive
+                    
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank">
+                            HP:0000007
+                        </a>
+                    </span>
+                    
+                </div>
+                
+                
+    
+    
+    <div class="item-meta">
+        
+        <span class="tag tag-classification">
+            Autosomal recessive inheritance
+        </span>
+        
+        
+        
+        
+        
+    </div>
+    
+    
+    
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301631" target="_blank">PMID:20301631</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"CTLN1 is inherited in an autosomal recessive manner."</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews directly states the inheritance pattern for CTLN1.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+        </div>
+        
 
         <!-- Subtypes -->
         
@@ -2720,6 +2948,45 @@
                 
                 
                 
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        argininosuccinate synthase activity
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0004055" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-component">
+                        cytosol
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0005829" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+                </div>
                 
                 
                 <div class="item-meta">
@@ -2850,6 +3117,34 @@
 	                    <div class="crosslink-list">
 	                        
 	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Ammonia</span>
+	                            
+	                            <span class="crosslink-desc">Failed ureagenesis leaves nitrogen as circulating ammonia.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Citrulline</span>
+	                            
+	                            <span class="crosslink-desc">Blocked argininosuccinate synthesis causes upstream citrulline accumulation.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Argininosuccinate</span>
+	                            
+	                            <span class="crosslink-desc">Blocked ASS1 activity prevents formation of argininosuccinate from citrulline and aspartate.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hyperammonemia</span>
+	                            
+	                            <span class="crosslink-desc">Accumulated ammonia manifests clinically as hyperammonemia.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Hyperammonemic neurotoxicity via astrocyte glutamine-osmotic injury</span>
 	                            
 	                            <span class="crosslink-desc">Ammonia accumulation from impaired ureagenesis drives CNS glutamine osmotic injury.</span>
@@ -2863,7 +3158,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -2884,6 +3179,26 @@
                 
                 
                 <div class="evidence-explanation">Quantitative case data demonstrating the magnitude of ammonia and citrulline accumulation in severe CTLN1.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301631" target="_blank">PMID:20301631</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"elevated plasma ammonia concentration (&gt;150 µmol/L; may range to ≥2000-3000 µmol/L), elevated plasma citrulline concentration (usually &gt;500 µmol/L), and absent argininosuccinate"</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews anchors the blocked ASS1 reaction by identifying absent argininosuccinate alongside elevated ammonia and citrulline.</div>
                 
             </div>
             
@@ -2970,6 +3285,26 @@
     
     
                     
+                    <span class="tag tag-bio">
+                        cellular response to osmotic stress
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0071470" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
                 </div>
                 
                 
@@ -2989,6 +3324,69 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cerebral edema</span>
+	                            
+	                            <span class="crosslink-desc">Glutamine-driven osmotic injury manifests as increased intracranial pressure and cerebral edema.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Glutamine</span>
+	                            
+	                            <span class="crosslink-desc">Astrocytic ammonia detoxification during hyperammonemic crises produces glutamine accumulation.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Encephalopathy</span>
+	                            
+	                            <span class="crosslink-desc">CNS ammonia/glutamine toxicity produces acute hyperammonemic encephalopathy.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Seizures</span>
+	                            
+	                            <span class="crosslink-desc">Severe hyperammonemic CNS injury can produce seizures.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Coma</span>
+	                            
+	                            <span class="crosslink-desc">Untreated hyperammonemic encephalopathy can progress to loss of consciousness and coma.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Spasticity</span>
+	                            
+	                            <span class="crosslink-desc">Increased neuromuscular tone and spasticity occur in severe hyperammonemic crises.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Intellectual disability</span>
+	                            
+	                            <span class="crosslink-desc">Promptly treated severe neonatal disease may still leave significant neurologic deficits.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Global developmental delay</span>
+	                            
+	                            <span class="crosslink-desc">Severe neonatal hyperammonemic injury can leave developmental and neurologic deficits in survivors.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
@@ -3006,7 +3404,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3031,6 +3429,17 @@
 </div>
                 
                 
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-gene">
+                        ASS1
+                        
+                        <a href="https://bioregistry.io/hgnc:758" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+                </div>
                 
                 
                 
@@ -3059,6 +3468,30 @@
                 </div>
                 
                 
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        argininosuccinate synthase activity
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0004055" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
                 
                 
                 
@@ -3067,6 +3500,13 @@
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Impaired hepatic ureagenesis due to ASS1 deficiency</span>
+	                            
+	                            <span class="crosslink-desc">Residual enzyme activity determines the depth of the urea-cycle flux defect.</span>
+	                            
+	                        </div>
 	                        
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Secondary metabolic derangements during catabolic stress</span>
@@ -3099,7 +3539,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"the C-terminal helix domain of the mutant protein structure, which was an important structure for ASS1 protein to form protein tetramers, was indeed more unstable than that of the wild-type protein structure."</div>
+                <div class="evidence-snippet">"the C- terminal helix domain of the mutant protein structure, which was an important structure for ASS1 protein to form protein tetramers, was indeed more unstable than that of the wild-type protein structure."</div>
                 
                 
                 <div class="evidence-explanation">In silico analysis showing C-terminal helix instability disrupts ASS1 tetramerization.</div>
@@ -3173,6 +3613,27 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hyperammonemia</span>
+	                            
+	                            <span class="crosslink-desc">Catabolic nitrogen load can exceed residual ASS1-dependent ureagenesis and trigger hyperammonemia.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Failure to thrive</span>
+	                            
+	                            <span class="crosslink-desc">Recurrent crises and chronic dietary restriction can impair growth, with transplant-associated metabolic stability improving growth outcomes.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
@@ -3184,20 +3645,20 @@
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40218931" target="_blank">PMID:40218931</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301631" target="_blank">PMID:20301631</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"Early-onset (EO) cases comprised 32.7%, and 10.6% were diagnosed through NBS. Global mortality was 14.9%, higher in carbamoylphosphate synthetase 1 deficiency (36.8%) and male OTCD patients (32.1%) compared to other defects"</div>
+                <div class="evidence-snippet">"Agents/circumstances to avoid: Excessive protein intake, prolonged fasting, and obvious exposure to communicable diseases."</div>
                 
                 
-                <div class="evidence-explanation">Registry data showing high mortality in early-onset UCDs, reflecting severity of metabolic crises.</div>
+                <div class="evidence-explanation">GeneReviews identifies excess protein, fasting, and infectious exposure as avoidable triggers for metabolic decompensation.</div>
                 
             </div>
             
@@ -3233,7 +3694,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ASS1 - c.-4C\u003eT (5\u0027UTR hypomorphic variant)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A non-coding variant in the 5\u0027UTR region of ASS1 that reduces expression at both protein and transcription levels but does not directly affect enzyme activity. Represents a hypomorphic variant that may modify disease severity.\\n\"}, {\"id\": \"ASS1 - p.Arg265Cys (rs148918985)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Rare pathogenic coding variant leading to ASS1 enzyme deficiency. Found in patients with late-onset citrullinemia type I and associated with hyperammonemia-related dementia.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"ASS1 - p.Gly390Arg (rs121908641)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Rare pathogenic coding variant that renders ASS1 enzyme completely inactive. In compound heterozygosity can produce late-onset citrullinemia type I.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"ASS1 - p.P217del (c.649-651del)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Novel in-frame deletion that results in decreased ASS1 expression at both protein and transcription levels, with highly significant reduction in enzyme activity.\\n\"}, {\"id\": \"ASS1 - p.Q350* (c.1048C\u003eT)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Novel nonsense variant producing a truncated ASS1 protein with marked decrease in expression at the protein level and highly significant reduction in enzyme activity.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"ASS1 molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in ASS1 reduce argininosuccinate synthase catalytic activity in periportal hepatocytes.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"genes\": [\"ASS1\"], \"locations\": [\"liver\"]}}, {\"id\": \"ASS1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"variant_count\": 5}}, {\"id\": \"Genotype-to-phenotype correlation through residual ASS1 activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The severity spectrum of CTLN1 (classic neonatal, late-onset, pregnancy-triggered, asymptomatic) is determined by residual ASS1 enzyme activity. Pathogenic variants affect the citrulline-binding site, oligomerization helix stability, protein expression levels, or cause premature truncation. Variants with less than 2% of wild-type activity typically produce classic neonatal presentations, while hypomorphic variants may allow milder or late-onset disease.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein tetramerization\"]}}, {\"id\": \"Hyperammonemic neurotoxicity via astrocyte glutamine-osmotic injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"During hyperammonemic crises, systemic ammonia crosses into the CNS where astrocytes detoxify ammonia by converting it to glutamine. Rapid intracellular glutamine accumulation increases osmolarity, causing astrocyte swelling, inflammatory cascades, and cerebral edema. This mechanism connects the hepatic metabolic defect to acute brain pathology including lethargy, seizures, increased intracranial pressure, and coma.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"astrocyte\"], \"biological_processes\": [\"glutamine biosynthetic process\", \"cellular response to nitrogen compound\"], \"locations\": [\"brain\"]}}, {\"id\": \"Impaired hepatic ureagenesis due to ASS1 deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced ASS1 activity blocks conversion of citrulline and aspartate to argininosuccinate in periportal hepatocytes. This leads to accumulation of upstream substrates (citrulline, ammonia) and failure to detoxify nitrogen, causing hyperammonemia. The severity of the metabolic block correlates with residual ASS1 enzyme activity, which is determined by the specific pathogenic variants.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"urea cycle\", \"arginine biosynthetic process\"]}}, {\"id\": \"Secondary metabolic derangements during catabolic stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Although baseline ureagenesis is impaired, acute hyperammonemic crises are precipitated when nitrogen production exceeds residual detoxification capacity during illness or catabolism. This produces abrupt rises in ammonia and citrulline, orotic aciduria from secondary pyrimidine pathway perturbation, and depleted arginine.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"urea cycle\"]}}], \"edges\": [{\"source\": \"ASS1 molecular function deficiency\", \"target\": \"Impaired hepatic ureagenesis due to ASS1 deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired hepatic ureagenesis due to ASS1 deficiency\", \"target\": \"Hyperammonemic neurotoxicity via astrocyte glutamine-osmotic injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Genotype-to-phenotype correlation through residual ASS1 activity\", \"target\": \"Secondary metabolic derangements during catabolic stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ASS1 - p.P217del (c.649-651del)\", \"target\": \"ASS1 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"ASS1 - p.Q350* (c.1048C\u003eT)\", \"target\": \"ASS1 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"ASS1 - p.Arg265Cys (rs148918985)\", \"target\": \"ASS1 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"ASS1 - p.Gly390Arg (rs121908641)\", \"target\": \"ASS1 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"ASS1 - c.-4C\u003eT (5\u0027UTR hypomorphic variant)\", \"target\": \"ASS1 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ASS1 - c.-4C\u003eT (5\u0027UTR hypomorphic variant)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A non-coding variant in the 5\u0027UTR region of ASS1 that reduces expression at both protein and transcription levels but does not directly affect enzyme activity. Represents a hypomorphic variant that may modify disease severity.\\n\"}, {\"id\": \"ASS1 - p.Arg265Cys (rs148918985)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Rare pathogenic coding variant leading to ASS1 enzyme deficiency. Found in patients with late-onset citrullinemia type I and associated with hyperammonemia-related dementia.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"ASS1 - p.Gly390Arg (rs121908641)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Rare pathogenic coding variant that renders ASS1 enzyme completely inactive. In compound heterozygosity can produce late-onset citrullinemia type I.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"ASS1 - p.P217del (c.649-651del)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Novel in-frame deletion that results in decreased ASS1 expression at both protein and transcription levels, with highly significant reduction in enzyme activity.\\n\"}, {\"id\": \"ASS1 - p.Q350* (c.1048C\u003eT)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Novel nonsense variant producing a truncated ASS1 protein with marked decrease in expression at the protein level and highly significant reduction in enzyme activity.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"ASS1 molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in ASS1 reduce argininosuccinate synthase catalytic activity in periportal hepatocytes.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"molecular_functions\": [\"argininosuccinate synthase activity\"], \"genes\": [\"ASS1\"], \"locations\": [\"liver\"]}}, {\"id\": \"ASS1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"ASS1\"], \"variant_count\": 5}}, {\"id\": \"Acute crisis management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Emergency management of hyperammonemic crises includes cessation of protein intake (maximum 48 hours), high-calorie glucose infusion to reverse catabolism, intravenous nitrogen scavengers, and escalation to continuous renal replacement therapy (dialysis) when ammonia exceeds 500 umol/L.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Ammonia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"Arginine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Arginine supplementation is required because the ASS1 block prevents endogenous arginine synthesis. Supplemental arginine also helps drive residual urea cycle flux and supports protein synthesis.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"L-arginine\"]}}, {\"id\": \"Argininosuccinate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\"}}, {\"id\": \"Cerebral edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebral edema develops during severe hyperammonemic crises through astrocyte glutamine-mediated osmotic swelling, manifesting as increased intracranial pressure.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002181\"}}, {\"id\": \"Citrulline\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"Coma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coma develops in untreated or refractory hyperammonemic crises and is associated with high mortality if not urgently managed.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001259\"}}, {\"id\": \"Emerging RNA therapeutics\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"LNP-formulated mRNA therapy has been assayed preclinically for CTLN1, representing an emerging disease-modifying strategy for liver-targeted gene correction. This approach could potentially provide metabolic correction without transplantation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute or recurrent encephalopathy due to ammonia neurotoxicity, manifesting as progressive lethargy, poor feeding, vomiting, and signs of increased intracranial pressure in neonatal-onset disease.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001298\"}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor growth due to chronic protein restriction, recurrent metabolic crises, and catabolic episodes.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Genotype-to-phenotype correlation through residual ASS1 activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The severity spectrum of CTLN1 (classic neonatal, late-onset, pregnancy-triggered, asymptomatic) is determined by residual ASS1 enzyme activity. Pathogenic variants affect the citrulline-binding site, oligomerization helix stability, protein expression levels, or cause premature truncation. Variants with less than 2% of wild-type activity typically produce classic neonatal presentations, while hypomorphic variants may allow milder or late-onset disease.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein tetramerization\"], \"molecular_functions\": [\"argininosuccinate synthase activity\"], \"genes\": [\"ASS1\"]}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is common in survivors of neonatal-onset CTLN1, particularly those with early hyperammonemic events.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Glutamine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Hyperammonemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Markedly elevated plasma ammonia is the hallmark biochemical abnormality during metabolic decompensation. In severe neonatal-onset disease, ammonia can exceed 500-1000 umol/L. The median ammonia at diagnosis in deceased UCD patients was 1058 umol/L versus 294 umol/L in survivors.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001987\"}}, {\"id\": \"Hyperammonemic neurotoxicity via astrocyte glutamine-osmotic injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"During hyperammonemic crises, systemic ammonia crosses into the CNS where astrocytes detoxify ammonia by converting it to glutamine. Rapid intracellular glutamine accumulation increases osmolarity, causing astrocyte swelling, inflammatory cascades, and cerebral edema. This mechanism connects the hepatic metabolic defect to acute brain pathology including lethargy, seizures, increased intracranial pressure, and coma.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"astrocyte\"], \"biological_processes\": [\"glutamine biosynthetic process\", \"cellular response to nitrogen compound\", \"cellular response to osmotic stress\"], \"locations\": [\"brain\"]}}, {\"id\": \"Impaired hepatic ureagenesis due to ASS1 deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced ASS1 activity blocks conversion of citrulline and aspartate to argininosuccinate in periportal hepatocytes. This leads to accumulation of upstream substrates (citrulline, ammonia) and failure to detoxify nitrogen, causing hyperammonemia. The severity of the metabolic block correlates with residual ASS1 enzyme activity, which is determined by the specific pathogenic variants.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"urea cycle\", \"arginine biosynthetic process\"]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability results from cumulative or irreversible early brain injury during hyperammonemic episodes. Neurological impairment occurred in 44% of patients in the Spanish UCD registry. Neurocognitive outcomes did not improve even after liver transplantation, suggesting early irreversible injury.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive lethargy is one of the earliest signs of hyperammonemic decompensation in neonatal-onset CTLN1, often progressing to coma.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001254\"}}, {\"id\": \"Liver transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Liver transplantation is the only established curative intervention at the metabolic level for CTLN1. It provides metabolic stability by restoring hepatic ASS1 activity, preventing further hyperammonemic events, and allowing liberalization of protein intake. Five-year patient survival exceeds 90%. However, pre-existing neurocognitive impairment does not improve after transplantation.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Newborn screening\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"CTLN1 is detectable by newborn screening via tandem mass spectrometry using elevated citrulline as the primary marker. Early detection enables treatment initiation before clinical decompensation and is associated with improved survival and reduced neurological impairment.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Nitrogen scavenger therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sodium benzoate, sodium phenylbutyrate, or glycerol phenylbutyrate are used to promote alternative nitrogen disposal pathways. These agents conjugate with glycine or glutamine to form hippurate or phenylacetylglutamine, which are renally excreted, thus bypassing the blocked urea cycle.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"sodium benzoate\", \"sodium phenylbutyrate\", \"glycerol phenylbutyrate\"]}}, {\"id\": \"Poor feeding\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulties and refusal are common early signs in neonatal-onset CTLN1, reflecting encephalopathic progression.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Protein-restricted diet with essential amino acid supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Long-term dietary management centers on restriction of protein intake to reduce nitrogen load while providing essential amino acids via specialized formula. This is the cornerstone of chronic CTLN1 management. Liver transplantation eliminates the need for protein restriction.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Respiratory alkalosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory alkalosis may occur during hyperammonemic crises due to central stimulation of respiration by ammonia.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001950\"}}, {\"id\": \"Secondary metabolic derangements during catabolic stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Although baseline ureagenesis is impaired, acute hyperammonemic crises are precipitated when nitrogen production exceeds residual detoxification capacity during illness or catabolism. This produces abrupt rises in ammonia and citrulline, orotic aciduria from secondary pyrimidine pathway perturbation, and depleted arginine.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"urea cycle\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur during hyperammonemic crises as part of the encephalopathic cascade, reflecting cerebral edema and neuronal dysfunction.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased neuromuscular tone and spasticity can develop as part of hyperammonemic encephalopathy and chronic neurological sequelae.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001257\"}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent vomiting occurs during metabolic decompensation episodes.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002013\"}}], \"edges\": [{\"source\": \"ASS1 molecular function deficiency\", \"target\": \"Impaired hepatic ureagenesis due to ASS1 deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired hepatic ureagenesis due to ASS1 deficiency\", \"target\": \"Ammonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired hepatic ureagenesis due to ASS1 deficiency\", \"target\": \"Citrulline\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired hepatic ureagenesis due to ASS1 deficiency\", \"target\": \"Argininosuccinate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired hepatic ureagenesis due to ASS1 deficiency\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired hepatic ureagenesis due to ASS1 deficiency\", \"target\": \"Hyperammonemic neurotoxicity via astrocyte glutamine-osmotic injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic neurotoxicity via astrocyte glutamine-osmotic injury\", \"target\": \"Cerebral edema\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic neurotoxicity via astrocyte glutamine-osmotic injury\", \"target\": \"Glutamine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic neurotoxicity via astrocyte glutamine-osmotic injury\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic neurotoxicity via astrocyte glutamine-osmotic injury\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic neurotoxicity via astrocyte glutamine-osmotic injury\", \"target\": \"Coma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic neurotoxicity via astrocyte glutamine-osmotic injury\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic neurotoxicity via astrocyte glutamine-osmotic injury\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic neurotoxicity via astrocyte glutamine-osmotic injury\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Genotype-to-phenotype correlation through residual ASS1 activity\", \"target\": \"Impaired hepatic ureagenesis due to ASS1 deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Genotype-to-phenotype correlation through residual ASS1 activity\", \"target\": \"Secondary metabolic derangements during catabolic stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements during catabolic stress\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements during catabolic stress\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemia\", \"target\": \"Encephalopathy\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hyperammonemia\", \"target\": \"Cerebral edema\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hyperammonemia\", \"target\": \"Respiratory alkalosis\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Encephalopathy\", \"target\": \"Lethargy\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Encephalopathy\", \"target\": \"Poor feeding\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Encephalopathy\", \"target\": \"Vomiting\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Encephalopathy\", \"target\": \"Seizures\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Encephalopathy\", \"target\": \"Spasticity\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Encephalopathy\", \"target\": \"Coma\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Protein-restricted diet with essential amino acid supplementation\", \"target\": \"Secondary metabolic derangements during catabolic stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nitrogen scavenger therapy\", \"target\": \"Impaired hepatic ureagenesis due to ASS1 deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nitrogen scavenger therapy\", \"target\": \"Hyperammonemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Arginine supplementation\", \"target\": \"Impaired hepatic ureagenesis due to ASS1 deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Acute crisis management\", \"target\": \"Hyperammonemic neurotoxicity via astrocyte glutamine-osmotic injury\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"ASS1 molecular function deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Newborn screening\", \"target\": \"Hyperammonemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Newborn screening\", \"target\": \"Global developmental delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Emerging RNA therapeutics\", \"target\": \"ASS1 molecular function deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ASS1 pathogenic variants\", \"target\": \"ASS1 molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ASS1 pathogenic variants\", \"target\": \"Genotype-to-phenotype correlation through residual ASS1 activity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ASS1 - p.P217del (c.649-651del)\", \"target\": \"ASS1 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"ASS1 - p.Q350* (c.1048C\u003eT)\", \"target\": \"ASS1 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"ASS1 - p.Arg265Cys (rs148918985)\", \"target\": \"ASS1 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"ASS1 - p.Gly390Arg (rs121908641)\", \"target\": \"ASS1 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"ASS1 - c.-4C\u003eT (5\u0027UTR hypomorphic variant)\", \"target\": \"ASS1 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3308,7 +3769,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3364,7 +3825,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3411,6 +3872,17 @@
                     </div>
                     
                     
+                    
+                    <div class="item-meta">
+                        <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
+                        
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Encephalopathy</span>
+                        
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Cerebral edema</span>
+                        
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Respiratory alkalosis</span>
+                        
+                    </div>
                     
                     
     
@@ -3505,7 +3977,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3543,10 +4015,38 @@
                     </div>
                     
                     
-                    <div class="item-desc">Respiratory alkalosis is a recognized hyperammonemic crisis finding in UCDs, but the current curated abstracts do not provide a direct CTLN1-specific quote.</div>
                     
                     
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33113778" target="_blank">PMID:33113778</a>
+                    </span>
                     
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"This report aims to highlight the importance of suspecting urea cycle disorders in newborns with aspecific signs of hyperammonemia and respiratory alkalosis"</div>
+                
+                
+                <div class="evidence-explanation">Human newborn UCD cases support respiratory alkalosis as a hyperammonemic crisis feature relevant to CTLN1.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
                     
@@ -3598,7 +4098,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3646,6 +4146,23 @@
                     
                     
                     
+                    <div class="item-meta">
+                        <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
+                        
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Lethargy</span>
+                        
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Poor feeding</span>
+                        
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Vomiting</span>
+                        
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Seizures</span>
+                        
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Spasticity</span>
+                        
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Coma</span>
+                        
+                    </div>
+                    
                     
     
     <details class="evidence-details">
@@ -3663,7 +4180,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3739,7 +4256,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3963,7 +4480,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -4104,7 +4621,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
             
@@ -4121,7 +4638,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"the C-terminal helix domain of the mutant protein structure, which was an important structure for ASS1 protein to form protein tetramers, was indeed more unstable than that of the wild-type protein structure."</div>
+                <div class="evidence-snippet">"the C- terminal helix domain of the mutant protein structure, which was an important structure for ASS1 protein to form protein tetramers, was indeed more unstable than that of the wild-type protein structure."</div>
                 
                 
                 <div class="evidence-explanation">Structural analysis demonstrating how specific variants disrupt ASS1 tetramer stability.</div>
@@ -4168,6 +4685,8 @@
                 
             </div>
             
+            
+            <div class="evidence-more">+ 1 more reference</div>
             
         </div>
     </details>
@@ -4227,6 +4746,54 @@
                 <div class="item-desc">Long-term dietary management centers on restriction of protein intake to reduce nitrogen load while providing essential amino acids via specialized formula. This is the cornerstone of chronic CTLN1 management. Liver transplantation eliminates the need for protein restriction.
 </div>
                 
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Secondary metabolic derangements during catabolic stress</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Protein restriction lowers exogenous nitrogen load and reduces the risk that residual ureagenesis will be overwhelmed.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301631" target="_blank">PMID:20301631</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Daily routine treatment in those who have not undergone a liver transplantation includes lifelong protein restriction in conjunction with a metabolic nutritionist; nitrogen scavenger medications; arginine supplementation;"</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews identifies lifelong protein restriction as a routine treatment used to prevent metabolic decompensation.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
                 
                 
                 
@@ -4302,19 +4869,105 @@
                 
                 
                 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        sodium benzoate
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_113455" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-treatment">
+                        sodium phenylbutyrate
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_75316" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-treatment">
+                        glycerol phenylbutyrate
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_134745" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
                 <div class="item-desc">Sodium benzoate, sodium phenylbutyrate, or glycerol phenylbutyrate are used to promote alternative nitrogen disposal pathways. These agents conjugate with glycine or glutamine to form hippurate or phenylacetylglutamine, which are renally excreted, thus bypassing the blocked urea cycle.
 </div>
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            BYPASSES
+                        </span>
+                        <strong style="color: #5b21b6;">Impaired hepatic ureagenesis due to ASS1 deficiency</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Scavenger drugs bypass the compromised urea cycle by providing alternative nitrogen-disposal routes.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27860485" target="_blank">PMID:27860485</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Ammonia-scavenging drugs, benzoate and phenylacetate (PA)/phenylbutyrate (PB), modulate hepatic nitrogen metabolism mainly by providing alternative pathways for nitrogen disposal."</div>
+                
+                
+                <div class="evidence-explanation">The review directly supports a bypass edge from scavenger therapy around the blocked urea cycle through alternative nitrogen disposal.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Hyperammonemia
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0001987" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
                 
                 
                 
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -4335,6 +4988,26 @@
                 
                 
                 <div class="evidence-explanation">Confirms nitrogen scavenger therapy as part of standard medical management for UCDs prior to transplant.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27860485" target="_blank">PMID:27860485</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Ammonia-scavenging drugs, benzoate and phenylacetate (PA)/phenylbutyrate (PB), modulate hepatic nitrogen metabolism mainly by providing alternative pathways for nitrogen disposal."</div>
+                
+                
+                <div class="evidence-explanation">Review evidence defines the nitrogen-scavenger mechanism as alternative nitrogen disposal.</div>
                 
             </div>
             
@@ -4380,11 +5053,71 @@
                 
                 
                 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        L-arginine
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_16467" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
                 <div class="item-desc">Arginine supplementation is required because the ASS1 block prevents endogenous arginine synthesis. Supplemental arginine also helps drive residual urea cycle flux and supports protein synthesis.
 </div>
                 
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+                        <strong style="color: #5b21b6;">Impaired hepatic ureagenesis due to ASS1 deficiency</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Arginine supplementation provides the downstream urea-cycle amino acid and increases measured urea synthesis in vivo.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10869432" target="_blank">PMID:10869432</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Urea synthesis is altered by alternative route medications and arginine supplementation to the degree that is to be expected from theory."</div>
+                
+                
+                <div class="evidence-explanation">Human isotope-flux data support a mechanism link from arginine supplementation to altered urea-cycle flux.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
                 
                 
                 
@@ -4392,7 +5125,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -4405,7 +5138,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -4413,6 +5146,26 @@
                 
                 
                 <div class="evidence-explanation">GeneReviews directly states arginine supplementation is part of standard CTLN1 management.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10869432" target="_blank">PMID:10869432</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Administration of Ucephan lowered, and arginine increased, urea synthesis to the degree predicted from their respective rates of metabolism."</div>
+                
+                
+                <div class="evidence-explanation">Stable-isotope human data support arginine supplementation as a modifier of urea synthesis in urea-cycle patients.</div>
                 
             </div>
             
@@ -4464,6 +5217,54 @@
 </div>
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Hyperammonemic neurotoxicity via astrocyte glutamine-osmotic injury</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Acute crisis therapy rapidly lowers ammonia and reverses catabolism to prevent the CNS glutamine-osmotic injury cascade.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301631" target="_blank">PMID:20301631</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Acute inpatient treatment of a metabolic crisis includes addressing hyperammonemia through withholding of all protein intake for a maximum of 24 to 28 hours; pharmacologic nitrogen scavenger therapy; and consideration of dialysis"</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews directly links acute crisis therapy to rapid hyperammonemia management.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
+                
                 
                 
                 
@@ -4483,7 +5284,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -4561,6 +5362,54 @@
                 <div class="item-desc">Liver transplantation is the only established curative intervention at the metabolic level for CTLN1. It provides metabolic stability by restoring hepatic ASS1 activity, preventing further hyperammonemic events, and allowing liberalization of protein intake. Five-year patient survival exceeds 90%. However, pre-existing neurocognitive impairment does not improve after transplantation.
 </div>
                 
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            RESTORES
+                        </span>
+                        <strong style="color: #5b21b6;">ASS1 molecular function deficiency</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Liver transplantation replaces the deficient hepatic urea-cycle capacity and prevents further hyperammonemic events.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301631" target="_blank">PMID:20301631</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Liver transplantation is the only known curative therapy and eliminates the need for dietary restriction."</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews supports transplantation as the metabolic-level corrective intervention for CTLN1.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
                 
                 
                 
@@ -4660,6 +5509,25 @@
 </div>
                 
                 
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Hyperammonemia
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0001987" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Global developmental delay
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
                 
                 
                 
@@ -4816,6 +5684,54 @@
 </div>
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            RESTORES
+                        </span>
+                        <strong style="color: #5b21b6;">ASS1 molecular function deficiency</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Liver-targeted ASS1 mRNA replacement would restore the deficient enzyme activity upstream of the urea-cycle block.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39449289" target="_blank">PMID:39449289</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"LNP-formulated mRNA therapy has been assayed preclinically for citrullinemia type I (CTLN1), adolescent and adult citrin deficiency, argininosuccinic aciduria, arginase deficiency and ornithine transcarbamylase deficiency"</div>
+                
+                
+                <div class="evidence-explanation">The review identifies preclinical CTLN1 mRNA therapy, supporting a restorative target mechanism.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
+                
                 
                 
                 
@@ -4865,7 +5781,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
                 <h2 class="card-title">Biochemical Markers</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">6</span>
             </div>
             
             <div class="item-box biochemical-box">
@@ -4880,17 +5796,38 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37485339" target="_blank">PMID:37485339</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301631" target="_blank">PMID:20301631</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"elevated plasma citrulline concentration (usually &gt;500 µmol/L)"</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews gives elevated plasma citrulline as a diagnostic biochemical feature of CTLN1.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39649700" target="_blank">PMID:39649700</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
@@ -4900,10 +5837,10 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Citrullinemia type I (CTLN1) is a rare autosomal recessive inborn error of the urea cycle caused by mutations in the gene encoding the arginosuccinate synthetase (ASS1) enzyme. Classic CTLN1 often manifests with acute hyperammonemia and neurological symptoms."</div>
+                <div class="evidence-snippet">"increased citrulline concentrations (936 μmol/L; normal reference: 5-25 μmol/L)"</div>
                 
                 
-                <div class="evidence-explanation">Confirms CTLN1 as defined by ASS1 deficiency leading to citrulline accumulation.</div>
+                <div class="evidence-explanation">Quantitative case data support markedly increased citrulline.</div>
                 
             </div>
             
@@ -4924,6 +5861,7 @@
                 
                 <div class="item-desc">Context: Elevated blood ammonia results from impaired ureagenesis. During acute crises, ammonia can exceed 500-1000 umol/L. Diagnostic ammonia levels are a key prognostic marker; deceased UCD patients had median ammonia of 1058 umol/L versus 294 umol/L in survivors.
 </div>
+                
                 
                 
     
@@ -4992,21 +5930,6 @@
 </div>
                 
                 
-    
-    
-            </div>
-            
-            <div class="item-box biochemical-box">
-                <div class="item-name">
-                    Orotic acid
-                    
-                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(INCREASED)</span>
-                    
-                </div>
-                
-                <div class="item-desc">Context: Elevated urinary orotic acid (orotic aciduria) is a secondary marker reflecting accumulation of carbamoyl phosphate that is diverted into the pyrimidine synthesis pathway when ureagenesis is blocked.
-</div>
-                
                 
     
     
@@ -5014,14 +5937,15 @@
             
             <div class="item-box biochemical-box">
                 <div class="item-name">
-                    Glutamine
+                    Argininosuccinate
                     
-                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(INCREASED)</span>
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(DECREASED)</span>
                     
                 </div>
                 
-                <div class="item-desc">Context: Elevated plasma and brain glutamine reflects astrocytic ammonia detoxification. Glutamine accumulation in astrocytes is the direct driver of osmotic swelling and cerebral edema during hyperammonemic crises.
+                <div class="item-desc">Context: Absent or markedly reduced argininosuccinate is the immediate biochemical consequence of the ASS1 block, since argininosuccinate synthase normally condenses citrulline and aspartate to form argininosuccinate.
 </div>
+                
                 
                 
     
@@ -5040,7 +5964,71 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"elevated plasma ammonia concentration (&gt;150 µmol/L; may range to ≥2000-3000 µmol/L), elevated plasma citrulline concentration (usually &gt;500 µmol/L), and absent argininosuccinate"</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews lists absent argininosuccinate as part of the diagnostic biochemical pattern of CTLN1.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box biochemical-box">
+                <div class="item-name">
+                    Orotic acid
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(INCREASED)</span>
+                    
+                </div>
+                
+                <div class="item-desc">Context: Elevated urinary orotic acid (orotic aciduria) is a secondary marker reflecting accumulation of carbamoyl phosphate that is diverted into the pyrimidine synthesis pathway when ureagenesis is blocked.
+</div>
+                
+                
+                
+    
+    
+            </div>
+            
+            <div class="item-box biochemical-box">
+                <div class="item-name">
+                    Glutamine
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(INCREASED)</span>
+                    
+                </div>
+                
+                <div class="item-desc">Context: Elevated plasma and brain glutamine reflects astrocytic ammonia detoxification. Glutamine accumulation in astrocytes is the direct driver of osmotic swelling and cerebral edema during hyperammonemic crises.
+</div>
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301631" target="_blank">PMID:20301631</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -5090,7 +6078,7 @@
                 <pre class="yaml-preview">name: Citrullinemia Type I
 category: Mendelian
 creation_date: &#39;2025-06-12T20:16:27Z&#39;
-updated_date: &#39;2026-04-22T20:53:03Z&#39;
+updated_date: &#39;2026-05-09T07:26:54Z&#39;
 synonyms:
 - Classic citrullinemia
 - CTLN1
@@ -5119,6 +6107,20 @@ prevalence:
   notes: &#39;The most common defects in the Spanish UCD registry were ornithine transcarbamylase deficiency and argininosuccinate synthetase deficiency. The incidence of all UCDs in Spain over the past decade was approximately 1 in 36,063 births.
 
     &#39;
+inheritance:
+- name: Autosomal recessive
+  inheritance_term:
+    preferred_term: Autosomal recessive inheritance
+    term:
+      id: HP:0000007
+      label: Autosomal recessive inheritance
+  evidence:
+  - reference: PMID:20301631
+    reference_title: &#34;Citrullinemia Type I.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: CTLN1 is inherited in an autosomal recessive manner.
+    explanation: GeneReviews directly states the inheritance pattern for CTLN1.
 pathophysiology:
 - name: ASS1 molecular function deficiency
   description: &#39;Biallelic pathogenic variants in ASS1 reduce argininosuccinate synthase catalytic activity in periportal hepatocytes.
@@ -5129,6 +6131,17 @@ pathophysiology:
     term:
       id: hgnc:758
       label: ASS1
+  molecular_functions:
+  - preferred_term: argininosuccinate synthase activity
+    term:
+      id: GO:0004055
+      label: argininosuccinate synthase activity
+    modifier: DECREASED
+  cellular_components:
+  - preferred_term: cytosol
+    term:
+      id: GO:0005829
+      label: cytosol
   cell_types:
   - preferred_term: hepatocyte
     term:
@@ -5149,6 +6162,14 @@ pathophysiology:
   downstream:
   - target: Impaired hepatic ureagenesis due to ASS1 deficiency
     description: Reduced ASS1 function blocks citrulline-aspartate condensation and urea-cycle flux.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:37485339
+      reference_title: &#34;Functional identification of two novel variants and a hypomorphic variant in ASS1 from patients with Citrullinemia type I.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Citrullinemia type I (CTLN1) is a rare autosomal recessive inborn error of the urea cycle caused by mutations in the gene encoding the arginosuccinate synthetase (ASS1) enzyme.
+      explanation: The cited study identifies ASS1 enzyme disruption as the urea-cycle defect underlying CTLN1.
 - name: Impaired hepatic ureagenesis due to ASS1 deficiency
   description: &#39;Reduced ASS1 activity blocks conversion of citrulline and aspartate to argininosuccinate in periportal hepatocytes. This leads to accumulation of upstream substrates (citrulline, ammonia) and failure to detoxify nitrogen, causing hyperammonemia. The severity of the metabolic block correlates with residual ASS1 enzyme activity, which is determined by the specific pathogenic variants.
 
@@ -5162,6 +6183,22 @@ pathophysiology:
     term:
       id: GO:0006526
       label: L-arginine biosynthetic process
+  chemical_entities:
+  - preferred_term: ammonia
+    term:
+      id: CHEBI:16134
+      label: ammonia
+    modifier: INCREASED
+  - preferred_term: citrulline
+    term:
+      id: CHEBI:18211
+      label: citrulline
+    modifier: INCREASED
+  - preferred_term: argininosuccinate
+    term:
+      id: CHEBI:15682
+      label: (N(omega)-L-arginino)succinic acid
+    modifier: DECREASED
   evidence:
   - reference: PMID:39649700
     reference_title: &#34;Visualization of argininosuccinate synthetase by in silico analysis: novel insights into citrullinemia type I disorders.&#34;
@@ -5169,9 +6206,65 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: &#39;the patient exhibited significantly elevated blood ammonia levels (655 μmol/L; normal reference: 10-30 μmol/L) and increased citrulline concentrations (936 μmol/L; normal reference: 5-25 μmol/L)&#39;
     explanation: Quantitative case data demonstrating the magnitude of ammonia and citrulline accumulation in severe CTLN1.
+  - reference: PMID:20301631
+    reference_title: &#34;Citrullinemia Type I.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: elevated plasma ammonia concentration (&gt;150 µmol/L; may range to ≥2000-3000 µmol/L), elevated plasma citrulline concentration (usually &gt;500 µmol/L), and absent argininosuccinate
+    explanation: GeneReviews anchors the blocked ASS1 reaction by identifying absent argininosuccinate alongside elevated ammonia and citrulline.
   downstream:
+  - target: Ammonia
+    description: Failed ureagenesis leaves nitrogen as circulating ammonia.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:39649700
+      reference_title: &#34;Visualization of argininosuccinate synthetase by in silico analysis: novel insights into citrullinemia type I disorders.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#39;the patient exhibited significantly elevated blood ammonia levels (655 μmol/L; normal reference: 10-30 μmol/L)&#39;
+      explanation: Quantitative CTLN1 case data support ammonia accumulation downstream of impaired ASS1-dependent ureagenesis.
+  - target: Citrulline
+    description: Blocked argininosuccinate synthesis causes upstream citrulline accumulation.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:39649700
+      reference_title: &#34;Visualization of argininosuccinate synthetase by in silico analysis: novel insights into citrullinemia type I disorders.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#39;increased citrulline concentrations (936 μmol/L; normal reference: 5-25 μmol/L)&#39;
+      explanation: Quantitative CTLN1 case data support citrulline accumulation downstream of the ASS1 block.
+  - target: Argininosuccinate
+    description: Blocked ASS1 activity prevents formation of argininosuccinate from citrulline and aspartate.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:20301631
+      reference_title: &#34;Citrullinemia Type I.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: elevated plasma ammonia concentration (&gt;150 µmol/L; may range to ≥2000-3000 µmol/L), elevated plasma citrulline concentration (usually &gt;500 µmol/L), and absent argininosuccinate
+      explanation: GeneReviews lists absent argininosuccinate as part of the CTLN1 diagnostic biochemical pattern.
+  - target: Hyperammonemia
+    description: Accumulated ammonia manifests clinically as hyperammonemia.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:39649700
+      reference_title: &#34;Visualization of argininosuccinate synthetase by in silico analysis: novel insights into citrullinemia type I disorders.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#39;the patient exhibited significantly elevated blood ammonia levels (655 μmol/L; normal reference: 10-30 μmol/L)&#39;
+      explanation: The same quantitative case data directly support hyperammonemia as the clinical expression of ammonia accumulation.
   - target: Hyperammonemic neurotoxicity via astrocyte glutamine-osmotic injury
     description: Ammonia accumulation from impaired ureagenesis drives CNS glutamine osmotic injury.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Ammonia crosses into the CNS and is detoxified to glutamine by astrocytes.
+    evidence:
+    - reference: PMID:20301631
+      reference_title: &#34;Citrullinemia Type I.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Without prompt intervention, hyperammonemia and the accumulation of other toxic metabolites (e.g., glutamine) result in increased ICP, increased neuromuscular tone, spasticity, ankle clonus, seizures, loss of consciousness, and death.
+      explanation: GeneReviews links hyperammonemia and glutamine accumulation to the neurologic crisis cascade.
 - name: Hyperammonemic neurotoxicity via astrocyte glutamine-osmotic injury
   description: &#39;During hyperammonemic crises, systemic ammonia crosses into the CNS where astrocytes detoxify ammonia by converting it to glutamine. Rapid intracellular glutamine accumulation increases osmolarity, causing astrocyte swelling, inflammatory cascades, and cerebral edema. This mechanism connects the hepatic metabolic defect to acute brain pathology including lethargy, seizures, increased intracranial pressure, and coma.
 
@@ -5185,6 +6278,21 @@ pathophysiology:
     term:
       id: GO:1901699
       label: cellular response to nitrogen compound
+  - preferred_term: cellular response to osmotic stress
+    term:
+      id: GO:0071470
+      label: cellular response to osmotic stress
+  chemical_entities:
+  - preferred_term: ammonia
+    term:
+      id: CHEBI:16134
+      label: ammonia
+    modifier: INCREASED
+  - preferred_term: glutamine
+    term:
+      id: CHEBI:28300
+      label: glutamine
+    modifier: INCREASED
   cell_types:
   - preferred_term: astrocyte
     term:
@@ -5199,9 +6307,94 @@ pathophysiology:
   - reference: PMID:20301631
     reference_title: &#34;Citrullinemia Type I.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: Without prompt intervention, hyperammonemia and the accumulation of other toxic metabolites (e.g., glutamine) result in increased ICP, increased neuromuscular tone, spasticity, ankle clonus, seizures, loss of consciousness, and death.
     explanation: GeneReviews entry describes the cascade from ammonia and glutamine accumulation to cerebral edema and neurological decline.
+  downstream:
+  - target: Cerebral edema
+    description: Glutamine-driven osmotic injury manifests as increased intracranial pressure and cerebral edema.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Astrocyte glutamine accumulation increases intracellular osmolarity and swelling.
+    evidence:
+    - reference: PMID:20301631
+      reference_title: &#34;Citrullinemia Type I.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Without prompt intervention, hyperammonemia and the accumulation of other toxic metabolites (e.g., glutamine) result in increased ICP, increased neuromuscular tone, spasticity, ankle clonus, seizures, loss of consciousness, and death.
+      explanation: Increased ICP is the clinical marker in this GeneReviews statement for the cerebral edema branch.
+  - target: Glutamine
+    description: Astrocytic ammonia detoxification during hyperammonemic crises produces glutamine accumulation.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Ammonia is incorporated into glutamine by astrocyte glutamine synthetase.
+    evidence:
+    - reference: PMID:20301631
+      reference_title: &#34;Citrullinemia Type I.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Without prompt intervention, hyperammonemia and the accumulation of other toxic metabolites (e.g., glutamine) result in increased ICP, increased neuromuscular tone, spasticity, ankle clonus, seizures, loss of consciousness, and death.
+      explanation: GeneReviews identifies glutamine as an accumulating toxic metabolite in the hyperammonemic neurologic cascade.
+  - target: Encephalopathy
+    description: CNS ammonia/glutamine toxicity produces acute hyperammonemic encephalopathy.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:20301631
+      reference_title: &#34;Citrullinemia Type I.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Shortly thereafter, they develop hyperammonemia and become progressively lethargic, feed poorly, often vomit, and may develop signs of increased intracranial pressure (ICP).
+      explanation: GeneReviews describes the clinical encephalopathy sequence after neonatal hyperammonemia develops.
+  - target: Seizures
+    description: Severe hyperammonemic CNS injury can produce seizures.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:20301631
+      reference_title: &#34;Citrullinemia Type I.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Without prompt intervention, hyperammonemia and the accumulation of other toxic metabolites (e.g., glutamine) result in increased ICP, increased neuromuscular tone, spasticity, ankle clonus, seizures, loss of consciousness, and death.
+      explanation: GeneReviews lists seizures in the hyperammonemic neurologic crisis cascade.
+  - target: Coma
+    description: Untreated hyperammonemic encephalopathy can progress to loss of consciousness and coma.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:20301631
+      reference_title: &#34;Citrullinemia Type I.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Without prompt intervention, hyperammonemia and the accumulation of other toxic metabolites (e.g., glutamine) result in increased ICP, increased neuromuscular tone, spasticity, ankle clonus, seizures, loss of consciousness, and death.
+      explanation: Loss of consciousness supports the coma branch of the crisis cascade.
+  - target: Spasticity
+    description: Increased neuromuscular tone and spasticity occur in severe hyperammonemic crises.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:20301631
+      reference_title: &#34;Citrullinemia Type I.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Without prompt intervention, hyperammonemia and the accumulation of other toxic metabolites (e.g., glutamine) result in increased ICP, increased neuromuscular tone, spasticity, ankle clonus, seizures, loss of consciousness, and death.
+      explanation: GeneReviews lists increased neuromuscular tone and spasticity in the crisis cascade.
+  - target: Intellectual disability
+    description: Promptly treated severe neonatal disease may still leave significant neurologic deficits.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:20301631
+      reference_title: &#34;Citrullinemia Type I.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Children with the severe form who are treated promptly may survive for an indeterminate period of time, but usually with significant neurologic deficits.
+      explanation: GeneReviews supports persistent neurologic deficits after severe hyperammonemic disease.
+  - target: Global developmental delay
+    description: Severe neonatal hyperammonemic injury can leave developmental and neurologic deficits in survivors.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:20301631
+      reference_title: &#34;Citrullinemia Type I.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Children with the severe form who are treated promptly may survive for an indeterminate period of time, but usually with significant neurologic deficits.
+      explanation: GeneReviews supports developmental neurologic sequelae in survivors of severe CTLN1.
 - name: Genotype-to-phenotype correlation through residual ASS1 activity
   description: &#39;The severity spectrum of CTLN1 (classic neonatal, late-onset, pregnancy-triggered, asymptomatic) is determined by residual ASS1 enzyme activity. Pathogenic variants affect the citrulline-binding site, oligomerization helix stability, protein expression levels, or cause premature truncation. Variants with less than 2% of wild-type activity typically produce classic neonatal presentations, while hypomorphic variants may allow milder or late-onset disease.
 
@@ -5211,12 +6404,22 @@ pathophysiology:
     term:
       id: GO:0051262
       label: protein tetramerization
+  genes:
+  - preferred_term: ASS1
+    term:
+      id: hgnc:758
+      label: ASS1
+  molecular_functions:
+  - preferred_term: argininosuccinate synthase activity
+    term:
+      id: GO:0004055
+      label: argininosuccinate synthase activity
   evidence:
   - reference: PMID:39649700
     reference_title: &#34;Visualization of argininosuccinate synthetase by in silico analysis: novel insights into citrullinemia type I disorders.&#34;
     supports: SUPPORT
     evidence_source: COMPUTATIONAL
-    snippet: the C-terminal helix domain of the mutant protein structure, which was an important structure for ASS1 protein to form protein tetramers, was indeed more unstable than that of the wild-type protein structure.
+    snippet: the C- terminal helix domain of the mutant protein structure, which was an important structure for ASS1 protein to form protein tetramers, was indeed more unstable than that of the wild-type protein structure.
     explanation: In silico analysis showing C-terminal helix instability disrupts ASS1 tetramerization.
   - reference: PMID:38927689
     reference_title: &#34;Rare Pathogenic Variants in Pooled Whole-Exome Sequencing Data Suggest Hyperammonemia as a Possible Cause of Dementia Not Classified as Alzheimer&#39;s Disease or Frontotemporal Dementia.&#34;
@@ -5225,8 +6428,30 @@ pathophysiology:
     snippet: The p.Arg265Cys variant leads to enzyme deficiency, whereas p.Gly390Arg renders the enzyme inactive.
     explanation: Demonstrates that different ASS1 variants produce different degrees of enzyme impairment.
   downstream:
+  - target: Impaired hepatic ureagenesis due to ASS1 deficiency
+    description: Residual enzyme activity determines the depth of the urea-cycle flux defect.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Variant-specific effects on ASS1 stability, expression, and catalytic activity.
+    evidence:
+    - reference: PMID:38927689
+      reference_title: &#34;Rare Pathogenic Variants in Pooled Whole-Exome Sequencing Data Suggest Hyperammonemia as a Possible Cause of Dementia Not Classified as Alzheimer&#39;s Disease or Frontotemporal Dementia.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The p.Arg265Cys variant leads to enzyme deficiency, whereas p.Gly390Arg renders the enzyme inactive.
+      explanation: Variant-specific differences in residual enzyme activity support variable depth of impaired ureagenesis.
   - target: Secondary metabolic derangements during catabolic stress
     description: Residual ASS1 activity sets crisis threshold under catabolic nitrogen load.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Lower residual ASS1 activity narrows the margin for detoxifying catabolic nitrogen load.
+    evidence:
+    - reference: PMID:20301631
+      reference_title: &#34;Citrullinemia Type I.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: emerging evidence suggests that measurement of residual argininosuccinate synthase enzyme activity may help to predict those who are likely to have a severe phenotype and those who are likely to have an attenuated phenotype.
+      explanation: GeneReviews links residual ASS1 activity with severity, supporting crisis threshold variation.
 - name: Secondary metabolic derangements during catabolic stress
   description: &#39;Although baseline ureagenesis is impaired, acute hyperammonemic crises are precipitated when nitrogen production exceeds residual detoxification capacity during illness or catabolism. This produces abrupt rises in ammonia and citrulline, orotic aciduria from secondary pyrimidine pathway perturbation, and depleted arginine.
 
@@ -5237,12 +6462,35 @@ pathophysiology:
       id: GO:0000050
       label: urea cycle
   evidence:
-  - reference: PMID:40218931
-    reference_title: &#34;Understanding the Natural History and the Effects of Current Therapeutic Strategies on Urea Cycle Disorders: Insights from the UCD Spanish Registry.&#34;
+  - reference: PMID:20301631
+    reference_title: &#34;Citrullinemia Type I.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: Early-onset (EO) cases comprised 32.7%, and 10.6% were diagnosed through NBS. Global mortality was 14.9%, higher in carbamoylphosphate synthetase 1 deficiency (36.8%) and male OTCD patients (32.1%) compared to other defects
-    explanation: Registry data showing high mortality in early-onset UCDs, reflecting severity of metabolic crises.
+    evidence_source: OTHER
+    snippet: &#34;Agents/circumstances to avoid: Excessive protein intake, prolonged fasting, and obvious exposure to communicable diseases.&#34;
+    explanation: GeneReviews identifies excess protein, fasting, and infectious exposure as avoidable triggers for metabolic decompensation.
+  downstream:
+  - target: Hyperammonemia
+    description: Catabolic nitrogen load can exceed residual ASS1-dependent ureagenesis and trigger hyperammonemia.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Increased proteolysis and nitrogen production during fasting or illness.
+    evidence:
+    - reference: PMID:20301631
+      reference_title: &#34;Citrullinemia Type I.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Agents/circumstances to avoid: Excessive protein intake, prolonged fasting, and obvious exposure to communicable diseases.&#34;
+      explanation: These avoided circumstances increase metabolic decompensation risk and support a trigger edge to hyperammonemia.
+  - target: Failure to thrive
+    description: Recurrent crises and chronic dietary restriction can impair growth, with transplant-associated metabolic stability improving growth outcomes.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:38054409
+      reference_title: &#34;Severity-adjusted evaluation of liver transplantation on health outcomes in urea cycle disorders.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: LTx enabled metabolic stability by prevention of further hyperammonemic events after transplantation and was associated with a more favorable growth outcome compared with individuals remaining under MM.
+      explanation: Growth improvement after preventing further hyperammonemic events supports the growth branch downstream of recurrent metabolic stress.
 phenotypes:
 - name: Hyperammonemia
   frequency: VERY_FREQUENT
@@ -5267,6 +6515,41 @@ phenotypes:
     evidence_source: HUMAN_CLINICAL
     snippet: The median ammonia level in deceased patients was higher at 1058 µmol/L (IQR 410-1793) than in survivors at 294 µmol/L (IQR 71-494)
     explanation: Registry data on ammonia as a prognostic marker in UCD patients.
+  sequelae:
+  - target: Encephalopathy
+    description: Severe hyperammonemia initiates acute neurologic deterioration.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:20301631
+      reference_title: &#34;Citrullinemia Type I.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Shortly thereafter, they develop hyperammonemia and become progressively lethargic, feed poorly, often vomit, and may develop signs of increased intracranial pressure (ICP).
+      explanation: GeneReviews describes neurologic deterioration after hyperammonemia develops.
+  - target: Cerebral edema
+    description: Hyperammonemia with glutamine accumulation produces increased intracranial pressure.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Astrocyte glutamine accumulation and osmotic swelling.
+    evidence:
+    - reference: PMID:20301631
+      reference_title: &#34;Citrullinemia Type I.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Without prompt intervention, hyperammonemia and the accumulation of other toxic metabolites (e.g., glutamine) result in increased ICP, increased neuromuscular tone, spasticity, ankle clonus, seizures, loss of consciousness, and death.
+      explanation: GeneReviews links hyperammonemia and glutamine accumulation to increased ICP.
+  - target: Respiratory alkalosis
+    description: Acute hyperammonemia can present with tachypnea and respiratory alkalosis during neonatal metabolic decompensation.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Ammonia-associated central respiratory stimulation causes tachypnea and hypocapnia.
+    evidence:
+    - reference: PMID:33113778
+      reference_title: &#34;Irritability, Poor Feeding and Respiratory Alkalosis in Newborns: Think about Metabolic Emergencies. A Brief Summary of Hyperammonemia Management.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Their first gas analysis revealed respiratory alkalosis. Hyperammonemia was confirmed, and three different enzymatic blocks in the urea cycle were diagnosed.
+      explanation: Newborn UCD case-series evidence links hyperammonemia to respiratory alkalosis during metabolic emergency presentation.
 - name: Encephalopathy
   frequency: VERY_FREQUENT
   description: &#39;Acute or recurrent encephalopathy due to ammonia neurotoxicity, manifesting as progressive lethargy, poor feeding, vomiting, and signs of increased intracranial pressure in neonatal-onset disease.
@@ -5281,9 +6564,70 @@ phenotypes:
   - reference: PMID:20301631
     reference_title: &#34;Citrullinemia Type I.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: Without prompt intervention, hyperammonemia and the accumulation of other toxic metabolites (e.g., glutamine) result in increased ICP, increased neuromuscular tone, spasticity, ankle clonus, seizures, loss of consciousness, and death.
     explanation: GeneReviews describes hyperammonemic encephalopathy progression from lethargy to coma and death.
+  sequelae:
+  - target: Lethargy
+    description: Early encephalopathy manifests as progressive lethargy.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:20301631
+      reference_title: &#34;Citrullinemia Type I.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Shortly thereafter, they develop hyperammonemia and become progressively lethargic, feed poorly, often vomit, and may develop signs of increased intracranial pressure (ICP).
+      explanation: GeneReviews directly lists progressive lethargy during neonatal decompensation.
+  - target: Poor feeding
+    description: Encephalopathic deterioration causes poor feeding in neonatal crises.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:20301631
+      reference_title: &#34;Citrullinemia Type I.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Shortly thereafter, they develop hyperammonemia and become progressively lethargic, feed poorly, often vomit, and may develop signs of increased intracranial pressure (ICP).
+      explanation: GeneReviews directly lists poor feeding during neonatal decompensation.
+  - target: Vomiting
+    description: Vomiting occurs as part of the acute decompensation syndrome.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:20301631
+      reference_title: &#34;Citrullinemia Type I.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Shortly thereafter, they develop hyperammonemia and become progressively lethargic, feed poorly, often vomit, and may develop signs of increased intracranial pressure (ICP).
+      explanation: GeneReviews directly lists vomiting during neonatal decompensation.
+  - target: Seizures
+    description: Severe encephalopathy can progress to seizures.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:20301631
+      reference_title: &#34;Citrullinemia Type I.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Without prompt intervention, hyperammonemia and the accumulation of other toxic metabolites (e.g., glutamine) result in increased ICP, increased neuromuscular tone, spasticity, ankle clonus, seizures, loss of consciousness, and death.
+      explanation: GeneReviews places seizures in the acute neurologic crisis sequence.
+  - target: Spasticity
+    description: Severe encephalopathy includes increased neuromuscular tone and spasticity.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:20301631
+      reference_title: &#34;Citrullinemia Type I.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Without prompt intervention, hyperammonemia and the accumulation of other toxic metabolites (e.g., glutamine) result in increased ICP, increased neuromuscular tone, spasticity, ankle clonus, seizures, loss of consciousness, and death.
+      explanation: GeneReviews places spasticity in the acute neurologic crisis sequence.
+  - target: Coma
+    description: Progressive encephalopathy can culminate in loss of consciousness or coma.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:20301631
+      reference_title: &#34;Citrullinemia Type I.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Without prompt intervention, hyperammonemia and the accumulation of other toxic metabolites (e.g., glutamine) result in increased ICP, increased neuromuscular tone, spasticity, ankle clonus, seizures, loss of consciousness, and death.
+      explanation: Loss of consciousness supports the coma endpoint in severe crises.
 - name: Seizures
   frequency: FREQUENT
   description: &#39;Seizures occur during hyperammonemic crises as part of the encephalopathic cascade, reflecting cerebral edema and neuronal dysfunction.
@@ -5304,7 +6648,7 @@ phenotypes:
   - reference: PMID:20301631
     reference_title: &#34;Citrullinemia Type I.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: Without prompt intervention, hyperammonemia and the accumulation of other toxic metabolites (e.g., glutamine) result in increased ICP, increased neuromuscular tone, spasticity, ankle clonus, seizures, loss of consciousness, and death.
     explanation: GeneReviews confirms seizures as a manifestation of hyperammonemic encephalopathy.
 - name: Lethargy
@@ -5338,7 +6682,7 @@ phenotypes:
   - reference: PMID:20301631
     reference_title: &#34;Citrullinemia Type I.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: Shortly thereafter, they develop hyperammonemia and become progressively lethargic, feed poorly, often vomit, and may develop signs of increased intracranial pressure (ICP).
     explanation: GeneReviews directly describes poor feeding in neonatal CTLN1.
 - name: Vomiting
@@ -5355,7 +6699,7 @@ phenotypes:
   - reference: PMID:20301631
     reference_title: &#34;Citrullinemia Type I.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: Shortly thereafter, they develop hyperammonemia and become progressively lethargic, feed poorly, often vomit, and may develop signs of increased intracranial pressure (ICP).
     explanation: GeneReviews directly lists vomiting in neonatal CTLN1 decompensation.
 - name: Intellectual disability
@@ -5406,7 +6750,7 @@ phenotypes:
   - reference: PMID:20301631
     reference_title: &#34;Citrullinemia Type I.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: Without prompt intervention, hyperammonemia and the accumulation of other toxic metabolites (e.g., glutamine) result in increased ICP, increased neuromuscular tone, spasticity, ankle clonus, seizures, loss of consciousness, and death.
     explanation: GeneReviews describes increased ICP (intracranial pressure) as a direct consequence of hyperammonemia.
 - name: Spasticity
@@ -5423,7 +6767,7 @@ phenotypes:
   - reference: PMID:20301631
     reference_title: &#34;Citrullinemia Type I.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: Without prompt intervention, hyperammonemia and the accumulation of other toxic metabolites (e.g., glutamine) result in increased ICP, increased neuromuscular tone, spasticity, ankle clonus, seizures, loss of consciousness, and death.
     explanation: GeneReviews lists spasticity among the neurological manifestations of hyperammonemic crises.
 - name: Coma
@@ -5440,7 +6784,7 @@ phenotypes:
   - reference: PMID:20301631
     reference_title: &#34;Citrullinemia Type I.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: Without prompt intervention, hyperammonemia and the accumulation of other toxic metabolites (e.g., glutamine) result in increased ICP, increased neuromuscular tone, spasticity, ankle clonus, seizures, loss of consciousness, and death.
     explanation: Loss of consciousness progressing to coma is described as part of the hyperammonemic crisis cascade.
 - name: Failure to thrive
@@ -5470,7 +6814,13 @@ phenotypes:
     term:
       id: HP:0001950
       label: Respiratory alkalosis
-  notes: Respiratory alkalosis is a recognized hyperammonemic crisis finding in UCDs, but the current curated abstracts do not provide a direct CTLN1-specific quote.
+  evidence:
+  - reference: PMID:33113778
+    reference_title: &#34;Irritability, Poor Feeding and Respiratory Alkalosis in Newborns: Think about Metabolic Emergencies. A Brief Summary of Hyperammonemia Management.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: This report aims to highlight the importance of suspecting urea cycle disorders in newborns with aspecific signs of hyperammonemia and respiratory alkalosis
+    explanation: Human newborn UCD cases support respiratory alkalosis as a hyperammonemic crisis feature relevant to CTLN1.
 biochemical:
 - name: Citrulline
   presence: INCREASED
@@ -5478,12 +6828,18 @@ biochemical:
 
     &#39;
   evidence:
-  - reference: PMID:37485339
-    reference_title: &#34;Functional identification of two novel variants and a hypomorphic variant in ASS1 from patients with Citrullinemia type I.&#34;
+  - reference: PMID:20301631
+    reference_title: &#34;Citrullinemia Type I.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: elevated plasma citrulline concentration (usually &gt;500 µmol/L)
+    explanation: GeneReviews gives elevated plasma citrulline as a diagnostic biochemical feature of CTLN1.
+  - reference: PMID:39649700
+    reference_title: &#34;Visualization of argininosuccinate synthetase by in silico analysis: novel insights into citrullinemia type I disorders.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Citrullinemia type I (CTLN1) is a rare autosomal recessive inborn error of the urea cycle caused by mutations in the gene encoding the arginosuccinate synthetase (ASS1) enzyme. Classic CTLN1 often manifests with acute hyperammonemia and neurological symptoms.
-    explanation: Confirms CTLN1 as defined by ASS1 deficiency leading to citrulline accumulation.
+    snippet: &#39;increased citrulline concentrations (936 μmol/L; normal reference: 5-25 μmol/L)&#39;
+    explanation: Quantitative case data support markedly increased citrulline.
 - name: Ammonia
   presence: INCREASED
   context: &#39;Elevated blood ammonia results from impaired ureagenesis. During acute crises, ammonia can exceed 500-1000 umol/L. Diagnostic ammonia levels are a key prognostic marker; deceased UCD patients had median ammonia of 1058 umol/L versus 294 umol/L in survivors.
@@ -5508,6 +6864,18 @@ biochemical:
 
     &#39;
   notes: Low arginine is a mechanistically expected downstream effect of ASS1 deficiency; direct quantitative arginine wording was not available in the currently cited abstracts.
+- name: Argininosuccinate
+  presence: DECREASED
+  context: &#39;Absent or markedly reduced argininosuccinate is the immediate biochemical consequence of the ASS1 block, since argininosuccinate synthase normally condenses citrulline and aspartate to form argininosuccinate.
+
+    &#39;
+  evidence:
+  - reference: PMID:20301631
+    reference_title: &#34;Citrullinemia Type I.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: elevated plasma ammonia concentration (&gt;150 µmol/L; may range to ≥2000-3000 µmol/L), elevated plasma citrulline concentration (usually &gt;500 µmol/L), and absent argininosuccinate
+    explanation: GeneReviews lists absent argininosuccinate as part of the diagnostic biochemical pattern of CTLN1.
 - name: Orotic acid
   presence: INCREASED
   context: &#39;Elevated urinary orotic acid (orotic aciduria) is a secondary marker reflecting accumulation of carbamoyl phosphate that is diverted into the pyrimidine synthesis pathway when ureagenesis is blocked.
@@ -5523,11 +6891,16 @@ biochemical:
   - reference: PMID:20301631
     reference_title: &#34;Citrullinemia Type I.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: Without prompt intervention, hyperammonemia and the accumulation of other toxic metabolites (e.g., glutamine) result in increased ICP, increased neuromuscular tone, spasticity, ankle clonus, seizures, loss of consciousness, and death.
     explanation: GeneReviews identifies glutamine as a toxic metabolite that accumulates in CTLN1.
 genetic:
 - name: ASS1 pathogenic variants
+  gene_term:
+    preferred_term: ASS1
+    term:
+      id: hgnc:758
+      label: ASS1
   inheritance:
   - name: Autosomal recessive
     evidence:
@@ -5587,7 +6960,7 @@ genetic:
     reference_title: &#34;Visualization of argininosuccinate synthetase by in silico analysis: novel insights into citrullinemia type I disorders.&#34;
     supports: SUPPORT
     evidence_source: COMPUTATIONAL
-    snippet: the C-terminal helix domain of the mutant protein structure, which was an important structure for ASS1 protein to form protein tetramers, was indeed more unstable than that of the wild-type protein structure.
+    snippet: the C- terminal helix domain of the mutant protein structure, which was an important structure for ASS1 protein to form protein tetramers, was indeed more unstable than that of the wild-type protein structure.
     explanation: Structural analysis demonstrating how specific variants disrupt ASS1 tetramer stability.
   - reference: PMID:37485339
     reference_title: &#34;Functional identification of two novel variants and a hypomorphic variant in ASS1 from patients with Citrullinemia type I.&#34;
@@ -5601,6 +6974,12 @@ genetic:
     evidence_source: OTHER
     snippet: LNP-formulated mRNA therapy has been assayed preclinically for citrullinemia type I (CTLN1), adolescent and adult citrin deficiency, argininosuccinic aciduria, arginase deficiency and ornithine transcarbamylase deficiency
     explanation: Review noting nonsense mutations in approximately 7-10% of ASS1, relevant for therapeutic targeting.
+  - reference: CGGV:assertion_5dc5ef32-81ca-478e-be42-436da3416e4d-2018-12-27T170000.000Z
+    reference_title: &#34;ASS1 / citrullinemia type I (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;ASS1 | HGNC:758 | citrullinemia type I | MONDO:0008988 | AR | Definitive&#34;
+    explanation: ClinGen classifies the ASS1-citrullinemia type I gene-disease relationship as definitive with autosomal recessive inheritance.
 treatments:
 - name: Protein-restricted diet with essential amino acid supplementation
   description: &#39;Long-term dietary management centers on restriction of protein intake to reduce nitrogen load while providing essential amino acids via specialized formula. This is the cornerstone of chronic CTLN1 management. Liver transplantation eliminates the need for protein restriction.
@@ -5618,6 +6997,17 @@ treatments:
     evidence_source: HUMAN_CLINICAL
     snippet: LTx enabled metabolic stability without further need of protein restriction or nitrogen-scavenging therapy
     explanation: Confirms that protein restriction is standard pre-transplant medical management for UCDs.
+  target_mechanisms:
+  - target: Secondary metabolic derangements during catabolic stress
+    treatment_effect: INHIBITS
+    description: Protein restriction lowers exogenous nitrogen load and reduces the risk that residual ureagenesis will be overwhelmed.
+    evidence:
+    - reference: PMID:20301631
+      reference_title: &#34;Citrullinemia Type I.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Daily routine treatment in those who have not undergone a liver transplantation includes lifelong protein restriction in conjunction with a metabolic nutritionist; nitrogen scavenger medications; arginine supplementation;
+      explanation: GeneReviews identifies lifelong protein restriction as a routine treatment used to prevent metabolic decompensation.
 - name: Nitrogen scavenger therapy
   description: &#39;Sodium benzoate, sodium phenylbutyrate, or glycerol phenylbutyrate are used to promote alternative nitrogen disposal pathways. These agents conjugate with glycine or glutamine to form hippurate or phenylacetylglutamine, which are renally excreted, thus bypassing the blocked urea cycle.
 
@@ -5627,6 +7017,19 @@ treatments:
     term:
       id: MAXO:0000058
       label: pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: sodium benzoate
+      term:
+        id: CHEBI:113455
+        label: sodium benzoate
+    - preferred_term: sodium phenylbutyrate
+      term:
+        id: CHEBI:75316
+        label: sodium phenylbutyrate
+    - preferred_term: glycerol phenylbutyrate
+      term:
+        id: CHEBI:134745
+        label: glycerol phenylbutyrate
   evidence:
   - reference: PMID:38054409
     reference_title: &#34;Severity-adjusted evaluation of liver transplantation on health outcomes in urea cycle disorders.&#34;
@@ -5634,6 +7037,28 @@ treatments:
     evidence_source: HUMAN_CLINICAL
     snippet: LTx enabled metabolic stability without further need of protein restriction or nitrogen-scavenging therapy
     explanation: Confirms nitrogen scavenger therapy as part of standard medical management for UCDs prior to transplant.
+  - reference: PMID:27860485
+    reference_title: &#34;An update on the use of benzoate, phenylacetate and phenylbutyrate ammonia scavengers for interrogating and modifying liver nitrogen metabolism and its implications in urea cycle disorders and liver disease.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: Ammonia-scavenging drugs, benzoate and phenylacetate (PA)/phenylbutyrate (PB), modulate hepatic nitrogen metabolism mainly by providing alternative pathways for nitrogen disposal.
+    explanation: Review evidence defines the nitrogen-scavenger mechanism as alternative nitrogen disposal.
+  target_phenotypes:
+  - preferred_term: Hyperammonemia
+    term:
+      id: HP:0001987
+      label: Hyperammonemia
+  target_mechanisms:
+  - target: Impaired hepatic ureagenesis due to ASS1 deficiency
+    treatment_effect: BYPASSES
+    description: Scavenger drugs bypass the compromised urea cycle by providing alternative nitrogen-disposal routes.
+    evidence:
+    - reference: PMID:27860485
+      reference_title: &#34;An update on the use of benzoate, phenylacetate and phenylbutyrate ammonia scavengers for interrogating and modifying liver nitrogen metabolism and its implications in urea cycle disorders and liver disease.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Ammonia-scavenging drugs, benzoate and phenylacetate (PA)/phenylbutyrate (PB), modulate hepatic nitrogen metabolism mainly by providing alternative pathways for nitrogen disposal.
+      explanation: The review directly supports a bypass edge from scavenger therapy around the blocked urea cycle through alternative nitrogen disposal.
 - name: Arginine supplementation
   description: &#39;Arginine supplementation is required because the ASS1 block prevents endogenous arginine synthesis. Supplemental arginine also helps drive residual urea cycle flux and supports protein synthesis.
 
@@ -5643,13 +7068,35 @@ treatments:
     term:
       id: MAXO:0000106
       label: nutritional supplementation
+    therapeutic_agent:
+    - preferred_term: L-arginine
+      term:
+        id: CHEBI:16467
+        label: L-arginine
   evidence:
   - reference: PMID:20301631
     reference_title: &#34;Citrullinemia Type I.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: Daily routine treatment in those who have not undergone a liver transplantation includes lifelong protein restriction in conjunction with a metabolic nutritionist; nitrogen scavenger medications; arginine supplementation;
     explanation: GeneReviews directly states arginine supplementation is part of standard CTLN1 management.
+  - reference: PMID:10869432
+    reference_title: &#34;In vivo urea cycle flux distinguishes and correlates with phenotypic severity in disorders of the urea cycle.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Administration of Ucephan lowered, and arginine increased, urea synthesis to the degree predicted from their respective rates of metabolism.
+    explanation: Stable-isotope human data support arginine supplementation as a modifier of urea synthesis in urea-cycle patients.
+  target_mechanisms:
+  - target: Impaired hepatic ureagenesis due to ASS1 deficiency
+    treatment_effect: MODULATES
+    description: Arginine supplementation provides the downstream urea-cycle amino acid and increases measured urea synthesis in vivo.
+    evidence:
+    - reference: PMID:10869432
+      reference_title: &#34;In vivo urea cycle flux distinguishes and correlates with phenotypic severity in disorders of the urea cycle.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Urea synthesis is altered by alternative route medications and arginine supplementation to the degree that is to be expected from theory.
+      explanation: Human isotope-flux data support a mechanism link from arginine supplementation to altered urea-cycle flux.
 - name: Acute crisis management
   description: &#39;Emergency management of hyperammonemic crises includes cessation of protein intake (maximum 48 hours), high-calorie glucose infusion to reverse catabolism, intravenous nitrogen scavengers, and escalation to continuous renal replacement therapy (dialysis) when ammonia exceeds 500 umol/L.
 
@@ -5663,7 +7110,7 @@ treatments:
   - reference: PMID:20301631
     reference_title: &#34;Citrullinemia Type I.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: Without prompt intervention, hyperammonemia and the accumulation of other toxic metabolites (e.g., glutamine) result in increased ICP, increased neuromuscular tone, spasticity, ankle clonus, seizures, loss of consciousness, and death.
     explanation: GeneReviews emphasizes the need for prompt intervention during hyperammonemic crises.
   - reference: PMID:40218931
@@ -5672,6 +7119,17 @@ treatments:
     evidence_source: HUMAN_CLINICAL
     snippet: EO cases presented a higher mortality rate (35.8%) than late-onset (LO) cases (7.1%)
     explanation: High mortality in early-onset cases underscores the importance of acute crisis management.
+  target_mechanisms:
+  - target: Hyperammonemic neurotoxicity via astrocyte glutamine-osmotic injury
+    treatment_effect: INHIBITS
+    description: Acute crisis therapy rapidly lowers ammonia and reverses catabolism to prevent the CNS glutamine-osmotic injury cascade.
+    evidence:
+    - reference: PMID:20301631
+      reference_title: &#34;Citrullinemia Type I.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Acute inpatient treatment of a metabolic crisis includes addressing hyperammonemia through withholding of all protein intake for a maximum of 24 to 28 hours; pharmacologic nitrogen scavenger therapy; and consideration of dialysis
+      explanation: GeneReviews directly links acute crisis therapy to rapid hyperammonemia management.
 - name: Liver transplantation
   description: &#39;Liver transplantation is the only established curative intervention at the metabolic level for CTLN1. It provides metabolic stability by restoring hepatic ASS1 activity, preventing further hyperammonemic events, and allowing liberalization of protein intake. Five-year patient survival exceeds 90%. However, pre-existing neurocognitive impairment does not improve after transplantation.
 
@@ -5694,6 +7152,17 @@ treatments:
     evidence_source: HUMAN_CLINICAL
     snippet: Among transplanted patients (20.6%), survival was 95.2%, with no significant neurological differences compared to non-transplanted patients.
     explanation: Registry data showing high transplant survival but persistent neurological challenges.
+  target_mechanisms:
+  - target: ASS1 molecular function deficiency
+    treatment_effect: RESTORES
+    description: Liver transplantation replaces the deficient hepatic urea-cycle capacity and prevents further hyperammonemic events.
+    evidence:
+    - reference: PMID:20301631
+      reference_title: &#34;Citrullinemia Type I.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Liver transplantation is the only known curative therapy and eliminates the need for dietary restriction.
+      explanation: GeneReviews supports transplantation as the metabolic-level corrective intervention for CTLN1.
 - name: Newborn screening
   description: &#39;CTLN1 is detectable by newborn screening via tandem mass spectrometry using elevated citrulline as the primary marker. Early detection enables treatment initiation before clinical decompensation and is associated with improved survival and reduced neurological impairment.
 
@@ -5710,6 +7179,15 @@ treatments:
     evidence_source: HUMAN_CLINICAL
     snippet: Diagnosis through NBS improved survival and reduced neurological impairment compared to symptomatic diagnosis.
     explanation: Registry evidence that newborn screening improves outcomes in UCDs.
+  target_phenotypes:
+  - preferred_term: Hyperammonemia
+    term:
+      id: HP:0001987
+      label: Hyperammonemia
+  - preferred_term: Global developmental delay
+    term:
+      id: HP:0001263
+      label: Global developmental delay
 - name: Genetic counseling
   description: &#39;Genetic counseling for affected families, including discussion of autosomal recessive inheritance, 25% recurrence risk for carrier parents, prenatal testing options, and carrier testing for at-risk relatives.
 
@@ -5742,6 +7220,17 @@ treatments:
     evidence_source: OTHER
     snippet: LNP-formulated mRNA therapy has been assayed preclinically for citrullinemia type I (CTLN1), adolescent and adult citrin deficiency, argininosuccinic aciduria, arginase deficiency and ornithine transcarbamylase deficiency
     explanation: Review documenting preclinical mRNA therapy development specifically for CTLN1.
+  target_mechanisms:
+  - target: ASS1 molecular function deficiency
+    treatment_effect: RESTORES
+    description: Liver-targeted ASS1 mRNA replacement would restore the deficient enzyme activity upstream of the urea-cycle block.
+    evidence:
+    - reference: PMID:39449289
+      reference_title: &#34;Exploring RNA therapeutics for urea cycle disorders.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: LNP-formulated mRNA therapy has been assayed preclinically for citrullinemia type I (CTLN1), adolescent and adult citrin deficiency, argininosuccinic aciduria, arginase deficiency and ornithine transcarbamylase deficiency
+      explanation: The review identifies preclinical CTLN1 mRNA therapy, supporting a restorative target mechanism.
 progression:
 - evidence:
   - reference: PMID:40218931
@@ -5753,7 +7242,7 @@ progression:
   - reference: PMID:20301631
     reference_title: &#34;Citrullinemia Type I.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: Citrullinemia type I (CTLN1) presents as a spectrum that includes a neonatal acute form (the &#34;classic&#34; form), a milder late-onset form (the &#34;non-classic&#34; form), a form in which women have onset of symptoms at pregnancy or post partum, and a form without symptoms or hyperammonemia.
     explanation: GeneReviews describes the full clinical spectrum of CTLN1 presentations.
   notes: &#39;Classic neonatal-onset CTLN1 presents within the first days of life with progressive lethargy, poor feeding, vomiting, and hyperammonemic encephalopathy that can rapidly progress to coma and death without treatment. Late-onset forms present with intermittent hyperammonemia, developmental delay, and neurocognitive impairment. A pregnancy/postpartum-triggered form can present in women without prior symptoms. Long-term outcomes are determined by severity and number of hyperammonemic events, with early-onset cases having 35.8% mortality versus 7.1% in late-onset cases. Neurological impairment occurs in 44% of UCD patients overall. Liver transplantation can stabilize metabolism but does not reverse pre-existing brain injury.
@@ -6160,7 +7649,7 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Citrullinemia Type I", "mondoId": "MONDO:0008988", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Citrullinemia_Type_I", "yamlRevision": "e061f3ad5eba"};
+        const OS_CONFIG = {"diseaseName": "Citrullinemia Type I", "mondoId": "MONDO:0008988", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Citrullinemia_Type_I", "yamlRevision": "158ff7b5301c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

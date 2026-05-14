@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,7 +2570,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 18</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 47</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Oligosaccharidosis</span>
@@ -2565,7 +2718,7 @@
             
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
-                <div class="stat-value">6</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Pathophysiology</div>
             </div>
             </a>
@@ -2587,7 +2740,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">18</div>
+                <div class="stat-value">47</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -2609,10 +2762,12 @@
             </a>
             
             
+            <a class="stat-link" href="#subtypes">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Subtypes</div>
             </div>
+            </a>
             
             
             <div class="stat-item">
@@ -2888,6 +3043,149 @@
 
         <!-- Subtypes -->
         
+        <div class="card" id="subtypes">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
+                <h2 class="card-title">Subtypes</h2>
+                <span class="card-count">2</span>
+            </div>
+            
+            
+            
+                
+                
+                    
+                
+                
+            
+                
+                
+                
+            
+            
+                
+                
+                
+                
+                
+                <div class="item-box subtype-box">
+                    
+                    <div class="item-name">
+                        Type I fucosidosis
+                        
+                        
+                        
+                    </div>
+                    <div class="subtype-meta">
+                        
+                        
+                        
+                        
+                        
+                    </div>
+                    
+                    <div class="item-desc">Rapidly progressive neurodegenerative fucosidosis, typically leading to decerebration and death before age 10 years.
+</div>
+                    
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33266441" target="_blank">PMID:33266441</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Type I: a rapidly-progressing neurodegenerative course"</div>
+                
+                
+                <div class="evidence-explanation">The clinical review defines Type I fucosidosis as a rapidly progressive neurodegenerative subtype.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                </div>
+                
+                
+                
+                
+                <div class="item-box subtype-box">
+                    
+                    <div class="item-name">
+                        Type II fucosidosis
+                        
+                        
+                        
+                    </div>
+                    <div class="subtype-meta">
+                        
+                        
+                        
+                        
+                        
+                    </div>
+                    
+                    <div class="item-desc">Milder fucosidosis with slower neurologic progression, possible survival into adulthood, and frequent angiokeratoma corporis diffusum.
+</div>
+                    
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33266441" target="_blank">PMID:33266441</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Type II: a milder course, with slower neurological symptoms progression"</div>
+                
+                
+                <div class="evidence-explanation">The clinical review defines Type II fucosidosis as a milder, slower-progressing subtype.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                </div>
+                
+            
+        </div>
+        
 
         <!-- Comorbidities -->
         
@@ -2898,7 +3196,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">9</span>
             </div>
             
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fuca1-alpha-l-fucosidase-deficiency">
@@ -2970,6 +3268,13 @@
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Alpha-L-fucosidase activity</span>
+	                            
+	                            <span class="crosslink-desc">FUCA1 pathogenic variants reduce measured alpha-L-fucosidase enzyme activity.</span>
+	                            
+	                        </div>
 	                        
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Fucose-rich glycoconjugate lysosomal storage</span>
@@ -3130,6 +3435,118 @@
 	                            <span class="crosslink-meta">Visceral and cutaneous storage disease</span>
 	                            
 	                            <span class="crosslink-desc">Storage in liver, skin, and other tissues contributes to visceral and dermatologic manifestations.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Urinary fucose-rich oligosaccharides and glycopeptides</span>
+	                            
+	                            <span class="crosslink-desc">Accumulated fucosylated glycopeptides and oligosaccharides are excessively excreted in urine.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Respiratory mucus clearance impairment</span>
+	                            
+	                            <span class="crosslink-desc">Altered handling of fucose-containing airway glycoconjugates is suspected to impair mucus clearance.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Skeletal dysostosis involvement</span>
+	                            
+	                            <span class="crosslink-desc">Lysosomal storage disease is associated with dysostosis multiplex and vertebral skeletal abnormalities through incompletely defined intermediates.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Ocular storage involvement</span>
+	                            
+	                            <span class="crosslink-desc">Fucosidosis can include conjunctival, retinal, and corneal storage-related ocular involvement.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Brachycephaly</span>
+	                            
+	                            <span class="crosslink-desc">The multisystem developmental presentation of fucosidosis includes brachycephaly through incompletely defined intermediates.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Coarse facial features</span>
+	                            
+	                            <span class="crosslink-desc">The multisystem lysosomal storage phenotype includes coarse facial features through incompletely defined craniofacial intermediates.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Abnormal facial shape</span>
+	                            
+	                            <span class="crosslink-desc">The multisystem developmental presentation of fucosidosis includes facial dysmorphism through incompletely defined intermediates.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Prominent forehead</span>
+	                            
+	                            <span class="crosslink-desc">The multisystem craniofacial presentation of fucosidosis includes prominent forehead through incompletely defined intermediates.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Failure to thrive</span>
+	                            
+	                            <span class="crosslink-desc">The severe multisystem storage phenotype is associated with growth failure through incompletely defined intermediates.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Mucopolysacchariduria</span>
+	                            
+	                            <span class="crosslink-desc">Abnormal urinary storage products are associated with a mucopolysacchariduria-like biochemical phenotype.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Lipoatrophy</span>
+	                            
+	                            <span class="crosslink-desc">The multisystem storage phenotype includes lipoatrophy through incompletely defined intermediates.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Abnormality of the cardiovascular system</span>
+	                            
+	                            <span class="crosslink-desc">The multisystem storage phenotype can include cardiovascular abnormalities through incompletely defined intermediates.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Abnormality of the gallbladder</span>
+	                            
+	                            <span class="crosslink-desc">The multisystem storage phenotype can include gallbladder abnormalities through incompletely defined intermediates.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hypothyroidism</span>
+	                            
+	                            <span class="crosslink-desc">The multisystem storage phenotype includes hypothyroidism through incompletely defined endocrine intermediates.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Abnormality of the dentition</span>
+	                            
+	                            <span class="crosslink-desc">The multisystem developmental phenotype includes dental abnormalities through incompletely defined intermediates.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cardiomegaly</span>
+	                            
+	                            <span class="crosslink-desc">The multisystem storage phenotype can include cardiomegaly through incompletely defined cardiovascular intermediates.</span>
 	                            
 	                        </div>
 	                        
@@ -3482,6 +3899,13 @@
 	                        </div>
 	                        
 	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Global developmental delay</span>
+	                            
+	                            <span class="crosslink-desc">CNS storage pathology and neurodegeneration are associated with developmental delay and psychomotor decline.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Seizure</span>
 	                            
 	                            <span class="crosslink-desc">Neural injury and inflammation contribute to epilepsy susceptibility.</span>
@@ -3492,6 +3916,20 @@
 	                            <span class="crosslink-meta">Spasticity</span>
 	                            
 	                            <span class="crosslink-desc">CNS injury contributes to progressive pyramidal and motor dysfunction.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hypotonia</span>
+	                            
+	                            <span class="crosslink-desc">CNS storage pathology and motor deterioration are associated with hypotonia through incompletely defined intermediates.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Decreased muscle mass</span>
+	                            
+	                            <span class="crosslink-desc">Progressive neurologic and multisystem disease is associated with decreased muscle mass through incompletely defined intermediates.</span>
 	                            
 	                        </div>
 	                        
@@ -3646,7 +4084,14 @@
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Hearing impairment</span>
 	                            
-	                            <span class="crosslink-desc">CNS and auditory pathway involvement contributes to hearing dysfunction.</span>
+	                            <span class="crosslink-desc">CNS white-matter involvement can coincide with auditory pathway abnormalities and hearing impairment, but the causal intermediate is incompletely defined.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Abnormal pyramidal sign</span>
+	                            
+	                            <span class="crosslink-desc">White-matter and corticospinal motor involvement can produce pyramidal signs through incompletely defined intermediates.</span>
 	                            
 	                        </div>
 	                        
@@ -3785,9 +4230,30 @@
 	                        </div>
 	                        
 	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Generalized hyperkeratosis</span>
+	                            
+	                            <span class="crosslink-desc">Cutaneous storage disease is associated with generalized hyperkeratosis through incompletely defined intermediates.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Vascular skin abnormality</span>
 	                            
 	                            <span class="crosslink-desc">Skin involvement includes telangiectasia and angiokeratoma.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Acrocyanosis</span>
+	                            
+	                            <span class="crosslink-desc">Cutaneous vascular involvement can include acrocyanosis through incompletely defined intermediates.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Abnormal nail morphology</span>
+	                            
+	                            <span class="crosslink-desc">Cutaneous involvement can include distal nail changes through incompletely defined intermediates.</span>
 	                            
 	                        </div>
 	                        
@@ -3849,6 +4315,314 @@
     
 	            </div>
 	            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-respiratory-mucus-clearance-impairment">
+                <div class="item-name">Respiratory mucus clearance impairment</div>
+                
+                <div class="item-desc">Fucosidosis respiratory infections may reflect local airway mucus-clearance vulnerability. The clinical review notes intact immune testing in reported patients and proposes altered fucose/sialic-acid-dependent mucus cross-linking and viscoelasticity as a contributor.
+</div>
+                
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        mucociliary clearance
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0120197" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Recurrent respiratory infections</span>
+	                            
+	                            <span class="crosslink-desc">Impaired local mucus clearance is suspected to increase recurrent respiratory infections.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
+	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33266441" target="_blank">PMID:33266441</a>
+                    </span>
+                    
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"it was suspected that there could be a local defect in mucus clearance."</div>
+                
+                
+                <div class="evidence-explanation">The review proposes impaired mucus clearance as a contributor to recurrent respiratory infections.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33266441" target="_blank">PMID:33266441</a>
+                    </span>
+                    
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"terminal sugars fucose and sialic acid play a major role in defining the viscoelasticity of mucus."</div>
+                
+                
+                <div class="evidence-explanation">The review gives the proposed glycoconjugate-mucus intermediate.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+	            </div>
+	            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-skeletal-dysostosis-involvement">
+                <div class="item-name">Skeletal dysostosis involvement</div>
+                
+                <div class="item-desc">Fucosidosis includes skeletal involvement with dysostosis multiplex and vertebral changes. The direct cellular intermediates between fucose-rich storage and skeletal morphology are not specified in the cached evidence.
+</div>
+                
+                
+                
+                
+                
+                
+                
+                
+                
+	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Dysostosis multiplex</span>
+	                            
+	                            <span class="crosslink-desc">Skeletal involvement manifests as dysostosis multiplex.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Anterior beaking of lumbar vertebrae</span>
+	                            
+	                            <span class="crosslink-desc">Vertebral skeletal involvement includes anterior tonguing or beaking.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Kyphosis</span>
+	                            
+	                            <span class="crosslink-desc">Skeletal involvement can include kyphotic/gibbous spinal deformity.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
+	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:349" target="_blank">ORPHA:349</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"developmental delay associated with psychomotor regression and bone abnormalities"</div>
+                
+                
+                <div class="evidence-explanation">Orphanet definition supports skeletal/bone involvement in fucosidosis.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33266441" target="_blank">PMID:33266441</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Some patients also have non-specific features of dysostosis multiplex"</div>
+                
+                
+                <div class="evidence-explanation">The clinical review supports dysostosis multiplex as a skeletal manifestation.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+	            </div>
+	            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-ocular-storage-involvement">
+                <div class="item-name">Ocular storage involvement</div>
+                
+                <div class="item-desc">Fucosidosis can involve ocular tissues, including conjunctival and retinal vessels and corneal clarity. The cached clinical review links storage material to ocular vessels and lists corneal opacities in affected patients.
+</div>
+                
+                
+                
+                
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-location">
+                        eye
+                        
+                        <a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Corneal opacity</span>
+	                            
+	                            <span class="crosslink-desc">Ocular storage involvement can include corneal opacity.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
+	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33266441" target="_blank">PMID:33266441</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"storage material accumulates in conjunctival, retinal, and skin vessels."</div>
+                
+                
+                <div class="evidence-explanation">The clinical review supports ocular vessel storage involvement.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33266441" target="_blank">PMID:33266441</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"corneal opacities in 11%"</div>
+                
+                
+                <div class="evidence-explanation">The clinical review documents corneal opacity in patients.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+	            </div>
+	            
         </div>
         
 
@@ -3874,7 +4648,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"FUCA1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"FUCA1\"], \"association\": \"Causal loss-of-function variant\"}}, {\"id\": \"FUCA1 alpha-L-fucosidase deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic FUCA1 variants reduce or abolish lysosomal alpha-L-fucosidase activity.\\n\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"alpha-L-fucosidase activity\"], \"genes\": [\"FUCA1\"], \"locations\": [\"lysosome\"]}}, {\"id\": \"Fucose-rich glycoconjugate lysosomal storage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired alpha-L-fucosidase function causes accumulation of fucose-rich oligosaccharides, glycoproteins, and glycolipids within lysosomes and in urine.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"glycoprotein catabolic process\", \"glycosphingolipid catabolic process\"], \"locations\": [\"lysosome\"]}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is typical and may be followed by regression.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing impairment is common and can include sensorineural hearing loss.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Hematopoietic stem cell transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hematopoietic stem cell transplantation has been used in a small number of carefully selected patients and may delay disease progression when performed early, but risks and exclusion criteria limit use.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Liver enlargement reflects visceral involvement.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hyperhidrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Excessive sweating is a prominent cutaneous/autonomic feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000975\"}}, {\"id\": \"Hypomyelination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CNS fucosidosis storage pathology includes oligodendrocyte loss and reduced myelination, supporting white-matter disease and progressive motor impairment.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"oligodendrocyte\"], \"biological_processes\": [\"myelination\"], \"locations\": [\"brain white matter\"]}}, {\"id\": \"Intracisternal enzyme replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intracisternal enzyme replacement is preclinical and has reduced neuropathology in canine fucosidosis models, but more complete and sustained correction is needed before it can be considered an established human treatment.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neural lysosomal expansion and secondary storage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fucosylated substrate storage expands lysosomal compartments in CNS cells, produces secondary storage material, and injures vulnerable neurons.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\", \"oligodendrocyte\"], \"locations\": [\"brain\"]}}, {\"id\": \"Neuroinflammation and neural cell loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CNS storage pathology activates inflammatory glia and is accompanied by apoptosis, axonal injury, and loss of vulnerable neurons.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"microglial cell\", \"astrocyte\", \"neuron\"], \"biological_processes\": [\"inflammatory response\", \"apoptotic process\"]}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in a substantial fraction of patients.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Severe intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe cognitive impairment is a core neurodevelopmental manifestation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0010864\"}}, {\"id\": \"Spastic tetraplegia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Some patients develop spastic quadriparetic motor impairment.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002510\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive pyramidal motor involvement can produce spasticity.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001257\"}}, {\"id\": \"Vascular skin abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vascular skin findings include telangiectasia and angiokeratoma.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011276\"}}, {\"id\": \"Visceral and cutaneous storage disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fucose-rich substrate storage in visceral and skin tissues is associated with hepatomegaly, hyperhidrosis, angiokeratoma or telangiectatic vascular skin abnormalities, hyperkeratosis, and other extracerebral features.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"locations\": [\"liver\", \"skin of body\"]}}], \"edges\": [{\"source\": \"FUCA1 alpha-L-fucosidase deficiency\", \"target\": \"Fucose-rich glycoconjugate lysosomal storage\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fucose-rich glycoconjugate lysosomal storage\", \"target\": \"Neural lysosomal expansion and secondary storage\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fucose-rich glycoconjugate lysosomal storage\", \"target\": \"Visceral and cutaneous storage disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neural lysosomal expansion and secondary storage\", \"target\": \"Neuroinflammation and neural cell loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neural lysosomal expansion and secondary storage\", \"target\": \"Hypomyelination\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroinflammation and neural cell loss\", \"target\": \"Severe intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroinflammation and neural cell loss\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroinflammation and neural cell loss\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypomyelination\", \"target\": \"Spastic tetraplegia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypomyelination\", \"target\": \"Hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Visceral and cutaneous storage disease\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Visceral and cutaneous storage disease\", \"target\": \"Hyperhidrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Visceral and cutaneous storage disease\", \"target\": \"Vascular skin abnormality\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation\", \"target\": \"FUCA1 alpha-L-fucosidase deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation\", \"target\": \"Global developmental delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation\", \"target\": \"Hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Intracisternal enzyme replacement therapy\", \"target\": \"FUCA1 alpha-L-fucosidase deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"FUCA1\", \"target\": \"FUCA1 alpha-L-fucosidase deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal facial shape\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Facial dysmorphism is part of the fucosidosis phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001999\"}}, {\"id\": \"Abnormal nail morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nail abnormalities occur in a subset of patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001597\"}}, {\"id\": \"Abnormal pyramidal sign\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pyramidal signs reflect corticospinal tract involvement.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0007256\"}}, {\"id\": \"Abnormality of the cardiovascular system\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiovascular abnormalities are reported in fucosidosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001626\"}}, {\"id\": \"Abnormality of the dentition\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dental abnormalities occur in a subset of patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000164\"}}, {\"id\": \"Abnormality of the gallbladder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gallbladder involvement is listed by Orphanet.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005264\"}}, {\"id\": \"Acrocyanosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral cyanotic discoloration can occur.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001063\"}}, {\"id\": \"Alpha-L-fucosidase activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Reduced\"}}, {\"id\": \"Anterior beaking of lumbar vertebrae\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vertebral changes are part of the skeletal dysostosis pattern.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008430\"}}, {\"id\": \"Brachycephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Craniofacial morphology can include brachycephaly.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000248\"}}, {\"id\": \"Cardiomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiomegaly is reported occasionally.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001640\"}}, {\"id\": \"Coarse facial features\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coarse facial features are a common dysmorphic manifestation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000280\"}}, {\"id\": \"Corneal opacity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Corneal opacity is reported as an ocular manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007957\"}}, {\"id\": \"Decreased muscle mass\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Decreased muscle mass is part of the motor or nutritional phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003199\"}}, {\"id\": \"Dysostosis multiplex\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Skeletal involvement includes dysostosis multiplex.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000943\"}}, {\"id\": \"FUCA1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"FUCA1\"], \"association\": \"Causal loss-of-function variant\"}}, {\"id\": \"FUCA1 alpha-L-fucosidase deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic FUCA1 variants reduce or abolish lysosomal alpha-L-fucosidase activity.\\n\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"alpha-L-fucosidase activity\"], \"genes\": [\"FUCA1\"], \"locations\": [\"lysosome\"]}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth failure or poor weight gain is common.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Fucose-rich glycoconjugate lysosomal storage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired alpha-L-fucosidase function causes accumulation of fucose-rich oligosaccharides, glycoproteins, and glycolipids within lysosomes and in urine.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"glycoprotein catabolic process\", \"glycosphingolipid catabolic process\"], \"locations\": [\"lysosome\"]}}, {\"id\": \"Generalized hyperkeratosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized hyperkeratosis is listed among cutaneous features.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0005595\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is typical and may be followed by regression.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing impairment is common and can include sensorineural hearing loss.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Hematopoietic stem cell transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hematopoietic stem cell transplantation has been used in a small number of carefully selected patients and may delay disease progression when performed early, but risks and exclusion criteria limit use.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Liver enlargement reflects visceral involvement.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hyperhidrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Excessive sweating is a prominent cutaneous/autonomic feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000975\"}}, {\"id\": \"Hypomyelination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CNS fucosidosis storage pathology includes oligodendrocyte loss and reduced myelination, supporting white-matter disease and progressive motor impairment.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"oligodendrocyte\"], \"biological_processes\": [\"myelination\"], \"locations\": [\"brain white matter\"]}}, {\"id\": \"Hypothyroidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypothyroidism is listed among frequent endocrine findings in Orphanet.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000821\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is a motor manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Intracisternal enzyme replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intracisternal enzyme replacement is preclinical and has reduced neuropathology in canine fucosidosis models, but more complete and sustained correction is needed before it can be considered an established human treatment.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Kyphosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Kyphosis is part of the skeletal phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002808\"}}, {\"id\": \"Lipoatrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lipoatrophy is listed by Orphanet among very frequent manifestations.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0100578\"}}, {\"id\": \"Mucopolysacchariduria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormal urinary storage products can resemble mucopolysaccharide storage disease biochemically.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008155\"}}, {\"id\": \"Neural lysosomal expansion and secondary storage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fucosylated substrate storage expands lysosomal compartments in CNS cells, produces secondary storage material, and injures vulnerable neurons.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\", \"oligodendrocyte\"], \"locations\": [\"brain\"]}}, {\"id\": \"Neuroinflammation and neural cell loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CNS storage pathology activates inflammatory glia and is accompanied by apoptosis, axonal injury, and loss of vulnerable neurons.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"microglial cell\", \"astrocyte\", \"neuron\"], \"biological_processes\": [\"inflammatory response\", \"apoptotic process\"]}}, {\"id\": \"Ocular storage involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fucosidosis can involve ocular tissues, including conjunctival and retinal vessels and corneal clarity. The cached clinical review links storage material to ocular vessels and lists corneal opacities in affected patients.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"eye\"]}}, {\"id\": \"Prominent forehead\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prominent forehead contributes to the craniofacial presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0011220\"}}, {\"id\": \"Recurrent respiratory infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent respiratory tract infections are common and contribute to mortality.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002205\"}}, {\"id\": \"Respiratory mucus clearance impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fucosidosis respiratory infections may reflect local airway mucus-clearance vulnerability. The clinical review notes intact immune testing in reported patients and proposes altered fucose/sialic-acid-dependent mucus cross-linking and viscoelasticity as a contributor.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mucociliary clearance\"]}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in a substantial fraction of patients.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Severe intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe cognitive impairment is a core neurodevelopmental manifestation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0010864\"}}, {\"id\": \"Skeletal dysostosis involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fucosidosis includes skeletal involvement with dysostosis multiplex and vertebral changes. The direct cellular intermediates between fucose-rich storage and skeletal morphology are not specified in the cached evidence.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Spastic tetraplegia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Some patients develop spastic quadriparetic motor impairment.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002510\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive pyramidal motor involvement can produce spasticity.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001257\"}}, {\"id\": \"Supportive care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Supportive multidisciplinary management addresses motor impairment, feeding, orthopedic, ophthalmologic, cardiologic, neurologic, neuropsychiatric, and developmental complications.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Urinary fucose-rich oligosaccharides and glycopeptides\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\"}}, {\"id\": \"Vascular skin abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vascular skin findings include telangiectasia and angiokeratoma.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011276\"}}, {\"id\": \"Visceral and cutaneous storage disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fucose-rich substrate storage in visceral and skin tissues is associated with hepatomegaly, hyperhidrosis, angiokeratoma or telangiectatic vascular skin abnormalities, hyperkeratosis, and other extracerebral features.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"locations\": [\"liver\", \"skin of body\"]}}], \"edges\": [{\"source\": \"FUCA1 alpha-L-fucosidase deficiency\", \"target\": \"Alpha-L-fucosidase activity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FUCA1 alpha-L-fucosidase deficiency\", \"target\": \"Fucose-rich glycoconjugate lysosomal storage\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fucose-rich glycoconjugate lysosomal storage\", \"target\": \"Neural lysosomal expansion and secondary storage\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fucose-rich glycoconjugate lysosomal storage\", \"target\": \"Visceral and cutaneous storage disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fucose-rich glycoconjugate lysosomal storage\", \"target\": \"Urinary fucose-rich oligosaccharides and glycopeptides\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fucose-rich glycoconjugate lysosomal storage\", \"target\": \"Respiratory mucus clearance impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fucose-rich glycoconjugate lysosomal storage\", \"target\": \"Skeletal dysostosis involvement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fucose-rich glycoconjugate lysosomal storage\", \"target\": \"Ocular storage involvement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fucose-rich glycoconjugate lysosomal storage\", \"target\": \"Brachycephaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fucose-rich glycoconjugate lysosomal storage\", \"target\": \"Coarse facial features\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fucose-rich glycoconjugate lysosomal storage\", \"target\": \"Abnormal facial shape\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fucose-rich glycoconjugate lysosomal storage\", \"target\": \"Prominent forehead\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fucose-rich glycoconjugate lysosomal storage\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fucose-rich glycoconjugate lysosomal storage\", \"target\": \"Mucopolysacchariduria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fucose-rich glycoconjugate lysosomal storage\", \"target\": \"Lipoatrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fucose-rich glycoconjugate lysosomal storage\", \"target\": \"Abnormality of the cardiovascular system\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fucose-rich glycoconjugate lysosomal storage\", \"target\": \"Abnormality of the gallbladder\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fucose-rich glycoconjugate lysosomal storage\", \"target\": \"Hypothyroidism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fucose-rich glycoconjugate lysosomal storage\", \"target\": \"Abnormality of the dentition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fucose-rich glycoconjugate lysosomal storage\", \"target\": \"Cardiomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neural lysosomal expansion and secondary storage\", \"target\": \"Neuroinflammation and neural cell loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neural lysosomal expansion and secondary storage\", \"target\": \"Hypomyelination\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroinflammation and neural cell loss\", \"target\": \"Severe intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroinflammation and neural cell loss\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroinflammation and neural cell loss\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroinflammation and neural cell loss\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroinflammation and neural cell loss\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroinflammation and neural cell loss\", \"target\": \"Decreased muscle mass\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypomyelination\", \"target\": \"Spastic tetraplegia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypomyelination\", \"target\": \"Hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypomyelination\", \"target\": \"Abnormal pyramidal sign\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Visceral and cutaneous storage disease\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Visceral and cutaneous storage disease\", \"target\": \"Hyperhidrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Visceral and cutaneous storage disease\", \"target\": \"Generalized hyperkeratosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Visceral and cutaneous storage disease\", \"target\": \"Vascular skin abnormality\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Visceral and cutaneous storage disease\", \"target\": \"Acrocyanosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Visceral and cutaneous storage disease\", \"target\": \"Abnormal nail morphology\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Respiratory mucus clearance impairment\", \"target\": \"Recurrent respiratory infections\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal dysostosis involvement\", \"target\": \"Dysostosis multiplex\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal dysostosis involvement\", \"target\": \"Anterior beaking of lumbar vertebrae\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal dysostosis involvement\", \"target\": \"Kyphosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ocular storage involvement\", \"target\": \"Corneal opacity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Supportive care\", \"target\": \"Spasticity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation\", \"target\": \"FUCA1 alpha-L-fucosidase deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation\", \"target\": \"Global developmental delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation\", \"target\": \"Hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Intracisternal enzyme replacement therapy\", \"target\": \"FUCA1 alpha-L-fucosidase deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"FUCA1\", \"target\": \"FUCA1 alpha-L-fucosidase deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6012,7 +6786,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
             
@@ -6053,6 +6827,26 @@
                 
                 
                 <div class="evidence-explanation">The clinical review identifies FUCA1 mutations as causal.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_e88e0ef6-e788-40e2-bbd4-7fb3efb6b0ea-2022-08-02T160000.000Z" target="_blank">CGGV:assertion_e88e0ef6-e788-40e2-bbd4-7fb3efb6b0ea-2022-08-02T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"FUCA1 | HGNC:4006 | fucosidosis | MONDO:0009254 | AR | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the FUCA1-fucosidosis gene-disease relationship as definitive with autosomal recessive inheritance.</div>
                 
             </div>
             
@@ -6116,6 +6910,18 @@
 </div>
                 
                 
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Spasticity
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
                 
                 
                 
@@ -6490,6 +7296,7 @@
                 <div class="item-desc">Context: Diagnostic enzyme assay</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6533,6 +7340,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Biochemical storage marker</div>
+                
                 
                 
     
@@ -6601,7 +7409,7 @@
                 <pre class="yaml-preview">name: Fucosidosis
 category: Mendelian
 creation_date: &#34;2026-05-04T15:41:26Z&#34;
-updated_date: &#34;2026-05-04T15:41:26Z&#34;
+updated_date: &#34;2026-05-10T23:15:11Z&#34;
 synonyms:
 - Alpha-L-fucosidase deficiency
 description: &gt;
@@ -6622,6 +7430,31 @@ disease_term:
 parents:
 - Oligosaccharidosis
 - Lysosomal storage disease with skeletal involvement
+has_subtypes:
+- name: Type I
+  display_name: Type I fucosidosis
+  description: &gt;
+    Rapidly progressive neurodegenerative fucosidosis, typically leading to
+    decerebration and death before age 10 years.
+  evidence:
+  - reference: PMID:33266441
+    reference_title: Fucosidosis-Clinical Manifestation, Long-Term Outcomes, and Genetic Profile-Review and Case Series.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Type I: a rapidly-progressing neurodegenerative course&#34;
+    explanation: The clinical review defines Type I fucosidosis as a rapidly progressive neurodegenerative subtype.
+- name: Type II
+  display_name: Type II fucosidosis
+  description: &gt;
+    Milder fucosidosis with slower neurologic progression, possible survival
+    into adulthood, and frequent angiokeratoma corporis diffusum.
+  evidence:
+  - reference: PMID:33266441
+    reference_title: Fucosidosis-Clinical Manifestation, Long-Term Outcomes, and Genetic Profile-Review and Case Series.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Type II: a milder course, with slower neurological symptoms progression&#34;
+    explanation: The clinical review defines Type II fucosidosis as a milder, slower-progressing subtype.
 mappings:
   mondo_mappings:
   - term:
@@ -6776,6 +7609,12 @@ genetic:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Fucosidosis is caused by mutations in the FUCA1 gene resulting in&#34;
     explanation: The clinical review identifies FUCA1 mutations as causal.
+  - reference: CGGV:assertion_e88e0ef6-e788-40e2-bbd4-7fb3efb6b0ea-2022-08-02T160000.000Z
+    reference_title: &#34;FUCA1 / fucosidosis (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;FUCA1 | HGNC:4006 | fucosidosis | MONDO:0009254 | AR | Definitive&#34;
+    explanation: ClinGen classifies the FUCA1-fucosidosis gene-disease relationship as definitive with autosomal recessive inheritance.
 pathophysiology:
 - name: FUCA1 alpha-L-fucosidase deficiency
   description: &gt;
@@ -6811,9 +7650,26 @@ pathophysiology:
     snippet: &#34;reduced enzyme activity or complete loss of function&#34;
     explanation: The recent review summarizes the causal FUCA1-to-enzyme-deficiency relationship.
   downstream:
+  - target: Alpha-L-fucosidase activity
+    description: FUCA1 pathogenic variants reduce measured alpha-L-fucosidase enzyme activity.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:1873910
+      reference_title: Defective expression of alpha-L-fucosidase by lymphoid cells of a fucosidosis patient.
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &#34;negligible catalytic activity as compared with the mean of 19 control cultures.&#34;
+      explanation: Patient-derived lymphoid cells directly showed negligible alpha-L-fucosidase catalytic activity.
   - target: Fucose-rich glycoconjugate lysosomal storage
     description: Enzyme deficiency impairs degradation of fucosylated glycoconjugates.
     causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:33266441
+      reference_title: Fucosidosis-Clinical Manifestation, Long-Term Outcomes, and Genetic Profile-Review and Case Series.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;incomplete catabolism of N- and O-glycosylproteins results in the accumulation of fucose-containing glycolipids and glycoproteins in various tissues and urine&#34;
+      explanation: Human clinical review evidence directly links alpha-L-fucosidase deficiency to fucosylated substrate accumulation.
 - name: Fucose-rich glycoconjugate lysosomal storage
   description: &gt;
     Impaired alpha-L-fucosidase function causes accumulation of fucose-rich
@@ -6868,8 +7724,187 @@ pathophysiology:
   - target: Neural lysosomal expansion and secondary storage
     description: Storage distends lysosomes and produces secondary lipid storage in the CNS.
     causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:27491075
+      reference_title: A mouse model for fucosidosis recapitulates storage pathology and neurological features of the milder form of the human disease.
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;In the CNS, cellular alterations included enlargement of the&#34;
+      explanation: The Fuca1 knockout mouse demonstrates lysosomal storage pathology in visceral organs and the CNS.
   - target: Visceral and cutaneous storage disease
     description: Storage in liver, skin, and other tissues contributes to visceral and dermatologic manifestations.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:33266441
+      reference_title: Fucosidosis-Clinical Manifestation, Long-Term Outcomes, and Genetic Profile-Review and Case Series.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;accretion of fucose-containing oligosaccharides, glycoproteins, and glycolipids in the brain, liver and skin&#34;
+      explanation: Human clinical review evidence places fucose-containing storage material in liver and skin.
+  - target: Urinary fucose-rich oligosaccharides and glycopeptides
+    description: Accumulated fucosylated glycopeptides and oligosaccharides are excessively excreted in urine.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:33266441
+      reference_title: Fucosidosis-Clinical Manifestation, Long-Term Outcomes, and Genetic Profile-Review and Case Series.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Patients affected with fucosidosis excrete a large amount of glycopeptide in the urine&#34;
+      explanation: The clinical review directly supports urinary excretion of fucosylated storage products.
+  - target: Respiratory mucus clearance impairment
+    description: Altered handling of fucose-containing airway glycoconjugates is suspected to impair mucus clearance.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Altered terminal sugar cleavage affecting mucus cross-linking and viscoelasticity.
+    evidence:
+    - reference: PMID:33266441
+      reference_title: Fucosidosis-Clinical Manifestation, Long-Term Outcomes, and Genetic Profile-Review and Case Series.
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;it was suspected that there could be a local defect in mucus clearance.&#34;
+      explanation: The review reports a suspected local mucus-clearance defect in fucosidosis respiratory disease.
+  - target: Skeletal dysostosis involvement
+    description: Lysosomal storage disease is associated with dysostosis multiplex and vertebral skeletal abnormalities through incompletely defined intermediates.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:33266441
+      reference_title: Fucosidosis-Clinical Manifestation, Long-Term Outcomes, and Genetic Profile-Review and Case Series.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Some patients also have non-specific features of dysostosis multiplex&#34;
+      explanation: The clinical review supports skeletal dysostosis as part of fucosidosis.
+  - target: Ocular storage involvement
+    description: Fucosidosis can include conjunctival, retinal, and corneal storage-related ocular involvement.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Storage material in conjunctival and retinal vessels with corneal involvement.
+    evidence:
+    - reference: PMID:33266441
+      reference_title: Fucosidosis-Clinical Manifestation, Long-Term Outcomes, and Genetic Profile-Review and Case Series.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;storage material accumulates in conjunctival, retinal, and skin vessels.&#34;
+      explanation: The clinical review directly supports ocular vascular storage involvement.
+  - target: Brachycephaly
+    description: The multisystem developmental presentation of fucosidosis includes brachycephaly through incompletely defined intermediates.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: ORPHA:349
+      reference_title: Fucosidosis (Orphanet structured-database record)
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;HP:0000248 | Brachycephaly | Very frequent (99-80%)&#34;
+      explanation: Orphanet records brachycephaly as a very frequent fucosidosis phenotype.
+  - target: Coarse facial features
+    description: The multisystem lysosomal storage phenotype includes coarse facial features through incompletely defined craniofacial intermediates.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:33266441
+      reference_title: Fucosidosis-Clinical Manifestation, Long-Term Outcomes, and Genetic Profile-Review and Case Series.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Clinical features include coarse facial features&#34;
+      explanation: The clinical review lists coarse facial features among fucosidosis manifestations.
+  - target: Abnormal facial shape
+    description: The multisystem developmental presentation of fucosidosis includes facial dysmorphism through incompletely defined intermediates.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: ORPHA:349
+      reference_title: Fucosidosis (Orphanet structured-database record)
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;HP:0001999 | Abnormal facial shape | Very frequent (99-80%)&#34;
+      explanation: Orphanet records abnormal facial shape as a very frequent fucosidosis phenotype.
+  - target: Prominent forehead
+    description: The multisystem craniofacial presentation of fucosidosis includes prominent forehead through incompletely defined intermediates.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: ORPHA:349
+      reference_title: Fucosidosis (Orphanet structured-database record)
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;HP:0011220 | Prominent forehead | Very frequent (99-80%)&#34;
+      explanation: Orphanet records prominent forehead as a very frequent fucosidosis phenotype.
+  - target: Failure to thrive
+    description: The severe multisystem storage phenotype is associated with growth failure through incompletely defined intermediates.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:33266441
+      reference_title: Fucosidosis-Clinical Manifestation, Long-Term Outcomes, and Genetic Profile-Review and Case Series.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;the weight of 77% was below the fifth centile.&#34;
+      explanation: The clinical review supports growth and weight failure in fucosidosis.
+  - target: Mucopolysacchariduria
+    description: Abnormal urinary storage products are associated with a mucopolysacchariduria-like biochemical phenotype.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: ORPHA:349
+      reference_title: Fucosidosis (Orphanet structured-database record)
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;HP:0008155 | Mucopolysacchariduria | Very frequent (99-80%)&#34;
+      explanation: Orphanet records mucopolysacchariduria as a very frequent biochemical phenotype.
+  - target: Lipoatrophy
+    description: The multisystem storage phenotype includes lipoatrophy through incompletely defined intermediates.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: ORPHA:349
+      reference_title: Fucosidosis (Orphanet structured-database record)
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;HP:0100578 | Lipoatrophy | Very frequent (99-80%)&#34;
+      explanation: Orphanet records lipoatrophy as a very frequent fucosidosis phenotype.
+  - target: Abnormality of the cardiovascular system
+    description: The multisystem storage phenotype can include cardiovascular abnormalities through incompletely defined intermediates.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: ORPHA:349
+      reference_title: Fucosidosis (Orphanet structured-database record)
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;HP:0001626 | Abnormality of the cardiovascular system | Frequent (79-30%)&#34;
+      explanation: Orphanet records cardiovascular abnormality as a frequent fucosidosis phenotype.
+  - target: Abnormality of the gallbladder
+    description: The multisystem storage phenotype can include gallbladder abnormalities through incompletely defined intermediates.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: ORPHA:349
+      reference_title: Fucosidosis (Orphanet structured-database record)
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;HP:0005264 | Abnormality of the gallbladder | Frequent (79-30%)&#34;
+      explanation: Orphanet records gallbladder abnormality as a frequent fucosidosis phenotype.
+  - target: Hypothyroidism
+    description: The multisystem storage phenotype includes hypothyroidism through incompletely defined endocrine intermediates.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: ORPHA:349
+      reference_title: Fucosidosis (Orphanet structured-database record)
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;HP:0000821 | Hypothyroidism | Very frequent (99-80%)&#34;
+      explanation: Orphanet records hypothyroidism as a very frequent fucosidosis phenotype.
+  - target: Abnormality of the dentition
+    description: The multisystem developmental phenotype includes dental abnormalities through incompletely defined intermediates.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: ORPHA:349
+      reference_title: Fucosidosis (Orphanet structured-database record)
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;HP:0000164 | Abnormality of the dentition | Occasional (29-5%)&#34;
+      explanation: Orphanet records dentition abnormality as an occasional fucosidosis phenotype.
+  - target: Cardiomegaly
+    description: The multisystem storage phenotype can include cardiomegaly through incompletely defined cardiovascular intermediates.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: ORPHA:349
+      reference_title: Fucosidosis (Orphanet structured-database record)
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;HP:0001640 | Cardiomegaly | Occasional (29-5%)&#34;
+      explanation: Orphanet records cardiomegaly as an occasional fucosidosis phenotype.
 - name: Neural lysosomal expansion and secondary storage
   description: &gt;
     Fucosylated substrate storage expands lysosomal compartments in CNS cells,
@@ -6905,8 +7940,25 @@ pathophysiology:
   - target: Neuroinflammation and neural cell loss
     description: Expanded lysosomal storage is associated with inflammatory gliosis and neuronal loss.
     causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:27491075
+      reference_title: A mouse model for fucosidosis recapitulates storage pathology and neurological features of the milder form of the human disease.
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;neuroinflammation, as well as a progressive loss of Purkinje cells&#34;
+      explanation: The Fuca1 knockout mouse links CNS lysosomal storage pathology to neuroinflammation and neuronal loss.
   - target: Hypomyelination
     description: CNS storage disease is associated with oligodendrocyte loss and hypomyelination.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Oligodendrocyte loss in CNS storage pathology.
+    evidence:
+    - reference: PMID:26537923
+      reference_title: The effects of intracisternal enzyme replacement versus sham treatment on central neuropathology in preclinical canine fucosidosis.
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;oligodendrocyte loss, and hypomyelination throughout the&#34;
+      explanation: The canine model links fucosidosis CNS pathology to oligodendrocyte loss and hypomyelination.
 - name: Neuroinflammation and neural cell loss
   description: &gt;
     CNS storage pathology activates inflammatory glia and is accompanied by
@@ -6951,10 +8003,68 @@ pathophysiology:
   downstream:
   - target: Severe intellectual disability
     description: Neuronal injury and neuroinflammation contribute to severe cognitive impairment.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Progressive mental deterioration and neuronal loss.
+    evidence:
+    - reference: PMID:33266441
+      reference_title: Fucosidosis-Clinical Manifestation, Long-Term Outcomes, and Genetic Profile-Review and Case Series.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;up to 95% of patients have progressive mental health deterioration&#34;
+      explanation: The clinical review supports severe cognitive deterioration downstream of fucosidosis neurodegeneration.
+  - target: Global developmental delay
+    description: CNS storage pathology and neurodegeneration are associated with developmental delay and psychomotor decline.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: ORPHA:349
+      reference_title: Fucosidosis (Orphanet structured-database record)
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;HP:0001263 | Global developmental delay | Very frequent (99-80%)&#34;
+      explanation: Orphanet records global developmental delay as a very frequent phenotype.
   - target: Seizure
     description: Neural injury and inflammation contribute to epilepsy susceptibility.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:33266441
+      reference_title: Fucosidosis-Clinical Manifestation, Long-Term Outcomes, and Genetic Profile-Review and Case Series.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;seizures may occur in 38% of patients&#34;
+      explanation: The clinical review supports seizures as a frequent neurologic manifestation.
   - target: Spasticity
     description: CNS injury contributes to progressive pyramidal and motor dysfunction.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Progressive neurologic degeneration with pyramidal motor involvement.
+    evidence:
+    - reference: PMID:33266441
+      reference_title: Fucosidosis-Clinical Manifestation, Long-Term Outcomes, and Genetic Profile-Review and Case Series.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Progressive neurological degeneration results in flexion contractures of legs and arms&#34;
+      explanation: The clinical review links neurologic degeneration to motor contractures and spastic motor manifestations.
+  - target: Hypotonia
+    description: CNS storage pathology and motor deterioration are associated with hypotonia through incompletely defined intermediates.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: ORPHA:349
+      reference_title: Fucosidosis (Orphanet structured-database record)
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;HP:0001252 | Hypotonia | Frequent (79-30%)&#34;
+      explanation: Orphanet records hypotonia as a frequent fucosidosis phenotype.
+  - target: Decreased muscle mass
+    description: Progressive neurologic and multisystem disease is associated with decreased muscle mass through incompletely defined intermediates.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: ORPHA:349
+      reference_title: Fucosidosis (Orphanet structured-database record)
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;HP:0003199 | Decreased muscle mass | Frequent (79-30%)&#34;
+      explanation: Orphanet records decreased muscle mass as a frequent fucosidosis phenotype.
 - name: Hypomyelination
   description: &gt;
     CNS fucosidosis storage pathology includes oligodendrocyte loss and reduced
@@ -6992,8 +8102,40 @@ pathophysiology:
   downstream:
   - target: Spastic tetraplegia
     description: White-matter disease contributes to progressive motor impairment.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: ORPHA:349
+      reference_title: Fucosidosis (Orphanet structured-database record)
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;HP:0002510 | Spastic tetraplegia | Frequent (79-30%)&#34;
+      explanation: Orphanet records spastic tetraplegia as a frequent motor phenotype.
   - target: Hearing impairment
-    description: CNS and auditory pathway involvement contributes to hearing dysfunction.
+    description: CNS white-matter involvement can coincide with auditory pathway abnormalities and hearing impairment, but the causal intermediate is incompletely defined.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:11360116
+      reference_title: Four year follow-up of a case of fucosidosis treated with unrelated donor bone marrow transplantation.
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;auditory brainstem responses and&#34;
+      explanation: A human case links diffuse hypomyelination with altered auditory brainstem responses.
+    - reference: ORPHA:349
+      reference_title: Fucosidosis (Orphanet structured-database record)
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;HP:0000365 | Hearing impairment | Very frequent (99-80%)&#34;
+      explanation: Orphanet records hearing impairment as a very frequent fucosidosis phenotype.
+  - target: Abnormal pyramidal sign
+    description: White-matter and corticospinal motor involvement can produce pyramidal signs through incompletely defined intermediates.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: ORPHA:349
+      reference_title: Fucosidosis (Orphanet structured-database record)
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;HP:0007256 | Abnormal pyramidal sign | Occasional (29-5%)&#34;
+      explanation: Orphanet records abnormal pyramidal sign as an occasional fucosidosis phenotype.
 - name: Visceral and cutaneous storage disease
   description: &gt;
     Fucose-rich substrate storage in visceral and skin tissues is associated with
@@ -7029,10 +8171,189 @@ pathophysiology:
   downstream:
   - target: Hepatomegaly
     description: Visceral storage contributes to liver enlargement.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Storage material in liver tissue.
+    evidence:
+    - reference: PMID:33266441
+      reference_title: Fucosidosis-Clinical Manifestation, Long-Term Outcomes, and Genetic Profile-Review and Case Series.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Hepatomegaly was documented in 20%&#34;
+      explanation: The clinical review documents hepatomegaly in fucosidosis.
   - target: Hyperhidrosis
     description: Cutaneous involvement contributes to abnormal sweating.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:33266441
+      reference_title: Fucosidosis-Clinical Manifestation, Long-Term Outcomes, and Genetic Profile-Review and Case Series.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;skin abnormalities also include widespread telangiectasia, skin thickness, hyperhidrosis&#34;
+      explanation: The clinical review lists hyperhidrosis among skin abnormalities.
+  - target: Generalized hyperkeratosis
+    description: Cutaneous storage disease is associated with generalized hyperkeratosis through incompletely defined intermediates.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: ORPHA:349
+      reference_title: Fucosidosis (Orphanet structured-database record)
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;HP:0005595 | Generalized hyperkeratosis | Very frequent (99-80%)&#34;
+      explanation: Orphanet records generalized hyperkeratosis as a very frequent fucosidosis phenotype.
   - target: Vascular skin abnormality
     description: Skin involvement includes telangiectasia and angiokeratoma.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Telangiectasia and angiokeratoma in skin vessels.
+    evidence:
+    - reference: PMID:33266441
+      reference_title: Fucosidosis-Clinical Manifestation, Long-Term Outcomes, and Genetic Profile-Review and Case Series.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Dermatological abnormalities were documented in 60% of patient and included telangiectasiae on the skin or conjunctivae and angiokeratoma&#34;
+      explanation: The clinical review links cutaneous disease to telangiectasia and angiokeratoma.
+  - target: Acrocyanosis
+    description: Cutaneous vascular involvement can include acrocyanosis through incompletely defined intermediates.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:33266441
+      reference_title: Fucosidosis-Clinical Manifestation, Long-Term Outcomes, and Genetic Profile-Review and Case Series.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;skin abnormalities also include widespread telangiectasia, skin thickness, hyperhidrosis and hypohidrosis, acrocyanosis&#34;
+      explanation: The clinical review lists acrocyanosis among fucosidosis skin abnormalities.
+  - target: Abnormal nail morphology
+    description: Cutaneous involvement can include distal nail changes through incompletely defined intermediates.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:33266441
+      reference_title: Fucosidosis-Clinical Manifestation, Long-Term Outcomes, and Genetic Profile-Review and Case Series.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;distal transverse nail bands&#34;
+      explanation: The clinical review documents nail changes as part of the skin phenotype.
+- name: Respiratory mucus clearance impairment
+  description: &gt;
+    Fucosidosis respiratory infections may reflect local airway mucus-clearance
+    vulnerability. The clinical review notes intact immune testing in reported
+    patients and proposes altered fucose/sialic-acid-dependent mucus
+    cross-linking and viscoelasticity as a contributor.
+  biological_processes:
+  - preferred_term: mucociliary clearance
+    modifier: DECREASED
+    term:
+      id: GO:0120197
+      label: mucociliary clearance
+  evidence:
+  - reference: PMID:33266441
+    reference_title: Fucosidosis-Clinical Manifestation, Long-Term Outcomes, and Genetic Profile-Review and Case Series.
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;it was suspected that there could be a local defect in mucus clearance.&#34;
+    explanation: The review proposes impaired mucus clearance as a contributor to recurrent respiratory infections.
+  - reference: PMID:33266441
+    reference_title: Fucosidosis-Clinical Manifestation, Long-Term Outcomes, and Genetic Profile-Review and Case Series.
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;terminal sugars fucose and sialic acid play a major role in defining the viscoelasticity of mucus.&#34;
+    explanation: The review gives the proposed glycoconjugate-mucus intermediate.
+  downstream:
+  - target: Recurrent respiratory infections
+    description: Impaired local mucus clearance is suspected to increase recurrent respiratory infections.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Abnormal mucus viscoelasticity and ineffective ciliary clearance.
+    evidence:
+    - reference: PMID:33266441
+      reference_title: Fucosidosis-Clinical Manifestation, Long-Term Outcomes, and Genetic Profile-Review and Case Series.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Up to 78% of patients experience respiratory tract infections&#34;
+      explanation: The clinical review supports frequent respiratory infections in fucosidosis.
+- name: Skeletal dysostosis involvement
+  description: &gt;
+    Fucosidosis includes skeletal involvement with dysostosis multiplex and
+    vertebral changes. The direct cellular intermediates between fucose-rich
+    storage and skeletal morphology are not specified in the cached evidence.
+  evidence:
+  - reference: ORPHA:349
+    reference_title: Fucosidosis (Orphanet structured-database record)
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;developmental delay associated with psychomotor regression and bone abnormalities&#34;
+    explanation: Orphanet definition supports skeletal/bone involvement in fucosidosis.
+  - reference: PMID:33266441
+    reference_title: Fucosidosis-Clinical Manifestation, Long-Term Outcomes, and Genetic Profile-Review and Case Series.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Some patients also have non-specific features of dysostosis multiplex&#34;
+    explanation: The clinical review supports dysostosis multiplex as a skeletal manifestation.
+  downstream:
+  - target: Dysostosis multiplex
+    description: Skeletal involvement manifests as dysostosis multiplex.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:33266441
+      reference_title: Fucosidosis-Clinical Manifestation, Long-Term Outcomes, and Genetic Profile-Review and Case Series.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Some patients also have non-specific features of dysostosis multiplex&#34;
+      explanation: The clinical review supports dysostosis multiplex in fucosidosis.
+  - target: Anterior beaking of lumbar vertebrae
+    description: Vertebral skeletal involvement includes anterior tonguing or beaking.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:33266441
+      reference_title: Fucosidosis-Clinical Manifestation, Long-Term Outcomes, and Genetic Profile-Review and Case Series.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;An X-ray of the spine shows small thoracolumbar vertebrae with anterior tonguing&#34;
+      explanation: The clinical review supports anterior vertebral changes as part of skeletal involvement.
+  - target: Kyphosis
+    description: Skeletal involvement can include kyphotic/gibbous spinal deformity.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:33266441
+      reference_title: Fucosidosis-Clinical Manifestation, Long-Term Outcomes, and Genetic Profile-Review and Case Series.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;gibbous deformity of lumbar vertebrae&#34;
+      explanation: The clinical review supports spinal deformity in fucosidosis.
+- name: Ocular storage involvement
+  description: &gt;
+    Fucosidosis can involve ocular tissues, including conjunctival and retinal
+    vessels and corneal clarity. The cached clinical review links storage
+    material to ocular vessels and lists corneal opacities in affected patients.
+  locations:
+  - preferred_term: eye
+    term:
+      id: UBERON:0000970
+      label: eye
+  evidence:
+  - reference: PMID:33266441
+    reference_title: Fucosidosis-Clinical Manifestation, Long-Term Outcomes, and Genetic Profile-Review and Case Series.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;storage material accumulates in conjunctival, retinal, and skin vessels.&#34;
+    explanation: The clinical review supports ocular vessel storage involvement.
+  - reference: PMID:33266441
+    reference_title: Fucosidosis-Clinical Manifestation, Long-Term Outcomes, and Genetic Profile-Review and Case Series.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;corneal opacities in 11%&#34;
+    explanation: The clinical review documents corneal opacity in patients.
+  downstream:
+  - target: Corneal opacity
+    description: Ocular storage involvement can include corneal opacity.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:33266441
+      reference_title: Fucosidosis-Clinical Manifestation, Long-Term Outcomes, and Genetic Profile-Review and Case Series.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;corneal opacities in 11%&#34;
+      explanation: The clinical review documents corneal opacity in fucosidosis.
 phenotypes:
 - name: Severe intellectual disability
   frequency: VERY_FREQUENT
@@ -7662,6 +8983,11 @@ treatments:
     term:
       id: MAXO:0000950
       label: supportive care
+  target_phenotypes:
+  - preferred_term: Spasticity
+    term:
+      id: HP:0001257
+      label: Spasticity
   evidence:
   - reference: PMID:33266441
     reference_title: Fucosidosis-Clinical Manifestation, Long-Term Outcomes, and Genetic Profile-Review and Case Series.
@@ -8089,7 +9415,7 @@ the available evidence.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Fucosidosis", "mondoId": "MONDO:0009254", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Fucosidosis", "yamlRevision": "0cb2396f9828"};
+        const OS_CONFIG = {"diseaseName": "Fucosidosis", "mondoId": "MONDO:0009254", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Fucosidosis", "yamlRevision": "c6947ce1e671"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

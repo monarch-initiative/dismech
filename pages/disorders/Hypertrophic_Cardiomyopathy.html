@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2580,7 +2733,7 @@
             
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
-                <div class="stat-value">7</div>
+                <div class="stat-value">26</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
@@ -4507,7 +4660,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">7</span>
+                <span class="card-count">26</span>
             </div>
             
             <div class="item-box genetic-box">
@@ -4522,7 +4675,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (6 references)
+            Show evidence (7 references)
         </summary>
         <div class="evidence-list">
             
@@ -4581,7 +4734,7 @@
             </div>
             
             
-            <div class="evidence-more">+ 3 more references</div>
+            <div class="evidence-more">+ 4 more references</div>
             
         </div>
     </details>
@@ -4601,7 +4754,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (4 references)
+            Show evidence (5 references)
         </summary>
         <div class="evidence-list">
             
@@ -4660,7 +4813,7 @@
             </div>
             
             
-            <div class="evidence-more">+ 1 more reference</div>
+            <div class="evidence-more">+ 2 more references</div>
             
         </div>
     </details>
@@ -4680,7 +4833,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
             
@@ -4720,6 +4873,26 @@
                 
             </div>
             
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_ef922dc4-4e41-422b-ac3d-605fea375005-2021-02-04T050000.000Z" target="_blank">CGGV:assertion_ef922dc4-4e41-422b-ac3d-605fea375005-2021-02-04T050000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"TNNT2 | HGNC:11949 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Moderate"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the TNNT2-hypertrophic cardiomyopathy gene-disease relationship as moderate with autosomal dominant inheritance.</div>
+                
+            </div>
+            
             
         </div>
     </details>
@@ -4737,6 +4910,56 @@
                 
                 
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_ace85164-0b70-46a2-ac6b-253088f4514d-2025-01-16T010000.000Z" target="_blank">CGGV:assertion_ace85164-0b70-46a2-ac6b-253088f4514d-2025-01-16T010000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"ALPK3 | HGNC:17574 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Strong"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the ALPK3-hypertrophic cardiomyopathy gene-disease relationship as strong with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_6312d79f-df12-4ec6-8ce6-0f38f19e617d-2022-02-09T170000.000Z" target="_blank">CGGV:assertion_6312d79f-df12-4ec6-8ce6-0f38f19e617d-2022-02-09T170000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"ALPK3 | HGNC:17574 | hypertrophic cardiomyopathy | MONDO:0005045 | AR | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the ALPK3-hypertrophic cardiomyopathy gene-disease relationship as definitive with autosomal recessive inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
             </div>
             
@@ -4749,6 +4972,36 @@
                 </div>
                 
                 
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_c31027fe-8143-4022-8bbb-867eb1692c51-2023-09-29T160000.000Z" target="_blank">CGGV:assertion_c31027fe-8143-4022-8bbb-867eb1692c51-2023-09-29T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"FHOD3 | HGNC:26178 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the FHOD3-hypertrophic cardiomyopathy gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
             </div>
@@ -4763,6 +5016,36 @@
                 
                 
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_9e8365b8-3238-4844-8392-58f66be7f318-2024-06-06T160000.000Z" target="_blank">CGGV:assertion_9e8365b8-3238-4844-8392-58f66be7f318-2024-06-06T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"TRIM63 | HGNC:16007 | hypertrophic cardiomyopathy | MONDO:0005045 | AR | Moderate"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the TRIM63-hypertrophic cardiomyopathy gene-disease relationship as moderate with autosomal recessive inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
             </div>
             
@@ -4775,6 +5058,823 @@
                 </div>
                 
                 
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    ACTC1
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_2f62793b-0015-46eb-bb51-bddbae25ba0d-2021-06-23T201616.296Z" target="_blank">CGGV:assertion_2f62793b-0015-46eb-bb51-bddbae25ba0d-2021-06-23T201616.296Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"ACTC1 | HGNC:143 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the ACTC1-hypertrophic cardiomyopathy gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    CSRP3
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_012b9b15-798a-46e2-8164-61a829ceeda1-2023-08-09T160000.000Z" target="_blank">CGGV:assertion_012b9b15-798a-46e2-8164-61a829ceeda1-2023-08-09T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"CSRP3 | HGNC:2472 | hypertrophic cardiomyopathy | MONDO:0005045 | SD | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the CSRP3-hypertrophic cardiomyopathy gene-disease relationship as definitive with semidominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    JPH2
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_378a727d-0c5b-4563-9c96-ac18a2902742-2022-10-12T160000.000Z" target="_blank">CGGV:assertion_378a727d-0c5b-4563-9c96-ac18a2902742-2022-10-12T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"JPH2 | HGNC:14202 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Moderate"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the JPH2-hypertrophic cardiomyopathy gene-disease relationship as moderate with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    KLF10
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_524bb91c-07d4-4f65-bdc0-fc568a5930c8-2022-09-14T160000.000Z" target="_blank">CGGV:assertion_524bb91c-07d4-4f65-bdc0-fc568a5930c8-2022-09-14T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"KLF10 | HGNC:11810 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Limited"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the KLF10-hypertrophic cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    KLHL24
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_f1d4ce43-4c2d-41a0-b821-a11ac8eb8fca-2023-09-28T160000.000Z" target="_blank">CGGV:assertion_f1d4ce43-4c2d-41a0-b821-a11ac8eb8fca-2023-09-28T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"KLHL24 | HGNC:25947 | hypertrophic cardiomyopathy | MONDO:0005045 | AR | Moderate"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the KLHL24-hypertrophic cardiomyopathy gene-disease relationship as moderate with autosomal recessive inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    MT-TI
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_3ac07ab9-8580-4fbf-b599-35dd25f3025d-2023-12-18T010000.000Z" target="_blank">CGGV:assertion_3ac07ab9-8580-4fbf-b599-35dd25f3025d-2023-12-18T010000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"MT-TI | HGNC:7488 | hypertrophic cardiomyopathy | MONDO:0005045 | MT | Moderate"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the MT-TI-hypertrophic cardiomyopathy gene-disease relationship as moderate with mitochondrial inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    MYL2
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_7b25ff6c-3ede-46a3-a637-3eab7aa18569-2026-01-13T170000.000Z" target="_blank">CGGV:assertion_7b25ff6c-3ede-46a3-a637-3eab7aa18569-2026-01-13T170000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"MYL2 | HGNC:7583 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the MYL2-hypertrophic cardiomyopathy gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    MYL3
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_d74b9d56-4f2a-4479-8913-1d96ddc28592-2021-06-07T145050.605Z" target="_blank">CGGV:assertion_d74b9d56-4f2a-4479-8913-1d96ddc28592-2021-06-07T145050.605Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"MYL3 | HGNC:7584 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the MYL3-hypertrophic cardiomyopathy gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    NEXN
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_9456bdef-7708-45b2-a698-c897167d7f5b-2023-03-23T160000.000Z" target="_blank">CGGV:assertion_9456bdef-7708-45b2-a698-c897167d7f5b-2023-03-23T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"NEXN | HGNC:29557 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Limited"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the NEXN-hypertrophic cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    OBSCN
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_94265ca9-cf6a-468e-b12c-6ea173d09e51-2022-04-13T160000.000Z" target="_blank">CGGV:assertion_94265ca9-cf6a-468e-b12c-6ea173d09e51-2022-04-13T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"OBSCN | HGNC:15719 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Limited"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the OBSCN-hypertrophic cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    PDLIM3
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_76cba060-8080-42b1-b9ea-2193fea658b0-2023-02-23T170000.000Z" target="_blank">CGGV:assertion_76cba060-8080-42b1-b9ea-2193fea658b0-2023-02-23T170000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"PDLIM3 | HGNC:20767 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Limited"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the PDLIM3-hypertrophic cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    RBM20
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_35dd9f5a-7575-4899-aadf-3e1234a44f2d-2023-10-26T160000.000Z" target="_blank">CGGV:assertion_35dd9f5a-7575-4899-aadf-3e1234a44f2d-2023-10-26T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"RBM20 | HGNC:27424 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Limited"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the RBM20-hypertrophic cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    RPS6KB1
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_2e24747c-18e6-4db0-8ee7-1259bc74c4da-2023-09-13T160000.000Z" target="_blank">CGGV:assertion_2e24747c-18e6-4db0-8ee7-1259bc74c4da-2023-09-13T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"RPS6KB1 | HGNC:10436 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Limited"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the RPS6KB1-hypertrophic cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    RYR2
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_3ac9dd09-674f-4d67-94da-234ffb4e5070-2022-12-14T170000.000Z" target="_blank">CGGV:assertion_3ac9dd09-674f-4d67-94da-234ffb4e5070-2022-12-14T170000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"RYR2 | HGNC:10484 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Limited"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the RYR2-hypertrophic cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    TMPO
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_a1e1bb21-c617-4aac-b9d8-1c2054d76c55-2023-04-27T160000.000Z" target="_blank">CGGV:assertion_a1e1bb21-c617-4aac-b9d8-1c2054d76c55-2023-04-27T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"TMPO | HGNC:11875 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Limited"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the TMPO-hypertrophic cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    TNNC1
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_5d832673-8acb-4a02-ae34-35e0d9981b70-2023-09-13T160000.000Z" target="_blank">CGGV:assertion_5d832673-8acb-4a02-ae34-35e0d9981b70-2023-09-13T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"TNNC1 | HGNC:11943 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the TNNC1-hypertrophic cardiomyopathy gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    TNNI3
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_4a7e6901-d478-44c4-bd03-2c344029d4bb-2017-09-05T160000.000Z" target="_blank">CGGV:assertion_4a7e6901-d478-44c4-bd03-2c344029d4bb-2017-09-05T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"TNNI3 | HGNC:11947 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the TNNI3-hypertrophic cardiomyopathy gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    TPM1
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_32e7ed58-ee49-4719-b48e-7fad58012319-2023-12-18T170000.000Z" target="_blank">CGGV:assertion_32e7ed58-ee49-4719-b48e-7fad58012319-2023-12-18T170000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"TPM1 | HGNC:12010 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the TPM1-hypertrophic cardiomyopathy gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    TTN
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_c17e22eb-c6fc-487d-bcf6-001bb85fdabd-2025-10-28T160000.000Z" target="_blank">CGGV:assertion_c17e22eb-c6fc-487d-bcf6-001bb85fdabd-2025-10-28T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"TTN | HGNC:12403 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Limited"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the TTN-hypertrophic cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
             </div>
@@ -5425,6 +6525,7 @@
                 </div>
                 
                 <div class="item-desc">Context: During myocardial stress or damage</div>
+                
                 
                 
     
@@ -6093,66 +7194,36 @@ parents:
 - Genetic Disorder
 has_subtypes:
 - name: Obstructive HCM
-  description: The thickened heart muscle obstructs blood flow out of the left
-    ventricle.
+  description: The thickened heart muscle obstructs blood flow out of the left ventricle.
   evidence:
   - reference: PMID:38368032
     reference_title: &#34;Hypertrophic Cardiomyopathy: A Brief Overview.&#34;
     supports: PARTIAL
-    snippet: Obstruction to left ventricular outflow occurs in approximately 60%
-      of patients.
-    explanation: The provided literature states that obstruction occurs in
-      approximately 60% of HCM patients, indicating that not all HCM cases are
-      obstructive. Thus, the statement that the thickened heart muscle obstructs
-      blood flow out of the left ventricle can be recognized as a subtype known
-      as obstructive HCM but does not apply to all HCM patients.
+    snippet: Obstruction to left ventricular outflow occurs in approximately 60% of patients.
+    explanation: The provided literature states that obstruction occurs in approximately 60% of HCM patients, indicating that not all HCM cases are obstructive. Thus, the statement that the thickened heart muscle obstructs blood flow out of the left ventricle can be recognized as a subtype known as obstructive HCM but does not apply to all HCM patients.
   - reference: PMID:35555885
     reference_title: &#34;Differential Diagnosis of Thick Myocardium according to Histologic Features Revealed by Multiparametric Cardiac Magnetic Resonance Imaging.&#34;
     supports: PARTIAL
-    snippet: Left ventricular (LV) wall thickening, or LV hypertrophy (LVH), is
-      common and occurs in diverse conditions including hypertrophic
-      cardiomyopathy (HCM)...
-    explanation: The literature indicates that LV hypertrophy (LVH) occurs in
-      HCM alongside various conditions. However, it characterizes different
-      forms, not solely obstructive HCM, thereby acknowledging the partial
-      correctness of the subtype Obstructive HCM but not exclusively.
+    snippet: Left ventricular (LV) wall thickening, or LV hypertrophy (LVH), is common and occurs in diverse conditions including hypertrophic cardiomyopathy (HCM)...
+    explanation: The literature indicates that LV hypertrophy (LVH) occurs in HCM alongside various conditions. However, it characterizes different forms, not solely obstructive HCM, thereby acknowledging the partial correctness of the subtype Obstructive HCM but not exclusively.
   - reference: PMID:20560010
     reference_title: &#34;The left ventricular outflow in hypertrophic cardiomyopathy: from structure to function.&#34;
     supports: SUPPORT
-    snippet: Left ventricular outflow tract obstruction (LVOTO) is one of the
-      defining features of hypertrophic cardiomyopathy (HCM)...
-    explanation: This specific literature confirms that left ventricular outflow
-      tract obstruction (LVOTO) is a defining feature of HCM, thereby supporting
-      the statement regarding the thickened heart muscle obstructing blood flow
-      out of the left ventricle.
+    snippet: Left ventricular outflow tract obstruction (LVOTO) is one of the defining features of hypertrophic cardiomyopathy (HCM)...
+    explanation: This specific literature confirms that left ventricular outflow tract obstruction (LVOTO) is a defining feature of HCM, thereby supporting the statement regarding the thickened heart muscle obstructing blood flow out of the left ventricle.
 - name: Non-Obstructive HCM
-  description: The heart muscle is thickened, but blood flow is not
-    significantly obstructed.
+  description: The heart muscle is thickened, but blood flow is not significantly obstructed.
   evidence:
   - reference: PMID:34126727
     reference_title: &#34;[Clinical and genetic characteristics of different types of non-obstructive hypertrophic cardiomyopathy].&#34;
     supports: SUPPORT
-    snippet: Patients with non-obstructive HCM... According to the
-      characteristics of cardiac morphology and function shown by
-      echocardiography, the patients were divided into common type, dilated
-      type, restricted type and reduced ejection fraction type.
-    explanation: The reference describes non-obstructive hypertrophic
-      cardiomyopathy (HCM) as a subtype of HCM characterized by different
-      clinical subtypes based on cardiac morphology and function, supporting the
-      statement that non-obstructive HCM involves thickened heart muscle without
-      significant obstruction of blood flow.
+    snippet: Patients with non-obstructive HCM... According to the characteristics of cardiac morphology and function shown by echocardiography, the patients were divided into common type, dilated type, restricted type and reduced ejection fraction type.
+    explanation: The reference describes non-obstructive hypertrophic cardiomyopathy (HCM) as a subtype of HCM characterized by different clinical subtypes based on cardiac morphology and function, supporting the statement that non-obstructive HCM involves thickened heart muscle without significant obstruction of blood flow.
   - reference: PMID:35555885
     reference_title: &#34;Differential Diagnosis of Thick Myocardium according to Histologic Features Revealed by Multiparametric Cardiac Magnetic Resonance Imaging.&#34;
     supports: SUPPORT
-    snippet: Left ventricular (LV) wall thickening, or LV hypertrophy (LVH), is
-      common and occurs in diverse conditions including hypertrophic
-      cardiomyopathy (HCM)...Although various diseases share LV wall thickening
-      as a common feature, the histologic changes that underscore each disease
-      are distinct.
-    explanation: This reference supports the statement by acknowledging that
-      hypertrophic cardiomyopathy can include conditions with thickened heart
-      muscle where the histological features differ, indicating diverse subtypes
-      including non-obstructive forms.
+    snippet: Left ventricular (LV) wall thickening, or LV hypertrophy (LVH), is common and occurs in diverse conditions including hypertrophic cardiomyopathy (HCM)...Although various diseases share LV wall thickening as a common feature, the histologic changes that underscore each disease are distinct.
+    explanation: This reference supports the statement by acknowledging that hypertrophic cardiomyopathy can include conditions with thickened heart muscle where the histological features differ, indicating diverse subtypes including non-obstructive forms.
 prevalence:
 - population: General Population
   percentage: 0.2
@@ -6160,85 +7231,51 @@ prevalence:
   - reference: PMID:25814232
     reference_title: &#34;New perspectives on the prevalence of hypertrophic cardiomyopathy.&#34;
     supports: PARTIAL
-    snippet: For the past 20 years, most data have supported the occurrence of
-      HCM at about 1 in 500.
-    explanation: 1 in 500 translates to 0.2%, which supports the statement.
-      However, the statement could be conflicting with the suggestion that HCM
-      might be more common than previously estimated.
+    snippet: For the past 20 years, most data have supported the occurrence of HCM at about 1 in 500.
+    explanation: 1 in 500 translates to 0.2%, which supports the statement. However, the statement could be conflicting with the suggestion that HCM might be more common than previously estimated.
   - reference: PMID:34969871
     reference_title: &#34;Epidemiology of cardiomyopathies and incident heart failure in a population-based cohort study.&#34;
     supports: PARTIAL
-    snippet: Between 2010 and 2018, prevalence increased for ARVC by 180% and
-      HCM by 9%.
-    explanation: While the statement of HCM prevalence being 0.2% is
-      approximately correct, recognition of HCM prevalence seems to have
-      increased, indicating it could be more common now.
+    snippet: Between 2010 and 2018, prevalence increased for ARVC by 180% and HCM by 9%.
+    explanation: While the statement of HCM prevalence being 0.2% is approximately correct, recognition of HCM prevalence seems to have increased, indicating it could be more common now.
   - reference: PMID:33623987
     reference_title: &#34;Epidemiology of cardiomyopathies: essential context knowledge for a tailored clinical work-up.&#34;
     supports: PARTIAL
-    snippet: Currently, available estimates of prevalence and incidence of CMPs
-      are based on clinical data, collected with a wide variability in
-      population-source, and before the genetic testing evolved as a standard
-      diagnostic tool.
-    explanation: Prevalence estimates for HCM might vary based on the population
-      and advances in diagnostic tools, suggesting that 0.2% could be an
-      estimate but with existing variability.
+    snippet: Currently, available estimates of prevalence and incidence of CMPs are based on clinical data, collected with a wide variability in population-source, and before the genetic testing evolved as a standard diagnostic tool.
+    explanation: Prevalence estimates for HCM might vary based on the population and advances in diagnostic tools, suggesting that 0.2% could be an estimate but with existing variability.
 progression:
 - phase: Onset
   evidence:
   - reference: PMID:25897040
     reference_title: &#34;Myocardial fibrosis progression on cardiac magnetic resonance in hypertrophic cardiomyopathy.&#34;
     supports: SUPPORT
-    snippet: Myocardial fibrosis in HCM is a progressive phenomenon. Non-apical
-      phenotype and a higher LGE extent at CMR-1 are both associated with
-      greater LGE progression.
-    explanation: The literature supports that hypertrophic cardiomyopathy (HCM)
-      can progress over time, which implies progression from an initial onset
-      phase.
+    snippet: Myocardial fibrosis in HCM is a progressive phenomenon. Non-apical phenotype and a higher LGE extent at CMR-1 are both associated with greater LGE progression.
+    explanation: The literature supports that hypertrophic cardiomyopathy (HCM) can progress over time, which implies progression from an initial onset phase.
   - reference: PMID:22158452
     reference_title: &#34;[Disease progression and systolic dysfunction in patients with hypertrophic cardiomyopathy: genetic basis, pathophysiology and clinical presentation].&#34;
     supports: SUPPORT
-    snippet: Progressive heart failure associated with left ventricular
-      remodeling and systo-diastolic dysfunction is one of the most severe
-      complications of hypertrophic cardiomyopathy (HCM).
-    explanation: The progression of hypertrophic cardiomyopathy (HCM) through
-      various stages, including an onset phase, is indicated by the reference to
-      progressive heart failure.
+    snippet: Progressive heart failure associated with left ventricular remodeling and systo-diastolic dysfunction is one of the most severe complications of hypertrophic cardiomyopathy (HCM).
+    explanation: The progression of hypertrophic cardiomyopathy (HCM) through various stages, including an onset phase, is indicated by the reference to progressive heart failure.
   - reference: PMID:29111210
     reference_title: &#34;Interaction of Adverse Disease Related Pathways in Hypertrophic Cardiomyopathy.&#34;
     supports: SUPPORT
-    snippet: Hypertrophic cardiomyopathy (HC) has been characterized as a
-      generally progressive genetic heart disease...
-    explanation: The statement that HC is generally progressive suggests that
-      there is an initial onset phase followed by further disease progression.
+    snippet: Hypertrophic cardiomyopathy (HC) has been characterized as a generally progressive genetic heart disease...
+    explanation: The statement that HC is generally progressive suggests that there is an initial onset phase followed by further disease progression.
 - age_range: Adolescence-Adulthood
   evidence:
   - reference: PMID:29622585
     reference_title: &#34;Prevalence and Progression of Late Gadolinium Enhancement in Children and Adolescents With Hypertrophic Cardiomyopathy.&#34;
     supports: SUPPORT
-    snippet: In the subset of patients with serial imaging, statistically
-      significant increases in LGE, LV mass, and left atrial size were detected
-      over 2.5 years, indicating disease progression over time.
-    explanation: This study shows significant disease progression, including
-      increases in late gadolinium enhancement (LGE), left ventricular (LV)
-      mass, and left atrial size, indicating that hypertrophic cardiomyopathy
-      progresses over time from adolescence into adulthood.
+    snippet: In the subset of patients with serial imaging, statistically significant increases in LGE, LV mass, and left atrial size were detected over 2.5 years, indicating disease progression over time.
+    explanation: This study shows significant disease progression, including increases in late gadolinium enhancement (LGE), left ventricular (LV) mass, and left atrial size, indicating that hypertrophic cardiomyopathy progresses over time from adolescence into adulthood.
   - reference: PMID:29710196
     reference_title: &#34;Long-term Outcomes of Pediatric-Onset Hypertrophic Cardiomyopathy and Age-Specific Risk Factors for Lethal Arrhythmic Events.&#34;
     supports: SUPPORT
-    snippet: Pediatric-onset HCM is rare and associated with adverse outcomes
-      driven mainly by arrhythmic events. Risk extends well beyond adolescence,
-      which calls for unchanged clinical surveillance into adulthood.
-    explanation: This study highlights that pediatric-onset HCM progresses into
-      adulthood and is associated with adverse outcomes, supporting continuous
-      clinical surveillance.
+    snippet: Pediatric-onset HCM is rare and associated with adverse outcomes driven mainly by arrhythmic events. Risk extends well beyond adolescence, which calls for unchanged clinical surveillance into adulthood.
+    explanation: This study highlights that pediatric-onset HCM progresses into adulthood and is associated with adverse outcomes, supporting continuous clinical surveillance.
 pathophysiology:
 - name: Sarcomere Protein Mutations
-  description: Genetic mutations affecting the proteins of the cardiac sarcomere
-    lead to abnormal thickening of the heart muscle. The central biophysical
-    abnormality is sarcomere hypercontractility with increased myosin duty ratio
-    and power, resulting in impaired relaxation and elevated energetic cost of
-    contraction.
+  description: Genetic mutations affecting the proteins of the cardiac sarcomere lead to abnormal thickening of the heart muscle. The central biophysical abnormality is sarcomere hypercontractility with increased myosin duty ratio and power, resulting in impaired relaxation and elevated energetic cost of contraction.
   cell_types:
   - preferred_term: Cardiomyocyte
     term:
@@ -6284,44 +7321,25 @@ pathophysiology:
   - reference: PMID:16416046
     reference_title: &#34;Sarcomeric proteins and familial hypertrophic cardiomyopathy: linking mutations in structural proteins to complex cardiovascular phenotypes.&#34;
     supports: SUPPORT
-    snippet: Hypertrophic Cardiomyopathy (HCM) is a relatively common primary
-      cardiac disorder defined as the presence of a hypertrophied left
-      ventricle... to date, 270 independent mutations in nine sarcomeric protein
-      genes have been linked to Familial Hypertrophic Cardiomyopathy (FHC)...
-    explanation: The reference discusses how mutations in sarcomeric protein
-      genes are linked to hypertrophic cardiomyopathy, which leads to heart
-      muscle thickening.
+    snippet: Hypertrophic Cardiomyopathy (HCM) is a relatively common primary cardiac disorder defined as the presence of a hypertrophied left ventricle... to date, 270 independent mutations in nine sarcomeric protein genes have been linked to Familial Hypertrophic Cardiomyopathy (FHC)...
+    explanation: The reference discusses how mutations in sarcomeric protein genes are linked to hypertrophic cardiomyopathy, which leads to heart muscle thickening.
   - reference: PMID:36797478
     reference_title: &#34;Base editing correction of hypertrophic cardiomyopathy in human cardiomyocytes and humanized mice.&#34;
     supports: SUPPORT
-    snippet: The most common form of genetic heart disease is hypertrophic
-      cardiomyopathy (HCM), which is caused by variants in cardiac sarcomeric
-      genes and leads to abnormal heart muscle thickening.
-    explanation: This reference directly states that HCM is caused by variants
-      in sarcomeric genes resulting in heart muscle thickening.
+    snippet: The most common form of genetic heart disease is hypertrophic cardiomyopathy (HCM), which is caused by variants in cardiac sarcomeric genes and leads to abnormal heart muscle thickening.
+    explanation: This reference directly states that HCM is caused by variants in sarcomeric genes resulting in heart muscle thickening.
   - reference: PMID:28645928
     reference_title: &#34;Molecular mechanisms in cardiomyopathy.&#34;
     supports: SUPPORT
-    snippet: For example, increased myosin heavy chain (MHC) binding and ATP
-      utilization lead to the hypercontractile sarcomere in HCM...
-    explanation: This reference explains how specific mutations in sarcomeric
-      proteins lead to hypercontractility, a feature of muscle thickening in
-      HCM.
+    snippet: For example, increased myosin heavy chain (MHC) binding and ATP utilization lead to the hypercontractile sarcomere in HCM...
+    explanation: This reference explains how specific mutations in sarcomeric proteins lead to hypercontractility, a feature of muscle thickening in HCM.
   - reference: PMID:37060436
     reference_title: &#34;Mechanisms of Sarcomere Protein Mutation-Induced Cardiomyopathies.&#34;
     supports: SUPPORT
-    snippet: Recent advances in our mechanistic understanding of sarcomere
-      pathophysiology include high-resolution molecular models of sarcomere
-      components and the identification of the myosin super-relaxed state.
-    explanation: This reference details how understanding sarcomere function and
-      its pathophysiology relates to mutations leading to cardiomyopathy,
-      thereby supporting the statement about genetic mutations affecting
-      sarcomere proteins.
+    snippet: Recent advances in our mechanistic understanding of sarcomere pathophysiology include high-resolution molecular models of sarcomere components and the identification of the myosin super-relaxed state.
+    explanation: This reference details how understanding sarcomere function and its pathophysiology relates to mutations leading to cardiomyopathy, thereby supporting the statement about genetic mutations affecting sarcomere proteins.
 - name: Myocyte Disarray
-  description: Disorganization of heart muscle cells contributes to the
-    stiffness and dysfunction of the myocardium. Loss of physiological fiber
-    alignment and orientation creates structural abnormalities that impair
-    contractile efficiency and promote arrhythmogenic substrate.
+  description: Disorganization of heart muscle cells contributes to the stiffness and dysfunction of the myocardium. Loss of physiological fiber alignment and orientation creates structural abnormalities that impair contractile efficiency and promote arrhythmogenic substrate.
   cell_types:
   - preferred_term: Cardiomyocyte
     term:
@@ -6336,35 +7354,20 @@ pathophysiology:
   - reference: PMID:33447843
     reference_title: &#34;Arrhythmogenic potential of myocardial disarray in hypertrophic cardiomyopathy: genetic basis, functional consequences and relation to sudden cardiac death.&#34;
     supports: SUPPORT
-    snippet: Myocardial disarray is defined as disorganized cardiomyocyte
-      spatial distribution, with loss of physiological fibre alignment and
-      orientation.
-    explanation: The paper discusses how myocardial disarray is a typical
-      feature of hypertrophic cardiomyopathy (HCM), implying its role in
-      myocardial dysfunction.
+    snippet: Myocardial disarray is defined as disorganized cardiomyocyte spatial distribution, with loss of physiological fibre alignment and orientation.
+    explanation: The paper discusses how myocardial disarray is a typical feature of hypertrophic cardiomyopathy (HCM), implying its role in myocardial dysfunction.
   - reference: PMID:7665141
     reference_title: &#34;Hypertrophic cardiomyopathy--pathology and pathogenesis.&#34;
     supports: SUPPORT
-    snippet: Genes on five loci on separate chromosomes are responsible for a
-      familial disease in which all or part of the ventricular muscle undergoes
-      thickening with a histological picture of irregular hypertrophy and
-      disorganized arrangement of myocytes (disarray).
-    explanation: This indicates that myocyte disarray is a feature of the
-      disease, contributing to the thickening and impaired function of the
-      myocardium.
+    snippet: Genes on five loci on separate chromosomes are responsible for a familial disease in which all or part of the ventricular muscle undergoes thickening with a histological picture of irregular hypertrophy and disorganized arrangement of myocytes (disarray).
+    explanation: This indicates that myocyte disarray is a feature of the disease, contributing to the thickening and impaired function of the myocardium.
   - reference: PMID:11040002
     reference_title: &#34;Hypertrophic cardiomyopathy: the interrelation of disarray, fibrosis, and small vessel disease.&#34;
     supports: SUPPORT
-    snippet: Within an individual heart the magnitude of hypertrophy correlated
-      with the severity of fibrosis (p = 0.006) and disarray (p = 0.0002).
-    explanation: The correlation between hypertrophy, fibrosis, and disarray
-      supports the statement that myocyte disarray contributes to myocardial
-      dysfunction.
+    snippet: Within an individual heart the magnitude of hypertrophy correlated with the severity of fibrosis (p = 0.006) and disarray (p = 0.0002).
+    explanation: The correlation between hypertrophy, fibrosis, and disarray supports the statement that myocyte disarray contributes to myocardial dysfunction.
 - name: Myocardial Fibrosis
-  description: Increased collagen deposition by interstitial cells contributes
-    to myocardial stiffness. Activation of TGF-beta and MAPK signaling pathways
-    promotes extracellular matrix remodeling and fibrosis, which is a
-    progressive phenomenon associated with greater disease severity.
+  description: Increased collagen deposition by interstitial cells contributes to myocardial stiffness. Activation of TGF-beta and MAPK signaling pathways promotes extracellular matrix remodeling and fibrosis, which is a progressive phenomenon associated with greater disease severity.
   cell_types:
   - preferred_term: Interstitial Cells
     term:
@@ -6397,40 +7400,25 @@ pathophysiology:
   - reference: PMID:1414892
     reference_title: &#34;Prospects for cardioreparation.&#34;
     supports: SUPPORT
-    snippet: It appears that increased collagen production is mainly responsible
-      for the functional consequences of structural remodelling
-    explanation: The increased collagen production discussed here is consistent
-      with the contribution of interstitial cells to myocardial stiffness.
+    snippet: It appears that increased collagen production is mainly responsible for the functional consequences of structural remodelling
+    explanation: The increased collagen production discussed here is consistent with the contribution of interstitial cells to myocardial stiffness.
   - reference: PMID:25573453
     reference_title: &#34;Myocardial collagen deposition and inflammatory cell infiltration in cats with pre-clinical hypertrophic cardiomyopathy.&#34;
     supports: SUPPORT
-    snippet: Tissue from cats with pre-clinical HCM also had a higher number of
-      neutrophils and a greater collagen content than the myocardium of normal
-      cats.
-    explanation: This study shows increased collagen deposition, contributing to
-      myocardial stiffness, aligning with the statement.
+    snippet: Tissue from cats with pre-clinical HCM also had a higher number of neutrophils and a greater collagen content than the myocardium of normal cats.
+    explanation: This study shows increased collagen deposition, contributing to myocardial stiffness, aligning with the statement.
   - reference: PMID:29522370
     reference_title: &#34;Increased macrophage-derived SPARC precedes collagen deposition in myocardial fibrosis.&#34;
     supports: SUPPORT
-    snippet: We conclude that myocardial macrophages play an important role in
-      the time-dependent increases in SPARC that enhance postsynthetic collagen
-      processing, insoluble collagen content, and myocardial stiffness and
-      contribute to the development of fibrosis.
-    explanation: The role of interstitial cells like macrophages in increasing
-      collagen content supports the statement.
+    snippet: We conclude that myocardial macrophages play an important role in the time-dependent increases in SPARC that enhance postsynthetic collagen processing, insoluble collagen content, and myocardial stiffness and contribute to the development of fibrosis.
+    explanation: The role of interstitial cells like macrophages in increasing collagen content supports the statement.
   - reference: PMID:12510171
     reference_title: &#34;Aging of myocardial collagen.&#34;
     supports: SUPPORT
-    snippet: The myocardial collagen matrix consists of a network of fibrillar
-      collagen which is intimately connected to the myocyte.
-    explanation: The mention of the collagen matrix supports the idea of
-      increased collagen deposition by interstitial cells contributing to
-      myocardial stiffness.
+    snippet: The myocardial collagen matrix consists of a network of fibrillar collagen which is intimately connected to the myocyte.
+    explanation: The mention of the collagen matrix supports the idea of increased collagen deposition by interstitial cells contributing to myocardial stiffness.
 - name: Altered Calcium Handling
-  description: Increased myofilament calcium sensitivity and impaired diastolic
-    calcium removal lead to diastolic dysfunction and promote pro-hypertrophic
-    signaling. Altered calcium homeostasis contributes to both contractile
-    abnormalities and arrhythmogenic substrate.
+  description: Increased myofilament calcium sensitivity and impaired diastolic calcium removal lead to diastolic dysfunction and promote pro-hypertrophic signaling. Altered calcium homeostasis contributes to both contractile abnormalities and arrhythmogenic substrate.
   cell_types:
   - preferred_term: Cardiomyocyte
     term:
@@ -6455,13 +7443,9 @@ pathophysiology:
     term:
       id: UBERON:0002084
       label: heart left ventricle
-  notes: Calcium dysregulation is a downstream consequence of sarcomere
-    mutations that impairs relaxation and triggers hypertrophic remodeling
+  notes: Calcium dysregulation is a downstream consequence of sarcomere mutations that impairs relaxation and triggers hypertrophic remodeling
 - name: Mitochondrial Dysfunction
-  description: Elevated energetic cost of sarcomere hypercontractility leads to
-    mitochondrial stress and downregulation of energy metabolism pathways.
-    Impaired ATP production contributes to contractile dysfunction and cellular
-    remodeling.
+  description: Elevated energetic cost of sarcomere hypercontractility leads to mitochondrial stress and downregulation of energy metabolism pathways. Impaired ATP production contributes to contractile dysfunction and cellular remodeling.
   cell_types:
   - preferred_term: Cardiomyocyte
     term:
@@ -6486,13 +7470,9 @@ pathophysiology:
     term:
       id: UBERON:0002084
       label: heart left ventricle
-  notes: Energy metabolism dysfunction is a consistent finding across HCM
-    genotypes in tissue omics studies
+  notes: Energy metabolism dysfunction is a consistent finding across HCM genotypes in tissue omics studies
 - name: Left Ventricular Outflow Tract Obstruction
-  description: Asymmetric septal hypertrophy combined with systolic anterior
-    motion of the mitral valve creates dynamic obstruction to blood flow.
-    Venturi forces draw the mitral valve toward the septum, elevating wall
-    stress and contributing to ischemia and further hypertrophic remodeling.
+  description: Asymmetric septal hypertrophy combined with systolic anterior motion of the mitral valve creates dynamic obstruction to blood flow. Venturi forces draw the mitral valve toward the septum, elevating wall stress and contributing to ischemia and further hypertrophic remodeling.
   cell_types:
   - preferred_term: Cardiomyocyte
     term:
@@ -6511,8 +7491,7 @@ pathophysiology:
     term:
       id: UBERON:0004145
       label: outflow tract
-  notes: Occurs in approximately 60% of HCM patients and is a defining feature
-    of obstructive HCM
+  notes: Occurs in approximately 60% of HCM patients and is a defining feature of obstructive HCM
 phenotypes:
 - category: Cardiovascular
   name: Chest Pain
@@ -6521,12 +7500,8 @@ phenotypes:
   - reference: PMID:34533409
     reference_title: &#34;Living with hypertrophic cardiomyopathy: a patient&#39;s perspective.&#34;
     supports: SUPPORT
-    snippet: Hypertrophic cardiomyopathy (HCM) is a complex disease
-      characterized by thickening of the cardiac muscle. Common symptoms include
-      chest pain, shortness of breath, palpitations, fatigue and syncope
-      (fainting), which are often confused for other conditions.
-    explanation: This literature supports the statement as it lists chest pain
-      as a common symptom of Hypertrophic Cardiomyopathy.
+    snippet: Hypertrophic cardiomyopathy (HCM) is a complex disease characterized by thickening of the cardiac muscle. Common symptoms include chest pain, shortness of breath, palpitations, fatigue and syncope (fainting), which are often confused for other conditions.
+    explanation: This literature supports the statement as it lists chest pain as a common symptom of Hypertrophic Cardiomyopathy.
   phenotype_term:
     preferred_term: Chest pain
     term:
@@ -6539,12 +7514,8 @@ phenotypes:
   - reference: PMID:29655822
     reference_title: &#34;Clinical Spectrum and Management of Heart Failure in Hypertrophic Cardiomyopathy.&#34;
     supports: SUPPORT
-    snippet: Heart failure (HF), characterized by excessive exertional dyspnea,
-      is a common complication within the broad clinical spectrum of
-      hypertrophic cardiomyopathy (HCM).
-    explanation: The literature provided mentions that exertional dyspnea is
-      common in patients with hypertrophic cardiomyopathy, supporting the
-      statement that dyspnea is a common phenotype of HCM.
+    snippet: Heart failure (HF), characterized by excessive exertional dyspnea, is a common complication within the broad clinical spectrum of hypertrophic cardiomyopathy (HCM).
+    explanation: The literature provided mentions that exertional dyspnea is common in patients with hypertrophic cardiomyopathy, supporting the statement that dyspnea is a common phenotype of HCM.
   phenotype_term:
     preferred_term: Dyspnea
     term:
@@ -6558,26 +7529,18 @@ phenotypes:
   - reference: PMID:29150126
     reference_title: &#34;Hypertrophic cardiomyopathy.&#34;
     supports: SUPPORT
-    snippet: Clinical manifestations of Hypertrophic Cardiomyopathy include
-      shortness of breath, chest pain, palpitations and syncope, which are
-      related to the onset of diastolic dysfunction, left ventricular outflow
-      tract obstruction, ischemia, atrial fibrillation and abnormal vascular
-      responses.
-    explanation: The excerpt directly states that syncope is a clinical
-      manifestation of hypertrophic cardiomyopathy.
+    snippet: Clinical manifestations of Hypertrophic Cardiomyopathy include shortness of breath, chest pain, palpitations and syncope, which are related to the onset of diastolic dysfunction, left ventricular outflow tract obstruction, ischemia, atrial fibrillation and abnormal vascular responses.
+    explanation: The excerpt directly states that syncope is a clinical manifestation of hypertrophic cardiomyopathy.
   - reference: PMID:36442670
     reference_title: &#34;Syncope in hypertrophic cardiomyopathy: Explaining the unexplained.&#34;
     supports: SUPPORT
     snippet: &#39;Syncope in hypertrophic cardiomyopathy: Explaining the unexplained.&#39;
-    explanation: Syncope is highlighted as a phenomenon occurring in individuals
-      with hypertrophic cardiomyopathy.
+    explanation: Syncope is highlighted as a phenomenon occurring in individuals with hypertrophic cardiomyopathy.
   - reference: PMID:29761339
     reference_title: &#34;[Syncope in hypertrophic (obstructive) cardiomyopathy].&#34;
     supports: SUPPORT
-    snippet: Syncope and presyncope-in addition to extremely variable cardiac
-      symptoms (dyspnea and angina)-are common.
-    explanation: The text explicitly mentions syncope as a common symptom in
-      hypertrophic cardiomyopathy patients.
+    snippet: Syncope and presyncope-in addition to extremely variable cardiac symptoms (dyspnea and angina)-are common.
+    explanation: The text explicitly mentions syncope as a common symptom in hypertrophic cardiomyopathy patients.
   phenotype_term:
     preferred_term: Syncope
     term:
@@ -6590,34 +7553,18 @@ phenotypes:
   - reference: PMID:34969871
     reference_title: &#34;Epidemiology of cardiomyopathies and incident heart failure in a population-based cohort study.&#34;
     supports: SUPPORT
-    snippet: Study aims were to estimate the population-diagnosed prevalence of
-      cardiomyopathies and describe the temporal relationship between a
-      diagnosis of cardiomyopathy with HF and arrhythmia... Between 2010 and
-      2018, prevalence increased for ARVC by 180% and HCM by 9%.
-    explanation: The study indicates a relationship between hypertrophic
-      cardiomyopathy (HCM) and arrhythmias, supporting the statement that
-      arrhythmias are a common cardiovascular phenotype of HCM.
+    snippet: Study aims were to estimate the population-diagnosed prevalence of cardiomyopathies and describe the temporal relationship between a diagnosis of cardiomyopathy with HF and arrhythmia... Between 2010 and 2018, prevalence increased for ARVC by 180% and HCM by 9%.
+    explanation: The study indicates a relationship between hypertrophic cardiomyopathy (HCM) and arrhythmias, supporting the statement that arrhythmias are a common cardiovascular phenotype of HCM.
   - reference: PMID:7201843
     reference_title: &#34;Cardiac arrhythmias in hypertrophic cardiomyopathy.&#34;
     supports: SUPPORT
-    snippet: The patients with hypertrophic cardiomyopathy showed a significant
-      increase in supraventricular extrasystoles/24 hours, supraventricular
-      arrhythmias, high grade ventricular arrhythmia, and the number of patients
-      with more than 10 ventricular extrasystoles every 24 hours when compared
-      with the other groups.
-    explanation: This study directly assesses the prevalence and types of
-      arrhythmias in patients with hypertrophic cardiomyopathy, confirming that
-      arrhythmias are a common phenotype.
+    snippet: The patients with hypertrophic cardiomyopathy showed a significant increase in supraventricular extrasystoles/24 hours, supraventricular arrhythmias, high grade ventricular arrhythmia, and the number of patients with more than 10 ventricular extrasystoles every 24 hours when compared with the other groups.
+    explanation: This study directly assesses the prevalence and types of arrhythmias in patients with hypertrophic cardiomyopathy, confirming that arrhythmias are a common phenotype.
   - reference: PMID:3158692
     reference_title: &#34;Cardiomyopathies and their role in sudden death.&#34;
     supports: SUPPORT
-    snippet: Frequent ventricular premature complexes, complex ventricular
-      ectopic activity and asymptomatic ventricular tachycardia are common to
-      both hypertrophic and dilated cardiomyopathy; in both conditions, sudden
-      death is a common occurrence.
-    explanation: This reference mentions common arrhythmic events in
-      hypertrophic cardiomyopathy, supporting the idea that arrhythmias are a
-      common cardiovascular phenotype in HCM.
+    snippet: Frequent ventricular premature complexes, complex ventricular ectopic activity and asymptomatic ventricular tachycardia are common to both hypertrophic and dilated cardiomyopathy; in both conditions, sudden death is a common occurrence.
+    explanation: This reference mentions common arrhythmic events in hypertrophic cardiomyopathy, supporting the idea that arrhythmias are a common cardiovascular phenotype in HCM.
   phenotype_term:
     preferred_term: Arrhythmias
     term:
@@ -6626,8 +7573,7 @@ phenotypes:
 - category: Cardiovascular
   frequency: FREQUENT
   name: Arrhythmias
-  notes: Abnormal heart rhythms are common. Can include atrial fibrillation and
-    ventricular arrhythmias.
+  notes: Abnormal heart rhythms are common. Can include atrial fibrillation and ventricular arrhythmias.
   sequelae:
   - target: Palpitations
   - target: Sudden Cardiac Death
@@ -6635,42 +7581,23 @@ phenotypes:
   - reference: PMID:23124402
     reference_title: &#34;Ventricular arrhythmias complicating hypertrophic cardiomyopathy.&#34;
     supports: SUPPORT
-    snippet: Hypertrophic cardiomyopathy is the most common genetic
-      cardiovascular disorder and the leading cause of sudden cardiac death in
-      the young. This article reviews the ventricular arrhythmias associated
-      with hypertrophic cardiomyopathy.
-    explanation: The reference confirms that hypertrophic cardiomyopathy is
-      associated with ventricular arrhythmias and is a leading cause of sudden
-      cardiac death.
+    snippet: Hypertrophic cardiomyopathy is the most common genetic cardiovascular disorder and the leading cause of sudden cardiac death in the young. This article reviews the ventricular arrhythmias associated with hypertrophic cardiomyopathy.
+    explanation: The reference confirms that hypertrophic cardiomyopathy is associated with ventricular arrhythmias and is a leading cause of sudden cardiac death.
   - reference: PMID:28602671
     reference_title: &#34;Atrial Fibrillation in Hypertrophic Cardiomyopathy.&#34;
     supports: SUPPORT
-    snippet: Patients with HCM are predisposed to developing atrial fibrillation
-      (AF) due primarily to advanced diastolic dysfunction and left atrial (LA)
-      dilatation and remodelling.
-    explanation: The reference confirms that atrial fibrillation is common in
-      patients with hypertrophic cardiomyopathy.
+    snippet: Patients with HCM are predisposed to developing atrial fibrillation (AF) due primarily to advanced diastolic dysfunction and left atrial (LA) dilatation and remodelling.
+    explanation: The reference confirms that atrial fibrillation is common in patients with hypertrophic cardiomyopathy.
   - reference: PMID:29203161
     reference_title: &#34;Echocardiography and cardiac arrhythmias.&#34;
     supports: SUPPORT
-    snippet: Cardiac arrhythmias refer to any abnormality or disturbance in the
-      normal activation sequence of the myocardium and may be indicative of
-      structural heart disease and the cause of significant cardiovascular
-      complications and sudden cardiac death.
-    explanation: The reference discusses the role of arrhythmias in structural
-      heart disease, including hypertrophic cardiomyopathy, and their
-      association with significant cardiovascular complications and sudden
-      cardiac death.
+    snippet: Cardiac arrhythmias refer to any abnormality or disturbance in the normal activation sequence of the myocardium and may be indicative of structural heart disease and the cause of significant cardiovascular complications and sudden cardiac death.
+    explanation: The reference discusses the role of arrhythmias in structural heart disease, including hypertrophic cardiomyopathy, and their association with significant cardiovascular complications and sudden cardiac death.
   - reference: PMID:11174912
     reference_title: &#34;Cardiac arrhythmias in the athlete.&#34;
     supports: SUPPORT
-    snippet: Ventricular arrhythmias in the athlete generally occur in the
-      setting of structural heart disease that is genetically determined
-      (hypertrophic cardiomyopathy, arrhythmogenic right ventricular dysplasia,
-      anomalous coronary arteries) or acquired (coronary artery disease,
-      myocarditis, idiopathic dilated cardiomyopathies).
-    explanation: The reference confirms that ventricular arrhythmias are common
-      in hypertrophic cardiomyopathy, particularly in athletes.
+    snippet: Ventricular arrhythmias in the athlete generally occur in the setting of structural heart disease that is genetically determined (hypertrophic cardiomyopathy, arrhythmogenic right ventricular dysplasia, anomalous coronary arteries) or acquired (coronary artery disease, myocarditis, idiopathic dilated cardiomyopathies).
+    explanation: The reference confirms that ventricular arrhythmias are common in hypertrophic cardiomyopathy, particularly in athletes.
   phenotype_term:
     preferred_term: Arrhythmias
     term:
@@ -6679,43 +7606,28 @@ phenotypes:
 - category: Cardiovascular
   frequency: OCCASIONAL
   name: Mitral Valve Regurgitation
-  notes: Thickened heart muscle can affect mitral valve function, causing
-    leakage.
+  notes: Thickened heart muscle can affect mitral valve function, causing leakage.
   evidence:
   - reference: PMID:21909825
     reference_title: &#34;The mitral valve in hypertrophic cardiomyopathy: old versus new concepts.&#34;
     supports: SUPPORT
-    snippet: Elongation and pathological thickening of the mitral valve (MV) is
-      commonly seen in hypertrophic cardiomyopathy (HCM)... failure of either to
-      optimally adapt in this setting can result in mitral regurgitation.
-    explanation: The reference discusses the common occurrence of mitral valve
-      elongation and thickening in HCM, which can lead to mitral regurgitation.
+    snippet: Elongation and pathological thickening of the mitral valve (MV) is commonly seen in hypertrophic cardiomyopathy (HCM)... failure of either to optimally adapt in this setting can result in mitral regurgitation.
+    explanation: The reference discusses the common occurrence of mitral valve elongation and thickening in HCM, which can lead to mitral regurgitation.
   - reference: PMID:35644869
     reference_title: &#34;Mitral regurgitation impact on left atrial myopathy in hypertrophic cardiomyopathy.&#34;
     supports: SUPPORT
-    snippet: &#39;RESULTS: Significant (more than mild) MR was a significant univariate
-      predictor of all the three LA strain values&#39;
-    explanation: This study shows that mitral regurgitation (MR) is a
-      significant factor in patients with hypertrophic cardiomyopathy (HCM),
-      supporting the statement that thickened heart muscle can affect mitral
-      valve function, causing leakage.
+    snippet: &#39;RESULTS: Significant (more than mild) MR was a significant univariate predictor of all the three LA strain values&#39;
+    explanation: This study shows that mitral regurgitation (MR) is a significant factor in patients with hypertrophic cardiomyopathy (HCM), supporting the statement that thickened heart muscle can affect mitral valve function, causing leakage.
   - reference: PMID:37563454
     reference_title: &#34;Valvular heart disease and cardiomyopathy: reappraisal of their interplay.&#34;
     supports: SUPPORT
-    snippet: However, the interplay between these conditions is increasingly
-      being recognized and they frequently coexist, as in the paradigmatic
-      examples of dilated cardiomyopathy and hypertrophic cardiomyopathy, which
-      are often complicated by the occurrence of mitral regurgitation.
-    explanation: The reference indicates that hypertrophic cardiomyopathy is
-      often complicated by mitral regurgitation, supporting the statement.
+    snippet: However, the interplay between these conditions is increasingly being recognized and they frequently coexist, as in the paradigmatic examples of dilated cardiomyopathy and hypertrophic cardiomyopathy, which are often complicated by the occurrence of mitral regurgitation.
+    explanation: The reference indicates that hypertrophic cardiomyopathy is often complicated by mitral regurgitation, supporting the statement.
   - reference: PMID:37574021
     reference_title: &#34;Mitral annular calcification in obstructive hypertrophic cardiomyopathy: Incidence, risk factors, and prognostic value after myectomy.&#34;
     supports: SUPPORT
-    snippet: OHCM patients with MAC had a worse prognosis and more recurrent
-      mitral valve regurgitation than those without MAC after septal myectomy.
-    explanation: This study indicates that mitral valve regurgitation is a
-      complication in hypertrophic obstructive cardiomyopathy (OHCM), supporting
-      the statement.
+    snippet: OHCM patients with MAC had a worse prognosis and more recurrent mitral valve regurgitation than those without MAC after septal myectomy.
+    explanation: This study indicates that mitral valve regurgitation is a complication in hypertrophic obstructive cardiomyopathy (OHCM), supporting the statement.
 - category: Systemic
   frequency: OCCASIONAL
   name: Fatigue
@@ -6724,21 +7636,13 @@ phenotypes:
   - reference: PMID:34533409
     reference_title: &#34;Living with hypertrophic cardiomyopathy: a patient&#39;s perspective.&#34;
     supports: SUPPORT
-    snippet: Common symptoms include chest pain, shortness of breath,
-      palpitations, fatigue and syncope (fainting)...
-    explanation: The reference mentions fatigue as a common symptom of
-      hypertrophic cardiomyopathy, supporting the statement that fatigue occurs
-      occasionally in this condition.
+    snippet: Common symptoms include chest pain, shortness of breath, palpitations, fatigue and syncope (fainting)...
+    explanation: The reference mentions fatigue as a common symptom of hypertrophic cardiomyopathy, supporting the statement that fatigue occurs occasionally in this condition.
   - reference: PMID:37715354
     reference_title: &#34;Hypertrophic obstructive cardiomyopathy caused by Fabry disease: implications for surgical myectomy.&#34;
     supports: SUPPORT
-    snippet: A 59-year-old man was referred for SSM as dyspnoea and low
-      threshold muscle fatigue associated to severe left ventricular outflow
-      obstruction...
-    explanation: The reference describes a patient with hypertrophic obstructive
-      cardiomyopathy experiencing muscle fatigue, aligning with the statement
-      that fatigue is occasionally observed due to reduced cardiac output and
-      efficiency.
+    snippet: A 59-year-old man was referred for SSM as dyspnoea and low threshold muscle fatigue associated to severe left ventricular outflow obstruction...
+    explanation: The reference describes a patient with hypertrophic obstructive cardiomyopathy experiencing muscle fatigue, aligning with the statement that fatigue is occasionally observed due to reduced cardiac output and efficiency.
   phenotype_term:
     preferred_term: Fatigue
     term:
@@ -6756,8 +7660,7 @@ phenotypes:
 - category: Cardiovascular
   name: Sudden Cardiac Death
   frequency: OCCASIONAL
-  notes: Highest risk in young patients and those with sarcomere-positive
-    disease. Leading cause of sudden death in young athletes.
+  notes: Highest risk in young patients and those with sarcomere-positive disease. Leading cause of sudden death in young athletes.
   phenotype_term:
     preferred_term: Sudden Cardiac Death
     term:
@@ -6775,8 +7678,7 @@ phenotypes:
 - category: Cardiovascular
   name: Atrial Fibrillation
   frequency: FREQUENT
-  notes: Due to advanced diastolic dysfunction and left atrial dilatation and
-    remodeling. Genotype-positive status associated with higher lifetime hazard.
+  notes: Due to advanced diastolic dysfunction and left atrial dilatation and remodeling. Genotype-positive status associated with higher lifetime hazard.
   phenotype_term:
     preferred_term: Atrial fibrillation
     term:
@@ -6790,24 +7692,13 @@ biochemical:
   - reference: PMID:24011925
     reference_title: &#34;Prevalence and determinants of elevated high-sensitivity cardiac troponin T in hypertrophic cardiomyopathy.&#34;
     supports: SUPPORT
-    snippet: The results demonstrated that hs-cTnT was elevated in a significant
-      number of our HCM patients; therefore, hs-cTnT can be introduced as a
-      valuable marker of myocardial injury in HCM patients.
-    explanation: This study observes and confirms that hypertrophic
-      cardiomyopathy (HCM) patients often have elevated levels of
-      high-sensitivity cardiac troponin T (hs-cTnT), indicating its utility as a
-      marker of myocardial injury.
+    snippet: The results demonstrated that hs-cTnT was elevated in a significant number of our HCM patients; therefore, hs-cTnT can be introduced as a valuable marker of myocardial injury in HCM patients.
+    explanation: This study observes and confirms that hypertrophic cardiomyopathy (HCM) patients often have elevated levels of high-sensitivity cardiac troponin T (hs-cTnT), indicating its utility as a marker of myocardial injury.
   - reference: PMID:15631686
     reference_title: &#34;Inherited cardiomyopathies as a troponin disease.&#34;
     supports: SUPPORT
-    snippet: More than 200 mutations in the cardiac sarcomeric proteins,
-      including myosin heavy and light chains, actin, troponin, tropomyosin,
-      myosin-binding protein-C, and titin/connectin, have been found to cause
-      various types of cardiomyopathy in human since 1990...
-    explanation: This study indicates that mutations in cardiac sarcomeric
-      proteins, including troponin subunits, are linked to various types of
-      cardiomyopathy, including hypertrophic cardiomyopathy, leading to
-      myocardial damage where elevated troponin can be expected.
+    snippet: More than 200 mutations in the cardiac sarcomeric proteins, including myosin heavy and light chains, actin, troponin, tropomyosin, myosin-binding protein-C, and titin/connectin, have been found to cause various types of cardiomyopathy in human since 1990...
+    explanation: This study indicates that mutations in cardiac sarcomeric proteins, including troponin subunits, are linked to various types of cardiomyopathy, including hypertrophic cardiomyopathy, leading to myocardial damage where elevated troponin can be expected.
 diagnosis:
 - name: Echocardiogram
   notes: Shows left ventricular hypertrophy and outflow obstruction if present
@@ -6815,76 +7706,46 @@ diagnosis:
   - reference: PMID:22948303
     reference_title: &#34;The diagnosis of left ventricular outflow tract obstruction in hypertrophic cardiomyopathy.&#34;
     supports: SUPPORT
-    snippet: The evaluation of hypertrophic cardiomyopathy incorporates methods
-      based on the ultrasound image, which, along with MRI, allow recognizing
-      ventricular obstruction generating mechanisms, thus facilitating the
-      diagnosis and management of obstructive and latent obstructive forms.
-    explanation: The text indicates that echocardiographic imaging is crucial
-      for identifying left ventricular obstruction in hypertrophic
-      cardiomyopathy, supporting the statement about echocardiogram diagnosis.
+    snippet: The evaluation of hypertrophic cardiomyopathy incorporates methods based on the ultrasound image, which, along with MRI, allow recognizing ventricular obstruction generating mechanisms, thus facilitating the diagnosis and management of obstructive and latent obstructive forms.
+    explanation: The text indicates that echocardiographic imaging is crucial for identifying left ventricular obstruction in hypertrophic cardiomyopathy, supporting the statement about echocardiogram diagnosis.
   - reference: PMID:37160197
     reference_title: &#34;A Practical Approach to Echocardiographic Imaging in Patients With Hypertrophic Cardiomyopathy.&#34;
     supports: SUPPORT
-    snippet: This document provides an additional practical framework for
-      optimal image and measurement acquisition and guidance on how to tailor
-      the echocardiography examination for individuals with HCM.
-    explanation: This supports that echocardiogram (which includes ultrasound)
-      is a fundamental diagnostic tool for hypertrophic cardiomyopathy.
+    snippet: This document provides an additional practical framework for optimal image and measurement acquisition and guidance on how to tailor the echocardiography examination for individuals with HCM.
+    explanation: This supports that echocardiogram (which includes ultrasound) is a fundamental diagnostic tool for hypertrophic cardiomyopathy.
   - reference: PMID:133253
     reference_title: &#34;Echocardiographic study on hypertrophic cardiomyopathy.&#34;
     supports: SUPPORT
-    snippet: Asymmetric septal hypertrophy was demonstrated in both obstructive
-      and nonobstructive HCM. In all cases of HCM studied, the thickness of the
-      interventricular septum was 1.4 cm or more (1.4-3.7 cm) ... A systolic
-      anterior movement of the mitral valve (SAM) was observed in obstructive
-      cases only and characterized by a large backward component in late systole
-      and an extreme approximation to the interventricular septum at its peak.
-    explanation: The echocardiographic study clearly demonstrates its
-      effectiveness in diagnosing features of HCM including left ventricular
-      hypertrophy and outflow obstruction.
+    snippet: Asymmetric septal hypertrophy was demonstrated in both obstructive and nonobstructive HCM. In all cases of HCM studied, the thickness of the interventricular septum was 1.4 cm or more (1.4-3.7 cm) ... A systolic anterior movement of the mitral valve (SAM) was observed in obstructive cases only and characterized by a large backward component in late systole and an extreme approximation to the interventricular septum at its peak.
+    explanation: The echocardiographic study clearly demonstrates its effectiveness in diagnosing features of HCM including left ventricular hypertrophy and outflow obstruction.
 - name: Electrocardiogram
   notes: May show signs of left ventricular hypertrophy or arrhythmias
   evidence:
   - reference: PMID:32639329
     reference_title: &#34;Electrocardiographic voltage criteria in patients with hypertrophic cardiomyopathy.&#34;
     supports: PARTIAL
-    snippet: In our study, only a few ECG voltage criteria used for the
-      detection of LVH in clinical practice showed an acceptable performance in
-      the HCM population.
-    explanation: While ECG can show signs of left ventricular hypertrophy, its
-      overall diagnostic accuracy in hypertrophic cardiomyopathy (HCM)
-      populations is limited.
+    snippet: In our study, only a few ECG voltage criteria used for the detection of LVH in clinical practice showed an acceptable performance in the HCM population.
+    explanation: While ECG can show signs of left ventricular hypertrophy, its overall diagnostic accuracy in hypertrophic cardiomyopathy (HCM) populations is limited.
   - reference: PMID:37579849
     reference_title: &#34;Hypertrophic cardiomyopathy in patients with a normal electrocardiogram: A view from the east side of the Atlantic Ocean.&#34;
     supports: PARTIAL
-    snippet: Although the 12‑lead electrocardiogram (ECG) is abnormal in most
-      patients with hypertrophic cardiomyopathy (HCM), some present normal ECG.
-    explanation: The ECG can be useful for diagnosing HCM, but a normal ECG does
-      not rule out the condition.
+    snippet: Although the 12‑lead electrocardiogram (ECG) is abnormal in most patients with hypertrophic cardiomyopathy (HCM), some present normal ECG.
+    explanation: The ECG can be useful for diagnosing HCM, but a normal ECG does not rule out the condition.
   - reference: PMID:23704850
     reference_title: &#34;ECG diagnosis: apical hypertrophic cardiomyopathy.&#34;
     supports: SUPPORT
-    snippet: Electrocardiogram typically shows repolarization changes and giant
-      (&gt;10 mm), inverted T waves in the anterolateral leads.
-    explanation: Specific ECG patterns can be indicative of certain variants of
-      HCM.
+    snippet: Electrocardiogram typically shows repolarization changes and giant (&gt;10 mm), inverted T waves in the anterolateral leads.
+    explanation: Specific ECG patterns can be indicative of certain variants of HCM.
   - reference: PMID:30739754
     reference_title: &#34;[Hypertrophic cardiomyopathies].&#34;
     supports: PARTIAL
-    snippet: The minimum check-up must include an electrocardiogram and a
-      transthoracic echocardiography, which will most of the time be completed
-      by magnetic resonance imaging.
-    explanation: While ECG is part of the diagnostic process, it alone may not
-      be sufficient for a conclusive diagnosis.
+    snippet: The minimum check-up must include an electrocardiogram and a transthoracic echocardiography, which will most of the time be completed by magnetic resonance imaging.
+    explanation: While ECG is part of the diagnostic process, it alone may not be sufficient for a conclusive diagnosis.
   - reference: PMID:25060129
     reference_title: &#34;Differential diagnosis between left ventricular hypertrophy and cardiomyopathy in childhood.&#34;
     supports: SUPPORT
-    snippet: Attention is drawn to the finding that in many differing etiologies
-      of left ventricular hypertrophy ST-T-wave changes commonly referred to as
-      &#39;strain&#39;-pattern are a harbinger of an increased risk of malignant cardiac
-      arrhythmias and sudden death.
-    explanation: ECG changes such as ST-T wave abnormalities are relevant for
-      diagnosing LVH in the context of HCM.
+    snippet: Attention is drawn to the finding that in many differing etiologies of left ventricular hypertrophy ST-T-wave changes commonly referred to as &#39;strain&#39;-pattern are a harbinger of an increased risk of malignant cardiac arrhythmias and sudden death.
+    explanation: ECG changes such as ST-T wave abnormalities are relevant for diagnosing LVH in the context of HCM.
 genetic:
 - name: MYH7
   association: Pathogenic Variants
@@ -6893,144 +7754,400 @@ genetic:
     reference_title: &#34;Hypertrophic cardiomyopathy: New pathogenic variant in MYH7.&#34;
     supports: SUPPORT
     snippet: &#39;Hypertrophic cardiomyopathy: New pathogenic variant in MYH7.&#39;
-    explanation: The title of the referenced article explicitly indicates the
-      association of a pathogenic variant in MYH7 with hypertrophic
-      cardiomyopathy.
+    explanation: The title of the referenced article explicitly indicates the association of a pathogenic variant in MYH7 with hypertrophic cardiomyopathy.
   - reference: PMID:23905887
     reference_title: &#34;Genetic biomarkers in hypertrophic cardiomyopathy.&#34;
     supports: SUPPORT
-    snippet: Genetic mutations can be identified in approximately 60% of
-      patients; these are commonest in genes that encode proteins of the cardiac
-      sarcomere.
-    explanation: While the specific mutations in MYH7 are not detailed in this
-      snippet, the article supports the general assertion that genetic
-      mutations, particularly in sarcomeric genes like MYH7, are common in
-      hypertrophic cardiomyopathy.
+    snippet: Genetic mutations can be identified in approximately 60% of patients; these are commonest in genes that encode proteins of the cardiac sarcomere.
+    explanation: While the specific mutations in MYH7 are not detailed in this snippet, the article supports the general assertion that genetic mutations, particularly in sarcomeric genes like MYH7, are common in hypertrophic cardiomyopathy.
   - reference: PMID:31735781
     reference_title: &#34;MYH7 Gene-Related Mutation p.V878L Identified in a Chinese Family with Hypertrophic Cardiomyopathy.&#34;
     supports: SUPPORT
-    snippet: By NGS, we determined that these subjects with HCM symptoms carried
-      a missense heterozygous genetic mutation c.2632C&gt;A (p.V878L) in the myosin
-      heavy chain 7 (MYH7) gene with an autosomal dominant pattern of
-      inheritance.
-    explanation: The article details a specific pathogenic variant (p.V878L) in
-      the MYH7 gene associated with hypertrophic cardiomyopathy.
+    snippet: By NGS, we determined that these subjects with HCM symptoms carried a missense heterozygous genetic mutation c.2632C&gt;A (p.V878L) in the myosin heavy chain 7 (MYH7) gene with an autosomal dominant pattern of inheritance.
+    explanation: The article details a specific pathogenic variant (p.V878L) in the MYH7 gene associated with hypertrophic cardiomyopathy.
   - reference: PMID:36797478
     reference_title: &#34;Base editing correction of hypertrophic cardiomyopathy in human cardiomyocytes and humanized mice.&#34;
     supports: SUPPORT
-    snippet: The dominant-negative c.1208G&gt;A (p.R403Q) pathogenic variant (PV)
-      in beta-myosin (MYH7) is a common and well-studied PV that leads to
-      increased cardiac contractility and HCM onset.
-    explanation: The article identifies the commonly studied pathogenic variant
-      (p.R403Q) in MYH7 which leads to hypertrophic cardiomyopathy.
+    snippet: The dominant-negative c.1208G&gt;A (p.R403Q) pathogenic variant (PV) in beta-myosin (MYH7) is a common and well-studied PV that leads to increased cardiac contractility and HCM onset.
+    explanation: The article identifies the commonly studied pathogenic variant (p.R403Q) in MYH7 which leads to hypertrophic cardiomyopathy.
   - reference: PMID:30681346
     reference_title: &#34;Evaluating the Clinical Validity of Hypertrophic Cardiomyopathy Genes.&#34;
     supports: SUPPORT
-    snippet: Of 33 HCM genes, only 8 (24%) were categorized as definitive
-      (MYBPC3, MYH7, TNNT2, TNNI3, TPM1, ACTC1, MYL2, and MYL3).
-    explanation: The article categorizes MYH7 as one of the &#39;definitive&#39; genes
-      associated with hypertrophic cardiomyopathy.
+    snippet: Of 33 HCM genes, only 8 (24%) were categorized as definitive (MYBPC3, MYH7, TNNT2, TNNI3, TPM1, ACTC1, MYL2, and MYL3).
+    explanation: The article categorizes MYH7 as one of the &#39;definitive&#39; genes associated with hypertrophic cardiomyopathy.
   - reference: PMID:37565978
     reference_title: &#34;Penetrance and Prognosis of MYH7 Variant-Associated Cardiomyopathies: Results From a Dutch Multicenter Cohort Study.&#34;
     supports: SUPPORT
-    snippet: MYH7 variants cause hypertrophic cardiomyopathy (HCM),
-      noncompaction cardiomyopathy (NCCM), and dilated cardiomyopathy (DCM).
-    explanation: The article explicitly states that MYH7 variants cause
-      hypertrophic cardiomyopathy, reinforcing the genetic association.
+    snippet: MYH7 variants cause hypertrophic cardiomyopathy (HCM), noncompaction cardiomyopathy (NCCM), and dilated cardiomyopathy (DCM).
+    explanation: The article explicitly states that MYH7 variants cause hypertrophic cardiomyopathy, reinforcing the genetic association.
+  - reference: CGGV:assertion_31325c90-05cb-4db0-9372-e4f705cd5c82-2023-07-12T160000.000Z
+    reference_title: &#34;MYH7 / hypertrophic cardiomyopathy (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;MYH7 | HGNC:7577 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Definitive&#34;
+    explanation: ClinGen classifies the MYH7-hypertrophic cardiomyopathy gene-disease relationship as definitive with autosomal dominant inheritance.
 - name: MYBPC3
   association: Pathogenic Variants
   evidence:
   - reference: PMID:34180388
     reference_title: &#34;Novel pathogenic variant of MYBPC3 responsible for hypertrophic cardiomyopathy.&#34;
     supports: SUPPORT
-    snippet: The proband carries a novel heterozygous nonsense variant of
-      MYBPC3:c.2731G &gt; T (p.E911X) ... suggesting the functional damages to the
-      protein of MYBPC3.
-    explanation: The study identifies a novel pathogenic variant in MYBPC3
-      associated with hypertrophic cardiomyopathy.
+    snippet: The proband carries a novel heterozygous nonsense variant of MYBPC3:c.2731G &gt; T (p.E911X) ... suggesting the functional damages to the protein of MYBPC3.
+    explanation: The study identifies a novel pathogenic variant in MYBPC3 associated with hypertrophic cardiomyopathy.
   - reference: PMID:24240729
     reference_title: &#34;Cardiac myosin-binding protein C: hypertrophic cardiomyopathy mutations and structure-function relationships.&#34;
     supports: SUPPORT
-    snippet: The second wave started in 1995 by the discovery that mutations in
-      the gene encoding cMyBP-C cause hypertrophic cardiomyopathy (HCM).
-    explanation: This review discusses that mutations in MYBPC3 (which encodes
-      cMyBP-C) cause HCM.
+    snippet: The second wave started in 1995 by the discovery that mutations in the gene encoding cMyBP-C cause hypertrophic cardiomyopathy (HCM).
+    explanation: This review discusses that mutations in MYBPC3 (which encodes cMyBP-C) cause HCM.
   - reference: PMID:37409452
     reference_title: &#34;Long-Term Prevalence of Systolic Dysfunction in MYBPC3 Versus MYH7-Related Hypertrophic Cardiomyopathy.&#34;
     supports: SUPPORT
-    snippet: The 2 sarcomere genes most commonly associated with hypertrophic
-      cardiomyopathy (HCM), MYBPC3 (myosin-binding protein C3)...
-    explanation: Study identifies MYBPC3 as a common gene associated with
-      hypertrophic cardiomyopathy.
+    snippet: The 2 sarcomere genes most commonly associated with hypertrophic cardiomyopathy (HCM), MYBPC3 (myosin-binding protein C3)...
+    explanation: Study identifies MYBPC3 as a common gene associated with hypertrophic cardiomyopathy.
   - reference: PMID:35544052
     reference_title: &#34;Association of Pathogenic DNA Variants Predisposing to Cardiomyopathy With Cardiovascular Disease Outcomes and All-Cause Mortality.&#34;
     supports: SUPPORT
-    snippet: Pathogenic variants associated with inherited cardiomyopathy ...
-      MYBPC3 ... were classified ...
-    explanation: This study includes MYBPC3 as one of the genes with pathogenic
-      variants associated with inherited cardiomyopathy.
+    snippet: Pathogenic variants associated with inherited cardiomyopathy ... MYBPC3 ... were classified ...
+    explanation: This study includes MYBPC3 as one of the genes with pathogenic variants associated with inherited cardiomyopathy.
+  - reference: CGGV:assertion_7e65896e-33f5-439d-8749-aba08a539dd0-2021-10-07T160000.000Z
+    reference_title: &#34;MYBPC3 / hypertrophic cardiomyopathy (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;MYBPC3 | HGNC:7551 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Definitive&#34;
+    explanation: ClinGen classifies the MYBPC3-hypertrophic cardiomyopathy gene-disease relationship as definitive with autosomal dominant inheritance.
 - name: TNNT2
   association: Pathogenic Variants
-  notes: Can present with relatively modest LVH but disproportionate arrhythmic
-    risk
+  notes: Can present with relatively modest LVH but disproportionate arrhythmic risk
   evidence:
   - reference: PMID:33588347
     reference_title: &#34;Association of variants in MYH7, MYBPC3 and TNNT2 with sudden cardiac death-related risk factors in Brazilian patients with hypertrophic cardiomyopathy.&#34;
     supports: SUPPORT
-    snippet: Variants were identified and annotated using in silico tools, and
-      further classified as pathogenic or benign according to the American
-      College of Medical Genetics and Genomics guidelines. Variants with
-      functional effects were identified...and TNNT2...
-    explanation: The study identifies pathogenic variants in TNNT2 among
-      patients with hypertrophic cardiomyopathy, supporting the genetic
-      association.
+    snippet: Variants were identified and annotated using in silico tools, and further classified as pathogenic or benign according to the American College of Medical Genetics and Genomics guidelines. Variants with functional effects were identified...and TNNT2...
+    explanation: The study identifies pathogenic variants in TNNT2 among patients with hypertrophic cardiomyopathy, supporting the genetic association.
   - reference: PMID:7665141
     reference_title: &#34;Hypertrophic cardiomyopathy--pathology and pathogenesis.&#34;
     supports: SUPPORT
-    snippet: Genes on five loci on separate chromosomes are responsible for a
-      familial disease in which all or part of the ventricular muscle undergoes
-      thickening with a histological picture of irregular hypertrophy and
-      disorganized arrangement of myocytes (disarray). The three genes
-      identified so far encode for beta heavy chain myosin (chromosome 14),
-      troponin T (chromosome 1) and alpha tropomyosin (chromosome 15).
-    explanation: The study reveals that the troponin T gene (TNNT2) is one of
-      the implicated genes in hypertrophic cardiomyopathy.
+    snippet: Genes on five loci on separate chromosomes are responsible for a familial disease in which all or part of the ventricular muscle undergoes thickening with a histological picture of irregular hypertrophy and disorganized arrangement of myocytes (disarray). The three genes identified so far encode for beta heavy chain myosin (chromosome 14), troponin T (chromosome 1) and alpha tropomyosin (chromosome 15).
+    explanation: The study reveals that the troponin T gene (TNNT2) is one of the implicated genes in hypertrophic cardiomyopathy.
+  - reference: CGGV:assertion_ef922dc4-4e41-422b-ac3d-605fea375005-2021-02-04T050000.000Z
+    reference_title: &#34;TNNT2 / hypertrophic cardiomyopathy (Moderate)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;TNNT2 | HGNC:11949 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Moderate&#34;
+    explanation: ClinGen classifies the TNNT2-hypertrophic cardiomyopathy gene-disease relationship as moderate with autosomal dominant inheritance.
 - name: ALPK3
   association: Pathogenic Variants
-  notes: Emerging gene; biallelic variants linked to pediatric-onset
-    cardiomyopathy, heterozygous variants show variable adult-onset HCM.
-    Involved in sarcomere and nuclear signaling.
+  evidence:
+  - reference: CGGV:assertion_ace85164-0b70-46a2-ac6b-253088f4514d-2025-01-16T010000.000Z
+    reference_title: &#34;ALPK3 / hypertrophic cardiomyopathy (Strong)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;ALPK3 | HGNC:17574 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Strong&#34;
+    explanation: ClinGen classifies the ALPK3-hypertrophic cardiomyopathy gene-disease relationship as strong with autosomal dominant inheritance.
+  - reference: CGGV:assertion_6312d79f-df12-4ec6-8ce6-0f38f19e617d-2022-02-09T170000.000Z
+    reference_title: &#34;ALPK3 / hypertrophic cardiomyopathy (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;ALPK3 | HGNC:17574 | hypertrophic cardiomyopathy | MONDO:0005045 | AR | Definitive&#34;
+    explanation: ClinGen classifies the ALPK3-hypertrophic cardiomyopathy gene-disease relationship as definitive with autosomal recessive inheritance.
+  notes: Emerging gene; biallelic variants linked to pediatric-onset cardiomyopathy, heterozygous variants show variable adult-onset HCM. Involved in sarcomere and nuclear signaling.
 - name: FHOD3
   association: Pathogenic Variants
-  notes: Emerging gene; formin homology domain protein regulating actin
-    cytoskeleton. Variants perturb myofibrillogenesis and cytoskeletal
-    integrity, contributing to sarcomere remodeling.
+  evidence:
+  - reference: CGGV:assertion_c31027fe-8143-4022-8bbb-867eb1692c51-2023-09-29T160000.000Z
+    reference_title: &#34;FHOD3 / hypertrophic cardiomyopathy (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;FHOD3 | HGNC:26178 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Definitive&#34;
+    explanation: ClinGen classifies the FHOD3-hypertrophic cardiomyopathy gene-disease relationship as definitive with autosomal dominant inheritance.
+  notes: Emerging gene; formin homology domain protein regulating actin cytoskeleton. Variants perturb myofibrillogenesis and cytoskeletal integrity, contributing to sarcomere remodeling.
 - name: TRIM63
   association: Pathogenic Variants
-  notes: Emerging gene; muscle-specific RING-finger protein (MuRF1) involved in
-    proteostasis. Loss- or gain-of-function variants may alter sarcomeric
-    protein turnover. Homozygous cases reported with severe remodeling.
+  evidence:
+  - reference: CGGV:assertion_9e8365b8-3238-4844-8392-58f66be7f318-2024-06-06T160000.000Z
+    reference_title: &#34;TRIM63 / hypertrophic cardiomyopathy (Moderate)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;TRIM63 | HGNC:16007 | hypertrophic cardiomyopathy | MONDO:0005045 | AR | Moderate&#34;
+    explanation: ClinGen classifies the TRIM63-hypertrophic cardiomyopathy gene-disease relationship as moderate with autosomal recessive inheritance.
+  notes: Emerging gene; muscle-specific RING-finger protein (MuRF1) involved in proteostasis. Loss- or gain-of-function variants may alter sarcomeric protein turnover. Homozygous cases reported with severe remodeling.
 - name: SVIL
   association: Pathogenic Variants
-  notes: Emerging gene; supervillin is a cytoskeletal-membrane linker. Rare
-    variants recently reported in HCM cohorts, hypothesized to affect
-    sarcomere-cytoskeleton coupling. Associated with apical/septal phenotypes in
-    some populations.
+  notes: Emerging gene; supervillin is a cytoskeletal-membrane linker. Rare variants recently reported in HCM cohorts, hypothesized to affect sarcomere-cytoskeleton coupling. Associated with apical/septal phenotypes in some populations.
+- name: ACTC1
+  gene_term:
+    preferred_term: ACTC1
+    term:
+      id: hgnc:143
+      label: ACTC1
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_2f62793b-0015-46eb-bb51-bddbae25ba0d-2021-06-23T201616.296Z
+    reference_title: &#34;ACTC1 / hypertrophic cardiomyopathy (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;ACTC1 | HGNC:143 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Definitive&#34;
+    explanation: ClinGen classifies the ACTC1-hypertrophic cardiomyopathy gene-disease relationship as definitive with autosomal dominant inheritance.
+- name: CSRP3
+  gene_term:
+    preferred_term: CSRP3
+    term:
+      id: hgnc:2472
+      label: CSRP3
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_012b9b15-798a-46e2-8164-61a829ceeda1-2023-08-09T160000.000Z
+    reference_title: &#34;CSRP3 / hypertrophic cardiomyopathy (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;CSRP3 | HGNC:2472 | hypertrophic cardiomyopathy | MONDO:0005045 | SD | Definitive&#34;
+    explanation: ClinGen classifies the CSRP3-hypertrophic cardiomyopathy gene-disease relationship as definitive with semidominant inheritance.
+- name: JPH2
+  gene_term:
+    preferred_term: JPH2
+    term:
+      id: hgnc:14202
+      label: JPH2
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_378a727d-0c5b-4563-9c96-ac18a2902742-2022-10-12T160000.000Z
+    reference_title: &#34;JPH2 / hypertrophic cardiomyopathy (Moderate)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;JPH2 | HGNC:14202 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Moderate&#34;
+    explanation: ClinGen classifies the JPH2-hypertrophic cardiomyopathy gene-disease relationship as moderate with autosomal dominant inheritance.
+- name: KLF10
+  gene_term:
+    preferred_term: KLF10
+    term:
+      id: hgnc:11810
+      label: KLF10
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_524bb91c-07d4-4f65-bdc0-fc568a5930c8-2022-09-14T160000.000Z
+    reference_title: &#34;KLF10 / hypertrophic cardiomyopathy (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;KLF10 | HGNC:11810 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Limited&#34;
+    explanation: ClinGen classifies the KLF10-hypertrophic cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.
+- name: KLHL24
+  gene_term:
+    preferred_term: KLHL24
+    term:
+      id: hgnc:25947
+      label: KLHL24
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_f1d4ce43-4c2d-41a0-b821-a11ac8eb8fca-2023-09-28T160000.000Z
+    reference_title: &#34;KLHL24 / hypertrophic cardiomyopathy (Moderate)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;KLHL24 | HGNC:25947 | hypertrophic cardiomyopathy | MONDO:0005045 | AR | Moderate&#34;
+    explanation: ClinGen classifies the KLHL24-hypertrophic cardiomyopathy gene-disease relationship as moderate with autosomal recessive inheritance.
+- name: MT-TI
+  gene_term:
+    preferred_term: MT-TI
+    term:
+      id: hgnc:7488
+      label: MT-TI
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_3ac07ab9-8580-4fbf-b599-35dd25f3025d-2023-12-18T010000.000Z
+    reference_title: &#34;MT-TI / hypertrophic cardiomyopathy (Moderate)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;MT-TI | HGNC:7488 | hypertrophic cardiomyopathy | MONDO:0005045 | MT | Moderate&#34;
+    explanation: ClinGen classifies the MT-TI-hypertrophic cardiomyopathy gene-disease relationship as moderate with mitochondrial inheritance.
+- name: MYL2
+  gene_term:
+    preferred_term: MYL2
+    term:
+      id: hgnc:7583
+      label: MYL2
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_7b25ff6c-3ede-46a3-a637-3eab7aa18569-2026-01-13T170000.000Z
+    reference_title: &#34;MYL2 / hypertrophic cardiomyopathy (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;MYL2 | HGNC:7583 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Definitive&#34;
+    explanation: ClinGen classifies the MYL2-hypertrophic cardiomyopathy gene-disease relationship as definitive with autosomal dominant inheritance.
+- name: MYL3
+  gene_term:
+    preferred_term: MYL3
+    term:
+      id: hgnc:7584
+      label: MYL3
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_d74b9d56-4f2a-4479-8913-1d96ddc28592-2021-06-07T145050.605Z
+    reference_title: &#34;MYL3 / hypertrophic cardiomyopathy (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;MYL3 | HGNC:7584 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Definitive&#34;
+    explanation: ClinGen classifies the MYL3-hypertrophic cardiomyopathy gene-disease relationship as definitive with autosomal dominant inheritance.
+- name: NEXN
+  gene_term:
+    preferred_term: NEXN
+    term:
+      id: hgnc:29557
+      label: NEXN
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_9456bdef-7708-45b2-a698-c897167d7f5b-2023-03-23T160000.000Z
+    reference_title: &#34;NEXN / hypertrophic cardiomyopathy (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;NEXN | HGNC:29557 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Limited&#34;
+    explanation: ClinGen classifies the NEXN-hypertrophic cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.
+- name: OBSCN
+  gene_term:
+    preferred_term: OBSCN
+    term:
+      id: hgnc:15719
+      label: OBSCN
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_94265ca9-cf6a-468e-b12c-6ea173d09e51-2022-04-13T160000.000Z
+    reference_title: &#34;OBSCN / hypertrophic cardiomyopathy (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;OBSCN | HGNC:15719 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Limited&#34;
+    explanation: ClinGen classifies the OBSCN-hypertrophic cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.
+- name: PDLIM3
+  gene_term:
+    preferred_term: PDLIM3
+    term:
+      id: hgnc:20767
+      label: PDLIM3
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_76cba060-8080-42b1-b9ea-2193fea658b0-2023-02-23T170000.000Z
+    reference_title: &#34;PDLIM3 / hypertrophic cardiomyopathy (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;PDLIM3 | HGNC:20767 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Limited&#34;
+    explanation: ClinGen classifies the PDLIM3-hypertrophic cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.
+- name: RBM20
+  gene_term:
+    preferred_term: RBM20
+    term:
+      id: hgnc:27424
+      label: RBM20
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_35dd9f5a-7575-4899-aadf-3e1234a44f2d-2023-10-26T160000.000Z
+    reference_title: &#34;RBM20 / hypertrophic cardiomyopathy (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;RBM20 | HGNC:27424 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Limited&#34;
+    explanation: ClinGen classifies the RBM20-hypertrophic cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.
+- name: RPS6KB1
+  gene_term:
+    preferred_term: RPS6KB1
+    term:
+      id: hgnc:10436
+      label: RPS6KB1
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_2e24747c-18e6-4db0-8ee7-1259bc74c4da-2023-09-13T160000.000Z
+    reference_title: &#34;RPS6KB1 / hypertrophic cardiomyopathy (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;RPS6KB1 | HGNC:10436 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Limited&#34;
+    explanation: ClinGen classifies the RPS6KB1-hypertrophic cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.
+- name: RYR2
+  gene_term:
+    preferred_term: RYR2
+    term:
+      id: hgnc:10484
+      label: RYR2
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_3ac9dd09-674f-4d67-94da-234ffb4e5070-2022-12-14T170000.000Z
+    reference_title: &#34;RYR2 / hypertrophic cardiomyopathy (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;RYR2 | HGNC:10484 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Limited&#34;
+    explanation: ClinGen classifies the RYR2-hypertrophic cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.
+- name: TMPO
+  gene_term:
+    preferred_term: TMPO
+    term:
+      id: hgnc:11875
+      label: TMPO
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_a1e1bb21-c617-4aac-b9d8-1c2054d76c55-2023-04-27T160000.000Z
+    reference_title: &#34;TMPO / hypertrophic cardiomyopathy (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;TMPO | HGNC:11875 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Limited&#34;
+    explanation: ClinGen classifies the TMPO-hypertrophic cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.
+- name: TNNC1
+  gene_term:
+    preferred_term: TNNC1
+    term:
+      id: hgnc:11943
+      label: TNNC1
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_5d832673-8acb-4a02-ae34-35e0d9981b70-2023-09-13T160000.000Z
+    reference_title: &#34;TNNC1 / hypertrophic cardiomyopathy (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;TNNC1 | HGNC:11943 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Definitive&#34;
+    explanation: ClinGen classifies the TNNC1-hypertrophic cardiomyopathy gene-disease relationship as definitive with autosomal dominant inheritance.
+- name: TNNI3
+  gene_term:
+    preferred_term: TNNI3
+    term:
+      id: hgnc:11947
+      label: TNNI3
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_4a7e6901-d478-44c4-bd03-2c344029d4bb-2017-09-05T160000.000Z
+    reference_title: &#34;TNNI3 / hypertrophic cardiomyopathy (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;TNNI3 | HGNC:11947 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Definitive&#34;
+    explanation: ClinGen classifies the TNNI3-hypertrophic cardiomyopathy gene-disease relationship as definitive with autosomal dominant inheritance.
+- name: TPM1
+  gene_term:
+    preferred_term: TPM1
+    term:
+      id: hgnc:12010
+      label: TPM1
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_32e7ed58-ee49-4719-b48e-7fad58012319-2023-12-18T170000.000Z
+    reference_title: &#34;TPM1 / hypertrophic cardiomyopathy (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;TPM1 | HGNC:12010 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Definitive&#34;
+    explanation: ClinGen classifies the TPM1-hypertrophic cardiomyopathy gene-disease relationship as definitive with autosomal dominant inheritance.
+- name: TTN
+  gene_term:
+    preferred_term: TTN
+    term:
+      id: hgnc:12403
+      label: TTN
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_c17e22eb-c6fc-487d-bcf6-001bb85fdabd-2025-10-28T160000.000Z
+    reference_title: &#34;TTN / hypertrophic cardiomyopathy (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;TTN | HGNC:12403 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Limited&#34;
+    explanation: ClinGen classifies the TTN-hypertrophic cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.
 environmental:
 - name: None Applicable
   evidence:
   - reference: PMID:23692943
     reference_title: &#34;Hypertrophic cardiomyopathy: an overview.&#34;
     supports: REFUTE
-    snippet: Hypertrophic cardiomyopathy is a complex cardiovascular disorder
-      particularly sensitive to environmental changes and physiologic stress.
-      Warm weather and strenuous activity can be a dangerous combination for
-      people that have hypertrophic cardiomyopathy. Often sudden cardiac death
-      is the first symptom of the disorder.
-    explanation: The statement that hypertrophic cardiomyopathy is not
-      influenced by environmental factors is incorrect. Environmental factors
-      and physiological stress are significant factors in the management and
-      severity of hypertrophic cardiomyopathy.
+    snippet: Hypertrophic cardiomyopathy is a complex cardiovascular disorder particularly sensitive to environmental changes and physiologic stress. Warm weather and strenuous activity can be a dangerous combination for people that have hypertrophic cardiomyopathy. Often sudden cardiac death is the first symptom of the disorder.
+    explanation: The statement that hypertrophic cardiomyopathy is not influenced by environmental factors is incorrect. Environmental factors and physiological stress are significant factors in the management and severity of hypertrophic cardiomyopathy.
 treatments:
 - name: Beta Blockers
   description: Used to reduce heart rate and improve symptoms
@@ -7038,43 +8155,23 @@ treatments:
   - reference: PMID:35450574
     reference_title: &#34;Beta-Blockers and Exercise Hemodynamics in Hypertrophic Cardiomyopathy.&#34;
     supports: SUPPORT
-    snippet: Beta-Blockers and Exercise Hemodynamics in Hypertrophic
-      Cardiomyopathy.
-    explanation: This reference discusses the use of beta-blockers in the
-      context of hypertrophic cardiomyopathy, which supports the statement that
-      beta-blockers are used to improve symptoms in this condition, though
-      details on heart rate reduction specifically may be implied but not
-      detailed.
+    snippet: Beta-Blockers and Exercise Hemodynamics in Hypertrophic Cardiomyopathy.
+    explanation: This reference discusses the use of beta-blockers in the context of hypertrophic cardiomyopathy, which supports the statement that beta-blockers are used to improve symptoms in this condition, though details on heart rate reduction specifically may be implied but not detailed.
   - reference: PMID:21389910
     reference_title: &#34;Medical management of hypertrophic cardiomyopathy.&#34;
     supports: SUPPORT
-    snippet: Throughout the years, numerous medical treatments have been used to
-      achieve symptom control in these patients, and include medications such as
-      beta-blockers, calcium channel blockers, amiodarone, disopyramide, and
-      angiotensin receptor blockers.
-    explanation: The abstract directly mentions the use of beta-blockers to
-      control symptoms in hypertrophic cardiomyopathy, supporting the statement.
+    snippet: Throughout the years, numerous medical treatments have been used to achieve symptom control in these patients, and include medications such as beta-blockers, calcium channel blockers, amiodarone, disopyramide, and angiotensin receptor blockers.
+    explanation: The abstract directly mentions the use of beta-blockers to control symptoms in hypertrophic cardiomyopathy, supporting the statement.
   - reference: PMID:37850394
     reference_title: &#34;Improved Cardiac Performance and Decreased Arrhythmia in Hypertrophic Cardiomyopathy With Non-β-Blocking R-Enantiomer Carvedilol.&#34;
     supports: SUPPORT
-    snippet: beta-Adrenergic receptor antagonists (beta-blockers) are the
-      first-line therapy for HCM. However, beta-blockers commonly selected for
-      this disease are often poorly tolerated in patients, where heart-rate
-      reduction and noncardiac effects can lead to reduced cardiac output and
-      fatigue.
-    explanation: This reference confirms that beta-blockers are a first-line
-      therapy for hypertrophic cardiomyopathy and are used for heart rate
-      reduction, supporting the statement.
+    snippet: beta-Adrenergic receptor antagonists (beta-blockers) are the first-line therapy for HCM. However, beta-blockers commonly selected for this disease are often poorly tolerated in patients, where heart-rate reduction and noncardiac effects can lead to reduced cardiac output and fatigue.
+    explanation: This reference confirms that beta-blockers are a first-line therapy for hypertrophic cardiomyopathy and are used for heart rate reduction, supporting the statement.
   - reference: PMID:25198737
     reference_title: &#34;Beta-Blockers in Pediatric Hypertrophic Cardiomyopathies.&#34;
     supports: SUPPORT
-    snippet: Beta-blocker therapy is without doubt the treatment of choice for
-      patients with heart failure caused by hypertrophic cardiomyopathy, but the
-      dose needs to carefully titrated on an individual basis for maximum
-      benefit.
-    explanation: The reference highlights the use of beta-blockers in
-      hypertrophic cardiomyopathy to improve symptoms, aligning with the
-      statement.
+    snippet: Beta-blocker therapy is without doubt the treatment of choice for patients with heart failure caused by hypertrophic cardiomyopathy, but the dose needs to carefully titrated on an individual basis for maximum benefit.
+    explanation: The reference highlights the use of beta-blockers in hypertrophic cardiomyopathy to improve symptoms, aligning with the statement.
   treatment_term:
     preferred_term: beta adrenergic agent therapy
     term:
@@ -7086,40 +8183,23 @@ treatments:
   - reference: PMID:17162264
     reference_title: &#34;Pathophysiology of hypertrophic cardiomyopathy determines its medical treatment.&#34;
     supports: SUPPORT
-    snippet: For symptomatic patients with non-obstructed disease medical
-      treatment with calcium channel blockers and beta-blockers is aimed to
-      improve heart failure symptoms, and ischemia. Verapamil is the most often
-      used, with likely benefit of relieving ischemia.
-    explanation: The literature supports that calcium channel blockers are used
-      to improve symptoms in hypertrophic cardiomyopathy patients, which implies
-      relaxing the heart muscle and improving blood flow.
+    snippet: For symptomatic patients with non-obstructed disease medical treatment with calcium channel blockers and beta-blockers is aimed to improve heart failure symptoms, and ischemia. Verapamil is the most often used, with likely benefit of relieving ischemia.
+    explanation: The literature supports that calcium channel blockers are used to improve symptoms in hypertrophic cardiomyopathy patients, which implies relaxing the heart muscle and improving blood flow.
   - reference: PMID:3515244
     reference_title: &#34;Review of calcium-channel blockers.&#34;
     supports: SUPPORT
-    snippet: The three approved calcium-channel blockers--nifedipine, verapamil
-      and diltiazem--have offered new treatments for angina.
-    explanation: Even though the focus is on angina, the acknowledged use of
-      calcium channel blockers reinforces their role in cardiovascular
-      conditions including HCM.
+    snippet: The three approved calcium-channel blockers--nifedipine, verapamil and diltiazem--have offered new treatments for angina.
+    explanation: Even though the focus is on angina, the acknowledged use of calcium channel blockers reinforces their role in cardiovascular conditions including HCM.
   - reference: PMID:36044874
     reference_title: &#34;A Discrepancy: Calcium Channel Blockers Are Effective for the Treatment of Hypertensive Left Ventricular Hypertrophy but Not as Effective for Prevention of Heart Failure.&#34;
     supports: SUPPORT
-    snippet: CCBs are effective antihypertensive drugs and a very good
-      therapeutic option for HTN LVH as they can cause reverse LVH remodeling.
-    explanation: The review suggests the effectiveness of calcium channel
-      blockers in treating hypertensive left ventricular hypertrophy (HTN LVH),
-      indicating a role in remodeling heart muscle, which aligns with improving
-      blood flow.
+    snippet: CCBs are effective antihypertensive drugs and a very good therapeutic option for HTN LVH as they can cause reverse LVH remodeling.
+    explanation: The review suggests the effectiveness of calcium channel blockers in treating hypertensive left ventricular hypertrophy (HTN LVH), indicating a role in remodeling heart muscle, which aligns with improving blood flow.
   - reference: PMID:7004293
     reference_title: &#34;Calcium channel blocking agents in the treatment of cardiovascular disorders. Part II: Hemodynamic effects and clinical applications.&#34;
     supports: SUPPORT
-    snippet: The negative inotropic effects of verapamil are valuable in
-      improving the symptoms and hemodynamic disturbances of hypertrophic
-      cardiomyopathy.
-    explanation: This directly supports the use of calcium channel blockers
-      (specifically verapamil) in hypertrophic cardiomyopathy by improving
-      symptoms and hemodynamics, which implies relaxing the heart muscle and
-      improving blood flow.
+    snippet: The negative inotropic effects of verapamil are valuable in improving the symptoms and hemodynamic disturbances of hypertrophic cardiomyopathy.
+    explanation: This directly supports the use of calcium channel blockers (specifically verapamil) in hypertrophic cardiomyopathy by improving symptoms and hemodynamics, which implies relaxing the heart muscle and improving blood flow.
   treatment_term:
     preferred_term: calcium channel blocking agent therapy
     term:
@@ -7131,72 +8211,46 @@ treatments:
   - reference: PMID:38368037
     reference_title: &#34;Treatment Strategies for Hypertrophic Cardiomyopathy: Surgical.&#34;
     supports: SUPPORT
-    snippet: Septal myectomy is a well-established procedure for septal
-      reduction in patients with obstructive hypertrophic cardiomyopathy (HCM)
-      who have not responded to medical treatment.
-    explanation: The literature directly confirms that septal myectomy is used
-      to surgically remove part of the thickened heart muscle in hypertrophic
-      cardiomyopathy patients.
+    snippet: Septal myectomy is a well-established procedure for septal reduction in patients with obstructive hypertrophic cardiomyopathy (HCM) who have not responded to medical treatment.
+    explanation: The literature directly confirms that septal myectomy is used to surgically remove part of the thickened heart muscle in hypertrophic cardiomyopathy patients.
   - reference: PMID:31280832
     reference_title: &#34;Image-Based Simulative Training for Myectomy in Hypertrophic Cardiomyopathy: An Emerging Necessity.&#34;
     supports: SUPPORT
-    snippet: Surgical myectomy was initially advocated only for patients with
-      symptoms refractory to maximal tolerated medical therapy.
-    explanation: This supports the usage of septal myectomy for removing
-      thickened muscle parts as a treatment for hypertrophic cardiomyopathy.
+    snippet: Surgical myectomy was initially advocated only for patients with symptoms refractory to maximal tolerated medical therapy.
+    explanation: This supports the usage of septal myectomy for removing thickened muscle parts as a treatment for hypertrophic cardiomyopathy.
   - reference: PMID:22687587
     reference_title: &#34;Echocardiography to individualize treatment for hypertrophic cardiomyopathy.&#34;
     supports: SUPPORT
-    snippet: Treatments for hypertrophic cardiomyopathy are largely selected
-      based on patient symptoms and echocardiographic findings.
-    explanation: While this reference does not directly state septal myectomy,
-      it mentions treatment selection based on symptoms, which aligns with the
-      usage context of septal myectomy in other literature. Therefore, it
-      indirectly supports the use.
+    snippet: Treatments for hypertrophic cardiomyopathy are largely selected based on patient symptoms and echocardiographic findings.
+    explanation: While this reference does not directly state septal myectomy, it mentions treatment selection based on symptoms, which aligns with the usage context of septal myectomy in other literature. Therefore, it indirectly supports the use.
   treatment_term:
     preferred_term: surgical procedure
     term:
       id: MAXO:0000004
       label: surgical procedure
 - name: Alcohol Septal Ablation
-  description: Minimally invasive procedure to reduce obstruction by injecting
-    alcohol into a small artery that supplies the thickened heart muscle
+  description: Minimally invasive procedure to reduce obstruction by injecting alcohol into a small artery that supplies the thickened heart muscle
   evidence:
   - reference: PMID:35710280
     reference_title: &#34;Alcohol Septal Ablation for Obstructive Hypertrophic Cardiomyopathy.&#34;
     supports: SUPPORT
-    snippet: Over the past several decades, alcohol septal ablation has become
-      an established therapy for selected patients, in whom there is clinical
-      improvement in symptoms as well as objective functional capacity.
-    explanation: This reference supports the use of alcohol septal ablation as a
-      treatment for hypertrophic cardiomyopathy by describing improved clinical
-      outcomes and functional capacity.
+    snippet: Over the past several decades, alcohol septal ablation has become an established therapy for selected patients, in whom there is clinical improvement in symptoms as well as objective functional capacity.
+    explanation: This reference supports the use of alcohol septal ablation as a treatment for hypertrophic cardiomyopathy by describing improved clinical outcomes and functional capacity.
   - reference: PMID:36598161
     reference_title: &#34;Multi-modality management of hypertrophic cardiomyopathy.&#34;
     supports: SUPPORT
-    snippet: There are several invasive therapies including proven therapies
-      such as alcohol septal ablation and septal myectomy.
-    explanation: This reference supports the use of alcohol septal ablation as a
-      proven therapy for hypertrophic cardiomyopathy.
+    snippet: There are several invasive therapies including proven therapies such as alcohol septal ablation and septal myectomy.
+    explanation: This reference supports the use of alcohol septal ablation as a proven therapy for hypertrophic cardiomyopathy.
   - reference: PMID:10980888
     reference_title: &#34;Percutaneous transluminal septal myocardial ablation.&#34;
     supports: SUPPORT
-    snippet: Following balloon inflation and intracoronary myocardial contrast
-      echocardiography, ethyl alcohol is injected through the catheter lumen to
-      cause proximal interventricular septum infarction and relief of outflow
-      tract obstruction.
-    explanation: This reference supports the description of alcohol septal
-      ablation as a minimally invasive procedure to reduce obstruction by
-      injecting alcohol.
+    snippet: Following balloon inflation and intracoronary myocardial contrast echocardiography, ethyl alcohol is injected through the catheter lumen to cause proximal interventricular septum infarction and relief of outflow tract obstruction.
+    explanation: This reference supports the description of alcohol septal ablation as a minimally invasive procedure to reduce obstruction by injecting alcohol.
   - reference: PMID:20973822
     reference_title: &#34;Cyanoacrylate for septal ablation in hypertrophic cardiomyopathy.&#34;
     supports: SUPPORT
-    snippet: Alcohol septal ablation (ASA) has been shown to be an effective
-      treatment in patients with hypertrophic obstructive cardiomyopathy (HOCM)
-      who are refractory to medical treatment.
-    explanation: This reference supports the effectiveness of alcohol septal
-      ablation in treating hypertrophic cardiomyopathy by injecting alcohol into
-      the septal artery.
+    snippet: Alcohol septal ablation (ASA) has been shown to be an effective treatment in patients with hypertrophic obstructive cardiomyopathy (HOCM) who are refractory to medical treatment.
+    explanation: This reference supports the effectiveness of alcohol septal ablation in treating hypertrophic cardiomyopathy by injecting alcohol into the septal artery.
   treatment_term:
     preferred_term: surgical procedure
     term:
@@ -7208,41 +8262,23 @@ treatments:
   - reference: PMID:26002383
     reference_title: &#34;Historical perspectives on the implantable cardioverter-defibrillator and prevention of sudden death in hypertrophic cardiomyopathy.&#34;
     supports: SUPPORT
-    snippet: Nevertheless, several observational clinical studies have shown
-      that the ICD reliably terminates life-threatening ventricular
-      tachyarrhythmias in HCM, and is largely responsible for reducing HCM
-      mortality to 0.5% per year, by preventing SD and changing the natural
-      course of the disease.
-    explanation: This excerpt supports the statement by showing that ICDs
-      prevent sudden cardiac death in high-risk patients with hypertrophic
-      cardiomyopathy.
+    snippet: Nevertheless, several observational clinical studies have shown that the ICD reliably terminates life-threatening ventricular tachyarrhythmias in HCM, and is largely responsible for reducing HCM mortality to 0.5% per year, by preventing SD and changing the natural course of the disease.
+    explanation: This excerpt supports the statement by showing that ICDs prevent sudden cardiac death in high-risk patients with hypertrophic cardiomyopathy.
   - reference: PMID:36396186
     reference_title: &#34;Catheter Ablation for Ventricular Arrhythmias in Hypertrophic Cardiomyopathy.&#34;
     supports: SUPPORT
-    snippet: Implantable cardioverter-defibrillators are the mainstay of therapy
-      for prevention of sudden cardiac death in high-risk patients with
-      hypertrophic cardiomyopathy (HCM).
-    explanation: This excerpt also supports the statement by confirming that
-      ICDs are a primary treatment used to prevent sudden cardiac death in
-      high-risk HCM patients.
+    snippet: Implantable cardioverter-defibrillators are the mainstay of therapy for prevention of sudden cardiac death in high-risk patients with hypertrophic cardiomyopathy (HCM).
+    explanation: This excerpt also supports the statement by confirming that ICDs are a primary treatment used to prevent sudden cardiac death in high-risk HCM patients.
   - reference: PMID:22687587
     reference_title: &#34;Echocardiography to individualize treatment for hypertrophic cardiomyopathy.&#34;
     supports: SUPPORT
-    snippet: Risk of sudden death correlates with maximum left ventricular (LV)
-      wall thickness. Massive LV thickening of 30 mm or more is an indication
-      for primary prevention of sudden death with an implanted defibrillator.
-    explanation: This excerpt provides specific criteria for using ICDs as a
-      preventative measure in patients with significant hypertrophic
-      cardiomyopathy, further supporting the statement.
+    snippet: Risk of sudden death correlates with maximum left ventricular (LV) wall thickness. Massive LV thickening of 30 mm or more is an indication for primary prevention of sudden death with an implanted defibrillator.
+    explanation: This excerpt provides specific criteria for using ICDs as a preventative measure in patients with significant hypertrophic cardiomyopathy, further supporting the statement.
   - reference: PMID:36134835
     reference_title: &#34;ICD indication in hypertrophic cardiomyopathy: which algorithm to use?&#34;
     supports: SUPPORT
-    snippet: During follow-up of 4.8+/-3.4 years, there was no sudden cardiac
-      death, but 20.6% patients with implantable cardioverter-defibrillator had
-      at least one appropriate shock.
-    explanation: While the focus is on the outcome of ICD shocks, the lack of
-      sudden cardiac deaths among ICD patients aligns with the notion that ICDs
-      prevent sudden cardiac death in high-risk HCM patients.
+    snippet: During follow-up of 4.8+/-3.4 years, there was no sudden cardiac death, but 20.6% patients with implantable cardioverter-defibrillator had at least one appropriate shock.
+    explanation: While the focus is on the outcome of ICD shocks, the lack of sudden cardiac deaths among ICD patients aligns with the notion that ICDs prevent sudden cardiac death in high-risk HCM patients.
   treatment_term:
     preferred_term: surgical procedure
     term:
@@ -7531,28 +8567,22 @@ references:
   title: Advances in the study and treatment of genetic cardiomyopathies
   findings: []
 - reference: DOI:10.1038/s44161-024-00505-0
-  title: Aficamten is a small-molecule cardiac myosin inhibitor designed to
-    treat hypertrophic cardiomyopathy
+  title: Aficamten is a small-molecule cardiac myosin inhibitor designed to treat hypertrophic cardiomyopathy
   findings: []
 - reference: DOI:10.1093/eurheartj/ehae421
-  title: &#39;Genetics of hypertrophic cardiomyopathy: established and emerging implications
-    for clinical practice&#39;
+  title: &#39;Genetics of hypertrophic cardiomyopathy: established and emerging implications for clinical practice&#39;
   findings: []
 - reference: DOI:10.1186/s43044-024-00587-y
-  title: &#39;Obstructive hypertrophic cardiomyopathy: from genetic insights to a multimodal
-    therapeutic approach with mavacamten, aficamten, and beyond&#39;
+  title: &#39;Obstructive hypertrophic cardiomyopathy: from genetic insights to a multimodal therapeutic approach with mavacamten, aficamten, and beyond&#39;
   findings: []
 - reference: DOI:10.1186/s43044-025-00652-0
-  title: &#39;Cardiac myosin inhibitors: Efficacy, safety and future directions of aficamten
-    in hypertrophic obstructive cardiomyopathy&#39;
+  title: &#39;Cardiac myosin inhibitors: Efficacy, safety and future directions of aficamten in hypertrophic obstructive cardiomyopathy&#39;
   findings: []
 - reference: DOI:10.3390/biomedicines12030682
-  title: &#39;Role of Genetics in Diagnosis and Management of Hypertrophic Cardiomyopathy:
-    A Glimpse into the Future&#39;
+  title: &#39;Role of Genetics in Diagnosis and Management of Hypertrophic Cardiomyopathy: A Glimpse into the Future&#39;
   findings: []
 - reference: DOI:10.3390/biomedicines12122675
-  title: Hypertrophic Cardiomyopathy with Special Focus on Mavacamten and Its
-    Future in Cardiology
+  title: Hypertrophic Cardiomyopathy with Special Focus on Mavacamten and Its Future in Cardiology
   findings: []
 </pre>
             </div>
@@ -8021,7 +9051,7 @@ Hypertrophic cardiomyopathy is primarily a disease of the cardiac sarcomere with
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hypertrophic Cardiomyopathy", "mondoId": "MONDO:0005045", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hypertrophic_Cardiomyopathy", "yamlRevision": "6a4ece86869f"};
+        const OS_CONFIG = {"diseaseName": "Hypertrophic Cardiomyopathy", "mondoId": "MONDO:0005045", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hypertrophic_Cardiomyopathy", "yamlRevision": "e98394a7ab0d"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

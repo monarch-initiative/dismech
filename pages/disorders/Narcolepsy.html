@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2623,6 +2776,20 @@
             
             
             
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-value">11</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -2837,6 +3004,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"Narcolepsy with cataplexy is caused by hypocretin deficiency owing to destruction of most of the hypocretin-producing neurons in the hypothalamus."</div>
@@ -2909,6 +3078,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3079,6 +3250,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"Narcolepsy with cataplexy is caused by hypocretin deficiency owing to destruction of most of the hypocretin-producing neurons in the hypothalamus."</div>
@@ -3136,6 +3309,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3195,6 +3370,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"Narcolepsy with cataplexy is caused by hypocretin deficiency"</div>
@@ -3252,6 +3429,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3351,6 +3530,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"Ablation of hypocretin or hypocretin receptors also leads to narcolepsy phenotypes in animal models."</div>
@@ -3391,6 +3572,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
                     
                 </div>
                 
@@ -4052,6 +4235,7 @@
                 <div class="item-desc">Context: Low or undetectable in Type 1 narcolepsy (&lt;110 pg/mL)</div>
                 
                 
+                
     
     
             </div>
@@ -4087,7 +4271,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Narcolepsy
 creation_date: &#39;2025-12-19T14:27:56Z&#39;
-updated_date: &#39;2026-02-27T21:53:01Z&#39;
+updated_date: &#39;2026-05-10T13:25:32Z&#39;
 category: Neurological
 parents:
 - Sleep Disorder
@@ -4123,6 +4307,7 @@ pathophysiology:
   - reference: PMID:25728441
     reference_title: &#34;Hypocretin (orexin) biology and the pathophysiology of narcolepsy with cataplexy.&#34;
     supports: SUPPORT
+    evidence_source: OTHER
     snippet: &#34;Narcolepsy with cataplexy is caused by hypocretin deficiency owing to destruction of most of the hypocretin-producing neurons in the hypothalamus.&#34;
     explanation: Landmark review establishes hypocretin neuron loss as the cause of narcolepsy with cataplexy.
 - name: Autoimmune Destruction
@@ -4140,6 +4325,7 @@ pathophysiology:
   - reference: PMID:25728441
     reference_title: &#34;Hypocretin (orexin) biology and the pathophysiology of narcolepsy with cataplexy.&#34;
     supports: SUPPORT
+    evidence_source: OTHER
     snippet: &#34;The hypothesis that a targeted immune-mediated or autoimmune attack causes the specific degeneration of hypocretin neurons arose mainly through the discovery of genetic associations, first with the HLA-DQB1*06:02 allele and then with the T-cell receptor α locus.&#34;
     explanation: Genetic associations with HLA and TCR loci strongly support autoimmune etiology.
   - reference: PMID:32227223
@@ -4178,6 +4364,7 @@ phenotypes:
   - reference: PMID:25728441
     reference_title: &#34;Hypocretin (orexin) biology and the pathophysiology of narcolepsy with cataplexy.&#34;
     supports: SUPPORT
+    evidence_source: OTHER
     snippet: &#34;Narcolepsy with cataplexy is caused by hypocretin deficiency owing to destruction of most of the hypocretin-producing neurons in the hypothalamus.&#34;
     explanation: Cataplexy is the defining feature that distinguishes Type 1 narcolepsy and is caused by hypocretin deficiency.
   phenotype_term:
@@ -4193,6 +4380,7 @@ phenotypes:
   - reference: PMID:25728441
     reference_title: &#34;Hypocretin (orexin) biology and the pathophysiology of narcolepsy with cataplexy.&#34;
     supports: SUPPORT
+    evidence_source: OTHER
     snippet: &#34;Narcolepsy with cataplexy is caused by hypocretin deficiency owing to destruction of most of the hypocretin-producing neurons in the hypothalamus.&#34;
     explanation: Sleep paralysis is part of the narcolepsy symptom tetrad resulting from hypocretin deficiency.
   phenotype_term:
@@ -4208,6 +4396,7 @@ phenotypes:
   - reference: PMID:25728441
     reference_title: &#34;Hypocretin (orexin) biology and the pathophysiology of narcolepsy with cataplexy.&#34;
     supports: SUPPORT
+    evidence_source: OTHER
     snippet: &#34;Narcolepsy with cataplexy is caused by hypocretin deficiency&#34;
     explanation: Hypnagogic hallucinations are part of the classic narcolepsy tetrad resulting from REM sleep intrusion.
   phenotype_term:
@@ -4223,6 +4412,7 @@ phenotypes:
   - reference: PMID:25728441
     reference_title: &#34;Hypocretin (orexin) biology and the pathophysiology of narcolepsy with cataplexy.&#34;
     supports: SUPPORT
+    evidence_source: OTHER
     snippet: &#34;Narcolepsy with cataplexy is caused by hypocretin deficiency owing to destruction of most of the hypocretin-producing neurons in the hypothalamus.&#34;
     explanation: Fragmented nighttime sleep results from impaired sleep-wake regulation due to orexin neuron loss.
   phenotype_term:
@@ -4251,6 +4441,7 @@ genetic:
   - reference: PMID:25728441
     reference_title: &#34;Hypocretin (orexin) biology and the pathophysiology of narcolepsy with cataplexy.&#34;
     supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
     snippet: &#34;Ablation of hypocretin or hypocretin receptors also leads to narcolepsy phenotypes in animal models.&#34;
     explanation: Demonstrates that loss of hypocretin gene function causes narcolepsy.
 - name: HCRTR2
@@ -4260,6 +4451,7 @@ genetic:
   - reference: PMID:25728441
     reference_title: &#34;Hypocretin (orexin) biology and the pathophysiology of narcolepsy with cataplexy.&#34;
     supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
     snippet: &#34;Ablation of hypocretin or hypocretin receptors also leads to narcolepsy phenotypes in animal models.&#34;
     explanation: Confirms that hypocretin receptor mutations cause narcolepsy in animal models.
 environmental:
@@ -4380,11 +4572,1221 @@ classifications:
   harrisons_chapter:
   - classification_value: nervous system disorder
 datasets:
+references:
+- reference: DOI:10.1001/archneur.59.10.1553
+  title: The Role of Cerebrospinal Fluid Hypocretin Measurement in the Diagnosis of Narcolepsy and Other Hypersomnias
+  found_in:
+  - Narcolepsy-deep-research-falcon.md
+  findings:
+  - statement: The Role of Cerebrospinal Fluid Hypocretin Measurement in the Diagnosis of Narcolepsy and Other Hypersomnias
+    supporting_text: The Role of Cerebrospinal Fluid Hypocretin Measurement in the Diagnosis of Narcolepsy and Other Hypersomnias
+- reference: DOI:10.1016/j.sleepx.2024.100122
+  title: &#39;RESTORE: Once-nightly oxybate dosing preference and nocturnal experience with twice-nightly oxybates&#39;
+  found_in:
+  - Narcolepsy-deep-research-falcon.md
+  findings:
+  - statement: &#39;RESTORE: Once-nightly oxybate dosing preference and nocturnal experience with twice-nightly oxybates&#39;
+    supporting_text: &#39;RESTORE: Once-nightly oxybate dosing preference and nocturnal experience with twice-nightly oxybates&#39;
+- reference: DOI:10.1038/s41598-024-70594-1
+  title: TAK-861, a potent, orally available orexin receptor 2-selective agonist, produces wakefulness in monkeys and improves narcolepsy-like phenotypes in mouse models
+  found_in:
+  - Narcolepsy-deep-research-falcon.md
+  findings:
+  - statement: Narcolepsy type 1 (NT1) is associated with severe loss of orexin neurons and characterized by symptoms including excessive daytime sleepiness and cataplexy.
+    supporting_text: Narcolepsy type 1 (NT1) is associated with severe loss of orexin neurons and characterized by symptoms including excessive daytime sleepiness and cataplexy.
+    evidence:
+    - reference: DOI:10.1038/s41598-024-70594-1
+      reference_title: TAK-861, a potent, orally available orexin receptor 2-selective agonist, produces wakefulness in monkeys and improves narcolepsy-like phenotypes in mouse models
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: Narcolepsy type 1 (NT1) is associated with severe loss of orexin neurons and characterized by symptoms including excessive daytime sleepiness and cataplexy.
+      explanation: Deep research cited this publication as relevant literature for Narcolepsy.
+- reference: DOI:10.1056/nejmoa2405847
+  title: Oveporexton, an Oral Orexin Receptor 2–Selective Agonist, in Narcolepsy Type 1
+  found_in:
+  - Narcolepsy-deep-research-falcon.md
+  findings:
+  - statement: Oveporexton, an Oral Orexin Receptor 2–Selective Agonist, in Narcolepsy Type 1
+    supporting_text: Oveporexton, an Oral Orexin Receptor 2–Selective Agonist, in Narcolepsy Type 1
+- reference: DOI:10.1111/iji.12688
+  title: High‐resolution HLA sequencing and hypocretin receptor 2 autoantibodies in narcolepsy type 1 and type 2
+  found_in:
+  - Narcolepsy-deep-research-falcon.md
+  findings:
+  - statement: Narcolepsy is a sleep disorder caused by an apparent degeneration of orexin/hypocretin neurons in the lateral hypothalamic area and a subsequent decrease in orexin/hypocretin levels in the cerebrospinal fluid.
+    supporting_text: Narcolepsy is a sleep disorder caused by an apparent degeneration of orexin/hypocretin neurons in the lateral hypothalamic area and a subsequent decrease in orexin/hypocretin levels in the cerebrospinal fluid.
+    evidence:
+    - reference: DOI:10.1111/iji.12688
+      reference_title: High‐resolution HLA sequencing and hypocretin receptor 2 autoantibodies in narcolepsy type 1 and type 2
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Narcolepsy is a sleep disorder caused by an apparent degeneration of orexin/hypocretin neurons in the lateral hypothalamic area and a subsequent decrease in orexin/hypocretin levels in the cerebrospinal fluid.
+      explanation: Deep research cited this publication as relevant literature for Narcolepsy.
+- reference: DOI:10.1111/jsr.14277
+  title: Narcolepsy and rapid eye movement sleep
+  found_in:
+  - Narcolepsy-deep-research-falcon.md
+  findings:
+  - statement: Since the first description of narcolepsy at the end of the 19th Century, great progress has been made.
+    supporting_text: Since the first description of narcolepsy at the end of the 19th Century, great progress has been made.
+    evidence:
+    - reference: DOI:10.1111/jsr.14277
+      reference_title: Narcolepsy and rapid eye movement sleep
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Since the first description of narcolepsy at the end of the 19th Century, great progress has been made.
+      explanation: Deep research cited this publication as relevant literature for Narcolepsy.
+- reference: DOI:10.3389/fphar.2024.1415918
+  title: &#39;Evaluation of pitolisant, sodium oxybate, solriamfetol, and modafinil for the management of narcolepsy: a retrospective analysis of the FAERS database&#39;
+  found_in:
+  - Narcolepsy-deep-research-falcon.md
+  findings:
+  - statement: Narcolepsy, a rare neurological disorder believed to have an autoimmune etiology, necessitates lifelong management.
+    supporting_text: Narcolepsy, a rare neurological disorder believed to have an autoimmune etiology, necessitates lifelong management.
+    evidence:
+    - reference: DOI:10.3389/fphar.2024.1415918
+      reference_title: &#39;Evaluation of pitolisant, sodium oxybate, solriamfetol, and modafinil for the management of narcolepsy: a retrospective analysis of the FAERS database&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Narcolepsy, a rare neurological disorder believed to have an autoimmune etiology, necessitates lifelong management.
+      explanation: Deep research cited this publication as relevant literature for Narcolepsy.
+- reference: DOI:10.3389/fpsyt.2026.1799520
+  title: &#39;Narcolepsy as an immune-associated hypothalamic encephalopathy: orexin dysfunction and implications for precision sleep medicine&#39;
+  found_in:
+  - Narcolepsy-deep-research-falcon.md
+  findings:
+  - statement: Narcolepsy can no longer be adequately conceptualized by excessive sleepiness and cataplexy.
+    supporting_text: Narcolepsy can no longer be adequately conceptualized by excessive sleepiness and cataplexy.
+    evidence:
+    - reference: DOI:10.3389/fpsyt.2026.1799520
+      reference_title: &#39;Narcolepsy as an immune-associated hypothalamic encephalopathy: orexin dysfunction and implications for precision sleep medicine&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Narcolepsy can no longer be adequately conceptualized by excessive sleepiness and cataplexy.
+      explanation: Deep research cited this publication as relevant literature for Narcolepsy.
+- reference: DOI:10.3390/ctn8030025
+  title: &#39;Pediatric Narcolepsy Type 1: A State-of-the-Art Review&#39;
+  found_in:
+  - Narcolepsy-deep-research-falcon.md
+  findings:
+  - statement: Narcolepsy is a chronic central disorder of hypersomnolence most frequently arising during childhood/adolescence.
+    supporting_text: Narcolepsy is a chronic central disorder of hypersomnolence most frequently arising during childhood/adolescence.
+    evidence:
+    - reference: DOI:10.3390/ctn8030025
+      reference_title: &#39;Pediatric Narcolepsy Type 1: A State-of-the-Art Review&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Narcolepsy is a chronic central disorder of hypersomnolence most frequently arising during childhood/adolescence.
+      explanation: Deep research cited this publication as relevant literature for Narcolepsy.
+- reference: DOI:10.3390/ijms252211914
+  title: &#39;The Role of T Cells in the Pathogenesis of Narcolepsy Type 1: A Narrative Review&#39;
+  found_in:
+  - Narcolepsy-deep-research-falcon.md
+  findings:
+  - statement: Narcolepsy type 1 (NT1) is an uncommon, persistent sleep disorder distinguished by significant daytime sleepiness, episodes of cataplexy, and irregularities in rapid eye movement sleep.
+    supporting_text: Narcolepsy type 1 (NT1) is an uncommon, persistent sleep disorder distinguished by significant daytime sleepiness, episodes of cataplexy, and irregularities in rapid eye movement sleep.
+    evidence:
+    - reference: DOI:10.3390/ijms252211914
+      reference_title: &#39;The Role of T Cells in the Pathogenesis of Narcolepsy Type 1: A Narrative Review&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Narcolepsy type 1 (NT1) is an uncommon, persistent sleep disorder distinguished by significant daytime sleepiness, episodes of cataplexy, and irregularities in rapid eye movement sleep.
+      explanation: Deep research cited this publication as relevant literature for Narcolepsy.
+- reference: DOI:10.3390/jcm14238444
+  title: A Comprehensive Review of Current and Emerging Treatments for Narcolepsy Type 1
+  found_in:
+  - Narcolepsy-deep-research-falcon.md
+  findings:
+  - statement: A Comprehensive Review of Current and Emerging Treatments for Narcolepsy Type 1
+    supporting_text: Narcolepsy Type 1 (NT1) is a rare chronic neurological disorder characterized by core clinical manifestations such as excessive daytime sleepiness (EDS), cataplexy, sleep paralysis (SP), hypnagogic and hypnopompic hallucinations (HHs), and disrupted nocturnal sleep (DNS).
+    evidence:
+    - reference: DOI:10.3390/jcm14238444
+      reference_title: A Comprehensive Review of Current and Emerging Treatments for Narcolepsy Type 1
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Narcolepsy Type 1 (NT1) is a rare chronic neurological disorder characterized by core clinical manifestations such as excessive daytime sleepiness (EDS), cataplexy, sleep paralysis (SP), hypnagogic and hypnopompic hallucinations (HHs), and disrupted nocturnal sleep (DNS).
+      explanation: Deep research cited this publication as relevant literature for Narcolepsy.
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
+        
+        <div class="card reference-card" id="references-deep-research">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+            
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">11</span>
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1001/archneur.59.10.1553" target="_blank">DOI:10.1001/archneur.59.10.1553</a>
+                            </div>
+                            
+                            <div class="reference-title">The Role of Cerebrospinal Fluid Hypocretin Measurement in the Diagnosis of Narcolepsy and Other Hypersomnias</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The Role of Cerebrospinal Fluid Hypocretin Measurement in the Diagnosis of Narcolepsy and Other Hypersomnias</div>
+            
+            
+            <div class="reference-finding-supporting">"The Role of Cerebrospinal Fluid Hypocretin Measurement in the Diagnosis of Narcolepsy and Other Hypersomnias"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1016/j.sleepx.2024.100122" target="_blank">DOI:10.1016/j.sleepx.2024.100122</a>
+                            </div>
+                            
+                            <div class="reference-title">RESTORE: Once-nightly oxybate dosing preference and nocturnal experience with twice-nightly oxybates</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">RESTORE: Once-nightly oxybate dosing preference and nocturnal experience with twice-nightly oxybates</div>
+            
+            
+            <div class="reference-finding-supporting">"RESTORE: Once-nightly oxybate dosing preference and nocturnal experience with twice-nightly oxybates"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1038/s41598-024-70594-1" target="_blank">DOI:10.1038/s41598-024-70594-1</a>
+                            </div>
+                            
+                            <div class="reference-title">TAK-861, a potent, orally available orexin receptor 2-selective agonist, produces wakefulness in monkeys and improves narcolepsy-like phenotypes in mouse models</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Narcolepsy type 1 (NT1) is associated with severe loss of orexin neurons and characterized by symptoms including excessive daytime sleepiness and cataplexy.</div>
+            
+            
+            <div class="reference-finding-supporting">"Narcolepsy type 1 (NT1) is associated with severe loss of orexin neurons and characterized by symptoms including excessive daytime sleepiness and cataplexy."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41598-024-70594-1" target="_blank">DOI:10.1038/s41598-024-70594-1</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Narcolepsy type 1 (NT1) is associated with severe loss of orexin neurons and characterized by symptoms including excessive daytime sleepiness and cataplexy."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Narcolepsy.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1056/nejmoa2405847" target="_blank">DOI:10.1056/nejmoa2405847</a>
+                            </div>
+                            
+                            <div class="reference-title">Oveporexton, an Oral Orexin Receptor 2–Selective Agonist, in Narcolepsy Type 1</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Oveporexton, an Oral Orexin Receptor 2–Selective Agonist, in Narcolepsy Type 1</div>
+            
+            
+            <div class="reference-finding-supporting">"Oveporexton, an Oral Orexin Receptor 2–Selective Agonist, in Narcolepsy Type 1"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1111/iji.12688" target="_blank">DOI:10.1111/iji.12688</a>
+                            </div>
+                            
+                            <div class="reference-title">High‐resolution HLA sequencing and hypocretin receptor 2 autoantibodies in narcolepsy type 1 and type 2</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Narcolepsy is a sleep disorder caused by an apparent degeneration of orexin/hypocretin neurons in the lateral hypothalamic area and a subsequent decrease in orexin/hypocretin levels in the cerebrospinal fluid.</div>
+            
+            
+            <div class="reference-finding-supporting">"Narcolepsy is a sleep disorder caused by an apparent degeneration of orexin/hypocretin neurons in the lateral hypothalamic area and a subsequent decrease in orexin/hypocretin levels in the cerebrospinal fluid."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1111/iji.12688" target="_blank">DOI:10.1111/iji.12688</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Narcolepsy is a sleep disorder caused by an apparent degeneration of orexin/hypocretin neurons in the lateral hypothalamic area and a subsequent decrease in orexin/hypocretin levels in the cerebrospinal fluid."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Narcolepsy.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1111/jsr.14277" target="_blank">DOI:10.1111/jsr.14277</a>
+                            </div>
+                            
+                            <div class="reference-title">Narcolepsy and rapid eye movement sleep</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Since the first description of narcolepsy at the end of the 19th Century, great progress has been made.</div>
+            
+            
+            <div class="reference-finding-supporting">"Since the first description of narcolepsy at the end of the 19th Century, great progress has been made."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1111/jsr.14277" target="_blank">DOI:10.1111/jsr.14277</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Since the first description of narcolepsy at the end of the 19th Century, great progress has been made."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Narcolepsy.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3389/fphar.2024.1415918" target="_blank">DOI:10.3389/fphar.2024.1415918</a>
+                            </div>
+                            
+                            <div class="reference-title">Evaluation of pitolisant, sodium oxybate, solriamfetol, and modafinil for the management of narcolepsy: a retrospective analysis of the FAERS database</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Narcolepsy, a rare neurological disorder believed to have an autoimmune etiology, necessitates lifelong management.</div>
+            
+            
+            <div class="reference-finding-supporting">"Narcolepsy, a rare neurological disorder believed to have an autoimmune etiology, necessitates lifelong management."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fphar.2024.1415918" target="_blank">DOI:10.3389/fphar.2024.1415918</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Narcolepsy, a rare neurological disorder believed to have an autoimmune etiology, necessitates lifelong management."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Narcolepsy.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3389/fpsyt.2026.1799520" target="_blank">DOI:10.3389/fpsyt.2026.1799520</a>
+                            </div>
+                            
+                            <div class="reference-title">Narcolepsy as an immune-associated hypothalamic encephalopathy: orexin dysfunction and implications for precision sleep medicine</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Narcolepsy can no longer be adequately conceptualized by excessive sleepiness and cataplexy.</div>
+            
+            
+            <div class="reference-finding-supporting">"Narcolepsy can no longer be adequately conceptualized by excessive sleepiness and cataplexy."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fpsyt.2026.1799520" target="_blank">DOI:10.3389/fpsyt.2026.1799520</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Narcolepsy can no longer be adequately conceptualized by excessive sleepiness and cataplexy."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Narcolepsy.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/ctn8030025" target="_blank">DOI:10.3390/ctn8030025</a>
+                            </div>
+                            
+                            <div class="reference-title">Pediatric Narcolepsy Type 1: A State-of-the-Art Review</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Narcolepsy is a chronic central disorder of hypersomnolence most frequently arising during childhood/adolescence.</div>
+            
+            
+            <div class="reference-finding-supporting">"Narcolepsy is a chronic central disorder of hypersomnolence most frequently arising during childhood/adolescence."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/ctn8030025" target="_blank">DOI:10.3390/ctn8030025</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Narcolepsy is a chronic central disorder of hypersomnolence most frequently arising during childhood/adolescence."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Narcolepsy.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/ijms252211914" target="_blank">DOI:10.3390/ijms252211914</a>
+                            </div>
+                            
+                            <div class="reference-title">The Role of T Cells in the Pathogenesis of Narcolepsy Type 1: A Narrative Review</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Narcolepsy type 1 (NT1) is an uncommon, persistent sleep disorder distinguished by significant daytime sleepiness, episodes of cataplexy, and irregularities in rapid eye movement sleep.</div>
+            
+            
+            <div class="reference-finding-supporting">"Narcolepsy type 1 (NT1) is an uncommon, persistent sleep disorder distinguished by significant daytime sleepiness, episodes of cataplexy, and irregularities in rapid eye movement sleep."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/ijms252211914" target="_blank">DOI:10.3390/ijms252211914</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Narcolepsy type 1 (NT1) is an uncommon, persistent sleep disorder distinguished by significant daytime sleepiness, episodes of cataplexy, and irregularities in rapid eye movement sleep."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Narcolepsy.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/jcm14238444" target="_blank">DOI:10.3390/jcm14238444</a>
+                            </div>
+                            
+                            <div class="reference-title">A Comprehensive Review of Current and Emerging Treatments for Narcolepsy Type 1</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">A Comprehensive Review of Current and Emerging Treatments for Narcolepsy Type 1</div>
+            
+            
+            <div class="reference-finding-supporting">"Narcolepsy Type 1 (NT1) is a rare chronic neurological disorder characterized by core clinical manifestations such as excessive daytime sleepiness (EDS), cataplexy, sleep paralysis (SP), hypnagogic and hypnopompic hallucinations (HHs), and disrupted nocturnal sleep (DNS)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/jcm14238444" target="_blank">DOI:10.3390/jcm14238444</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Narcolepsy Type 1 (NT1) is a rare chronic neurological disorder characterized by core clinical manifestations such as excessive daytime sleepiness (EDS), cataplexy, sleep paralysis (SP), hypnagogic and hypnopompic hallucinations (HHs), and disrupted nocturnal sleep (DNS)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Narcolepsy.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">Narcolepsy (Neurological) — Disease Characteristics Research Report</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">47 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-10T06:25:31.387682</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <h1>Narcolepsy (Neurological) — Disease Characteristics Research Report</h1>
+<h2>Target disease</h2>
+<p>Narcolepsy is a chronic central disorder of hypersomnolence characterized by excessive daytime sleepiness (EDS) with rapid-eye-movement (REM) sleep dysregulation, and is currently classified into <strong>narcolepsy type 1 (NT1)</strong> and <strong>narcolepsy type 2 (NT2)</strong>. NT1 is strongly linked to <strong>orexin/hypocretin deficiency</strong> and commonly includes <strong>cataplexy</strong>; NT2 lacks cataplexy and typically does not show orexin deficiency, with etiology less well established. (biscarini2025narcolepsyandrapid pages 1-2, xu2025acomprehensivereview pages 1-2)</p>
+<h3>Key identifiers (OMIM/Orphanet/ICD/MeSH/MONDO)</h3>
+<p>The retrieved full texts did <strong>not</strong> contain authoritative identifier mappings (ICD-10/ICD-11, MeSH, OMIM, Orphanet, MONDO). Therefore, these identifiers cannot be populated from the current evidence set and should be curated from dedicated terminologies (e.g., ICD/MeSH/MONDO/Orphanet) outside this tool run.</p>
+<h3>Common synonyms/alternate names</h3>
+<ul>
+<li>Narcolepsy with cataplexy (historical; largely aligns with NT1) (ariascarrion2026narcolepsyasan pages 3-4)</li>
+<li>Narcolepsy without cataplexy (historical; overlaps NT2 and “borderland” phenotypes) (ariascarrion2026narcolepsyasan pages 3-4)</li>
+<li>Hypocretin/orexin-deficient narcolepsy (NT1 phenotype emphasis) (xu2025acomprehensivereview pages 1-2, mignot2002theroleof pages 5-6)</li>
+</ul>
+<h3>Source type note</h3>
+<p>This report integrates <strong>aggregated disease-level resources</strong> (reviews, cohorts, pharmacovigilance databases) and some <strong>patient-level</strong> evidence (e.g., clinical diagnostic criteria tables compiled in reviews). (baldini2024pediatricnarcolepsytype pages 1-2, zhou2024evaluationofpitolisant pages 1-2)</p>
+<h2>1. Disease information (current understanding)</h2>
+<p>Narcolepsy is now commonly conceptualized as a disorder of sleep–wake and REM-state boundary control. A modern “systems” view emphasizes multisystem consequences of hypothalamic orexin dysfunction rather than only the classic symptom pentad. (ariascarrion2026narcolepsyasan pages 2-3)</p>
+<p><strong>Direct abstract-supported definition/overview:</strong> A review of REM sleep and narcolepsy summarizes that narcolepsy is divided into NT1 and NT2, with key criteria relying on SOREMPs captured on polysomnography (PSG) and the Multiple Sleep Latency Test (MSLT), and that NT1 mechanisms are partly elucidated through <strong>HLA association</strong> and <strong>orexin/hypocretin deficiency</strong>. (biscarini2025narcolepsyandrapid pages 1-2)</p>
+<h2>2. Etiology</h2>
+<h3>2.1 Primary causal factors</h3>
+<h4>NT1: orexin neuron loss with strong immune association</h4>
+<p>NT1 is linked to selective loss/dysfunction of hypothalamic orexin-producing neurons and is increasingly supported as an immune-mediated disease in genetically predisposed individuals. (xu2025acomprehensivereview pages 1-2, ariascarrion2026narcolepsyasan pages 5-6)</p>
+<p>A narrative review of T-cell involvement states that NT1 can be understood via interplay of <strong>genetic predisposition (notably HLA-DQB1*06:02)</strong>, environmental triggers (e.g., H1N1 infection/vaccination), and immune mechanisms leading to hypocretin neuronal loss. (xu2024theroleof pages 1-2)</p>
+<h4>NT2: heterogeneous/less defined</h4>
+<p>NT2 typically lacks cataplexy and orexin deficiency; its causes remain less well defined. However, subgroups with intermediate orexin levels may overlap immunogenetically with NT1. (biscarini2025narcolepsyandrapid pages 1-2, hamdan2024high‐resolutionhlasequencing pages 1-2, hamdan2024high‐resolutionhlasequencing pages 3-3)</p>
+<h3>2.2 Risk factors</h3>
+<h4>Genetic risk factors</h4>
+<ul>
+<li><strong>HLA-DQB1*06:02 / extended haplotypes</strong>: In a Swedish cohort, NT1 showed strong association with DRB5<em>01:01:01–DRB1</em>15:01:01–DQA1<em>01:02:01–DQB1</em>06:02:01 (OR 7.01, 95% CI 3.97–12.37) and additional genotype combinations reaching OR 23.61 (95% CI 4.48–110.76). (hamdan2024high‐resolutionhlasequencing pages 4-5)</li>
+<li><strong>HLA frequency enrichment</strong>: A 2024 review notes DQB1*06:02 is present in ~98% of NT1 with cataplexy vs ~25% of the general population, and that homozygosity increases risk vs heterozygosity. (xu2024theroleof pages 2-3)</li>
+<li><strong>Non-HLA immune loci</strong>: Reported susceptibility loci include TRA (T-cell receptor alpha locus), CTSH, PPAN, P2RY11, IL10RB, and CPT1B, consistent with immune and T-cell biology. (xu2024theroleof pages 3-5, xu2024theroleof pages 2-3)</li>
+</ul>
+<h4>Environmental/infectious and vaccine-associated risk factors</h4>
+<ul>
+<li><strong>Influenza A/H1N1 infection and AS03-adjuvanted Pandemrix vaccination (2009–2010)</strong> are repeatedly highlighted as environmental triggers linked to increased NT1 incidence in specific settings. (xu2024theroleof pages 1-2, xu2024theroleof pages 3-5, ariascarrion2026narcolepsyasan pages 5-6)</li>
+</ul>
+<h3>2.3 Protective factors</h3>
+<p>The retrieved evidence did not provide clearly defined protective genetic variants or modifiable environmental protective factors for narcolepsy in a way that can be summarized with specificity.</p>
+<h3>2.4 Gene–environment interaction (G×E)</h3>
+<p>The most consistent G×E framework in the retrieved literature is <strong>HLA-driven antigen presentation + environmental priming</strong> (H1N1 infection/vaccination) leading to <strong>T-cell activation</strong> and ultimately selective injury of orexin neurons. (xu2024theroleof pages 1-2, xu2024theroleof pages 7-8, ariascarrion2026narcolepsyasan pages 5-6)</p>
+<h2>3. Phenotypes (clinical features)</h2>
+<h3>3.1 Core phenotypes (symptoms/signs)</h3>
+<p><strong>Classic symptom cluster</strong> often includes EDS, cataplexy (NT1), disrupted nighttime sleep, sleep paralysis, and hypnagogic/hypnopompic hallucinations. Pediatric NT1 reviews explicitly enumerate these as core symptoms. (baldini2024pediatricnarcolepsytype pages 1-2, baldini2024pediatricnarcolepsytype pages 2-4)</p>
+<p><strong>Pediatric-specific presentation nuances</strong>
+* EDS may be “masked” by hyperactivity/irritability and may be misdiagnosed as ADHD. (baldini2024pediatricnarcolepsytype pages 2-4)
+* Cataplexy in children may have atypical semiology (“cataplectic facies” with facial hypotonia/ptosis and mixed hyperactive movements). (baldini2024pediatricnarcolepsytype pages 2-4)</p>
+<h3>3.2 Frequency, onset, progression (where available)</h3>
+<ul>
+<li><strong>Disturbed nighttime sleep (DNS) frequency in pediatric NT1</strong>: 53–78%. (baldini2024pediatricnarcolepsytype pages 2-4)</li>
+<li><strong>RBD in young patients with NT1</strong>: NT1 reported as leading cause of RBD in young patients (up to 60%). (baldini2024pediatricnarcolepsytype pages 2-4)</li>
+<li><strong>Diagnostic/phenotype proportions in a spectrum framing</strong>: A review proposes proportions such as “typical cataplexy and all biological markers” 50–80%, with additional borderland groups. (ariascarrion2026narcolepsyasan pages 2-3)</li>
+</ul>
+<h3>3.3 Quality-of-life impact</h3>
+<p>A pediatric state-of-the-art review emphasizes that NT1 impairs children’s quality of life and supports early diagnosis and multidisciplinary management, including behavioral and psychosocial interventions. (baldini2024pediatricnarcolepsytype pages 1-2)</p>
+<h3>3.4 Suggested HPO terms (non-exhaustive, mapping suggestions)</h3>
+<p>The retrieved sources support the following phenotype constructs; HPO codes should be verified in an ontology browser:
+* Excessive daytime sleepiness (EDS) (baldini2024pediatricnarcolepsytype pages 2-4)
+* Cataplexy (baldini2024pediatricnarcolepsytype pages 2-4)
+* Sleep paralysis (baldini2024pediatricnarcolepsytype pages 1-2)
+* Hypnagogic/hypnopompic hallucinations (baldini2024pediatricnarcolepsytype pages 1-2)
+* Fragmented sleep / disturbed nighttime sleep (baldini2024pediatricnarcolepsytype pages 2-4)
+* REM sleep behavior disorder (baldini2024pediatricnarcolepsytype pages 2-4)
+* Rapid weight gain/obesity (pediatric onset-associated) (biscarini2025narcolepsyandrapid pages 5-6)
+* Precocious puberty (pediatric onset-associated) (biscarini2025narcolepsyandrapid pages 5-6)</p>
+<h2>4. Genetic / molecular information</h2>
+<h3>4.1 Causal genes</h3>
+<p>For idiopathic NT1, the dominant genetic signal is polygenic (not a single Mendelian “causal gene”). However, a REM-sleep/narcolepsy review notes that a <strong>canine model</strong> identified mutations in the <strong>orexin receptor 2</strong> pathway (historically important to orexin biology). (biscarini2025narcolepsyandrapid pages 1-2)</p>
+<h3>4.2 Susceptibility loci (selected)</h3>
+<ul>
+<li>HLA class II region including DQB1*06:02 and extended haplotypes (hamdan2024high‐resolutionhlasequencing pages 4-5, xu2024theroleof pages 2-3)</li>
+<li>TRA locus (TCR alpha chain) (xu2024theroleof pages 2-3)</li>
+<li>Additional loci reported in a 2024 T-cell narrative review: CTSH rs34593439, PPAN rs1551570, P2RY11 rs2305795, IL10RB rs2834188, CPT1B rs5770917 (xu2024theroleof pages 3-5)</li>
+</ul>
+<h3>4.3 Biomarkers</h3>
+<h4>CSF hypocretin-1 (orexin-A)</h4>
+<p>A landmark diagnostic study defined <strong>CSF hypocretin-1 ≤110 pg/mL</strong> as a best-performing diagnostic cutoff (with &gt;200 pg/mL considered normal), and in “typical cataplexy” reported <strong>sensitivity 87% and specificity 99%</strong>. (mignot2002theroleof pages 5-6, mignot2002theroleof pages 8-9)</p>
+<h4>Autoantibodies</h4>
+<p>A 2024 high-resolution HLA/autoantibody study found <strong>no difference</strong> in anti-HCRTR2 autoantibody levels across NT1, NT2, idiopathic hypersomnia, and general population controls (p=.8524), suggesting hypocretin receptor 2 is unlikely to be a major autoimmune target in these cohorts. (hamdan2024high‐resolutionhlasequencing pages 1-2, hamdan2024high‐resolutionhlasequencing pages 6-6)</p>
+<h3>4.4 Epigenetics / omics</h3>
+<p>The retrieved evidence notes that epigenetic alterations have been reported (e.g., within immune loci), but does not provide specific methylation loci or standardized effect sizes in the excerpts available here. (xu2024theroleof pages 14-15, ariascarrion2026narcolepsyasan pages 7-8)</p>
+<h2>5. Mechanism / pathophysiology</h2>
+<h3>5.1 Causal chain (NT1; synthesis)</h3>
+<p>1) <strong>Genetic susceptibility</strong>: strong HLA class II association (e.g., DQB1<em>06:02) and additional immune/TCR loci (xu2024theroleof pages 2-3, hamdan2024high‐resolutionhlasequencing pages 4-5)
+2) </em><em>Environmental priming</em><em>: H1N1 influenza infection and/or Pandemrix vaccination in specific outbreaks (xu2024theroleof pages 1-2, xu2024theroleof pages 3-5)
+3) </em><em>Immune activation and autoimmunity</em><em>: evidence supports autoreactive CD4+ and CD8+ T cells targeting orexin-related antigens; molecular mimicry is plausible but not fully resolved across studies (xu2024theroleof pages 7-8, ariascarrion2026narcolepsyasan pages 5-6)
+4) </em><em>Selective orexin neuron loss/dysfunction</em><em>: substantial neuron loss has been estimated (75–95% loss in NT1 described in a systems review) (ariascarrion2026narcolepsyasan pages 5-6)
+5) </em><em>Network-level consequences</em>*: destabilized wake maintenance and REM boundary control producing EDS, SOREMPs, cataplexy, hallucinations, and sleep paralysis (xu2025acomprehensivereview pages 9-11, biscarini2025narcolepsyandrapid pages 1-2)</p>
+<h3>5.2 Cell types (CL suggestions) and biological processes (GO suggestions)</h3>
+<p>Evidence supports immune effector involvement and hypothalamic neuron injury:
+* <strong>CL terms (suggested)</strong>: CD4-positive T cell; CD8-positive T cell; hypothalamic orexin neuron; histaminergic neuron (TMN) (TAK-861 depolarizes TMN histaminergic neurons via OX2R) (xu2024theroleof pages 7-8, mitsukawa2024tak861apotent pages 2-3)
+* <strong>GO biological processes (suggested)</strong>: antigen processing and presentation (MHC class II); T cell activation; IFN-γ–mediated signaling and MHC I upregulation; regulation of sleep–wake cycle; regulation of REM sleep (xu2024theroleof pages 7-8, biscarini2025narcolepsyandrapid pages 1-2)</p>
+<h3>5.3 Anatomical localization (UBERON suggestions)</h3>
+<ul>
+<li>Lateral hypothalamic area (orexin neuron field) (ariascarrion2026narcolepsyasan pages 3-4)</li>
+<li>Hypothalamus (disease framing as hypothalamic encephalopathy) (ariascarrion2026narcolepsyasan pages 2-3)</li>
+</ul>
+<h2>6. Epidemiology, inheritance, and population</h2>
+<h3>6.1 Prevalence/incidence (selected values present in retrieved sources)</h3>
+<ul>
+<li>A treatment review describes NT1 prevalence as approximately <strong>~1 in 2000</strong>. (xu2025acomprehensivereview pages 1-2)</li>
+<li>A systems review summarizes examples of claims/survey-based estimates (not a primary epidemiology study): U.S. prevalence <strong>37.7/100,000</strong> and incidence <strong>2.6/100,000 person-years</strong>; Japan claims prevalence <strong>~37.5/100,000</strong> and incidence <strong>5.1/100,000 person-years</strong>, with substantial geographic variation and diagnostic uncertainty (notably for NT2). (ariascarrion2026narcolepsyasan pages 3-4)</li>
+</ul>
+<h3>6.2 Inheritance pattern</h3>
+<p>The evidence supports narcolepsy (especially NT1) as <strong>multifactorial/polygenic</strong> with strong HLA association rather than Mendelian inheritance. (xu2024theroleof pages 2-3, xu2024theroleof pages 3-5)</p>
+<h3>6.3 Demographics and heterogeneity</h3>
+<p>Pediatric narcolepsy is emphasized as frequently beginning in childhood/adolescence, and pediatric phenotype has distinctive features (e.g., weight gain and atypical cataplexy semiology). (biscarini2025narcolepsyandrapid pages 5-6, baldini2024pediatricnarcolepsytype pages 2-4)</p>
+<h2>7. Diagnostics</h2>
+<h3>7.1 Standard diagnostic criteria (ICSD-3-TR, 2023)</h3>
+<p>The pediatric NT1 review reproduces <strong>ICSD-3-TR (2023) diagnostic criteria</strong> for NT1 and NT2, including EDS duration, MSLT requirements (mean sleep latency ≤8 min and ≥2 SOREMPs), cataplexy status, and CSF hypocretin thresholds, and illustrates the ICSD-3-TR change that allows <strong>nocturnal PSG SOREMP + cataplexy</strong> to suffice for NT1 diagnosis even if MSLT is not definitive. (baldini2024pediatricnarcolepsytype media 3ad4bd72, baldini2024pediatricnarcolepsytype pages 8-9)</p>
+<h3>7.2 Core tests</h3>
+<ul>
+<li>Overnight PSG + MSLT remain key objective tests, anchored on SOREMP detection. (biscarini2025narcolepsyandrapid pages 1-2)</li>
+<li><strong>CSF hypocretin-1</strong> is described as the strongest biomarker in reviews and has robust test characteristics in foundational work. (ariascarrion2026narcolepsyasan pages 21-22, mignot2002theroleof pages 5-6)</li>
+</ul>
+<h3>7.3 Test performance and pediatric considerations</h3>
+<ul>
+<li><strong>Nocturnal SOREMP</strong> in pediatrics: reported specificity 97.3% and sensitivity 54.8% (reviewed pediatric data). (baldini2024pediatricnarcolepsytype pages 8-9)</li>
+<li><strong>CSF hypocretin</strong>: ≤110 pg/mL cutoff with high specificity and good sensitivity for typical cataplexy. (mignot2002theroleof pages 5-6, mignot2002theroleof pages 8-9)</li>
+</ul>
+<h3>7.4 Differential diagnosis highlights (from pediatric review excerpts)</h3>
+<p>Diagnostic workup emphasizes excluding insufficient sleep and circadian disorders (actigraphy 7–10 days), and distinguishing NT2 from idiopathic hypersomnia (IH) via SOREMP patterns and/or total sleep time. (baldini2024pediatricnarcolepsytype pages 9-11)</p>
+<h2>8. Treatment (current applications and real-world implementation)</h2>
+<h3>8.1 Symptomatic pharmacotherapy (current standard)</h3>
+<p>A synthesis review rates modafinil/armodafinil, solriamfetol, pitolisant, and sodium oxybate formulations as high-certainty, strong-recommendation symptomatic treatments. (ariascarrion2026narcolepsyasan pages 21-22)</p>
+<p><strong>Pediatric regulatory status and practice</strong>
+A pediatric NT1 review notes:
+* No approvals under age 6.
+* Sodium oxybate is approved by <strong>FDA and EMA for ages ≥7</strong>.
+* EMA approved <strong>pitolisant in 2023</strong> for patients &gt;6 years with or without cataplexy. (baldini2024pediatricnarcolepsytype pages 11-13)</p>
+<h3>8.2 Oxybate dosing innovations (real-world implementation)</h3>
+<p>RESTORE (2024) evaluated switching from twice-nightly immediate-release oxybate to once-nightly extended-release sodium oxybate:
+* <strong>93.9%</strong> (92/98) preferred once-nightly dosing.
+* Prior to switching, <strong>69.2%</strong> had missed the second dose at least once; nocturnal mobility after the second dose was common, with reported falls and injuries.
+* After switching, <strong>91.2%</strong> felt better able to follow the recommended dosing schedule.
+These data emphasize adherence/safety burdens of middle-of-the-night redosing and a real-world rationale for simplified regimens. (roy2024restoreoncenightlyoxybate pages 1-2, roy2024restoreoncenightlyoxybate pages 2-3)</p>
+<h3>8.3 Mechanism-based “orexin restoration” therapeutics (recent developments)</h3>
+<p>A major 2023–2024 development area is <strong>small-molecule OX2R agonists</strong> designed to replace deficient orexin signaling.</p>
+<p><strong>Preclinical evidence (2024): TAK-861 (oveporexton)</strong>
+A 2024 Scientific Reports study characterized TAK-861 as an oral OX2R-selective agonist with <strong>OX2R EC50 2.5 nM</strong> and ~3,000-fold selectivity over OX1R. It promoted wakefulness in mice and monkeys (minimum effective dose 1 mg/kg) and improved narcolepsy-like phenotypes in NT1 mouse models (orexin/ataxin-3 and orexin-tTA;TetO DTA), including reduced wake fragmentation and reduced cataplexy-like episodes. (mitsukawa2024tak861apotent pages 1-2, mitsukawa2024tak861apotent pages 3-4, mitsukawa2024tak861apotent pages 2-3, mitsukawa2024tak861apotent pages 10-11)</p>
+<p><strong>Clinical development (trial registry; real-world implementation horizon)</strong>
+Multiple trials are registered for orexin agonists including TAK-861 and danavorexton (TAK-925). Examples include completed and recruiting studies spanning Phase 1–3 (e.g., NCT05687903 Phase 2; Phase 3 trials listed for TAK-861; TAK-925 Phase 1 programs). (xu2025acomprehensivereview pages 9-11)</p>
+<h3>8.4 Safety signals and pharmacovigilance (recent data)</h3>
+<p>A 2024 FAERS analysis (2019–2023) identified signal counts: 50 signals/762 cases for pitolisant, 640/46,962 for sodium oxybate, 40/1,228 for solriamfetol, and 72/632 for modafinil. Psychiatric and nervous system disorders predominated; sodium oxybate showed strong respiratory-related signals (e.g., sleep apnea syndrome n=1326 with high disproportionality metrics) and hypertension signals. These are <strong>signal-detection outputs</strong> without denominators and cannot be interpreted as incidence rates, but they inform monitoring priorities. (zhou2024evaluationofpitolisant pages 1-2, zhou2024evaluationofpitolisant pages 8-9)</p>
+<h3>8.5 Suggested MAXO terms (treatment action ontology; mapping suggestions)</h3>
+<p>Based on interventions discussed:
+* Pharmacotherapy for hypersomnolence / wake promotion (modafinil/armodafinil/solriamfetol/pitolisant) (ariascarrion2026narcolepsyasan pages 21-22)
+* Oxybate therapy (sodium oxybate; low-sodium oxybate; once-nightly formulations) (roy2024restoreoncenightlyoxybate pages 1-2, baldini2024pediatricnarcolepsytype pages 11-13)
+* Orexin receptor agonist therapy (OX2R agonists) (mitsukawa2024tak861apotent pages 1-2)
+* Behavioral sleep intervention (planned naps, sleep hygiene, school programs) (baldini2024pediatricnarcolepsytype pages 1-2, baldini2024pediatricnarcolepsytype pages 11-13)</p>
+<h2>9. Prevention</h2>
+<h3>9.1 Primary prevention</h3>
+<p>No established primary prevention strategy exists for idiopathic NT1/NT2.</p>
+<h3>9.2 Secondary/tertiary prevention (complication reduction)</h3>
+<p>Evidence supports <strong>early diagnosis</strong> and multidisciplinary management in pediatrics to reduce educational/psychosocial impact, plus careful monitoring for comorbidities (metabolic/endocrine, psychiatric) and medication adverse effects. (baldini2024pediatricnarcolepsytype pages 1-2, baldini2024pediatricnarcolepsytype pages 14-15)</p>
+<h3>9.3 Vaccine-related considerations</h3>
+<p>Pandemrix-associated risk signals are part of the etiologic history in some countries, but causality and generalization to modern vaccines are complex; a recent immunology-focused narrative emphasizes that mechanistic mimicry is plausible but incompletely resolved and that findings vary across studies. (xu2024theroleof pages 7-8, ariascarrion2026narcolepsyasan pages 5-6)</p>
+<h2>10. Other species / natural disease and model organisms</h2>
+<h3>10.1 Model organisms used in current research</h3>
+<p>The orexin system has strong translational animal models. A 2024 preclinical therapeutic paper uses:
+* <strong>orexin/ataxin-3 mice</strong> (orexin neuron degeneration model)
+* <strong>orexin-tTA;TetO DTA mice</strong> (conditional orexin neuron ablation)
+These models support evaluation of orexin-pathway therapeutics for wake consolidation and cataplexy-like behaviors. (mitsukawa2024tak861apotent pages 1-2, mitsukawa2024tak861apotent pages 10-11)</p>
+<h3>10.2 Model limitations</h3>
+<p>The retrieved evidence emphasizes that models typically capture fragments of the human phenotype (e.g., cataplexy-like episodes, fragmentation) and are most directly aligned with NT1 biology rather than NT2 heterogeneity. (mitsukawa2024tak861apotent pages 1-2, biscarini2025narcolepsyandrapid pages 1-2)</p>
+<h2>11. Key recent evidence summary table</h2>
+<p>The following table consolidates the most actionable recent and foundational evidence captured in this tool run.</p>
+<table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>Key data/statistics</th>
+<th>Source (first author, year, journal)</th>
+<th>URL</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ICSD-3-TR diagnostic criteria</td>
+<td>2023 ICSD-3-TR allows NT1 diagnosis when cataplexy is present together with a nocturnal PSG SOREMP, even without relying on MSLT/hypocretin confirmation; standard criteria still include mean sleep latency ≤8 min and ≥2 SOREMPs, or CSF hypocretin-1 ≤110 pg/mL / &lt;1/3 of controls (baldini2024pediatricnarcolepsytype pages 8-9, baldini2024pediatricnarcolepsytype pages 1-2, baldini2024pediatricnarcolepsytype media 3ad4bd72)</td>
+<td>Baldini, 2024, Clinical and Translational Neuroscience</td>
+<td>https://doi.org/10.3390/ctn8030025</td>
+<td>Useful update for diagnostic workflows, especially pediatrics and difficult MSLT cases</td>
+</tr>
+<tr>
+<td>Pediatric phenotypes</td>
+<td>Disturbed nighttime sleep (DNS) affects 53–78% of pediatric NT1; REM sleep behavior disorder (RBD) is reported in up to 60% and may be early/severe in children (baldini2024pediatricnarcolepsytype pages 2-4)</td>
+<td>Baldini, 2024, Clinical and Translational Neuroscience</td>
+<td>https://doi.org/10.3390/ctn8030025</td>
+<td>Pediatric presentation can include atypical cataplexy and ADHD-like behaviors</td>
+</tr>
+<tr>
+<td>CSF hypocretin biomarker</td>
+<td>CSF hypocretin-1 cutoff ≤110 pg/mL (with &gt;200 pg/mL considered normal); in typical cataplexy, sensitivity 87% and specificity 99%, PPV 96%, NPV 96% (mignot2002theroleof pages 5-6, mignot2002theroleof pages 8-9)</td>
+<td>Mignot, 2002, Archives of Neurology</td>
+<td>https://doi.org/10.1001/archneur.59.10.1553</td>
+<td>Strongest biomarker for NT1; interpretation needed in secondary hypothalamic disease</td>
+</tr>
+<tr>
+<td>HLA associations</td>
+<td>NT1-associated haplotype DRB5<em>01:01:01-DRB1</em>15:01:01-DQA1<em>01:02:01-DQB1</em>06:02:01: OR 7.01 (95% CI 3.97–12.37); genotype OR 9.15. Multilocus genotype including DRB4<em>01:03:01/DRB1</em>04:01:01/DQA1<em>03:02 or </em>03:03:01/DQB1*03:01:01: OR 23.61 (95% CI 4.48–110.76). Anti-HCRTR2 autoantibodies were not different across groups (p=.8524) (hamdan2024high‐resolutionhlasequencing pages 4-5, hamdan2024high‐resolutionhlasequencing pages 1-2, hamdan2024high‐resolutionhlasequencing pages 6-6)</td>
+<td>Hamdan, 2024, International Journal of Immunogenetics</td>
+<td>https://doi.org/10.1111/iji.12688</td>
+<td>Supports strong HLA-driven susceptibility; no support here for HCRTR2 autoantibody pathogenicity</td>
+</tr>
+<tr>
+<td>T-cell autoimmunity and risk loci</td>
+<td>NT1 is framed as predominantly T-cell–mediated autoimmunity; HLA-DQB1*06:02 present in ~98% of NT1 with cataplexy vs ~25% of general population; reported risk loci include TRA, CTSH rs34593439, PPAN rs1551570, P2RY11 rs2305795, IL10RB/rs2834188, CPT1B rs5770917; H1N1/Pandemrix implicated as environmental triggers (xu2024theroleof pages 2-3, xu2024theroleof pages 3-5, xu2024theroleof pages 7-8, xu2024theroleof pages 1-2)</td>
+<td>Xu, 2024, International Journal of Molecular Sciences</td>
+<td>https://doi.org/10.3390/ijms252211914</td>
+<td>Molecular mimicry is plausible but incompletely resolved</td>
+</tr>
+<tr>
+<td>TAK-861 preclinical evidence</td>
+<td>TAK-861 (oveporexton) activated OX2R with EC50 2.5 nM and ~3,000-fold selectivity over OX1R; improved wakefulness and reduced cataplexy-like episodes in orexin/ataxin-3 and orexin-tTA;TetO DTA mouse models; wake-promoting MED 1 mg/kg in mice and monkeys (mitsukawa2024tak861apotent pages 1-2, mitsukawa2024tak861apotent pages 3-4, mitsukawa2024tak861apotent pages 2-3, mitsukawa2024tak861apotent pages 10-11)</td>
+<td>Mitsukawa, 2024, Scientific Reports</td>
+<td>https://doi.org/10.1038/s41598-024-70594-1</td>
+<td>Mechanism-based therapy aimed at replacing lost orexin signaling</td>
+</tr>
+<tr>
+<td>Oveporexton phase 2 outcomes</td>
+<td>In NT1, 8-week trial: mean MWT change +12.5 to +25.4 min vs -1.2 placebo; ESS change -8.9 to -13.8 vs -2.5 placebo; weekly cataplexy at week 8: 2.48–5.89 vs 8.76 placebo depending on dose; common AEs insomnia 48%, urinary urgency 33%, urinary frequency 32%; no hepatotoxicity reported (abstract evidence from retrieved paper search)</td>
+<td>Dauvilliers, 2025, New England Journal of Medicine</td>
+<td>https://doi.org/10.1056/NEJMoa2405847</td>
+<td>Phase 2 TAK-861/oveporexton trial, NCT05687903</td>
+</tr>
+<tr>
+<td>Once-nightly oxybate preference</td>
+<td>In RESTORE, 92/98 (93.9%) preferred once-nightly sodium oxybate after switching; 69.2% had missed the second IR oxybate dose at least once; 91.2% felt better able to follow dosing schedule; 92.6% would recommend ON-SXB (roy2024restoreoncenightlyoxybate pages 1-2, roy2024restoreoncenightlyoxybate pages 2-3, roy2024restoreoncenightlyoxybate pages 4-5)</td>
+<td>Roy, 2024, Sleep Medicine: X</td>
+<td>https://doi.org/10.1016/j.sleepx.2024.100122</td>
+<td>Highlights real-world burden of middle-of-the-night redosing</td>
+</tr>
+<tr>
+<td>Real-world pharmacovigilance</td>
+<td>FAERS 2019–2023 identified 50 signals/762 cases for pitolisant, 640/46,962 for sodium oxybate, 40/1,228 for solriamfetol, and 72/632 for modafinil; psychiatric and nervous system ADEs predominated. Sodium oxybate had notable signals for sleep apnea syndrome (n=1326), respiratory depression (n=104), apnea (n=95), and hypertension (n=1081) (zhou2024evaluationofpitolisant pages 1-2, zhou2024evaluationofpitolisant pages 3-4, zhou2024evaluationofpitolisant pages 8-9)</td>
+<td>Zhou, 2024, Frontiers in Pharmacology</td>
+<td>https://doi.org/10.3389/fphar.2024.1415918</td>
+<td>FAERS signals are hypothesis-generating, not incidence estimates</td>
+</tr>
+<tr>
+<td>Epidemiology snapshot</td>
+<td>Recent review summarized prevalence around 37.7/100,000 in the U.S. and incidence ~2.6/100,000 person-years; Japan claims data ~37.5/100,000 prevalence and 5.1/100,000 person-years incidence, with strong geographic variability (ariascarrion2026narcolepsyasan pages 3-4)</td>
+<td>Arias-Carrión, 2026, Frontiers in Psychiatry</td>
+<td>https://doi.org/10.3389/fpsyt.2026.1799520</td>
+<td>Useful contextual benchmark; not a primary epidemiology study</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table compiles high-yield recent and foundational evidence for narcolepsy across diagnosis, biomarkers, immunogenetics, therapeutics, and real-world safety. It is useful as a quick-reference summary for a disease knowledge base entry.</em></p>
+<h2>12. Notes on evidence gaps and curation requirements</h2>
+<ul>
+<li><strong>Disease identifiers (ICD/MeSH/MONDO/OMIM/Orphanet)</strong>: not present in the retrieved literature excerpts; must be curated separately.</li>
+<li><strong>NT2 biology and biomarkers</strong>: evidence in this run supports heterogeneity and possible overlap subgroups (intermediate orexin), but a definitive mechanism is not established here. (hamdan2024high‐resolutionhlasequencing pages 3-3, hamdan2024high‐resolutionhlasequencing pages 1-2)</li>
+<li><strong>Autoantibodies</strong>: HCRTR2 autoantibodies were not supported as disease-specific in the 2024 cohort study. (hamdan2024high‐resolutionhlasequencing pages 6-6)</li>
+</ul>
+<h2>References (URLs and publication dates)</h2>
+<p>Primary sources used (examples; see citations inline):
+* Baldini V. et al. Pediatric Narcolepsy Type 1: A State-of-the-Art Review. <em>Clinical and Translational Neuroscience</em>. 2024-06. https://doi.org/10.3390/ctn8030025 (baldini2024pediatricnarcolepsytype pages 1-2)
+* Xu W. et al. The Role of T Cells in the Pathogenesis of Narcolepsy Type 1. <em>Int J Mol Sci</em>. 2024-11. https://doi.org/10.3390/ijms252211914 (xu2024theroleof pages 1-2)
+* Hamdan S. et al. High-resolution HLA sequencing and hypocretin receptor 2 autoantibodies. <em>Int J Immunogenet</em>. 2024-06. https://doi.org/10.1111/iji.12688 (hamdan2024high‐resolutionhlasequencing pages 1-2)
+* Mitsukawa K. et al. TAK-861 OX2R agonist preclinical study. <em>Scientific Reports</em>. 2024-09. https://doi.org/10.1038/s41598-024-70594-1 (mitsukawa2024tak861apotent pages 1-2)
+* Roy A. et al. RESTORE once-nightly oxybate preference. <em>Sleep Medicine: X</em>. 2024-12. https://doi.org/10.1016/j.sleepx.2024.100122 (roy2024restoreoncenightlyoxybate pages 1-2)
+* Zhou X. et al. FAERS pharmacovigilance analysis. <em>Front Pharmacol</em>. 2024-11. https://doi.org/10.3389/fphar.2024.1415918 (zhou2024evaluationofpitolisant pages 1-2)
+* Mignot E. et al. CSF hypocretin measurement diagnostic performance. <em>Archives of Neurology</em>. 2002-10. https://doi.org/10.1001/archneur.59.10.1553 (mignot2002theroleof pages 5-6)</p>
+<p>References</p>
+<ol>
+<li>
+<p>(biscarini2025narcolepsyandrapid pages 1-2): Francesco Biscarini, Lucie Barateau, Fabio Pizza, Giuseppe Plazzi, and Yves Dauvilliers. Narcolepsy and rapid eye movement sleep. Journal of Sleep Research, Jul 2025. URL: https://doi.org/10.1111/jsr.14277, doi:10.1111/jsr.14277. This article has 14 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(xu2025acomprehensivereview pages 1-2): Qinglin Xu, Yigang Chen, Tiantian Wang, Qiongbin Zhu, Jiahui Xu, and Lisan Zhang. A comprehensive review of current and emerging treatments for narcolepsy type 1. Journal of Clinical Medicine, 14:8444, Nov 2025. URL: https://doi.org/10.3390/jcm14238444, doi:10.3390/jcm14238444. This article has 1 citations.</p>
+</li>
+<li>
+<p>(ariascarrion2026narcolepsyasan pages 3-4): Oscar Arias-Carrión, Emmanuel Ortega-Robles, Patricia Romano, and Carlos Pineda. Narcolepsy as an immune-associated hypothalamic encephalopathy: orexin dysfunction and implications for precision sleep medicine. Frontiers in Psychiatry, Apr 2026. URL: https://doi.org/10.3389/fpsyt.2026.1799520, doi:10.3389/fpsyt.2026.1799520. This article has 0 citations.</p>
+</li>
+<li>
+<p>(mignot2002theroleof pages 5-6): Emmanuel Mignot, Gert Jan Lammers, Beth Ripley, Michele Okun, Sonia Nevsimalova, Sebastiaan Overeem, Jitka Vankova, Jed Black, John Harsh, Claudio Bassetti, Harald Schrader, and Seiji Nishino. The role of cerebrospinal fluid hypocretin measurement in the diagnosis of narcolepsy and other hypersomnias. Archives of neurology, 59 10:1553-62, Oct 2002. URL: https://doi.org/10.1001/archneur.59.10.1553, doi:10.1001/archneur.59.10.1553. This article has 1400 citations.</p>
+</li>
+<li>
+<p>(baldini2024pediatricnarcolepsytype pages 1-2): Valentina Baldini, Francesco Biscarini, Giorgia Varallo, Fabio Pizza, and Giuseppe Plazzi. Pediatric narcolepsy type 1: a state-of-the-art review. Clinical and Translational Neuroscience, 8:25, Jun 2024. URL: https://doi.org/10.3390/ctn8030025, doi:10.3390/ctn8030025. This article has 4 citations.</p>
+</li>
+<li>
+<p>(zhou2024evaluationofpitolisant pages 1-2): Xiaodan Zhou, Jia Chen, Bangtian Xu, and Li Chen. Evaluation of pitolisant, sodium oxybate, solriamfetol, and modafinil for the management of narcolepsy: a retrospective analysis of the faers database. Frontiers in Pharmacology, Nov 2024. URL: https://doi.org/10.3389/fphar.2024.1415918, doi:10.3389/fphar.2024.1415918. This article has 4 citations.</p>
+</li>
+<li>
+<p>(ariascarrion2026narcolepsyasan pages 2-3): Oscar Arias-Carrión, Emmanuel Ortega-Robles, Patricia Romano, and Carlos Pineda. Narcolepsy as an immune-associated hypothalamic encephalopathy: orexin dysfunction and implications for precision sleep medicine. Frontiers in Psychiatry, Apr 2026. URL: https://doi.org/10.3389/fpsyt.2026.1799520, doi:10.3389/fpsyt.2026.1799520. This article has 0 citations.</p>
+</li>
+<li>
+<p>(ariascarrion2026narcolepsyasan pages 5-6): Oscar Arias-Carrión, Emmanuel Ortega-Robles, Patricia Romano, and Carlos Pineda. Narcolepsy as an immune-associated hypothalamic encephalopathy: orexin dysfunction and implications for precision sleep medicine. Frontiers in Psychiatry, Apr 2026. URL: https://doi.org/10.3389/fpsyt.2026.1799520, doi:10.3389/fpsyt.2026.1799520. This article has 0 citations.</p>
+</li>
+<li>
+<p>(xu2024theroleof pages 1-2): Wenqi Xu, Wenting Ding, Yu Zhang, Shuanshuan Wang, Xianyu Yan, Yirui Xu, Xiaoying Zhi, and Rongzeng Liu. The role of t cells in the pathogenesis of narcolepsy type 1: a narrative review. International Journal of Molecular Sciences, 25:11914, Nov 2024. URL: https://doi.org/10.3390/ijms252211914, doi:10.3390/ijms252211914. This article has 4 citations.</p>
+</li>
+<li>
+<p>(hamdan2024high‐resolutionhlasequencing pages 1-2): Samia Hamdan, Pontus Wasling, and Alexander Lind. High‐resolution hla sequencing and hypocretin receptor 2 autoantibodies in narcolepsy type 1 and type 2. International Journal of Immunogenetics, 51:310-318, Jun 2024. URL: https://doi.org/10.1111/iji.12688, doi:10.1111/iji.12688. This article has 1 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(hamdan2024high‐resolutionhlasequencing pages 3-3): Samia Hamdan, Pontus Wasling, and Alexander Lind. High‐resolution hla sequencing and hypocretin receptor 2 autoantibodies in narcolepsy type 1 and type 2. International Journal of Immunogenetics, 51:310-318, Jun 2024. URL: https://doi.org/10.1111/iji.12688, doi:10.1111/iji.12688. This article has 1 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(hamdan2024high‐resolutionhlasequencing pages 4-5): Samia Hamdan, Pontus Wasling, and Alexander Lind. High‐resolution hla sequencing and hypocretin receptor 2 autoantibodies in narcolepsy type 1 and type 2. International Journal of Immunogenetics, 51:310-318, Jun 2024. URL: https://doi.org/10.1111/iji.12688, doi:10.1111/iji.12688. This article has 1 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(xu2024theroleof pages 2-3): Wenqi Xu, Wenting Ding, Yu Zhang, Shuanshuan Wang, Xianyu Yan, Yirui Xu, Xiaoying Zhi, and Rongzeng Liu. The role of t cells in the pathogenesis of narcolepsy type 1: a narrative review. International Journal of Molecular Sciences, 25:11914, Nov 2024. URL: https://doi.org/10.3390/ijms252211914, doi:10.3390/ijms252211914. This article has 4 citations.</p>
+</li>
+<li>
+<p>(xu2024theroleof pages 3-5): Wenqi Xu, Wenting Ding, Yu Zhang, Shuanshuan Wang, Xianyu Yan, Yirui Xu, Xiaoying Zhi, and Rongzeng Liu. The role of t cells in the pathogenesis of narcolepsy type 1: a narrative review. International Journal of Molecular Sciences, 25:11914, Nov 2024. URL: https://doi.org/10.3390/ijms252211914, doi:10.3390/ijms252211914. This article has 4 citations.</p>
+</li>
+<li>
+<p>(xu2024theroleof pages 7-8): Wenqi Xu, Wenting Ding, Yu Zhang, Shuanshuan Wang, Xianyu Yan, Yirui Xu, Xiaoying Zhi, and Rongzeng Liu. The role of t cells in the pathogenesis of narcolepsy type 1: a narrative review. International Journal of Molecular Sciences, 25:11914, Nov 2024. URL: https://doi.org/10.3390/ijms252211914, doi:10.3390/ijms252211914. This article has 4 citations.</p>
+</li>
+<li>
+<p>(baldini2024pediatricnarcolepsytype pages 2-4): Valentina Baldini, Francesco Biscarini, Giorgia Varallo, Fabio Pizza, and Giuseppe Plazzi. Pediatric narcolepsy type 1: a state-of-the-art review. Clinical and Translational Neuroscience, 8:25, Jun 2024. URL: https://doi.org/10.3390/ctn8030025, doi:10.3390/ctn8030025. This article has 4 citations.</p>
+</li>
+<li>
+<p>(biscarini2025narcolepsyandrapid pages 5-6): Francesco Biscarini, Lucie Barateau, Fabio Pizza, Giuseppe Plazzi, and Yves Dauvilliers. Narcolepsy and rapid eye movement sleep. Journal of Sleep Research, Jul 2025. URL: https://doi.org/10.1111/jsr.14277, doi:10.1111/jsr.14277. This article has 14 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(mignot2002theroleof pages 8-9): Emmanuel Mignot, Gert Jan Lammers, Beth Ripley, Michele Okun, Sonia Nevsimalova, Sebastiaan Overeem, Jitka Vankova, Jed Black, John Harsh, Claudio Bassetti, Harald Schrader, and Seiji Nishino. The role of cerebrospinal fluid hypocretin measurement in the diagnosis of narcolepsy and other hypersomnias. Archives of neurology, 59 10:1553-62, Oct 2002. URL: https://doi.org/10.1001/archneur.59.10.1553, doi:10.1001/archneur.59.10.1553. This article has 1400 citations.</p>
+</li>
+<li>
+<p>(hamdan2024high‐resolutionhlasequencing pages 6-6): Samia Hamdan, Pontus Wasling, and Alexander Lind. High‐resolution hla sequencing and hypocretin receptor 2 autoantibodies in narcolepsy type 1 and type 2. International Journal of Immunogenetics, 51:310-318, Jun 2024. URL: https://doi.org/10.1111/iji.12688, doi:10.1111/iji.12688. This article has 1 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(xu2024theroleof pages 14-15): Wenqi Xu, Wenting Ding, Yu Zhang, Shuanshuan Wang, Xianyu Yan, Yirui Xu, Xiaoying Zhi, and Rongzeng Liu. The role of t cells in the pathogenesis of narcolepsy type 1: a narrative review. International Journal of Molecular Sciences, 25:11914, Nov 2024. URL: https://doi.org/10.3390/ijms252211914, doi:10.3390/ijms252211914. This article has 4 citations.</p>
+</li>
+<li>
+<p>(ariascarrion2026narcolepsyasan pages 7-8): Oscar Arias-Carrión, Emmanuel Ortega-Robles, Patricia Romano, and Carlos Pineda. Narcolepsy as an immune-associated hypothalamic encephalopathy: orexin dysfunction and implications for precision sleep medicine. Frontiers in Psychiatry, Apr 2026. URL: https://doi.org/10.3389/fpsyt.2026.1799520, doi:10.3389/fpsyt.2026.1799520. This article has 0 citations.</p>
+</li>
+<li>
+<p>(xu2025acomprehensivereview pages 9-11): Qinglin Xu, Yigang Chen, Tiantian Wang, Qiongbin Zhu, Jiahui Xu, and Lisan Zhang. A comprehensive review of current and emerging treatments for narcolepsy type 1. Journal of Clinical Medicine, 14:8444, Nov 2025. URL: https://doi.org/10.3390/jcm14238444, doi:10.3390/jcm14238444. This article has 1 citations.</p>
+</li>
+<li>
+<p>(mitsukawa2024tak861apotent pages 2-3): Kayo Mitsukawa, Michiko Terada, Ryuji Yamada, Taku Monjo, Tetsuaki Hiyoshi, Masanori Nakakariya, Yuichi Kajita, Tatsuya Ando, Tatsuki Koike, and Haruhide Kimura. Tak-861, a potent, orally available orexin receptor 2-selective agonist, produces wakefulness in monkeys and improves narcolepsy-like phenotypes in mouse models. Scientific Reports, Sep 2024. URL: https://doi.org/10.1038/s41598-024-70594-1, doi:10.1038/s41598-024-70594-1. This article has 21 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(baldini2024pediatricnarcolepsytype media 3ad4bd72): Valentina Baldini, Francesco Biscarini, Giorgia Varallo, Fabio Pizza, and Giuseppe Plazzi. Pediatric narcolepsy type 1: a state-of-the-art review. Clinical and Translational Neuroscience, 8:25, Jun 2024. URL: https://doi.org/10.3390/ctn8030025, doi:10.3390/ctn8030025. This article has 4 citations.</p>
+</li>
+<li>
+<p>(baldini2024pediatricnarcolepsytype pages 8-9): Valentina Baldini, Francesco Biscarini, Giorgia Varallo, Fabio Pizza, and Giuseppe Plazzi. Pediatric narcolepsy type 1: a state-of-the-art review. Clinical and Translational Neuroscience, 8:25, Jun 2024. URL: https://doi.org/10.3390/ctn8030025, doi:10.3390/ctn8030025. This article has 4 citations.</p>
+</li>
+<li>
+<p>(ariascarrion2026narcolepsyasan pages 21-22): Oscar Arias-Carrión, Emmanuel Ortega-Robles, Patricia Romano, and Carlos Pineda. Narcolepsy as an immune-associated hypothalamic encephalopathy: orexin dysfunction and implications for precision sleep medicine. Frontiers in Psychiatry, Apr 2026. URL: https://doi.org/10.3389/fpsyt.2026.1799520, doi:10.3389/fpsyt.2026.1799520. This article has 0 citations.</p>
+</li>
+<li>
+<p>(baldini2024pediatricnarcolepsytype pages 9-11): Valentina Baldini, Francesco Biscarini, Giorgia Varallo, Fabio Pizza, and Giuseppe Plazzi. Pediatric narcolepsy type 1: a state-of-the-art review. Clinical and Translational Neuroscience, 8:25, Jun 2024. URL: https://doi.org/10.3390/ctn8030025, doi:10.3390/ctn8030025. This article has 4 citations.</p>
+</li>
+<li>
+<p>(baldini2024pediatricnarcolepsytype pages 11-13): Valentina Baldini, Francesco Biscarini, Giorgia Varallo, Fabio Pizza, and Giuseppe Plazzi. Pediatric narcolepsy type 1: a state-of-the-art review. Clinical and Translational Neuroscience, 8:25, Jun 2024. URL: https://doi.org/10.3390/ctn8030025, doi:10.3390/ctn8030025. This article has 4 citations.</p>
+</li>
+<li>
+<p>(roy2024restoreoncenightlyoxybate pages 1-2): Asim Roy, Thomas Stern, John Harsh, J. Douglas Hudson, Akinyemi O. Ajayi, Bruce C. Corser, Emmanuel Mignot, Adrian Santamaria, Anne Marie Morse, Brian Abaluck, Sally Ibrahim, Paula K. Schweitzer, Katie Lancaster, Jordan Dubow, and Jennifer Gudeman. Restore: once-nightly oxybate dosing preference and nocturnal experience with twice-nightly oxybates. Sleep Medicine: X, 8:100122, Dec 2024. URL: https://doi.org/10.1016/j.sleepx.2024.100122, doi:10.1016/j.sleepx.2024.100122. This article has 9 citations.</p>
+</li>
+<li>
+<p>(roy2024restoreoncenightlyoxybate pages 2-3): Asim Roy, Thomas Stern, John Harsh, J. Douglas Hudson, Akinyemi O. Ajayi, Bruce C. Corser, Emmanuel Mignot, Adrian Santamaria, Anne Marie Morse, Brian Abaluck, Sally Ibrahim, Paula K. Schweitzer, Katie Lancaster, Jordan Dubow, and Jennifer Gudeman. Restore: once-nightly oxybate dosing preference and nocturnal experience with twice-nightly oxybates. Sleep Medicine: X, 8:100122, Dec 2024. URL: https://doi.org/10.1016/j.sleepx.2024.100122, doi:10.1016/j.sleepx.2024.100122. This article has 9 citations.</p>
+</li>
+<li>
+<p>(mitsukawa2024tak861apotent pages 1-2): Kayo Mitsukawa, Michiko Terada, Ryuji Yamada, Taku Monjo, Tetsuaki Hiyoshi, Masanori Nakakariya, Yuichi Kajita, Tatsuya Ando, Tatsuki Koike, and Haruhide Kimura. Tak-861, a potent, orally available orexin receptor 2-selective agonist, produces wakefulness in monkeys and improves narcolepsy-like phenotypes in mouse models. Scientific Reports, Sep 2024. URL: https://doi.org/10.1038/s41598-024-70594-1, doi:10.1038/s41598-024-70594-1. This article has 21 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(mitsukawa2024tak861apotent pages 3-4): Kayo Mitsukawa, Michiko Terada, Ryuji Yamada, Taku Monjo, Tetsuaki Hiyoshi, Masanori Nakakariya, Yuichi Kajita, Tatsuya Ando, Tatsuki Koike, and Haruhide Kimura. Tak-861, a potent, orally available orexin receptor 2-selective agonist, produces wakefulness in monkeys and improves narcolepsy-like phenotypes in mouse models. Scientific Reports, Sep 2024. URL: https://doi.org/10.1038/s41598-024-70594-1, doi:10.1038/s41598-024-70594-1. This article has 21 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(mitsukawa2024tak861apotent pages 10-11): Kayo Mitsukawa, Michiko Terada, Ryuji Yamada, Taku Monjo, Tetsuaki Hiyoshi, Masanori Nakakariya, Yuichi Kajita, Tatsuya Ando, Tatsuki Koike, and Haruhide Kimura. Tak-861, a potent, orally available orexin receptor 2-selective agonist, produces wakefulness in monkeys and improves narcolepsy-like phenotypes in mouse models. Scientific Reports, Sep 2024. URL: https://doi.org/10.1038/s41598-024-70594-1, doi:10.1038/s41598-024-70594-1. This article has 21 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(zhou2024evaluationofpitolisant pages 8-9): Xiaodan Zhou, Jia Chen, Bangtian Xu, and Li Chen. Evaluation of pitolisant, sodium oxybate, solriamfetol, and modafinil for the management of narcolepsy: a retrospective analysis of the faers database. Frontiers in Pharmacology, Nov 2024. URL: https://doi.org/10.3389/fphar.2024.1415918, doi:10.3389/fphar.2024.1415918. This article has 4 citations.</p>
+</li>
+<li>
+<p>(baldini2024pediatricnarcolepsytype pages 14-15): Valentina Baldini, Francesco Biscarini, Giorgia Varallo, Fabio Pizza, and Giuseppe Plazzi. Pediatric narcolepsy type 1: a state-of-the-art review. Clinical and Translational Neuroscience, 8:25, Jun 2024. URL: https://doi.org/10.3390/ctn8030025, doi:10.3390/ctn8030025. This article has 4 citations.</p>
+</li>
+<li>
+<p>(roy2024restoreoncenightlyoxybate pages 4-5): Asim Roy, Thomas Stern, John Harsh, J. Douglas Hudson, Akinyemi O. Ajayi, Bruce C. Corser, Emmanuel Mignot, Adrian Santamaria, Anne Marie Morse, Brian Abaluck, Sally Ibrahim, Paula K. Schweitzer, Katie Lancaster, Jordan Dubow, and Jennifer Gudeman. Restore: once-nightly oxybate dosing preference and nocturnal experience with twice-nightly oxybates. Sleep Medicine: X, 8:100122, Dec 2024. URL: https://doi.org/10.1016/j.sleepx.2024.100122, doi:10.1016/j.sleepx.2024.100122. This article has 9 citations.</p>
+</li>
+<li>
+<p>(zhou2024evaluationofpitolisant pages 3-4): Xiaodan Zhou, Jia Chen, Bangtian Xu, and Li Chen. Evaluation of pitolisant, sodium oxybate, solriamfetol, and modafinil for the management of narcolepsy: a retrospective analysis of the faers database. Frontiers in Pharmacology, Nov 2024. URL: https://doi.org/10.3389/fphar.2024.1415918, doi:10.3389/fphar.2024.1415918. This article has 4 citations.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </div>
         
 
         <footer class="page-footer">
@@ -4435,7 +5837,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Narcolepsy", "mondoId": "MONDO:0021107", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Narcolepsy", "yamlRevision": "0d8134acfefb"};
+        const OS_CONFIG = {"diseaseName": "Narcolepsy", "mondoId": "MONDO:0021107", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Narcolepsy", "yamlRevision": "5deeafcc5840"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,7 +2570,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 40</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Organic Acidemia</span>
@@ -2438,7 +2591,7 @@
             </div>
             
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; opacity: 0.95; position: relative;">
-                Methylmalonic acidemia (MMA) is an autosomal recessive inborn error of propionate metabolism caused by deficiency of methylmalonyl-CoA mutase (MMUT) or defects in intracellular adenosylcobalamin (AdoCbl) cofactor synthesis and handling (cblA/MMAA, cblB/MMAB). Impaired conversion of methylmalonyl-CoA to succinyl-CoA leads to systemic accumulation of methylmalonic acid, propionyl-CoA, 2-methylcitrate, and related metabolites, disrupting mitochondrial anaplerosis, respiratory chain function, and protein acylation homeostasis. The disease manifests with recurrent metabolic decompensation, progressive chronic kidney disease, neurological injury including basal ganglia necrosis, cardiomyopathy, and a distinctive lipodystrophy-like phenotype. Estimated incidence is approximately 1:50,000 live births. Newborn screening via elevated propionylcarnitine (C3) allows pre-symptomatic detection and significantly improves outcomes.
+                Methylmalonic acidemia (MMA) is an autosomal recessive inborn error of propionate metabolism caused by deficiency of methylmalonyl-CoA mutase (MMUT) or defects in intracellular adenosylcobalamin (AdoCbl) cofactor synthesis and handling (cblA/MMAA, cblB/MMAB). Impaired conversion of methylmalonyl-CoA to succinyl-CoA leads to systemic accumulation of methylmalonic acid, propionyl-CoA, 2-methylcitrate, and related metabolites, disrupting mitochondrial anaplerosis, respiratory chain function, and protein acylation homeostasis. The disease manifests with recurrent metabolic decompensation, progressive chronic kidney disease, neurological injury including basal ganglia injury, cardiomyopathy, and a distinctive lipodystrophy-like phenotype. Estimated incidence is approximately 1:50,000 live births. Newborn screening via elevated propionylcarnitine (C3) allows pre-symptomatic detection and significantly improves outcomes.
 
             </p>
             
@@ -2555,7 +2708,7 @@
             
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
-                <div class="stat-value">6</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Pathophysiology</div>
             </div>
             </a>
@@ -2569,7 +2722,7 @@
             
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
-                <div class="stat-value">15</div>
+                <div class="stat-value">19</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -2577,7 +2730,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">11</div>
+                <div class="stat-value">40</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -2831,7 +2984,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">8</span>
             </div>
             
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mmut-adocbl-pathway-molecular-function-deficiency">
@@ -3062,17 +3215,79 @@
 	                    <div class="crosslink-list">
 	                        
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Mitochondrial respiratory chain inhibition and energetic failure</span>
+	                            <span class="crosslink-meta">Methylmalonic acid</span>
+	                            
+	                            <span class="crosslink-desc">Blocked methylmalonyl-CoA mutase activity causes methylmalonic acid accumulation.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Propionylcarnitine (C3)</span>
+	                            
+	                            <span class="crosslink-desc">Propionate-pathway flux produces elevated plasma propionylcarnitine during MMA diagnosis and monitoring.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">2-Methylcitric acid</span>
+	                            
+	                            <span class="crosslink-desc">Propionyl-CoA overflow generates methylcitric acid, a disease-specific organic acid marker.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">3-Hydroxypropionate</span>
+	                            
+	                            <span class="crosslink-desc">Propionyl-CoA is diverted through beta-oxidation to urinary 3-hydroxypropionate.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Acute organic acid decompensation</span>
+	                            
+	                            <span class="crosslink-desc">Accumulating organic acids and anaplerotic failure create episodic metabolic crises under catabolic stress.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Mitochondrial energy metabolism dysfunction</span>
+	                            
+	                            <span class="crosslink-desc">Accumulated metabolites and reduced succinyl-CoA input impair the TCA cycle and oxidative phosphorylation.</span>
 	                            
 	                        </div>
 	                        
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Aberrant mitochondrial protein methylmalonylation</span>
 	                            
+	                            <span class="crosslink-desc">Enlarged methylmalonyl-CoA and related acyl-CoA pools drive mitochondrial protein hyperacylation.</span>
+	                            
 	                        </div>
 	                        
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Lysosomal-autophagy system dysfunction</span>
+	                            
+	                            <span class="crosslink-desc">MUT deficiency perturbs lysosomal and autophagy regulation in cellular MMA models.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Pancreatitis</span>
+	                            
+	                            <span class="crosslink-desc">Pancreatitis is a reported complication of MMA and other branched-chain organic acidemias; the intervening mechanism is not resolved in the cited evidence.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Reduced bone mineral density</span>
+	                            
+	                            <span class="crosslink-desc">Low bone density is a chronic complication in MMA/PA, but the intervening mechanism is incompletely defined.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Osteoporosis</span>
+	                            
+	                            <span class="crosslink-desc">Osteoporosis is a chronic skeletal complication in MMA/PA, with unresolved causal intermediates.</span>
 	                            
 	                        </div>
 	                        
@@ -3134,10 +3349,123 @@
     
 	            </div>
 	            
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-respiratory-chain-inhibition-and-energetic-failure">
-                <div class="item-name">Mitochondrial respiratory chain inhibition and energetic failure</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-acute-organic-acid-decompensation">
+                <div class="item-name">Acute organic acid decompensation</div>
                 
-                <div class="item-desc">Accumulated methylmalonic acid and methylmalonyl-CoA directly inhibit mitochondrial respiratory chain complexes (Complex I, Complex II/SDH) and multiple dehydrogenases, leading to impaired oxidative phosphorylation and ATP depletion.
+                <div class="item-desc">Catabolic stress in MMA precipitates acute metabolic decompensation with organic acid and ketoacid accumulation, metabolic acidosis, secondary hyperammonemia, vomiting, feeding intolerance, and altered mental status.
+</div>
+                
+                
+                
+                
+                
+                
+                
+                
+                
+	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Metabolic acidosis</span>
+	                            
+	                            <span class="crosslink-desc">Organic acid and ketoacid accumulation during decompensation produces high-anion-gap metabolic acidosis.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hyperammonemia</span>
+	                            
+	                            <span class="crosslink-desc">Propionyl-CoA and methylmalonyl-CoA interfere with urea-cycle activation, causing secondary hyperammonemia.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Ammonia</span>
+	                            
+	                            <span class="crosslink-desc">Urea-cycle inhibition raises circulating ammonia during decompensation.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Vomiting</span>
+	                            
+	                            <span class="crosslink-desc">Acute decompensation commonly presents with nausea and vomiting.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Lethargy</span>
+	                            
+	                            <span class="crosslink-desc">Decompensation produces altered mental status and lethargy.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
+	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27653704" target="_blank">PMID:27653704</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"With intercurrent illness, PA and MMA patients typically present with nausea and vomiting, worsening anorexia, and encephalopathy, with laboratory studies demonstrating metabolic acidosis, ketonuria, hyperammonemia, pancytopenia, and electrolyte disturbances"</div>
+                
+                
+                <div class="evidence-explanation">Review text summarizes the clinical and biochemical acute decompensation pattern.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27653704" target="_blank">PMID:27653704</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Accumulation of propionyl-CoA, and to some extent methylmalonyl-CoA, results in secondary inhibition of N-acetylglutamate synthase (NAGS), causing secondary hyperammonemia in these patients"</div>
+                
+                
+                <div class="evidence-explanation">Review text provides the urea-cycle mechanism for secondary hyperammonemia.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+	            </div>
+	            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-energy-metabolism-dysfunction">
+                <div class="item-name">Mitochondrial energy metabolism dysfunction</div>
+                
+                <div class="item-desc">Accumulating primary and secondary organic acid metabolites plus deficient succinyl-CoA input disrupt the TCA cycle, oxidative phosphorylation, and fatty-acid-derived energy generation, creating energetic vulnerability in high-demand organs.
 </div>
                 
                 
@@ -3205,18 +3533,67 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Neurometabolic brain injury</span>
+	                            
+	                            <span class="crosslink-desc">Mitochondrial energy failure and metabolite toxicity injure the high-energy CNS compartment.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Poor growth</span>
+	                            
+	                            <span class="crosslink-desc">Chronic metabolic energy stress and dietary fragility contribute to poor growth.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Dilated cardiomyopathy</span>
+	                            
+	                            <span class="crosslink-desc">Cardiac energy vulnerability and organic-acidemia complications contribute to dilated cardiomyopathy in a subset of MMA patients.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Prolonged QT interval</span>
+	                            
+	                            <span class="crosslink-desc">Organic-acidemia cardiac involvement can include acquired long QT syndrome.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Optic neuropathy</span>
+	                            
+	                            <span class="crosslink-desc">High-energy ocular tissue vulnerability contributes to optic neuropathy and vision loss in classical MMA.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">GDF15</span>
+	                            
+	                            <span class="crosslink-desc">Circulating GDF15 is used as a mitochondrial dysfunction biomarker in isolated MMA.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37078237" target="_blank">PMID:37078237</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27653704" target="_blank">PMID:27653704</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
@@ -3226,10 +3603,161 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"While earlier studies have focused on the potential direct toxicity of metabolites such as methylmalonic and propionic acid as a mechanism to explain disease pathophysiology, new observations have revealed that aberrant acylation, specifically methylmalonylation, is a characteristic feature of MMA."</div>
+                <div class="evidence-snippet">"End-organ injury occurs due to both primary toxicity of both the accumulating primary and secondary metabolites and deficiency of succinyl-CoA resulting in Kreb cycle and oxidative phosphorylation dysfunction."</div>
                 
                 
-                <div class="evidence-explanation">Supports metabolite-driven mitochondrial dysfunction as central to pathophysiology.</div>
+                <div class="evidence-explanation">Review text directly supports metabolite-driven TCA cycle and oxidative phosphorylation dysfunction.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37169781" target="_blank">PMID:37169781</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Changes in tricarboxylic acid cycle metabolites and impaired energy generation from fatty acid oxidation were detected."</div>
+                
+                
+                <div class="evidence-explanation">Renal epithelial cell model supports impaired mitochondrial energy metabolism under MMA stress.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+	            </div>
+	            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurometabolic-brain-injury">
+                <div class="item-name">Neurometabolic brain injury</div>
+                
+                <div class="item-desc">Accumulated methylmalonic acid and related metabolites, secondary mitochondrial energy failure, and acute metabolic crises injure brain tissue, particularly basal ganglia circuits, producing developmental delay, cognitive impairment, epilepsy, and metabolic stroke-like injury.
+</div>
+                
+                
+                
+                
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-location">
+                        brain
+                        
+                        <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Global developmental delay</span>
+	                            
+	                            <span class="crosslink-desc">Neurometabolic injury slows developmental trajectory in children with isolated MMA.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Intellectual disability</span>
+	                            
+	                            <span class="crosslink-desc">Brain tissue damage and neuropsychological deficits manifest as cognitive impairment.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Seizures</span>
+	                            
+	                            <span class="crosslink-desc">Chronic brain injury and acute metabolic crises can manifest as epilepsy or seizures.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Basal ganglia injury</span>
+	                            
+	                            <span class="crosslink-desc">MMA-associated metabolic brain injury targets basal ganglia regions and can present as metabolic stroke.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Movement disorder</span>
+	                            
+	                            <span class="crosslink-desc">Metabolic brain injury and metabolic stroke sequelae can manifest as movement disorders.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Spasticity</span>
+	                            
+	                            <span class="crosslink-desc">Metabolic stroke sequelae can include spastic quadri- or paraparesis.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
+	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27653704" target="_blank">PMID:27653704</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Patients with organic acidopathies suffer metabolic brain injury that targets specific regions of the basal ganglia in a distinctive pattern"</div>
+                
+                
+                <div class="evidence-explanation">Review text supports basal ganglia-targeted metabolic brain injury in organic acidopathies.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36777632" target="_blank">PMID:36777632</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The accumulation of methylmalonic acid and other metabolites in the body of patients causes brain tissue damage, which can manifest as various degrees of intellectual disability and severe neurological dysfunction."</div>
+                
+                
+                <div class="evidence-explanation">Neuroimaging review connects metabolite accumulation to brain tissue damage and neurological dysfunction.</div>
                 
             </div>
             
@@ -3290,6 +3818,27 @@
                 
                 
 	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Lipodystrophy</span>
+	                            
+	                            <span class="crosslink-desc">Abnormal adipose methylmalonylation and acyl-CoA accretion are associated with the MMA lipodystrophy phenotype.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">FGF21</span>
+	                            
+	                            <span class="crosslink-desc">FGF21 tracks mitochondrial/adipose stress associated with acyl-CoA accretion and methylmalonylation.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
 	                
 	                
     
@@ -3403,6 +3952,8 @@
 	                        
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Renal mitochondrial stress and impaired mitophagy</span>
+	                            
+	                            <span class="crosslink-desc">Lysosomal-autophagy failure impairs clearance of damaged mitochondria and contributes to renal mitochondrial stress.</span>
 	                            
 	                        </div>
 	                        
@@ -3559,6 +4110,27 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Chronic kidney disease</span>
+	                            
+	                            <span class="crosslink-desc">Renal epithelial mitochondrial stress and impaired mitophagy contribute to progressive CKD in MMA.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Lipocalin-2 (LCN2)</span>
+	                            
+	                            <span class="crosslink-desc">Renal injury from MMA is tracked by LCN2 as a circulating kidney injury biomarker.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
@@ -3639,7 +4211,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant mitochondrial protein methylmalonylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess methylmalonyl-CoA, propionyl-CoA, and malonyl-CoA drive widespread lysine hyperacylation of mitochondrial proteins across TCA cycle, beta-oxidation, amino acid metabolism, urea cycle, and oxidative stress pathways. Reduced levels of mitochondrial sirtuins SIRT3/4/5, particularly SIRT5 which can remove methylmalonylation, amplify dysfunction.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein acylation\"], \"locations\": [\"mitochondrial matrix\"]}}, {\"id\": \"Impaired methylmalonyl-CoA metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defects in methylmalonyl-CoA mutase or cobalamin-dependent cofactor pathways block conversion of methylmalonyl-CoA to succinyl-CoA, disrupting mitochondrial anaplerosis and the TCA cycle.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"methylmalonyl-CoA metabolic process\", \"propionate catabolic process\", \"tricarboxylic acid cycle\"]}}, {\"id\": \"Lysosomal-autophagy system dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MUT deficiency directly perturbs the lysosome-autophagy system, causing enlarged lysosomes with reduced acidity and degradative capacity, impaired autophagosome-lysosome fusion, and severely reduced autophagic flux. These defects are pharmacologically reversible with anti-propionigenic compounds.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"autophagy\", \"lysosome organization\"], \"locations\": [\"lysosome\"]}}, {\"id\": \"MMAA (cblA complementation group)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MMAA\"]}}, {\"id\": \"MMAB (cblB complementation group)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MMAB\"]}}, {\"id\": \"MMUT (methylmalonyl-CoA mutase)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"MMUT\"], \"variant_count\": 2}}, {\"id\": \"MMUT/AdoCbl pathway molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants affecting MMUT and adenosylcobalamin-handling genes reduce catalytic conversion capacity for methylmalonyl-CoA utilization.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"molecular_functions\": [\"catalytic activity\"], \"genes\": [\"MMUT\", \"MMAA\", \"MMAB\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Mitochondrial respiratory chain inhibition and energetic failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulated methylmalonic acid and methylmalonyl-CoA directly inhibit mitochondrial respiratory chain complexes (Complex I, Complex II/SDH) and multiple dehydrogenases, leading to impaired oxidative phosphorylation and ATP depletion.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"mitochondrial electron transport, NADH to ubiquinone\", \"oxidative phosphorylation\"], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"Renal mitochondrial stress and impaired mitophagy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In renal epithelial cells from MMA patients, metabolic stressors cause impaired mitophagy (reduced PINK1), shifted mitochondrial dynamics toward fission (elevated DRP1, reduced OPA1), compromised antioxidant defenses, and lowered glutathione ratios, contributing to progressive chronic kidney disease.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epithelial cell of proximal tubule\"], \"biological_processes\": [\"mitophagy\", \"mitochondrial fission\", \"response to oxidative stress\"], \"locations\": [\"kidney\"]}}, {\"id\": \"mut- (partial deficiency)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Partial residual methylmalonyl-CoA mutase activity. Some forms show partial response to hydroxocobalamin.\\n\"}, {\"id\": \"mut0 (complete deficiency)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Complete loss of methylmalonyl-CoA mutase activity. Non-B12 responsive. Associated with the most severe phenotype and worst neuropsychological outcomes.\\n\"}], \"edges\": [{\"source\": \"MMUT/AdoCbl pathway molecular function deficiency\", \"target\": \"Impaired methylmalonyl-CoA metabolism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Mitochondrial respiratory chain inhibition and energetic failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Aberrant mitochondrial protein methylmalonylation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Lysosomal-autophagy system dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lysosomal-autophagy system dysfunction\", \"target\": \"Renal mitochondrial stress and impaired mitophagy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"MMUT (methylmalonyl-CoA mutase)\", \"target\": \"MMUT/AdoCbl pathway molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MMAA (cblA complementation group)\", \"target\": \"MMUT/AdoCbl pathway molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MMAB (cblB complementation group)\", \"target\": \"MMUT/AdoCbl pathway molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"mut0 (complete deficiency)\", \"target\": \"MMUT (methylmalonyl-CoA mutase)\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"mut- (partial deficiency)\", \"target\": \"MMUT (methylmalonyl-CoA mutase)\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"2-Methylcitric acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"3-Hydroxypropionate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"Aberrant mitochondrial protein methylmalonylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess methylmalonyl-CoA, propionyl-CoA, and malonyl-CoA drive widespread lysine hyperacylation of mitochondrial proteins across TCA cycle, beta-oxidation, amino acid metabolism, urea cycle, and oxidative stress pathways. Reduced levels of mitochondrial sirtuins SIRT3/4/5, particularly SIRT5 which can remove methylmalonylation, amplify dysfunction.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein acylation\"], \"locations\": [\"mitochondrial matrix\"]}}, {\"id\": \"Acute organic acid decompensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Catabolic stress in MMA precipitates acute metabolic decompensation with organic acid and ketoacid accumulation, metabolic acidosis, secondary hyperammonemia, vomiting, feeding intolerance, and altered mental status.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Ammonia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"Basal ganglia injury\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Basal ganglia injury (metabolic stroke-like injury), particularly involving basal ganglia regions, is a recognized neurological complication during acute metabolic crises.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002134\"}}, {\"id\": \"Chronic kidney disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive chronic kidney disease is a major long-term complication of MMA, mechanistically linked to proximal tubular mitochondrial dysfunction, oxidative stress, and impaired mitophagy.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012622\"}}, {\"id\": \"Dilated cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dilated cardiomyopathy occurs in a subset of MMA patients. In a 2000-2022 pediatric cohort, cardiac involvement occurred in approximately 38% of PA/MMA patients, with DCM predominant.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001644\"}}, {\"id\": \"FGF21\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"GDF15\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed developmental trajectory, particularly in severe mut0 forms. Mean IQ for mut0 enzymatic subtype is rarely above 85.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hyperammonemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Secondary hyperammonemia during acute metabolic decompensation, related to inhibition of N-acetylglutamate synthase by propionyl-CoA.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001987\"}}, {\"id\": \"Impaired methylmalonyl-CoA metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defects in methylmalonyl-CoA mutase or cobalamin-dependent cofactor pathways block conversion of methylmalonyl-CoA to succinyl-CoA, disrupting mitochondrial anaplerosis and the TCA cycle.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"methylmalonyl-CoA metabolic process\", \"propionate catabolic process\", \"tricarboxylic acid cycle\"]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment is common in severe MMA subtypes, with processing speed, working memory, language, and attention particularly affected.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced alertness during metabolic decompensation episodes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001254\"}}, {\"id\": \"Lipocalin-2 (LCN2)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Lipodystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A distinct adipose tissue distribution pattern resembling familial multiple lipomatosis, with centripetal obesity, proximal extremity fat deposition, and paucity of visceral fat. Associated with elevated FGF21 and aberrant methylmalonylation in adipose tissue.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009125\"}}, {\"id\": \"Lysosomal-autophagy system dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MUT deficiency directly perturbs the lysosome-autophagy system, causing enlarged lysosomes with reduced acidity and degradative capacity, impaired autophagosome-lysosome fusion, and severely reduced autophagic flux. These defects are pharmacologically reversible with anti-propionigenic compounds.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"autophagy\", \"lysosome organization\"], \"locations\": [\"lysosome\"]}}, {\"id\": \"MMAA (cblA complementation group)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MMAA\"]}}, {\"id\": \"MMAB (cblB complementation group)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MMAB\"]}}, {\"id\": \"MMUT (methylmalonyl-CoA mutase)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"MMUT\"], \"variant_count\": 2}}, {\"id\": \"MMUT/AdoCbl pathway molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants affecting MMUT and adenosylcobalamin-handling genes reduce catalytic conversion capacity for methylmalonyl-CoA utilization.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"molecular_functions\": [\"catalytic activity\"], \"genes\": [\"MMUT\", \"MMAA\", \"MMAB\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Metabolic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent high-anion-gap metabolic acidosis, often presenting in the neonatal period.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001942\"}}, {\"id\": \"Methylmalonic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"Mitochondrial energy metabolism dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulating primary and secondary organic acid metabolites plus deficient succinyl-CoA input disrupt the TCA cycle, oxidative phosphorylation, and fatty-acid-derived energy generation, creating energetic vulnerability in high-demand organs.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial electron transport, NADH to ubiquinone\", \"oxidative phosphorylation\"], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"Movement disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Movement disorders can occur as chronic complications and as sequelae of metabolic strokes in MMA/PA.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100022\"}}, {\"id\": \"Neurometabolic brain injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulated methylmalonic acid and related metabolites, secondary mitochondrial energy failure, and acute metabolic crises injure brain tissue, particularly basal ganglia circuits, producing developmental delay, cognitive impairment, epilepsy, and metabolic stroke-like injury.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"brain\"]}}, {\"id\": \"Optic neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Optic neuropathy has been reported as a long-term complication, attributed to mitochondrial dysfunction in the optic nerve.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001138\"}}, {\"id\": \"Osteoporosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Osteoporosis is reported as a chronic skeletal complication in MMA/PA, requiring bone-density surveillance.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000939\"}}, {\"id\": \"Pancreatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute pancreatitis is a recognized complication, occurring during or independent of metabolic decompensation episodes.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001733\"}}, {\"id\": \"Poor growth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic growth impairment due to metabolic instability, dietary restrictions, and feeding intolerance.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001510\"}}, {\"id\": \"Prolonged QT interval\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acquired long QT syndrome is a recognized arrhythmia risk in MMA, associated with metabolic decompensation and chronic disease.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001657\"}}, {\"id\": \"Propionylcarnitine (C3)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"presence\": \"INCREASED\"}}, {\"id\": \"Reduced bone mineral density\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Osteopenia or reduced bone mineral density is a chronic skeletal complication in MMA/PA; the mechanism is not fully established.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004349\"}}, {\"id\": \"Renal mitochondrial stress and impaired mitophagy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In renal epithelial cells from MMA patients, metabolic stressors cause impaired mitophagy (reduced PINK1), shifted mitochondrial dynamics toward fission (elevated DRP1, reduced OPA1), compromised antioxidant defenses, and lowered glutathione ratios, contributing to progressive chronic kidney disease.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epithelial cell of proximal tubule\"], \"biological_processes\": [\"mitophagy\", \"mitochondrial fission\", \"response to oxidative stress\"], \"locations\": [\"kidney\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures may occur particularly in the context of metabolic decompensation and basal ganglia injury.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spastic quadri- or paraparesis is reported as a chronic complication and potential metabolic-stroke sequela in MMA/PA.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001257\"}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent emesis during catabolic stress and metabolic decompensation episodes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002013\"}}, {\"id\": \"mut- (partial deficiency)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Partial residual methylmalonyl-CoA mutase activity. Some forms show partial response to hydroxocobalamin.\\n\"}, {\"id\": \"mut0 (complete deficiency)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Complete loss of methylmalonyl-CoA mutase activity. Non-B12 responsive. Associated with the most severe phenotype and worst neuropsychological outcomes.\\n\"}], \"edges\": [{\"source\": \"MMUT/AdoCbl pathway molecular function deficiency\", \"target\": \"Impaired methylmalonyl-CoA metabolism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Methylmalonic acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Propionylcarnitine (C3)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"2-Methylcitric acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"3-Hydroxypropionate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Acute organic acid decompensation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Mitochondrial energy metabolism dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Aberrant mitochondrial protein methylmalonylation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Lysosomal-autophagy system dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Pancreatitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Reduced bone mineral density\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Osteoporosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acute organic acid decompensation\", \"target\": \"Metabolic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acute organic acid decompensation\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acute organic acid decompensation\", \"target\": \"Ammonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acute organic acid decompensation\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acute organic acid decompensation\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial energy metabolism dysfunction\", \"target\": \"Neurometabolic brain injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial energy metabolism dysfunction\", \"target\": \"Poor growth\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial energy metabolism dysfunction\", \"target\": \"Dilated cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial energy metabolism dysfunction\", \"target\": \"Prolonged QT interval\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial energy metabolism dysfunction\", \"target\": \"Optic neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial energy metabolism dysfunction\", \"target\": \"GDF15\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurometabolic brain injury\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurometabolic brain injury\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurometabolic brain injury\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurometabolic brain injury\", \"target\": \"Basal ganglia injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurometabolic brain injury\", \"target\": \"Movement disorder\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurometabolic brain injury\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Aberrant mitochondrial protein methylmalonylation\", \"target\": \"Lipodystrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Aberrant mitochondrial protein methylmalonylation\", \"target\": \"FGF21\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lysosomal-autophagy system dysfunction\", \"target\": \"Renal mitochondrial stress and impaired mitophagy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Renal mitochondrial stress and impaired mitophagy\", \"target\": \"Chronic kidney disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Renal mitochondrial stress and impaired mitophagy\", \"target\": \"Lipocalin-2 (LCN2)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"MMUT (methylmalonyl-CoA mutase)\", \"target\": \"MMUT/AdoCbl pathway molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MMAA (cblA complementation group)\", \"target\": \"MMUT/AdoCbl pathway molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MMAB (cblB complementation group)\", \"target\": \"MMUT/AdoCbl pathway molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"mut0 (complete deficiency)\", \"target\": \"MMUT (methylmalonyl-CoA mutase)\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"mut- (partial deficiency)\", \"target\": \"MMUT (methylmalonyl-CoA mutase)\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3652,7 +4224,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">15</span>
+                <span class="card-count">19</span>
             </div>
             
             
@@ -3662,17 +4234,17 @@
                 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(2)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(1)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Genitourinary<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(2)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Metabolism<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(4)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(6)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(1)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(1)</span></button>
                 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -3688,8 +4260,6 @@
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Dilated cardiomyopathy
-                        
-                        <span class="phenotype-freq">OCCASIONAL</span>
                         
                     
                     <span class="phenotype-id">
@@ -3765,8 +4335,6 @@
                     <div class="item-name">
                         Prolonged QT interval
                         
-                        <span class="phenotype-freq">OCCASIONAL</span>
-                        
                     
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0001657" target="_blank">
@@ -3830,8 +4398,6 @@
                     <div class="item-name">
                         Vomiting
                         
-                        <span class="phenotype-freq">FREQUENT</span>
-                        
                     
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank">
@@ -3843,10 +4409,38 @@
                     </div>
                     
                     
-                    <div class="item-desc">Vomiting is a common acute decompensation symptom in MMA, but a vomiting-specific quote was not available in the currently cited abstracts.</div>
                     
                     
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27653704" target="_blank">PMID:27653704</a>
+                    </span>
                     
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"With intercurrent illness, PA and MMA patients typically present with nausea and vomiting, worsening anorexia, and encephalopathy"</div>
+                
+                
+                <div class="evidence-explanation">Review text directly supports vomiting during acute decompensation.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
                     
@@ -3857,8 +4451,6 @@
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Pancreatitis
-                        
-                        <span class="phenotype-freq">OCCASIONAL</span>
                         
                     
                     <span class="phenotype-id">
@@ -3871,10 +4463,58 @@
                     </div>
                     
                     
-                    <div class="item-desc">Pancreatitis is a recognized but less frequent MMA complication; a pancreatitis-specific quote was not available in the currently cited abstracts.</div>
                     
                     
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8301430" target="_blank">PMID:8301430</a>
+                    </span>
                     
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Five had methylmalonic acidemia, three had isovaleric acidemia, and one had maple syrup urine disease."</div>
+                
+                
+                <div class="evidence-explanation">Case series directly reports pancreatitis in patients with methylmalonic acidemia.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8301430" target="_blank">PMID:8301430</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Acute or chronic pancreatitis may complicate branched-chain organic acidemias and must be considered in the assessment of patients with these disorders who have acute clinical deterioration and vomiting, abdominal pain, encephalopathy or shock, or milder symptoms."</div>
+                
+                
+                <div class="evidence-explanation">Case-series conclusion supports pancreatitis as an organic-acidemia complication.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
                     
@@ -3887,43 +4527,6 @@
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Eye
-                    <span class="cat-count">1</span>
-                </summary>
-                
-                <div class="item-box phenotype-box">
-                    <div class="item-name">
-                        Optic atrophy
-                        
-                        <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
-                    <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank">
-                            Optic atrophy
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000648)</span>
-                        </span>
-                        
-                    </div>
-                    
-                    
-                    <div class="item-desc">Optic atrophy has been reported in MMA long-term follow-up cohorts, but an optic-atrophy-specific quote was not available in the currently cited abstracts.</div>
-                    
-                    
-                    
-    
-    
-                    
-    
-    
-                </div>
-                
-            </details>
-            
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
                     <span class="cat-count">1</span>
                 </summary>
@@ -3931,8 +4534,6 @@
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Chronic kidney disease
-                        
-                        <span class="phenotype-freq">FREQUENT</span>
                         
                     
                     <span class="phenotype-id">
@@ -4006,7 +4607,7 @@
                 
             </details>
             
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
@@ -4016,8 +4617,6 @@
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Metabolic acidosis
-                        
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
                         
                     
                     <span class="phenotype-id">
@@ -4055,7 +4654,7 @@
                 <div class="evidence-snippet">"Patients present either shortly after birth with acute deterioration, metabolic acidosis and hyperammonemia"</div>
                 
                 
-                <div class="evidence-explanation">Directly supports metabolic acidosis as a frequent presenting feature.</div>
+                <div class="evidence-explanation">Directly supports metabolic acidosis as a presenting feature.</div>
                 
             </div>
             
@@ -4073,8 +4672,6 @@
                     <div class="item-name">
                         Hyperammonemia
                         
-                        <span class="phenotype-freq">FREQUENT</span>
-                        
                     
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0001987" target="_blank">
@@ -4091,7 +4688,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -4115,6 +4712,26 @@
                 
             </div>
             
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27653704" target="_blank">PMID:27653704</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Accumulation of propionyl-CoA, and to some extent methylmalonyl-CoA, results in secondary inhibition of N-acetylglutamate synthase (NAGS), causing secondary hyperammonemia in these patients"</div>
+                
+                
+                <div class="evidence-explanation">Review text supports the biochemical mechanism for secondary hyperammonemia.</div>
+                
+            </div>
+            
             
         </div>
     </details>
@@ -4127,18 +4744,238 @@
                 
             </details>
             
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">4</span>
                 </summary>
                 
                 <div class="item-box phenotype-box">
                     <div class="item-name">
-                        Lipodystrophy
+                        Spasticity
                         
-                        <span class="phenotype-freq">OCCASIONAL</span>
+                    
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank">
+                            Spasticity
+                        </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001257)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27653704" target="_blank">PMID:27653704</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Chronic complications include poor growth, movement disorders, progressive spastic quadraparesis, epilepsy, cardiac dysfunction (PA&gt;MMA), progressive renal disease (MMA), osteopenia/osteoporosis, vision loss (MMA&gt;PA), and functional immunodeficiency"</div>
+                
+                
+                <div class="evidence-explanation">Review text lists progressive spastic quadriparesis among chronic organic-acidemia complications.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27653704" target="_blank">PMID:27653704</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Movement disorders or spastic quadra- or paraparesis, potential sequelae of metabolic strokes, should be managed in collaboration with a neurologist and/or physiatrist"</div>
+                
+                
+                <div class="evidence-explanation">Review text supports spastic paresis as a potential metabolic-stroke sequela.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Reduced bone mineral density
+                        
+                    
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0004349" target="_blank">
+                            Reduced bone mineral density
+                        </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0004349)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27653704" target="_blank">PMID:27653704</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Although the specific mechanisms associated with bone health in OAs remain incompletely investigated, patients with PA and MMA are at significantly increased risk for osteopenia or osteoporosis that their age-matched peers, with and without renal disease"</div>
+                
+                
+                <div class="evidence-explanation">Review text supports increased risk for osteopenia/reduced bone density in MMA/PA.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27653704" target="_blank">PMID:27653704</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Various pathologies including vertebral fusion anomalies, vertebral compression and fractures, as well as generalized osteopenia, have been observed."</div>
+                
+                
+                <div class="evidence-explanation">Review text reports generalized osteopenia among observed skeletal pathologies.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Osteoporosis
+                        
+                    
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank">
+                            Osteoporosis
+                        </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000939)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27653704" target="_blank">PMID:27653704</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Although the specific mechanisms associated with bone health in OAs remain incompletely investigated, patients with PA and MMA are at significantly increased risk for osteopenia or osteoporosis that their age-matched peers, with and without renal disease"</div>
+                
+                
+                <div class="evidence-explanation">Review text directly supports osteoporosis risk in MMA/PA.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27653704" target="_blank">PMID:27653704</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"If pathological fractures or significant osteopenia/osteoporosis are detected on screening, more robust monitoring for bone density and response to interventions are indicated."</div>
+                
+                
+                <div class="evidence-explanation">Review text supports osteoporosis surveillance and management as part of MMA/PA care.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Lipodystrophy
                         
                     
                     <span class="phenotype-id">
@@ -4192,18 +5029,16 @@
                 
             </details>
             
-            <details class="phenotype-category-group" id="pheno-cat-7">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">6</span>
                 </summary>
                 
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Lethargy
-                        
-                        <span class="phenotype-freq">FREQUENT</span>
                         
                     
                     <span class="phenotype-id">
@@ -4216,10 +5051,38 @@
                     </div>
                     
                     
-                    <div class="item-desc">Lethargy is a classic decompensation manifestation in MMA, but a lethargy-specific quote was not available in the currently cited abstracts.</div>
                     
                     
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27653704" target="_blank">PMID:27653704</a>
+                    </span>
                     
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"These decompensation events typically present with decreased oral intake or enteral feeding intolerance, vomiting, and altered mental status or lethargy."</div>
+                
+                
+                <div class="evidence-explanation">Review text directly supports lethargy during decompensation.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
                     
@@ -4230,8 +5093,6 @@
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Global developmental delay
-                        
-                        <span class="phenotype-freq">FREQUENT</span>
                         
                     
                     <span class="phenotype-id">
@@ -4307,8 +5168,6 @@
                     <div class="item-name">
                         Intellectual disability
                         
-                        <span class="phenotype-freq">FREQUENT</span>
-                        
                     
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank">
@@ -4363,8 +5222,6 @@
                     <div class="item-name">
                         Seizures
                         
-                        <span class="phenotype-freq">OCCASIONAL</span>
-                        
                     
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank">
@@ -4388,20 +5245,20 @@
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35348993" target="_blank">PMID:35348993</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27653704" target="_blank">PMID:27653704</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"Methylmalonic acidemia (MMA) due to methylmalonyl-CoA mutase deficiency (OMIM #251,000) is an autosomal recessive disorder of organic acid metabolism associated with life-threatening acute metabolic decompensations and significant neuropsychological deficits."</div>
+                <div class="evidence-snippet">"Chronic complications include poor growth, movement disorders, progressive spastic quadraparesis, epilepsy, cardiac dysfunction (PA&gt;MMA), progressive renal disease (MMA), osteopenia/osteoporosis, vision loss (MMA&gt;PA), and functional immunodeficiency"</div>
                 
                 
-                <div class="evidence-explanation">Severe metabolic decompensation is associated with seizure risk and neurological injury.</div>
+                <div class="evidence-explanation">Review text lists epilepsy among chronic organic-acidemia complications; this supports seizure involvement.</div>
                 
             </div>
             
@@ -4417,25 +5274,188 @@
                 
                 <div class="item-box phenotype-box">
                     <div class="item-name">
-                        Basal ganglia necrosis
-                        
-                        <span class="phenotype-freq">OCCASIONAL</span>
+                        Basal ganglia injury
                         
                     
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0012128" target="_blank">
-                            Basal ganglia necrosis
+                        <a href="http://purl.obolibrary.org/obo/HP_0002134" target="_blank">
+                            Abnormal basal ganglia morphology
                         </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0012128)</span>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002134)</span>
                         </span>
                         
                     </div>
                     
                     
-                    <div class="item-desc">Basal ganglia injury (metabolic stroke) is a recognized MMA complication, but a basal-ganglia-specific quote was not available in the currently cited abstracts.</div>
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27653704" target="_blank">PMID:27653704</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Patients with organic acidopathies suffer metabolic brain injury that targets specific regions of the basal ganglia in a distinctive pattern"</div>
+                
+                
+                <div class="evidence-explanation">Review text directly supports basal ganglia-targeted metabolic brain injury.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Movement disorder
+                        
+                    
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0100022" target="_blank">
+                            Abnormality of movement
+                        </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0100022)</span>
+                        </span>
+                        
+                    </div>
                     
                     
                     
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27653704" target="_blank">PMID:27653704</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Chronic complications include poor growth, movement disorders, progressive spastic quadraparesis, epilepsy, cardiac dysfunction (PA&gt;MMA), progressive renal disease (MMA), osteopenia/osteoporosis, vision loss (MMA&gt;PA), and functional immunodeficiency"</div>
+                
+                
+                <div class="evidence-explanation">Review text lists movement disorders among chronic organic-acidemia complications.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27653704" target="_blank">PMID:27653704</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Movement disorders or spastic quadra- or paraparesis, potential sequelae of metabolic strokes, should be managed in collaboration with a neurologist and/or physiatrist"</div>
+                
+                
+                <div class="evidence-explanation">Review text supports movement disorders as potential metabolic-stroke sequelae.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+            </details>
+            
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">1</span>
+                </summary>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Poor growth
+                        
+                    
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank">
+                            Growth delay
+                        </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001510)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27653704" target="_blank">PMID:27653704</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Chronic complications include poor growth, movement disorders, progressive spastic quadraparesis, epilepsy, cardiac dysfunction (PA&gt;MMA), progressive renal disease (MMA), osteopenia/osteoporosis, vision loss (MMA&gt;PA), and functional immunodeficiency"</div>
+                
+                
+                <div class="evidence-explanation">Review text directly supports chronic poor growth in MMA/PA.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
                     
@@ -4448,31 +5468,77 @@
             <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
+                    Other
                     <span class="cat-count">1</span>
                 </summary>
                 
                 <div class="item-box phenotype-box">
                     <div class="item-name">
-                        Failure to thrive
-                        
-                        <span class="phenotype-freq">FREQUENT</span>
+                        Optic neuropathy
                         
                     
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank">
-                            Failure to thrive
+                        <a href="http://purl.obolibrary.org/obo/HP_0001138" target="_blank">
+                            Optic neuropathy
                         </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001508)</span>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001138)</span>
                         </span>
                         
                     </div>
                     
                     
-                    <div class="item-desc">Failure to thrive is common in severe MMA, but a growth-specific quote was not available in the currently cited abstracts.</div>
                     
                     
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31269850" target="_blank">PMID:31269850</a>
+                    </span>
                     
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Eleven (52.4%) patients had optic neuropathy."</div>
+                
+                
+                <div class="evidence-explanation">Classical MMA cohort directly supports optic neuropathy.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27653704" target="_blank">PMID:27653704</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"not entirely prevent brain injury or the development of optic neuropathy and cardiac disease"</div>
+                
+                
+                <div class="evidence-explanation">Management review supports optic neuropathy as an MMA/PA end-organ complication.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
                     
@@ -5317,6 +6383,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5383,10 +6450,11 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
             
@@ -5426,7 +6494,27 @@
                 <div class="evidence-snippet">"NBS-detected patients showed younger age at diagnosis, less incidence of disease onset, better responsiveness of vitamin B12, younger age at start of treatment, lower levels of biochemical features before and after treatment"</div>
                 
                 
-                <div class="evidence-explanation">Supports elevated C3 as the NBS detection biomarker.</div>
+                <div class="evidence-explanation">Supports biochemical marker reduction after newborn-screening detection and treatment.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27653704" target="_blank">PMID:27653704</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Diagnosis is based on clinical presentation and laboratory analysis, metabolic acidosis, ketoacidosis, lactic acidosis, hyperammonemia, hypoglycemia, pancytopenia, and elevated C3 acylcarnitines and organic acids in the urine."</div>
+                
+                
+                <div class="evidence-explanation">Review text directly supports elevated C3 acylcarnitines as a diagnostic biochemical abnormality.</div>
                 
             </div>
             
@@ -5447,6 +6535,7 @@
                 
                 <div class="item-desc">Context: A characteristic metabolite formed by condensation of propionyl-CoA with oxaloacetate via citrate synthase. Methylcitrate-to-citrate ratio is used in clinical monitoring. Potentially toxic metabolite contributing to TCA cycle disruption.
 </div>
+                
                 
                 
     
@@ -5495,6 +6584,57 @@
 </div>
                 
                 
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/4507604" target="_blank">PMID:4507604</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"[l-(14)C]Propionate administered intravenously was metabolized to methylmalonate, to 3-hydroxypropionate, and to methylcitrate in the urine of a patient with methylmalonic acidemia."</div>
+                
+                
+                <div class="evidence-explanation">Patient isotope tracing directly supports urinary 3-hydroxypropionate formation in methylmalonic acidemia.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27653704" target="_blank">PMID:27653704</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"In MMA, elevations of plasma propionylcarnitine, glycine, and alanine coupled with elevation of urinary methylmalonic, 3-OH-propionic, and methylcitric acids provide the diagnosis"</div>
+                
+                
+                <div class="evidence-explanation">Review text includes urinary 3-OH-propionic acid in the diagnostic biochemical pattern.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
             </div>
@@ -5511,10 +6651,11 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -5534,7 +6675,27 @@
                 <div class="evidence-snippet">"Fibroblast growth factor 21 levels were associated with acyl-CoA accretion, aberrant methylmalonylation in adipose tissue, and an attenuated inflammatory cytokine profile."</div>
                 
                 
-                <div class="evidence-explanation">Links elevated FGF21 to aberrant methylmalonylation in MMA patients.</div>
+                <div class="evidence-explanation">Links FGF21 levels to aberrant methylmalonylation in MMA patients.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37243446" target="_blank">PMID:37243446</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Biomarker concentrations are higher in patients with the severe mut0 -type and cblB-type MMA"</div>
+                
+                
+                <div class="evidence-explanation">Supports increased biomarker concentrations in severe MMA subtypes after FGF21/GDF15/LCN2 are introduced as biomarker targets.</div>
                 
             </div>
             
@@ -5557,6 +6718,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5570,17 +6732,17 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37243446" target="_blank">PMID:37243446</a>
                     </span>
                     
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"growth differentiation factor 15 [GDF15]"</div>
+                <div class="evidence-snippet">"growth differentiation factor 15"</div>
                 
                 
-                <div class="evidence-explanation">Identifies GDF15 as one of the circulating biomarkers evaluated in isolated MMA cohorts.</div>
+                <div class="evidence-explanation">Identifies GDF15 as a circulating mitochondrial dysfunction biomarker evaluated in isolated MMA cohorts.</div>
                 
             </div>
             
@@ -5590,7 +6752,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37243446" target="_blank">PMID:37243446</a>
                     </span>
                     
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5623,6 +6785,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5643,7 +6806,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"kidney injury (lipocalin-2 [LCN2])"</div>
+                <div class="evidence-snippet">"kidney injury (lipocalin-2"</div>
                 
                 
                 <div class="evidence-explanation">Identifies LCN2 as a kidney injury biomarker in MMA.</div>
@@ -5665,14 +6828,15 @@
                     
                 </div>
                 
-                <div class="item-desc">Context: Secondary hyperammonemia occurs during acute decompensation due to inhibition of N-acetylglutamate synthetase by propionyl-CoA, impairing the urea cycle.
+                <div class="item-desc">Context: Secondary hyperammonemia occurs during acute decompensation due to inhibition of N-acetylglutamate synthase by propionyl-CoA, impairing the urea cycle.
 </div>
+                
                 
                 
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -5693,6 +6857,26 @@
                 
                 
                 <div class="evidence-explanation">Directly supports hyperammonemia as a presenting feature of MMA.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27653704" target="_blank">PMID:27653704</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Accumulation of propionyl-CoA, and to some extent methylmalonyl-CoA, results in secondary inhibition of N-acetylglutamate synthase (NAGS), causing secondary hyperammonemia in these patients"</div>
+                
+                
+                <div class="evidence-explanation">Review text supports the urea-cycle mechanism that raises ammonia.</div>
                 
             </div>
             
@@ -5900,13 +7084,13 @@
                 <pre class="yaml-preview">name: Methylmalonic Acidemia
 category: Mendelian
 creation_date: &#39;2026-02-23T22:58:40Z&#39;
-updated_date: &#39;2026-04-22T20:53:03Z&#39;
+updated_date: &#39;2026-05-07T18:25:52Z&#39;
 synonyms:
 - Methylmalonic aciduria
 - MMA
 - Methylmalonyl-CoA mutase deficiency
 - Isolated methylmalonic acidemia
-description: &#39;Methylmalonic acidemia (MMA) is an autosomal recessive inborn error of propionate metabolism caused by deficiency of methylmalonyl-CoA mutase (MMUT) or defects in intracellular adenosylcobalamin (AdoCbl) cofactor synthesis and handling (cblA/MMAA, cblB/MMAB). Impaired conversion of methylmalonyl-CoA to succinyl-CoA leads to systemic accumulation of methylmalonic acid, propionyl-CoA, 2-methylcitrate, and related metabolites, disrupting mitochondrial anaplerosis, respiratory chain function, and protein acylation homeostasis. The disease manifests with recurrent metabolic decompensation, progressive chronic kidney disease, neurological injury including basal ganglia necrosis, cardiomyopathy, and a distinctive lipodystrophy-like phenotype. Estimated incidence is approximately 1:50,000 live births. Newborn screening via elevated propionylcarnitine (C3) allows pre-symptomatic detection and significantly improves outcomes.
+description: &#39;Methylmalonic acidemia (MMA) is an autosomal recessive inborn error of propionate metabolism caused by deficiency of methylmalonyl-CoA mutase (MMUT) or defects in intracellular adenosylcobalamin (AdoCbl) cofactor synthesis and handling (cblA/MMAA, cblB/MMAB). Impaired conversion of methylmalonyl-CoA to succinyl-CoA leads to systemic accumulation of methylmalonic acid, propionyl-CoA, 2-methylcitrate, and related metabolites, disrupting mitochondrial anaplerosis, respiratory chain function, and protein acylation homeostasis. The disease manifests with recurrent metabolic decompensation, progressive chronic kidney disease, neurological injury including basal ganglia injury, cardiomyopathy, and a distinctive lipodystrophy-like phenotype. Estimated incidence is approximately 1:50,000 live births. Newborn screening via elevated propionylcarnitine (C3) allows pre-symptomatic detection and significantly improves outcomes.
 
   &#39;
 disease_term:
@@ -6004,6 +7188,14 @@ pathophysiology:
   downstream:
   - target: Impaired methylmalonyl-CoA metabolism
     description: Defective MMUT/AdoCbl function blocks conversion of methylmalonyl-CoA to succinyl-CoA.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:27653704
+      reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Isolated MMA is caused by mutations in the MUT gene encoding methylmalonyl-CoA mutase (mut) or the genes encoding the enzymes responsible for the generation of 5-deoxyadenosylcobalamin (AdoCbl) cofactor of Mut (MMAA and MMAB)
+      explanation: Review text directly links MUT/MMAA/MMAB defects to isolated MMA at the first pathway step.
 - name: Impaired methylmalonyl-CoA metabolism
   description: &#39;Defects in methylmalonyl-CoA mutase or cobalamin-dependent cofactor pathways block conversion of methylmalonyl-CoA to succinyl-CoA, disrupting mitochondrial anaplerosis and the TCA cycle.
 
@@ -6035,11 +7227,211 @@ pathophysiology:
     snippet: MMA is normally present at low levels in the body, but increased levels can come from different sources, such as vitamin B12 deficiency, genetic mutations in enzymes related to the propionate pathway
     explanation: Opinion/review source providing supportive context for propionate-pathway genetic etiologies.
   downstream:
-  - target: Mitochondrial respiratory chain inhibition and energetic failure
+  - target: Methylmalonic acid
+    description: Blocked methylmalonyl-CoA mutase activity causes methylmalonic acid accumulation.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:25205257
+      reference_title: &#34;Proposed guidelines for the diagnosis and management of methylmalonic and propionic acidemia.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Methylmalonic and propionic acidemia (MMA/PA) are inborn errors of metabolism characterized by accumulation of propionic acid and/or methylmalonic acid due to deficiency of methylmalonyl-CoA mutase (MUT) or propionyl-CoA carboxylase (PCC).
+      explanation: Guideline abstract supports methylmalonic acid accumulation downstream of MUT deficiency.
+  - target: Propionylcarnitine (C3)
+    description: Propionate-pathway flux produces elevated plasma propionylcarnitine during MMA diagnosis and monitoring.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Propionyl-CoA accumulation is buffered by carnitine conjugation.
+    evidence:
+    - reference: PMID:27653704
+      reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: In MMA, elevations of plasma propionylcarnitine, glycine, and alanine coupled with elevation of urinary methylmalonic, 3-OH-propionic, and methylcitric acids provide the diagnosis
+      explanation: Review text directly identifies propionylcarnitine as elevated in MMA.
+  - target: 2-Methylcitric acid
+    description: Propionyl-CoA overflow generates methylcitric acid, a disease-specific organic acid marker.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Propionyl-CoA condenses with oxaloacetate to form methylcitrate.
+    evidence:
+    - reference: PMID:27653704
+      reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: In MMA, elevations of plasma propionylcarnitine, glycine, and alanine coupled with elevation of urinary methylmalonic, 3-OH-propionic, and methylcitric acids provide the diagnosis
+      explanation: Review text supports methylcitric acid elevation as part of the diagnostic biochemical pattern.
+  - target: 3-Hydroxypropionate
+    description: Propionyl-CoA is diverted through beta-oxidation to urinary 3-hydroxypropionate.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Propionyl-CoA beta-oxidation through acryloyl-CoA produces 3-hydroxypropionate.
+    evidence:
+    - reference: PMID:4507604
+      reference_title: &#34;3-hydroxypropionate: significance of -oxidation of propionate in patients with propionic acidemia and methylmalonic acidemia.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The appearance of radioactive 3-hydroxypropionate in the urine after the administration of these compounds indicates that beta-oxidation of propionyl-CoA through acryloyl-CoA was functioning in these patients.
+      explanation: Patient isotope tracing supports propionyl-CoA diversion to urinary 3-hydroxypropionate.
+  - target: Acute organic acid decompensation
+    description: Accumulating organic acids and anaplerotic failure create episodic metabolic crises under catabolic stress.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Organic acid accumulation
+    - Ketoacidosis
+    - Secondary mitochondrial dysfunction
+    evidence:
+    - reference: PMID:27653704
+      reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: During decompensation, acidosis in these patients occurs due to accumulation of organic acids and ketoacids, while lactic acidosis also occurs, particularly in severe decompensation or with severe secondary mitochondrial dysfunction
+      explanation: Review text explains the metabolic intermediates that connect the enzymatic block to acute decompensation.
+  - target: Mitochondrial energy metabolism dysfunction
+    description: Accumulated metabolites and reduced succinyl-CoA input impair the TCA cycle and oxidative phosphorylation.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Accumulating primary and secondary organic acid metabolites
+    - Succinyl-CoA deficiency
+    evidence:
+    - reference: PMID:27653704
+      reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: End-organ injury occurs due to both primary toxicity of both the accumulating primary and secondary metabolites and deficiency of succinyl-CoA resulting in Kreb cycle and oxidative phosphorylation dysfunction.
+      explanation: Review text ties metabolite toxicity and succinyl-CoA deficiency to TCA and oxidative phosphorylation dysfunction.
   - target: Aberrant mitochondrial protein methylmalonylation
+    description: Enlarged methylmalonyl-CoA and related acyl-CoA pools drive mitochondrial protein hyperacylation.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:37078237
+      reference_title: &#34;New insights into the pathophysiology of methylmalonic acidemia.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: new observations have revealed that aberrant acylation, specifically methylmalonylation, is a characteristic feature of MMA.
+      explanation: Review abstract identifies methylmalonylation as a characteristic feature downstream of MMA metabolism.
   - target: Lysosomal-autophagy system dysfunction
-- name: Mitochondrial respiratory chain inhibition and energetic failure
-  description: &#39;Accumulated methylmalonic acid and methylmalonyl-CoA directly inhibit mitochondrial respiratory chain complexes (Complex I, Complex II/SDH) and multiple dehydrogenases, leading to impaired oxidative phosphorylation and ATP depletion.
+    description: MUT deficiency perturbs lysosomal and autophagy regulation in cellular MMA models.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - MUT-deficient cellular proteome dysregulation
+    evidence:
+    - reference: PMID:38760822
+      reference_title: &#34;Methylmalonic acidemia triggers lysosomal-autophagy dysfunctions.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: These results indicate a strict connection between MUT deficiency and lysosomal-autophagy dysfunction, providing promising therapeutic perspectives for MMA.
+      explanation: Cellular evidence connects MUT deficiency to lysosomal-autophagy dysfunction.
+  - target: Pancreatitis
+    description: Pancreatitis is a reported complication of MMA and other branched-chain organic acidemias; the intervening mechanism is not resolved in the cited evidence.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:8301430
+      reference_title: &#34;Pancreatitis in patients with organic acidemias.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Five had methylmalonic acidemia, three had isovaleric acidemia, and one had maple syrup urine disease.
+      explanation: Case series directly reports pancreatitis in patients with methylmalonic acidemia.
+    - reference: PMID:8301430
+      reference_title: &#34;Pancreatitis in patients with organic acidemias.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Acute or chronic pancreatitis may complicate branched-chain organic acidemias and must be considered in the assessment of patients with these disorders who have acute clinical deterioration and vomiting, abdominal pain, encephalopathy or shock, or milder symptoms.
+      explanation: Case-series conclusion supports pancreatitis as an organic-acidemia complication while leaving the causal intermediates unresolved.
+  - target: Reduced bone mineral density
+    description: Low bone density is a chronic complication in MMA/PA, but the intervening mechanism is incompletely defined.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:27653704
+      reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Although the specific mechanisms associated with bone health in OAs remain incompletely investigated, patients with PA and MMA are at significantly increased risk for osteopenia or osteoporosis that their age-matched peers, with and without renal disease
+      explanation: Review text supports reduced bone density risk in MMA/PA while stating that mechanisms remain incompletely investigated.
+  - target: Osteoporosis
+    description: Osteoporosis is a chronic skeletal complication in MMA/PA, with unresolved causal intermediates.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:27653704
+      reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Although the specific mechanisms associated with bone health in OAs remain incompletely investigated, patients with PA and MMA are at significantly increased risk for osteopenia or osteoporosis that their age-matched peers, with and without renal disease
+      explanation: Review text supports osteoporosis risk in MMA/PA while stating that mechanisms remain incompletely investigated.
+- name: Acute organic acid decompensation
+  description: &#39;Catabolic stress in MMA precipitates acute metabolic decompensation with organic acid and ketoacid accumulation, metabolic acidosis, secondary hyperammonemia, vomiting, feeding intolerance, and altered mental status.
+
+    &#39;
+  evidence:
+  - reference: PMID:27653704
+    reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: With intercurrent illness, PA and MMA patients typically present with nausea and vomiting, worsening anorexia, and encephalopathy, with laboratory studies demonstrating metabolic acidosis, ketonuria, hyperammonemia, pancytopenia, and electrolyte disturbances
+    explanation: Review text summarizes the clinical and biochemical acute decompensation pattern.
+  - reference: PMID:27653704
+    reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: Accumulation of propionyl-CoA, and to some extent methylmalonyl-CoA, results in secondary inhibition of N-acetylglutamate synthase (NAGS), causing secondary hyperammonemia in these patients
+    explanation: Review text provides the urea-cycle mechanism for secondary hyperammonemia.
+  downstream:
+  - target: Metabolic acidosis
+    description: Organic acid and ketoacid accumulation during decompensation produces high-anion-gap metabolic acidosis.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:27653704
+      reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: During decompensation, acidosis in these patients occurs due to accumulation of organic acids and ketoacids, while lactic acidosis also occurs, particularly in severe decompensation or with severe secondary mitochondrial dysfunction
+      explanation: Review text directly explains acidosis during decompensation.
+  - target: Hyperammonemia
+    description: Propionyl-CoA and methylmalonyl-CoA interfere with urea-cycle activation, causing secondary hyperammonemia.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - N-acetylglutamate synthase inhibition
+    evidence:
+    - reference: PMID:27653704
+      reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Accumulation of propionyl-CoA, and to some extent methylmalonyl-CoA, results in secondary inhibition of N-acetylglutamate synthase (NAGS), causing secondary hyperammonemia in these patients
+      explanation: Review text directly supports the hyperammonemia mechanism.
+  - target: Ammonia
+    description: Urea-cycle inhibition raises circulating ammonia during decompensation.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - N-acetylglutamate synthase inhibition
+    evidence:
+    - reference: PMID:27653704
+      reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Accumulation of propionyl-CoA, and to some extent methylmalonyl-CoA, results in secondary inhibition of N-acetylglutamate synthase (NAGS), causing secondary hyperammonemia in these patients
+      explanation: Hyperammonemia entails increased ammonia as the biochemical abnormality.
+  - target: Vomiting
+    description: Acute decompensation commonly presents with nausea and vomiting.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:27653704
+      reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: With intercurrent illness, PA and MMA patients typically present with nausea and vomiting, worsening anorexia, and encephalopathy
+      explanation: Review text directly supports vomiting during acute decompensation.
+  - target: Lethargy
+    description: Decompensation produces altered mental status and lethargy.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:27653704
+      reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: These decompensation events typically present with decreased oral intake or enteral feeding intolerance, vomiting, and altered mental status or lethargy.
+      explanation: Review text directly supports lethargy during decompensation.
+- name: Mitochondrial energy metabolism dysfunction
+  description: &#39;Accumulating primary and secondary organic acid metabolites plus deficient succinyl-CoA input disrupt the TCA cycle, oxidative phosphorylation, and fatty-acid-derived energy generation, creating energetic vulnerability in high-demand organs.
 
     &#39;
   biological_processes:
@@ -6057,12 +7449,170 @@ pathophysiology:
       id: GO:0005743
       label: mitochondrial inner membrane
   evidence:
-  - reference: PMID:37078237
-    reference_title: &#34;New insights into the pathophysiology of methylmalonic acidemia.&#34;
+  - reference: PMID:27653704
+    reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
     supports: SUPPORT
     evidence_source: OTHER
-    snippet: While earlier studies have focused on the potential direct toxicity of metabolites such as methylmalonic and propionic acid as a mechanism to explain disease pathophysiology, new observations have revealed that aberrant acylation, specifically methylmalonylation, is a characteristic feature of MMA.
-    explanation: Supports metabolite-driven mitochondrial dysfunction as central to pathophysiology.
+    snippet: End-organ injury occurs due to both primary toxicity of both the accumulating primary and secondary metabolites and deficiency of succinyl-CoA resulting in Kreb cycle and oxidative phosphorylation dysfunction.
+    explanation: Review text directly supports metabolite-driven TCA cycle and oxidative phosphorylation dysfunction.
+  - reference: PMID:37169781
+    reference_title: &#34;The impact of metabolic stressors on mitochondrial homeostasis in a renal epithelial cell model of methylmalonic aciduria.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: Changes in tricarboxylic acid cycle metabolites and impaired energy generation from fatty acid oxidation were detected.
+    explanation: Renal epithelial cell model supports impaired mitochondrial energy metabolism under MMA stress.
+  downstream:
+  - target: Neurometabolic brain injury
+    description: Mitochondrial energy failure and metabolite toxicity injure the high-energy CNS compartment.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Accumulating primary and secondary metabolites
+    - Deficient succinyl-CoA input to the TCA cycle
+    evidence:
+    - reference: PMID:27653704
+      reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Because normal mitochondrial function requires sufficient energy production through the citric acid cycle and oxidative phosphorylation, MMA and PA result in multi-systemic chronic disease, particularly in the highly energetic organs such as brain, heart, kidney, and eye.
+      explanation: Review text connects mitochondrial energy failure to injury of the brain and other high-energy organs.
+  - target: Poor growth
+    description: Chronic metabolic energy stress and dietary fragility contribute to poor growth.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:27653704
+      reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Chronic complications include poor growth, movement disorders, progressive spastic quadraparesis, epilepsy, cardiac dysfunction (PA&gt;MMA), progressive renal disease (MMA), osteopenia/osteoporosis, vision loss (MMA&gt;PA), and functional immunodeficiency
+      explanation: Review text supports poor growth as a chronic organic-acidemia complication.
+  - target: Dilated cardiomyopathy
+    description: Cardiac energy vulnerability and organic-acidemia complications contribute to dilated cardiomyopathy in a subset of MMA patients.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:38132258
+      reference_title: &#34;Cardiac Involvement in Classical Organic Acidurias: Clinical Profile and Outcome in a Pediatric Cohort.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Cardiac anomalies were found in 23/60 OA patients, all with PA or MMA, represented by DCM (17/23 patients) and/or acquired long QT syndrome (3/23 patients).
+      explanation: Pediatric cohort directly links organic acidurias including MMA to DCM.
+  - target: Prolonged QT interval
+    description: Organic-acidemia cardiac involvement can include acquired long QT syndrome.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:38132258
+      reference_title: &#34;Cardiac Involvement in Classical Organic Acidurias: Clinical Profile and Outcome in a Pediatric Cohort.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Cardiac anomalies were found in 23/60 OA patients, all with PA or MMA, represented by DCM (17/23 patients) and/or acquired long QT syndrome (3/23 patients).
+      explanation: Pediatric cohort directly reports acquired long QT syndrome in OA patients including MMA.
+  - target: Optic neuropathy
+    description: High-energy ocular tissue vulnerability contributes to optic neuropathy and vision loss in classical MMA.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:31269850
+      reference_title: &#34;Optic neuropathy in classical methylmalonic acidemia.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Eleven (52.4%) patients had optic neuropathy.
+      explanation: Classical MMA cohort supports optic neuropathy as a frequent ocular complication.
+  - target: GDF15
+    description: Circulating GDF15 is used as a mitochondrial dysfunction biomarker in isolated MMA.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Mitochondrial stress signaling
+    evidence:
+    - reference: PMID:37243446
+      reference_title: &#34;Biomarkers to predict disease progression and therapeutic response in isolated methylmalonic acidemia.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: growth differentiation factor 15
+      explanation: Clinical biomarker study identifies GDF15 as a circulating marker of mitochondrial dysfunction in MMA.
+- name: Neurometabolic brain injury
+  description: &#39;Accumulated methylmalonic acid and related metabolites, secondary mitochondrial energy failure, and acute metabolic crises injure brain tissue, particularly basal ganglia circuits, producing developmental delay, cognitive impairment, epilepsy, and metabolic stroke-like injury.
+
+    &#39;
+  locations:
+  - preferred_term: brain
+    term:
+      id: UBERON:0000955
+      label: brain
+  evidence:
+  - reference: PMID:27653704
+    reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: Patients with organic acidopathies suffer metabolic brain injury that targets specific regions of the basal ganglia in a distinctive pattern
+    explanation: Review text supports basal ganglia-targeted metabolic brain injury in organic acidopathies.
+  - reference: PMID:36777632
+    reference_title: &#34;Methylmalonic acidemia: Neurodevelopment and neuroimaging.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: The accumulation of methylmalonic acid and other metabolites in the body of patients causes brain tissue damage, which can manifest as various degrees of intellectual disability and severe neurological dysfunction.
+    explanation: Neuroimaging review connects metabolite accumulation to brain tissue damage and neurological dysfunction.
+  downstream:
+  - target: Global developmental delay
+    description: Neurometabolic injury slows developmental trajectory in children with isolated MMA.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:35348993
+      reference_title: &#34;Review of neuropsychological outcomes in isolated methylmalonic acidemia: recommendations for assessing impact of treatments.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Children with this disorder still are at risk for developmental delay, cognitive difficulties and progressive declines in functioning.
+      explanation: Neuropsychology review directly supports developmental delay downstream of isolated MMA brain involvement.
+  - target: Intellectual disability
+    description: Brain tissue damage and neuropsychological deficits manifest as cognitive impairment.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:36777632
+      reference_title: &#34;Methylmalonic acidemia: Neurodevelopment and neuroimaging.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: The accumulation of methylmalonic acid and other metabolites in the body of patients causes brain tissue damage, which can manifest as various degrees of intellectual disability and severe neurological dysfunction.
+      explanation: Review text directly connects MMA metabolite accumulation and brain damage to intellectual disability.
+  - target: Seizures
+    description: Chronic brain injury and acute metabolic crises can manifest as epilepsy or seizures.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Metabolic brain injury
+    - Encephalopathy
+    evidence:
+    - reference: PMID:27653704
+      reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Chronic complications include poor growth, movement disorders, progressive spastic quadraparesis, epilepsy, cardiac dysfunction (PA&gt;MMA), progressive renal disease (MMA), osteopenia/osteoporosis, vision loss (MMA&gt;PA), and functional immunodeficiency
+      explanation: Review text lists epilepsy among chronic organic-acidemia complications.
+  - target: Basal ganglia injury
+    description: MMA-associated metabolic brain injury targets basal ganglia regions and can present as metabolic stroke.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:27653704
+      reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Patients with organic acidopathies suffer metabolic brain injury that targets specific regions of the basal ganglia in a distinctive pattern
+      explanation: Review text directly supports basal ganglia-targeted brain injury.
+  - target: Movement disorder
+    description: Metabolic brain injury and metabolic stroke sequelae can manifest as movement disorders.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:27653704
+      reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Movement disorders or spastic quadra- or paraparesis, potential sequelae of metabolic strokes, should be managed in collaboration with a neurologist and/or physiatrist
+      explanation: Review text identifies movement disorders as potential sequelae of metabolic strokes in organic acidopathies.
+  - target: Spasticity
+    description: Metabolic stroke sequelae can include spastic quadri- or paraparesis.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:27653704
+      reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Movement disorders or spastic quadra- or paraparesis, potential sequelae of metabolic strokes, should be managed in collaboration with a neurologist and/or physiatrist
+      explanation: Review text supports spastic paresis as a potential sequela of metabolic strokes.
 - name: Aberrant mitochondrial protein methylmalonylation
   description: &#39;Excess methylmalonyl-CoA, propionyl-CoA, and malonyl-CoA drive widespread lysine hyperacylation of mitochondrial proteins across TCA cycle, beta-oxidation, amino acid metabolism, urea cycle, and oxidative stress pathways. Reduced levels of mitochondrial sirtuins SIRT3/4/5, particularly SIRT5 which can remove methylmalonylation, amplify dysfunction.
 
@@ -6084,6 +7634,39 @@ pathophysiology:
     evidence_source: OTHER
     snippet: new observations have revealed that aberrant acylation, specifically methylmalonylation, is a characteristic feature of MMA. The mitochondrial sirtuin enzyme SIRT5 is capable of recognizing and removing this PTM, however, reduced protein levels of SIRT5 along with other mitochondrial SIRTs 3 and 4 in MMA
     explanation: Directly supports hyperacylation/methylmalonylation and reduced sirtuin deacylation as key pathomechanism.
+  downstream:
+  - target: Lipodystrophy
+    description: Abnormal adipose methylmalonylation and acyl-CoA accretion are associated with the MMA lipodystrophy phenotype.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Acyl-CoA accretion in adipose tissue
+    - Altered adipose inflammatory and thermogenic signaling
+    evidence:
+    - reference: PMID:38271099
+      reference_title: &#34;Lipodystrophy in methylmalonic acidemia associated with elevated FGF21 and abnormal methylmalonylation.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Fibroblast growth factor 21 levels were associated with acyl-CoA accretion, aberrant methylmalonylation in adipose tissue, and an attenuated inflammatory cytokine profile.
+      explanation: Human cohort study links adipose methylmalonylation and acyl-CoA accretion to the lipodystrophy phenotype context.
+    - reference: PMID:38271099
+      reference_title: &#34;Lipodystrophy in methylmalonic acidemia associated with elevated FGF21 and abnormal methylmalonylation.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: A distinct adipose tissue distribution pattern was observed in patients with methylmalonyl-CoA mutase deficiency, an inborn error of branched-chain amino acid (BCAA) metabolism, characterized by centripetal obesity with proximal upper and lower extremity fat deposition and paucity of visceral fat
+      explanation: Human cohort study directly supports the downstream adipose distribution phenotype.
+  - target: FGF21
+    description: FGF21 tracks mitochondrial/adipose stress associated with acyl-CoA accretion and methylmalonylation.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Adipose methylmalonylation
+    - Mitochondrial stress signaling
+    evidence:
+    - reference: PMID:38271099
+      reference_title: &#34;Lipodystrophy in methylmalonic acidemia associated with elevated FGF21 and abnormal methylmalonylation.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Fibroblast growth factor 21 levels were associated with acyl-CoA accretion, aberrant methylmalonylation in adipose tissue, and an attenuated inflammatory cytokine profile.
+      explanation: Study abstract supports FGF21 association with acyl-CoA accretion and methylmalonylation.
 - name: Lysosomal-autophagy system dysfunction
   description: &#39;MUT deficiency directly perturbs the lysosome-autophagy system, causing enlarged lysosomes with reduced acidity and degradative capacity, impaired autophagosome-lysosome fusion, and severely reduced autophagic flux. These defects are pharmacologically reversible with anti-propionigenic compounds.
 
@@ -6111,6 +7694,18 @@ pathophysiology:
     explanation: Demonstrates lysosomal-autophagy dysfunction and pharmacological reversibility in MMA cellular models.
   downstream:
   - target: Renal mitochondrial stress and impaired mitophagy
+    description: Lysosomal-autophagy failure impairs clearance of damaged mitochondria and contributes to renal mitochondrial stress.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Impaired autophagosome-lysosome fusion
+    - Reduced lysosomal activity
+    evidence:
+    - reference: PMID:38760822
+      reference_title: &#34;Methylmalonic acidemia triggers lysosomal-autophagy dysfunctions.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: Our data prove that MMA triggers such dysfunctions impacting on autophagosome-lysosome fusion and lysosomal activity.
+      explanation: Cellular evidence supports the autophagy-lysosome failure that would impair mitochondrial quality control.
 - name: Renal mitochondrial stress and impaired mitophagy
   description: &#39;In renal epithelial cells from MMA patients, metabolic stressors cause impaired mitophagy (reduced PINK1), shifted mitochondrial dynamics toward fission (elevated DRP1, reduced OPA1), compromised antioxidant defenses, and lowered glutathione ratios, contributing to progressive chronic kidney disease.
 
@@ -6151,9 +7746,35 @@ pathophysiology:
     evidence_source: IN_VITRO
     snippet: Creatinine levels were increased and antioxidant stress defense was severely comprised in MMA-uria cells.
     explanation: Supports compromised antioxidant defense in renal MMA cells.
+  downstream:
+  - target: Chronic kidney disease
+    description: Renal epithelial mitochondrial stress and impaired mitophagy contribute to progressive CKD in MMA.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Impaired mitophagy
+    - Antioxidant stress defense compromise
+    evidence:
+    - reference: PMID:37169781
+      reference_title: &#34;The impact of metabolic stressors on mitochondrial homeostasis in a renal epithelial cell model of methylmalonic aciduria.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: The results point to protein toxicity in MMA-uria and lead to a better understanding, how the accumulating, potentially toxic organic acids might trigger CKD.
+      explanation: Renal epithelial model links toxic organic acids and mitochondrial homeostasis changes to CKD.
+  - target: Lipocalin-2 (LCN2)
+    description: Renal injury from MMA is tracked by LCN2 as a circulating kidney injury biomarker.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Proximal tubular injury
+    - Kidney injury biomarker response
+    evidence:
+    - reference: PMID:37243446
+      reference_title: &#34;Biomarkers to predict disease progression and therapeutic response in isolated methylmalonic acidemia.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: kidney injury (lipocalin-2
+      explanation: Clinical biomarker study identifies LCN2 as a kidney injury marker in isolated MMA.
 phenotypes:
 - name: Metabolic acidosis
-  frequency: VERY_FREQUENT
   description: Recurrent high-anion-gap metabolic acidosis, often presenting in the neonatal period.
   phenotype_term:
     preferred_term: Metabolic acidosis
@@ -6166,10 +7787,9 @@ phenotypes:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Patients present either shortly after birth with acute deterioration, metabolic acidosis and hyperammonemia
-    explanation: Directly supports metabolic acidosis as a frequent presenting feature.
+    explanation: Directly supports metabolic acidosis as a presenting feature.
 - name: Hyperammonemia
-  frequency: FREQUENT
-  description: &#39;Secondary hyperammonemia during acute metabolic decompensation, related to inhibition of N-acetylglutamate synthetase by propionyl-CoA.
+  description: &#39;Secondary hyperammonemia during acute metabolic decompensation, related to inhibition of N-acetylglutamate synthase by propionyl-CoA.
 
     &#39;
   phenotype_term:
@@ -6184,35 +7804,55 @@ phenotypes:
     evidence_source: HUMAN_CLINICAL
     snippet: Patients present either shortly after birth with acute deterioration, metabolic acidosis and hyperammonemia
     explanation: Directly supports hyperammonemia during decompensation.
+  - reference: PMID:27653704
+    reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: Accumulation of propionyl-CoA, and to some extent methylmalonyl-CoA, results in secondary inhibition of N-acetylglutamate synthase (NAGS), causing secondary hyperammonemia in these patients
+    explanation: Review text supports the biochemical mechanism for secondary hyperammonemia.
 - name: Vomiting
-  frequency: FREQUENT
   description: Recurrent emesis during catabolic stress and metabolic decompensation episodes.
   phenotype_term:
     preferred_term: Vomiting
     term:
       id: HP:0002013
       label: Vomiting
-  notes: Vomiting is a common acute decompensation symptom in MMA, but a vomiting-specific quote was not available in the currently cited abstracts.
+  evidence:
+  - reference: PMID:27653704
+    reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: With intercurrent illness, PA and MMA patients typically present with nausea and vomiting, worsening anorexia, and encephalopathy
+    explanation: Review text directly supports vomiting during acute decompensation.
 - name: Lethargy
-  frequency: FREQUENT
   description: Reduced alertness during metabolic decompensation episodes.
   phenotype_term:
     preferred_term: Lethargy
     term:
       id: HP:0001254
       label: Lethargy
-  notes: Lethargy is a classic decompensation manifestation in MMA, but a lethargy-specific quote was not available in the currently cited abstracts.
-- name: Failure to thrive
-  frequency: FREQUENT
+  evidence:
+  - reference: PMID:27653704
+    reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: These decompensation events typically present with decreased oral intake or enteral feeding intolerance, vomiting, and altered mental status or lethargy.
+    explanation: Review text directly supports lethargy during decompensation.
+- name: Poor growth
   description: Chronic growth impairment due to metabolic instability, dietary restrictions, and feeding intolerance.
   phenotype_term:
-    preferred_term: Failure to thrive
+    preferred_term: Poor growth
     term:
-      id: HP:0001508
-      label: Failure to thrive
-  notes: Failure to thrive is common in severe MMA, but a growth-specific quote was not available in the currently cited abstracts.
+      id: HP:0001510
+      label: Growth delay
+  evidence:
+  - reference: PMID:27653704
+    reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: Chronic complications include poor growth, movement disorders, progressive spastic quadraparesis, epilepsy, cardiac dysfunction (PA&gt;MMA), progressive renal disease (MMA), osteopenia/osteoporosis, vision loss (MMA&gt;PA), and functional immunodeficiency
+    explanation: Review text directly supports chronic poor growth in MMA/PA.
 - name: Global developmental delay
-  frequency: FREQUENT
   description: &#39;Delayed developmental trajectory, particularly in severe mut0 forms. Mean IQ for mut0 enzymatic subtype is rarely above 85.
 
     &#39;
@@ -6235,7 +7875,6 @@ phenotypes:
     snippet: Mean IQ for all types apart from cblA defect enzymatic subtype is rarely above 85
     explanation: Quantifies intellectual impairment severity by MMA subtype.
 - name: Intellectual disability
-  frequency: FREQUENT
   description: &#39;Cognitive impairment is common in severe MMA subtypes, with processing speed, working memory, language, and attention particularly affected.
 
     &#39;
@@ -6252,7 +7891,6 @@ phenotypes:
     snippet: Children with this disorder still are at risk for developmental delay, cognitive difficulties and progressive declines in functioning.
     explanation: Supports cognitive difficulties as a key feature of MMA.
 - name: Seizures
-  frequency: OCCASIONAL
   description: &#39;Seizures may occur particularly in the context of metabolic decompensation and basal ganglia injury.
 
     &#39;
@@ -6262,25 +7900,69 @@ phenotypes:
       id: HP:0001250
       label: Seizure
   evidence:
-  - reference: PMID:35348993
-    reference_title: &#34;Review of neuropsychological outcomes in isolated methylmalonic acidemia: recommendations for assessing impact of treatments.&#34;
+  - reference: PMID:27653704
+    reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#39;Methylmalonic acidemia (MMA) due to methylmalonyl-CoA mutase deficiency (OMIM #251,000) is an autosomal recessive disorder of organic acid metabolism associated with life-threatening acute metabolic decompensations and significant neuropsychological deficits.&#39;
-    explanation: Severe metabolic decompensation is associated with seizure risk and neurological injury.
-- name: Basal ganglia necrosis
-  frequency: OCCASIONAL
-  description: &#39;Bilateral basal ganglia necrosis (metabolic stroke), particularly of the globus pallidus, is a recognized neurological complication during acute metabolic crises.
+    evidence_source: OTHER
+    snippet: Chronic complications include poor growth, movement disorders, progressive spastic quadraparesis, epilepsy, cardiac dysfunction (PA&gt;MMA), progressive renal disease (MMA), osteopenia/osteoporosis, vision loss (MMA&gt;PA), and functional immunodeficiency
+    explanation: Review text lists epilepsy among chronic organic-acidemia complications; this supports seizure involvement.
+- name: Basal ganglia injury
+  description: &#39;Basal ganglia injury (metabolic stroke-like injury), particularly involving basal ganglia regions, is a recognized neurological complication during acute metabolic crises.
 
     &#39;
   phenotype_term:
-    preferred_term: Basal ganglia necrosis
+    preferred_term: Basal ganglia injury
     term:
-      id: HP:0012128
-      label: Basal ganglia necrosis
-  notes: Basal ganglia injury (metabolic stroke) is a recognized MMA complication, but a basal-ganglia-specific quote was not available in the currently cited abstracts.
+      id: HP:0002134
+      label: Abnormal basal ganglia morphology
+  evidence:
+  - reference: PMID:27653704
+    reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: Patients with organic acidopathies suffer metabolic brain injury that targets specific regions of the basal ganglia in a distinctive pattern
+    explanation: Review text directly supports basal ganglia-targeted metabolic brain injury.
+- name: Movement disorder
+  description: Movement disorders can occur as chronic complications and as sequelae of metabolic strokes in MMA/PA.
+  phenotype_term:
+    preferred_term: Movement disorder
+    term:
+      id: HP:0100022
+      label: Abnormality of movement
+  evidence:
+  - reference: PMID:27653704
+    reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: Chronic complications include poor growth, movement disorders, progressive spastic quadraparesis, epilepsy, cardiac dysfunction (PA&gt;MMA), progressive renal disease (MMA), osteopenia/osteoporosis, vision loss (MMA&gt;PA), and functional immunodeficiency
+    explanation: Review text lists movement disorders among chronic organic-acidemia complications.
+  - reference: PMID:27653704
+    reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: Movement disorders or spastic quadra- or paraparesis, potential sequelae of metabolic strokes, should be managed in collaboration with a neurologist and/or physiatrist
+    explanation: Review text supports movement disorders as potential metabolic-stroke sequelae.
+- name: Spasticity
+  description: Spastic quadri- or paraparesis is reported as a chronic complication and potential metabolic-stroke sequela in MMA/PA.
+  phenotype_term:
+    preferred_term: Spasticity
+    term:
+      id: HP:0001257
+      label: Spasticity
+  evidence:
+  - reference: PMID:27653704
+    reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: Chronic complications include poor growth, movement disorders, progressive spastic quadraparesis, epilepsy, cardiac dysfunction (PA&gt;MMA), progressive renal disease (MMA), osteopenia/osteoporosis, vision loss (MMA&gt;PA), and functional immunodeficiency
+    explanation: Review text lists progressive spastic quadriparesis among chronic organic-acidemia complications.
+  - reference: PMID:27653704
+    reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: Movement disorders or spastic quadra- or paraparesis, potential sequelae of metabolic strokes, should be managed in collaboration with a neurologist and/or physiatrist
+    explanation: Review text supports spastic paresis as a potential metabolic-stroke sequela.
 - name: Chronic kidney disease
-  frequency: FREQUENT
   description: &#39;Progressive chronic kidney disease is a major long-term complication of MMA, mechanistically linked to proximal tubular mitochondrial dysfunction, oxidative stress, and impaired mitophagy.
 
     &#39;
@@ -6303,7 +7985,6 @@ phenotypes:
     snippet: Chronic kidney disease (CKD) is a well-known long-term complication.
     explanation: Confirms CKD as an established long-term complication.
 - name: Dilated cardiomyopathy
-  frequency: OCCASIONAL
   description: &#39;Dilated cardiomyopathy occurs in a subset of MMA patients. In a 2000-2022 pediatric cohort, cardiac involvement occurred in approximately 38% of PA/MMA patients, with DCM predominant.
 
     &#39;
@@ -6326,7 +8007,6 @@ phenotypes:
     snippet: 35% in MMA with cardiomyopathy
     explanation: Quantifies 5-year MACE rate in MMA patients with cardiomyopathy.
 - name: Prolonged QT interval
-  frequency: OCCASIONAL
   description: &#39;Acquired long QT syndrome is a recognized arrhythmia risk in MMA, associated with metabolic decompensation and chronic disease.
 
     &#39;
@@ -6343,7 +8023,6 @@ phenotypes:
     snippet: Cardiac anomalies were found in 23/60 OA patients, all with PA or MMA, represented by DCM (17/23 patients) and/or acquired long QT syndrome (3/23 patients).
     explanation: Directly reports acquired long QT syndrome in OA patients including MMA.
 - name: Pancreatitis
-  frequency: OCCASIONAL
   description: &#39;Acute pancreatitis is a recognized complication, occurring during or independent of metabolic decompensation episodes.
 
     &#39;
@@ -6352,20 +8031,82 @@ phenotypes:
     term:
       id: HP:0001733
       label: Pancreatitis
-  notes: Pancreatitis is a recognized but less frequent MMA complication; a pancreatitis-specific quote was not available in the currently cited abstracts.
-- name: Optic atrophy
-  frequency: OCCASIONAL
-  description: &#39;Optic neuropathy or atrophy has been reported as a long-term complication, attributed to mitochondrial dysfunction in the optic nerve.
+  evidence:
+  - reference: PMID:8301430
+    reference_title: &#34;Pancreatitis in patients with organic acidemias.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Five had methylmalonic acidemia, three had isovaleric acidemia, and one had maple syrup urine disease.
+    explanation: Case series directly reports pancreatitis in patients with methylmalonic acidemia.
+  - reference: PMID:8301430
+    reference_title: &#34;Pancreatitis in patients with organic acidemias.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Acute or chronic pancreatitis may complicate branched-chain organic acidemias and must be considered in the assessment of patients with these disorders who have acute clinical deterioration and vomiting, abdominal pain, encephalopathy or shock, or milder symptoms.
+    explanation: Case-series conclusion supports pancreatitis as an organic-acidemia complication.
+- name: Reduced bone mineral density
+  description: Osteopenia or reduced bone mineral density is a chronic skeletal complication in MMA/PA; the mechanism is not fully established.
+  phenotype_term:
+    preferred_term: Reduced bone mineral density
+    term:
+      id: HP:0004349
+      label: Reduced bone mineral density
+  evidence:
+  - reference: PMID:27653704
+    reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: Although the specific mechanisms associated with bone health in OAs remain incompletely investigated, patients with PA and MMA are at significantly increased risk for osteopenia or osteoporosis that their age-matched peers, with and without renal disease
+    explanation: Review text supports increased risk for osteopenia/reduced bone density in MMA/PA.
+  - reference: PMID:27653704
+    reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: Various pathologies including vertebral fusion anomalies, vertebral compression and fractures, as well as generalized osteopenia, have been observed.
+    explanation: Review text reports generalized osteopenia among observed skeletal pathologies.
+- name: Osteoporosis
+  description: Osteoporosis is reported as a chronic skeletal complication in MMA/PA, requiring bone-density surveillance.
+  phenotype_term:
+    preferred_term: Osteoporosis
+    term:
+      id: HP:0000939
+      label: Osteoporosis
+  evidence:
+  - reference: PMID:27653704
+    reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: Although the specific mechanisms associated with bone health in OAs remain incompletely investigated, patients with PA and MMA are at significantly increased risk for osteopenia or osteoporosis that their age-matched peers, with and without renal disease
+    explanation: Review text directly supports osteoporosis risk in MMA/PA.
+  - reference: PMID:27653704
+    reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: If pathological fractures or significant osteopenia/osteoporosis are detected on screening, more robust monitoring for bone density and response to interventions are indicated.
+    explanation: Review text supports osteoporosis surveillance and management as part of MMA/PA care.
+- name: Optic neuropathy
+  description: &#39;Optic neuropathy has been reported as a long-term complication, attributed to mitochondrial dysfunction in the optic nerve.
 
     &#39;
   phenotype_term:
-    preferred_term: Optic atrophy
+    preferred_term: Optic neuropathy
     term:
-      id: HP:0000648
-      label: Optic atrophy
-  notes: Optic atrophy has been reported in MMA long-term follow-up cohorts, but an optic-atrophy-specific quote was not available in the currently cited abstracts.
+      id: HP:0001138
+      label: Optic neuropathy
+  evidence:
+  - reference: PMID:31269850
+    reference_title: &#34;Optic neuropathy in classical methylmalonic acidemia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Eleven (52.4%) patients had optic neuropathy.
+    explanation: Classical MMA cohort directly supports optic neuropathy.
+  - reference: PMID:27653704
+    reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: not entirely prevent brain injury or the development of optic neuropathy and cardiac disease
+    explanation: Management review supports optic neuropathy as an MMA/PA end-organ complication.
 - name: Lipodystrophy
-  frequency: OCCASIONAL
   description: &#39;A distinct adipose tissue distribution pattern resembling familial multiple lipomatosis, with centripetal obesity, proximal extremity fat deposition, and paucity of visceral fat. Associated with elevated FGF21 and aberrant methylmalonylation in adipose tissue.
 
     &#39;
@@ -6417,7 +8158,13 @@ biochemical:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: NBS-detected patients showed younger age at diagnosis, less incidence of disease onset, better responsiveness of vitamin B12, younger age at start of treatment, lower levels of biochemical features before and after treatment
-    explanation: Supports elevated C3 as the NBS detection biomarker.
+    explanation: Supports biochemical marker reduction after newborn-screening detection and treatment.
+  - reference: PMID:27653704
+    reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: Diagnosis is based on clinical presentation and laboratory analysis, metabolic acidosis, ketoacidosis, lactic acidosis, hyperammonemia, hypoglycemia, pancytopenia, and elevated C3 acylcarnitines and organic acids in the urine.
+    explanation: Review text directly supports elevated C3 acylcarnitines as a diagnostic biochemical abnormality.
 - name: 2-Methylcitric acid
   presence: INCREASED
   context: &#39;A characteristic metabolite formed by condensation of propionyl-CoA with oxaloacetate via citrate synthase. Methylcitrate-to-citrate ratio is used in clinical monitoring. Potentially toxic metabolite contributing to TCA cycle disruption.
@@ -6435,7 +8182,19 @@ biochemical:
   context: &#39;Urinary organic acid marker elevated in MMA, reflecting propionate pathway overflow.
 
     &#39;
-  notes: 3-hydroxypropionate is a secondary propionate-pathway organic acid marker, but a direct 3-hydroxypropionate quote was not available in the currently cited abstracts.
+  evidence:
+  - reference: PMID:4507604
+    reference_title: &#34;3-hydroxypropionate: significance of -oxidation of propionate in patients with propionic acidemia and methylmalonic acidemia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#39;[l-(14)C]Propionate administered intravenously was metabolized to methylmalonate, to 3-hydroxypropionate, and to methylcitrate in the urine of a patient with methylmalonic acidemia.&#39;
+    explanation: Patient isotope tracing directly supports urinary 3-hydroxypropionate formation in methylmalonic acidemia.
+  - reference: PMID:27653704
+    reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: In MMA, elevations of plasma propionylcarnitine, glycine, and alanine coupled with elevation of urinary methylmalonic, 3-OH-propionic, and methylcitric acids provide the diagnosis
+    explanation: Review text includes urinary 3-OH-propionic acid in the diagnostic biochemical pattern.
 - name: FGF21
   presence: INCREASED
   context: &#39;Fibroblast growth factor 21 is a mitochondrial stress biomarker elevated in MMA. Correlates with disease severity and complications attributed to mitochondrial dysfunction. Responds to liver-targeted therapies and transplantation.
@@ -6447,7 +8206,13 @@ biochemical:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Fibroblast growth factor 21 levels were associated with acyl-CoA accretion, aberrant methylmalonylation in adipose tissue, and an attenuated inflammatory cytokine profile.
-    explanation: Links elevated FGF21 to aberrant methylmalonylation in MMA patients.
+    explanation: Links FGF21 levels to aberrant methylmalonylation in MMA patients.
+  - reference: PMID:37243446
+    reference_title: &#34;Biomarkers to predict disease progression and therapeutic response in isolated methylmalonic acidemia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Biomarker concentrations are higher in patients with the severe mut0 -type and cblB-type MMA
+    explanation: Supports increased biomarker concentrations in severe MMA subtypes after FGF21/GDF15/LCN2 are introduced as biomarker targets.
 - name: GDF15
   presence: INCREASED
   context: &#39;Growth differentiation factor 15 is a mitochondrial stress biomarker elevated in MMA, used alongside FGF21 to assess disease severity.
@@ -6456,13 +8221,13 @@ biochemical:
   evidence:
   - reference: PMID:37243446
     reference_title: &#34;Biomarkers to predict disease progression and therapeutic response in isolated methylmalonic acidemia.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: growth differentiation factor 15 [GDF15]
-    explanation: Identifies GDF15 as one of the circulating biomarkers evaluated in isolated MMA cohorts.
+    snippet: growth differentiation factor 15
+    explanation: Identifies GDF15 as a circulating mitochondrial dysfunction biomarker evaluated in isolated MMA cohorts.
   - reference: PMID:37243446
     reference_title: &#34;Biomarkers to predict disease progression and therapeutic response in isolated methylmalonic acidemia.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Biomarker concentrations are higher in patients with the severe mut0 -type and cblB-type MMA
     explanation: Provides cohort context that biomarker elevations are strongest in severe MMA subtypes.
@@ -6476,11 +8241,11 @@ biochemical:
     reference_title: &#34;Biomarkers to predict disease progression and therapeutic response in isolated methylmalonic acidemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: kidney injury (lipocalin-2 [LCN2])
+    snippet: kidney injury (lipocalin-2
     explanation: Identifies LCN2 as a kidney injury biomarker in MMA.
 - name: Ammonia
   presence: INCREASED
-  context: &#39;Secondary hyperammonemia occurs during acute decompensation due to inhibition of N-acetylglutamate synthetase by propionyl-CoA, impairing the urea cycle.
+  context: &#39;Secondary hyperammonemia occurs during acute decompensation due to inhibition of N-acetylglutamate synthase by propionyl-CoA, impairing the urea cycle.
 
     &#39;
   evidence:
@@ -6490,6 +8255,12 @@ biochemical:
     evidence_source: HUMAN_CLINICAL
     snippet: Patients present either shortly after birth with acute deterioration, metabolic acidosis and hyperammonemia
     explanation: Directly supports hyperammonemia as a presenting feature of MMA.
+  - reference: PMID:27653704
+    reference_title: &#34;Methylmalonic and propionic acidemias: clinical management update.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: Accumulation of propionyl-CoA, and to some extent methylmalonyl-CoA, results in secondary inhibition of N-acetylglutamate synthase (NAGS), causing secondary hyperammonemia in these patients
+    explanation: Review text supports the urea-cycle mechanism that raises ammonia.
 genetic:
 - name: MMUT (methylmalonyl-CoA mutase)
   gene_term:
@@ -6780,7 +8551,7 @@ clinical_trials:
     evidence_source: HUMAN_CLINICAL
     snippet: The primary objective of this study is to evaluate the long-term safety and clinical activity of mRNA-3705 administered to participants with isolated methylmalonic acidemia (MMA) due to methylmalonyl-coenzyme A mutase (MUT) deficiency who have previously participated in other clinical studies of mRNA-3705.
     explanation: Confirms open-label extension focus on long-term safety and activity in the same MMA target group.
-notes: &#39;Key PMIDs for this entry: 25205257 (MMA/PA guidelines), 35348993 (neuropsych review), 37078237 (pathophysiology/methylmalonylation), 37243446 (biomarkers), 38760822 (lysosomal-autophagy), 38030482 (MMA in aging/disease), 37169781 (renal mitochondrial), 38271099 (lipodystrophy/FGF21), 39075538 (NBS China outcomes), 38132258 (cardiac OA cohort), 33422927 (transplant meta-analysis). The 2023-2024 literature supports a multi-hit pathophysiology model integrating metabolite accumulation, mitochondrial enzyme/ETC inhibition, protein hyperacylation/methylmalonylation with impaired sirtuin deacylation, and organelle quality-control failure (mitophagy plus lysosome/autophagy dysfunction). Emerging therapies include mRNA replacement (mRNA-3705) and gene therapy approaches, with FGF21/GDF15/LCN2 as biomarkers for clinical trial endpoints.
+notes: &#39;Key PMIDs for this entry: 25205257 (MMA/PA guidelines), 27653704 (management update), 35348993 (neuropsych review), 37078237 (pathophysiology/methylmalonylation), 37243446 (biomarkers), 38760822 (lysosomal-autophagy), 38030482 (MMA in aging/disease), 37169781 (renal mitochondrial), 38271099 (lipodystrophy/FGF21), 39075538 (NBS China outcomes), 38132258 (cardiac OA cohort), 33422927 (transplant meta-analysis), 4507604 (3-hydroxypropionate), 31269850 (optic neuropathy), 36777632 (neurodevelopment/neuroimaging), and 8301430 (pancreatitis). The 2023-2024 literature supports a multi-hit pathophysiology model integrating metabolite accumulation, mitochondrial energy metabolism dysfunction, protein hyperacylation/methylmalonylation with impaired sirtuin deacylation, and organelle quality-control failure (mitophagy plus lysosome/autophagy dysfunction). Emerging therapies include mRNA replacement (mRNA-3705) and gene therapy approaches, with FGF21/GDF15/LCN2 as biomarkers for clinical trial endpoints.
 
   &#39;
 </pre>
@@ -7213,7 +8984,7 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Methylmalonic Acidemia", "mondoId": "MONDO:0002012", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Methylmalonic_Acidemia", "yamlRevision": "4ed7b4cf5b4e"};
+        const OS_CONFIG = {"diseaseName": "Methylmalonic Acidemia", "mondoId": "MONDO:0002012", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Methylmalonic_Acidemia", "yamlRevision": "6b82a9dfce4e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

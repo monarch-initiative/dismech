@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2635,6 +2788,20 @@
             
             
             
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-value">9</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -4440,10 +4607,10 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"exercise, both before and during Cd exposure, can reduce Cd caused pathological damages in the liver and duodenum of mice, suppressing the expression levels of the IL-1beta, IL-6 and TNF-alpha genes."</div>
+                <div class="evidence-snippet">"exercise, both before and during Cd exposure, can reduce Cd caused pathological damages in the liver and duodenum of mice, suppressing the expression levels of the IL-1β, IL-6 and TNF-α genes."</div>
                 
                 
-                <div class="evidence-explanation">Mouse model confirms cadmium-induced expression of pro-inflammatory cytokines IL-1beta, IL-6, and TNF-alpha.</div>
+                <div class="evidence-explanation">Mouse model confirms cadmium-induced expression of pro-inflammatory cytokines IL-1β, IL-6, and TNF-α.</div>
                 
             </div>
             
@@ -5866,6 +6033,32 @@
                 
                 
                 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        Edetic Acid
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C61742" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-treatment">
+                        succimer
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_63623" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-treatment">
+                        2,3-disulfanylpropane-1-sulfonic acid
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_888" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
                 <div class="item-desc">Chelating agents (CaNa2-EDTA, DMSA, DMPS) are used to bind and promote urinary excretion of cadmium. Effectiveness is limited due to cadmium&#39;s tight binding to metallothionein and intracellular sequestration. BAL (dimercaprol) is contraindicated as it may increase renal cadmium uptake.</div>
@@ -5962,6 +6155,18 @@
                 </div>
                 
                 
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        phosphate
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_26020" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
                 
                 
                 
@@ -6555,6 +6760,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6596,6 +6802,7 @@
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(INCREASED)</span>
                     
                 </div>
+                
                 
                 
     
@@ -6641,6 +6848,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6684,6 +6892,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6725,6 +6934,7 @@
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(INCREASED)</span>
                     
                 </div>
+                
                 
                 
     
@@ -7535,7 +7745,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Cadmium Poisoning
 creation_date: &#39;2026-02-10T22:52:02Z&#39;
-updated_date: &#39;2026-04-14T20:47:00Z&#39;
+updated_date: &#39;2026-05-08T18:54:20Z&#39;
 description: &gt;-
   Cadmium poisoning is a toxic condition resulting from acute or chronic exposure
   to cadmium, a heavy metal encountered primarily through occupational sources
@@ -8052,8 +8262,8 @@ pathophysiology:
     reference_title: &#34;Exercise antagonizes cadmium-caused liver and intestinal injury in mice via Nrf2 and TLR2/NF-κB signalling pathway.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
-    snippet: &#34;exercise, both before and during Cd exposure, can reduce Cd caused pathological damages in the liver and duodenum of mice, suppressing the expression levels of the IL-1beta, IL-6 and TNF-alpha genes.&#34;
-    explanation: &#34;Mouse model confirms cadmium-induced expression of pro-inflammatory cytokines IL-1beta, IL-6, and TNF-alpha.&#34;
+    snippet: &#34;exercise, both before and during Cd exposure, can reduce Cd caused pathological damages in the liver and duodenum of mice, suppressing the expression levels of the IL-1β, IL-6 and TNF-α genes.&#34;
+    explanation: &#34;Mouse model confirms cadmium-induced expression of pro-inflammatory cytokines IL-1β, IL-6, and TNF-α.&#34;
   downstream:
   - target: Proximal Tubular Cell Injury
     description: Inflammatory cytokines exacerbate tubular cell damage
@@ -8480,6 +8690,24 @@ diagnosis:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Diagnosis relies on a combination of clinical diagnostic tests, blood and urine tests, chest X-rays, kidney ultrasounds, bone density measurements, and skeletal imaging.&#34;
     explanation: &#34;Systematic review confirms urine testing as part of the diagnostic workup.&#34;
+- name: Urinary Beta-2-Microglobulin
+  description: &gt;-
+    Urinary beta-2-microglobulin is used to detect cadmium-related proximal
+    tubular dysfunction, complementing blood and urine cadmium measurements.
+  diagnosis_term:
+    preferred_term: urine chemistry measurement
+    term:
+      id: MAXO:0000789
+      label: urine chemistry measurement
+  markers: beta-2-microglobulin
+  results: Increased urinary beta-2-microglobulin indicates proximal tubular injury.
+  evidence:
+  - reference: PMID:19106433
+    reference_title: &#34;Nephrotoxicity of cadmium &amp; lead.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Cadmium nephrotoxicity is heralded by increased excretion of beta2-microglobulin, retinol binding protein and alpha1-microglobulin, indicative of decreased proximal tubule function.&#34;
+    explanation: This supports urinary beta-2-microglobulin as a renal tubular injury marker in cadmium toxicity.
 - name: Skeletal Imaging
   description: &gt;-
     Bone density measurements (DEXA scan) reveal osteoporosis and osteomalacia.
@@ -8544,37 +8772,19 @@ treatments:
     term:
       id: MAXO:0001223
       label: chelator agent therapy
-    qualifiers:
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: Edetic Acid
-        term:
-          id: NCIT:C61742
-          label: Edetic Acid
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: Succimer
-        term:
-          id: NCIT:C61953
-          label: Succimer
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: 2,3-Dimercapto-1-Propanesulfonic Acid
-        term:
-          id: NCIT:C87416
-          label: 2,3-Dimercapto-1-Propanesulfonic Acid
+    therapeutic_agent:
+    - preferred_term: Edetic Acid
+      term:
+        id: NCIT:C61742
+        label: Edetic Acid
+    - preferred_term: succimer
+      term:
+        id: CHEBI:63623
+        label: succimer
+    - preferred_term: 2,3-disulfanylpropane-1-sulfonic acid
+      term:
+        id: CHEBI:888
+        label: 2,3-disulfanylpropane-1-sulfonic acid
   evidence:
   - reference: PMID:41000307
     reference_title: &#34;Clinical characteristics, management, and outcomes of cadmium poisoning: a systematic review of case reports and case series.&#34;
@@ -8599,17 +8809,11 @@ treatments:
     term:
       id: MAXO:0000058
       label: pharmacotherapy
-    qualifiers:
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: phosphate
-        term:
-          id: CHEBI:26020
-          label: phosphate
+    therapeutic_agent:
+    - preferred_term: phosphate
+      term:
+        id: CHEBI:26020
+        label: phosphate
   evidence:
   - reference: PMID:31974582
     reference_title: &#34;Hypophosphataemic osteomalacia due to cadmium exposure in the silver industry.&#34;
@@ -9139,11 +9343,1759 @@ datasets:
     cleaves and activates NRF1 to drive metallothionein expression in
     response to cadmium, linking proteasome homeostasis to heavy metal
     detoxification.
+references:
+- reference: DOI:10.1038/s41598-022-27292-7
+  title: Association between levels of exposure to heavy metals and renal function indicators of residents in environmentally vulnerable areas
+  found_in:
+  - Cadmium_Poisoning-deep-research-falcon.md
+  findings:
+  - statement: Abandoned metal mines and refineries are considered environmentally vulnerable areas owing to high levels of exposure to heavy metals.
+    supporting_text: Abandoned metal mines and refineries are considered environmentally vulnerable areas owing to high levels of exposure to heavy metals.
+    evidence:
+    - reference: DOI:10.1038/s41598-022-27292-7
+      reference_title: Association between levels of exposure to heavy metals and renal function indicators of residents in environmentally vulnerable areas
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Abandoned metal mines and refineries are considered environmentally vulnerable areas owing to high levels of exposure to heavy metals.
+      explanation: Deep research cited this publication as relevant literature for Cadmium Poisoning.
+- reference: DOI:10.1038/s41598-023-28968-4
+  title: Combating lead and cadmium exposure with an orally administered chitosan-based chelating polymer
+  found_in:
+  - Cadmium_Poisoning-deep-research-falcon.md
+  findings:
+  - statement: Heavy metals present a threat to human health, even at minimal concentrations within the body.
+    supporting_text: Heavy metals present a threat to human health, even at minimal concentrations within the body.
+    evidence:
+    - reference: DOI:10.1038/s41598-023-28968-4
+      reference_title: Combating lead and cadmium exposure with an orally administered chitosan-based chelating polymer
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Heavy metals present a threat to human health, even at minimal concentrations within the body.
+      explanation: Deep research cited this publication as relevant literature for Cadmium Poisoning.
+- reference: DOI:10.1038/s41598-024-63858-3
+  title: Associations of mixed metal exposure with chronic kidney disease from NHANES 2011–2018
+  found_in:
+  - Cadmium_Poisoning-deep-research-falcon.md
+  findings:
+  - statement: Metals have been proved to be one of risk factors for chronic kidney disease (CKD) and diabetes, but the effect of mixed metal co-exposure and potential interaction between metals are still unclear.
+    supporting_text: Metals have been proved to be one of risk factors for chronic kidney disease (CKD) and diabetes, but the effect of mixed metal co-exposure and potential interaction between metals are still unclear.
+    evidence:
+    - reference: DOI:10.1038/s41598-024-63858-3
+      reference_title: Associations of mixed metal exposure with chronic kidney disease from NHANES 2011–2018
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Metals have been proved to be one of risk factors for chronic kidney disease (CKD) and diabetes, but the effect of mixed metal co-exposure and potential interaction between metals are still unclear.
+      explanation: Deep research cited this publication as relevant literature for Cadmium Poisoning.
+- reference: DOI:10.20944/preprints202604.0484.v1
+  title: Are the Guidelines for Dietary and Workplace Exposure to Cadmium Adequate?
+  found_in:
+  - Cadmium_Poisoning-deep-research-falcon.md
+  findings:
+  - statement: Cadmium (Cd) is a heavy metal pollutant to which most people are exposed daily through their diet.
+    supporting_text: Cadmium (Cd) is a heavy metal pollutant to which most people are exposed daily through their diet.
+    evidence:
+    - reference: DOI:10.20944/preprints202604.0484.v1
+      reference_title: Are the Guidelines for Dietary and Workplace Exposure to Cadmium Adequate?
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Cadmium (Cd) is a heavy metal pollutant to which most people are exposed daily through their diet.
+      explanation: Deep research cited this publication as relevant literature for Cadmium Poisoning.
+- reference: DOI:10.3389/fpubh.2023.1146263
+  title: &#39;National analysis of urinary cadmium concentration and kidney stone: Evidence from NHANES (2011–2020)&#39;
+  found_in:
+  - Cadmium_Poisoning-deep-research-falcon.md
+  findings:
+  - statement: The association between urinary cadmium and kidney stone risk is inconsistent in previous studies, which needs further exploration.
+    supporting_text: The association between urinary cadmium and kidney stone risk is inconsistent in previous studies, which needs further exploration.
+    evidence:
+    - reference: DOI:10.3389/fpubh.2023.1146263
+      reference_title: &#39;National analysis of urinary cadmium concentration and kidney stone: Evidence from NHANES (2011–2020)&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The association between urinary cadmium and kidney stone risk is inconsistent in previous studies, which needs further exploration.
+      explanation: Deep research cited this publication as relevant literature for Cadmium Poisoning.
+- reference: DOI:10.3390/biom15081083
+  title: &#39;Metallothionein and Other Factors Influencing Cadmium-Induced Kidney Dysfunction: Review and Commentary&#39;
+  found_in:
+  - Cadmium_Poisoning-deep-research-falcon.md
+  findings:
+  - statement: Cadmium is widely recognized as an important environmental toxicant that may give rise to kidney dysfunction, bone disease, and cancer in humans and animals.
+    supporting_text: Cadmium is widely recognized as an important environmental toxicant that may give rise to kidney dysfunction, bone disease, and cancer in humans and animals.
+    evidence:
+    - reference: DOI:10.3390/biom15081083
+      reference_title: &#39;Metallothionein and Other Factors Influencing Cadmium-Induced Kidney Dysfunction: Review and Commentary&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Cadmium is widely recognized as an important environmental toxicant that may give rise to kidney dysfunction, bone disease, and cancer in humans and animals.
+      explanation: Deep research cited this publication as relevant literature for Cadmium Poisoning.
+- reference: DOI:10.3390/ijms27083513
+  title: &#39;Heavy Metal Toxicity in Clinical and Environmental Health: Sources, Mechanisms, Diagnostics, and Evidence-Based Management of Mercury, Lead, Cadmium, and Arsenic&#39;
+  found_in:
+  - Cadmium_Poisoning-deep-research-falcon.md
+  findings:
+  - statement: Heavy metals including mercury (Hg), lead (Pb), cadmium (Cd), and arsenic (As) remain significant global toxins due to their environmental persistence, widespread anthropogenic release, and serious biological effects.
+    supporting_text: Heavy metals including mercury (Hg), lead (Pb), cadmium (Cd), and arsenic (As) remain significant global toxins due to their environmental persistence, widespread anthropogenic release, and serious biological effects.
+    evidence:
+    - reference: DOI:10.3390/ijms27083513
+      reference_title: &#39;Heavy Metal Toxicity in Clinical and Environmental Health: Sources, Mechanisms, Diagnostics, and Evidence-Based Management of Mercury, Lead, Cadmium, and Arsenic&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Heavy metals including mercury (Hg), lead (Pb), cadmium (Cd), and arsenic (As) remain significant global toxins due to their environmental persistence, widespread anthropogenic release, and serious biological effects.
+      explanation: Deep research cited this publication as relevant literature for Cadmium Poisoning.
+- reference: DOI:10.3390/jox15040122
+  title: &#39;Hypertension in People Exposed to Environmental Cadmium: Roles for 20-Hydroxyeicosatetraenoic Acid in the Kidney&#39;
+  found_in:
+  - Cadmium_Poisoning-deep-research-falcon.md
+  findings:
+  - statement: Chronic kidney disease (CKD) has now reached epidemic proportions in many parts of the world, primarily due to the high incidence of diabetes and hypertension.
+    supporting_text: Chronic kidney disease (CKD) has now reached epidemic proportions in many parts of the world, primarily due to the high incidence of diabetes and hypertension.
+    evidence:
+    - reference: DOI:10.3390/jox15040122
+      reference_title: &#39;Hypertension in People Exposed to Environmental Cadmium: Roles for 20-Hydroxyeicosatetraenoic Acid in the Kidney&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Chronic kidney disease (CKD) has now reached epidemic proportions in many parts of the world, primarily due to the high incidence of diabetes and hypertension.
+      explanation: Deep research cited this publication as relevant literature for Cadmium Poisoning.
+- reference: DOI:10.3390/toxics12110775
+  title: Urinary N-acetylglucosaminidase in People Environmentally Exposed to Cadmium Is Minimally Related to Cadmium-Induced Nephron Destruction
+  found_in:
+  - Cadmium_Poisoning-deep-research-falcon.md
+  findings:
+  - statement: Exposure to even low levels of the environmental pollutant cadmium (Cd) increases the risk of kidney damage and malfunction.
+    supporting_text: Exposure to even low levels of the environmental pollutant cadmium (Cd) increases the risk of kidney damage and malfunction.
+    evidence:
+    - reference: DOI:10.3390/toxics12110775
+      reference_title: Urinary N-acetylglucosaminidase in People Environmentally Exposed to Cadmium Is Minimally Related to Cadmium-Induced Nephron Destruction
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Exposure to even low levels of the environmental pollutant cadmium (Cd) increases the risk of kidney damage and malfunction.
+      explanation: Deep research cited this publication as relevant literature for Cadmium Poisoning.
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
+        
+        <div class="card reference-card" id="references-deep-research">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+            
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">9</span>
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1038/s41598-022-27292-7" target="_blank">DOI:10.1038/s41598-022-27292-7</a>
+                            </div>
+                            
+                            <div class="reference-title">Association between levels of exposure to heavy metals and renal function indicators of residents in environmentally vulnerable areas</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Abandoned metal mines and refineries are considered environmentally vulnerable areas owing to high levels of exposure to heavy metals.</div>
+            
+            
+            <div class="reference-finding-supporting">"Abandoned metal mines and refineries are considered environmentally vulnerable areas owing to high levels of exposure to heavy metals."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41598-022-27292-7" target="_blank">DOI:10.1038/s41598-022-27292-7</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Abandoned metal mines and refineries are considered environmentally vulnerable areas owing to high levels of exposure to heavy metals."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Cadmium Poisoning.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1038/s41598-023-28968-4" target="_blank">DOI:10.1038/s41598-023-28968-4</a>
+                            </div>
+                            
+                            <div class="reference-title">Combating lead and cadmium exposure with an orally administered chitosan-based chelating polymer</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Heavy metals present a threat to human health, even at minimal concentrations within the body.</div>
+            
+            
+            <div class="reference-finding-supporting">"Heavy metals present a threat to human health, even at minimal concentrations within the body."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41598-023-28968-4" target="_blank">DOI:10.1038/s41598-023-28968-4</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Heavy metals present a threat to human health, even at minimal concentrations within the body."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Cadmium Poisoning.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1038/s41598-024-63858-3" target="_blank">DOI:10.1038/s41598-024-63858-3</a>
+                            </div>
+                            
+                            <div class="reference-title">Associations of mixed metal exposure with chronic kidney disease from NHANES 2011–2018</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Metals have been proved to be one of risk factors for chronic kidney disease (CKD) and diabetes, but the effect of mixed metal co-exposure and potential interaction between metals are still unclear.</div>
+            
+            
+            <div class="reference-finding-supporting">"Metals have been proved to be one of risk factors for chronic kidney disease (CKD) and diabetes, but the effect of mixed metal co-exposure and potential interaction between metals are still unclear."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41598-024-63858-3" target="_blank">DOI:10.1038/s41598-024-63858-3</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Metals have been proved to be one of risk factors for chronic kidney disease (CKD) and diabetes, but the effect of mixed metal co-exposure and potential interaction between metals are still unclear."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Cadmium Poisoning.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.20944/preprints202604.0484.v1" target="_blank">DOI:10.20944/preprints202604.0484.v1</a>
+                            </div>
+                            
+                            <div class="reference-title">Are the Guidelines for Dietary and Workplace Exposure to Cadmium Adequate?</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Cadmium (Cd) is a heavy metal pollutant to which most people are exposed daily through their diet.</div>
+            
+            
+            <div class="reference-finding-supporting">"Cadmium (Cd) is a heavy metal pollutant to which most people are exposed daily through their diet."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.20944/preprints202604.0484.v1" target="_blank">DOI:10.20944/preprints202604.0484.v1</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Cadmium (Cd) is a heavy metal pollutant to which most people are exposed daily through their diet."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Cadmium Poisoning.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3389/fpubh.2023.1146263" target="_blank">DOI:10.3389/fpubh.2023.1146263</a>
+                            </div>
+                            
+                            <div class="reference-title">National analysis of urinary cadmium concentration and kidney stone: Evidence from NHANES (2011–2020)</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The association between urinary cadmium and kidney stone risk is inconsistent in previous studies, which needs further exploration.</div>
+            
+            
+            <div class="reference-finding-supporting">"The association between urinary cadmium and kidney stone risk is inconsistent in previous studies, which needs further exploration."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fpubh.2023.1146263" target="_blank">DOI:10.3389/fpubh.2023.1146263</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The association between urinary cadmium and kidney stone risk is inconsistent in previous studies, which needs further exploration."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Cadmium Poisoning.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/biom15081083" target="_blank">DOI:10.3390/biom15081083</a>
+                            </div>
+                            
+                            <div class="reference-title">Metallothionein and Other Factors Influencing Cadmium-Induced Kidney Dysfunction: Review and Commentary</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Cadmium is widely recognized as an important environmental toxicant that may give rise to kidney dysfunction, bone disease, and cancer in humans and animals.</div>
+            
+            
+            <div class="reference-finding-supporting">"Cadmium is widely recognized as an important environmental toxicant that may give rise to kidney dysfunction, bone disease, and cancer in humans and animals."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/biom15081083" target="_blank">DOI:10.3390/biom15081083</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Cadmium is widely recognized as an important environmental toxicant that may give rise to kidney dysfunction, bone disease, and cancer in humans and animals."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Cadmium Poisoning.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/ijms27083513" target="_blank">DOI:10.3390/ijms27083513</a>
+                            </div>
+                            
+                            <div class="reference-title">Heavy Metal Toxicity in Clinical and Environmental Health: Sources, Mechanisms, Diagnostics, and Evidence-Based Management of Mercury, Lead, Cadmium, and Arsenic</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Heavy metals including mercury (Hg), lead (Pb), cadmium (Cd), and arsenic (As) remain significant global toxins due to their environmental persistence, widespread anthropogenic release, and serious biological effects.</div>
+            
+            
+            <div class="reference-finding-supporting">"Heavy metals including mercury (Hg), lead (Pb), cadmium (Cd), and arsenic (As) remain significant global toxins due to their environmental persistence, widespread anthropogenic release, and serious biological effects."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/ijms27083513" target="_blank">DOI:10.3390/ijms27083513</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Heavy metals including mercury (Hg), lead (Pb), cadmium (Cd), and arsenic (As) remain significant global toxins due to their environmental persistence, widespread anthropogenic release, and serious biological effects."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Cadmium Poisoning.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/jox15040122" target="_blank">DOI:10.3390/jox15040122</a>
+                            </div>
+                            
+                            <div class="reference-title">Hypertension in People Exposed to Environmental Cadmium: Roles for 20-Hydroxyeicosatetraenoic Acid in the Kidney</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Chronic kidney disease (CKD) has now reached epidemic proportions in many parts of the world, primarily due to the high incidence of diabetes and hypertension.</div>
+            
+            
+            <div class="reference-finding-supporting">"Chronic kidney disease (CKD) has now reached epidemic proportions in many parts of the world, primarily due to the high incidence of diabetes and hypertension."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/jox15040122" target="_blank">DOI:10.3390/jox15040122</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Chronic kidney disease (CKD) has now reached epidemic proportions in many parts of the world, primarily due to the high incidence of diabetes and hypertension."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Cadmium Poisoning.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/toxics12110775" target="_blank">DOI:10.3390/toxics12110775</a>
+                            </div>
+                            
+                            <div class="reference-title">Urinary N-acetylglucosaminidase in People Environmentally Exposed to Cadmium Is Minimally Related to Cadmium-Induced Nephron Destruction</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Exposure to even low levels of the environmental pollutant cadmium (Cd) increases the risk of kidney damage and malfunction.</div>
+            
+            
+            <div class="reference-finding-supporting">"Exposure to even low levels of the environmental pollutant cadmium (Cd) increases the risk of kidney damage and malfunction."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/toxics12110775" target="_blank">DOI:10.3390/toxics12110775</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Exposure to even low levels of the environmental pollutant cadmium (Cd) increases the risk of kidney damage and malfunction."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Cadmium Poisoning.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">Disease Characteristics Research Template</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">52 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-08T10:48:48.109207</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
+<p>Provide detailed information focusing on:
+1. Key concepts and definitions with current understanding
+2. Recent developments and latest research (prioritize 2023-2024 sources)
+3. Current applications and real-world implementations
+4. Expert opinions and analysis from authoritative sources
+5. Relevant statistics and data from recent studies</p>
+<p>Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
+Always prioritize recent, authoritative sources and provide specific citations for all major claims.</p>
+<h1>Disease Characteristics Research Template</h1>
+<h2>Target Disease</h2>
+<ul>
+<li><strong>Disease Name:</strong> Cadmium Poisoning</li>
+<li><strong>MONDO ID:</strong>  (if available)</li>
+<li><strong>Category:</strong> Environmental</li>
+</ul>
+<h2>Research Objectives</h2>
+<p>Please provide a comprehensive research report on <strong>Cadmium Poisoning</strong> covering all of the
+disease characteristics listed below. This report will be used to populate a disease knowledge
+base entry. Be thorough and cite primary literature (PMID preferred) for all claims.</p>
+<p>For each section, <strong>suggested databases/resources</strong> are listed. These are the first places
+you should search for information on each topic.</p>
+<hr />
+<h3>1. Disease Information</h3>
+<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, ICD-10/ICD-11, MeSH, PubMed</p>
+</blockquote>
+<ul>
+<li>What is the disease? Provide a concise overview.</li>
+<li>What are the key identifiers? (OMIM, Orphanet, ICD-10/ICD-11, MeSH, Mondo)</li>
+<li>What are the common synonyms and alternative names?</li>
+<li>Is the information derived from individual patients (e.g., EHR) or aggregated disease-level resources?</li>
+</ul>
+<h3>2. Etiology</h3>
+<ul>
+<li><strong>Disease Causal Factors</strong>: What are the primary causes? (genetic, environmental, infectious, mechanistic)</li>
+<li><strong>Risk Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, UpToDate, clinical guidelines, ClinVar, ClinGen, GWAS Catalog, PheGenI, CTD, CDC, WHO, epidemiological databases</p>
+</blockquote>
+</li>
+<li>Genetic risk factors (causal variants, susceptibility loci, modifier genes)</li>
+<li>Environmental risk factors (toxins, lifestyle, occupational exposures, age, sex, family history)</li>
+<li><strong>Protective Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, clinical trial databases, GWAS Catalog, gnomAD, WHO, CDC, nutrition databases</p>
+</blockquote>
+</li>
+<li>Genetic protective factors (protective variants, modifier alleles)</li>
+<li>Environmental protective factors (diet, lifestyle, exposures that reduce risk)</li>
+<li><strong>Gene-Environment Interactions</strong>: How do genetic and environmental factors interact to influence disease?<blockquote>
+<p><strong>Search first:</strong> CTD, PubMed, PheGenI, GxE databases</p>
+</blockquote>
+</li>
+</ul>
+<h3>3. Phenotypes</h3>
+<blockquote>
+<p><strong>Search first:</strong> HPO (Human Phenotype Ontology), OMIM, Orphanet, PubMed, clinicaltrials.gov, MedDRA, SNOMED CT, DECIPHER, LOINC</p>
+</blockquote>
+<p>For each phenotype, provide:
+- <strong>Phenotype type</strong>: symptoms, clinical signs, physical manifestations, behavioral changes, or laboratory abnormalities</p>
+<blockquote>
+<p>For symptoms/signs: HPO, OMIM, Orphanet, PubMed
+For behavioral changes: HPO, DSM, RDoC (Research Domain Criteria), PubMed
+For laboratory abnormalities: LOINC, SNOMED CT, LabTests Online, PubMed
+- <strong>Phenotype characteristics</strong>:
+<strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed
+  - Age of symptom onset (neonatal, childhood, adult-onset, late-onset)
+  - Symptom severity (mild, moderate, severe, variable)
+  - Symptom progression (stable, progressive, episodic, fluctuating)
+  - Frequency among affected individuals (percentage or qualitative)
+- <strong>Quality of life impact</strong>: Effects on daily functioning and well-being (per-phenotype when possible)
+<strong>Search first:</strong> EQ-5D database, SF-36, WHO QOL databases, PubMed
+- Suggest HPO (Human Phenotype Ontology) terms for each phenotype</p>
+</blockquote>
+<h3>4. Genetic/Molecular Information</h3>
+<ul>
+<li><strong>Causal Genes</strong>: Gene mutations or chromosomal abnormalities responsible for disease (gene symbols, OMIM IDs)<blockquote>
+<p><strong>Search first:</strong> OMIM, ClinVar, HGMD, Ensembl, NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Pathogenic Variants</strong>:</li>
+<li>Affected genes (gene symbols, HGNC IDs)
+    &gt; <strong>Search first:</strong> OMIM, NCBI Gene, Ensembl, HGNC, UniProt, GeneCards</li>
+<li>Variant classification (pathogenic, likely pathogenic, VUS per ACMG/AMP guidelines)
+    &gt; <strong>Search first:</strong> ClinVar, ClinGen, ACMG/AMP guidelines, VarSome</li>
+<li>Variant type/class (missense, frameshift, nonsense, splice-site, structural)</li>
+<li>Allele frequency in population databases
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, ExAC, TOPMed, dbSNP</li>
+<li>Somatic vs germline origin
+    &gt; <strong>Search first:</strong> COSMIC (somatic), ClinVar, ICGC, TCGA</li>
+<li>Functional consequences (loss of function, gain of function, dominant negative)</li>
+<li><strong>Modifier Genes</strong>: Genes that modify disease severity or expression</li>
+<li><strong>Epigenetic Information</strong>: DNA methylation, histone modifications, chromatin changes affecting disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Chromosomal Abnormalities</strong>: Large-scale genetic changes (aneuploidy, translocations, inversions)<blockquote>
+<p><strong>Search first:</strong> DECIPHER, ClinVar, ECARUCA, UCSC Genome Browser</p>
+</blockquote>
+</li>
+</ul>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Environmental Factors</strong>: Non-genetic contributing factors (toxins, radiation, pollution, occupational exposure)<blockquote>
+<p><strong>Search first:</strong> CTD (Comparative Toxicogenomics Database), TOXNET, PubMed, EPA databases</p>
+</blockquote>
+</li>
+<li><strong>Lifestyle Factors</strong>: Behavioral factors (smoking, diet, exercise, alcohol consumption)<blockquote>
+<p><strong>Search first:</strong> CDC databases, WHO, PubMed, NHANES</p>
+</blockquote>
+</li>
+<li><strong>Infectious Agents</strong>: If applicable, pathogens causing or triggering disease (bacteria, viruses, fungi, parasites)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON</p>
+</blockquote>
+</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<ul>
+<li><strong>Molecular Pathways</strong>: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)<blockquote>
+<p><strong>Search first:</strong> KEGG, Reactome, WikiPathways, PathBank, BioCyc</p>
+</blockquote>
+</li>
+<li><strong>Cellular Processes</strong>: Cell-level mechanisms (apoptosis, autophagy, cell cycle dysregulation, inflammation, etc.)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (GO), Reactome, KEGG, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Protein Dysfunction</strong>: How protein structure or function is altered (misfolding, aggregation, loss of function, gain of function)<blockquote>
+<p><strong>Search first:</strong> UniProt, PDB (Protein Data Bank), InterPro, Pfam, AlphaFold</p>
+</blockquote>
+</li>
+<li><strong>Metabolic Changes</strong>: Alterations in metabolic processes (energy metabolism, lipid metabolism, amino acid metabolism)<blockquote>
+<p><strong>Search first:</strong> KEGG, BioCyc, HMDB (Human Metabolome Database), BRENDA</p>
+</blockquote>
+</li>
+<li><strong>Immune System Involvement</strong>: Role of immune response (autoimmunity, immunodeficiency, chronic inflammation)<blockquote>
+<p><strong>Search first:</strong> ImmPort, Immunome Database, IEDB, Gene Ontology</p>
+</blockquote>
+</li>
+<li><strong>Tissue Damage Mechanisms</strong>: How tissues/ are injured (oxidative stress, ischemia, fibrosis, necrosis)<blockquote>
+<p><strong>Search first:</strong> PubMed, Gene Ontology, Reactome</p>
+</blockquote>
+</li>
+<li><strong>Biochemical Abnormalities</strong>: Specific molecular defects (enzyme deficiencies, receptor dysfunction, ion channel defects)<blockquote>
+<p><strong>Search first:</strong> BRENDA, UniProt, KEGG, OMIM, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Epigenetic Changes</strong>: DNA methylation, histone modifications affecting gene expression in disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Molecular Profiling</strong> (if available):</li>
+<li>Transcriptomics/gene expression changes
+    &gt; <strong>Search first:</strong> GEO (Gene Expression Omnibus), ArrayExpress, GTEx, Human Cell Atlas, SRA</li>
+<li>Proteomics findings
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, Human Protein Atlas, STRING, BioGRID</li>
+<li>Metabolomics signatures
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB, METLIN</li>
+<li>Lipidomics alterations
+    &gt; <strong>Search first:</strong> LIPID MAPS, SwissLipids, LipidHome, Metabolomics Workbench</li>
+<li>Genomic structural features
+    &gt; <strong>Search first:</strong> UCSC Genome Browser, Ensembl, NCBI, dbVar, DGV</li>
+<li><strong>Advanced Technologies</strong> (if applicable):</li>
+<li>Single-cell analysis findings (cell-type specific mechanisms, cellular heterogeneity)
+    &gt; <strong>Search first:</strong> Human Cell Atlas, Single Cell Portal, GEO, CELLxGENE</li>
+<li>Spatial transcriptomics findings
+    &gt; <strong>Search first:</strong> GEO, Spatial Research, Vizgen, 10x Genomics data</li>
+<li>Multi-omics integration results
+    &gt; <strong>Search first:</strong> TCGA, ICGC, cBioPortal, LinkedOmics, PubMed</li>
+<li>Functional genomics screens (CRISPR, RNAi)
+    &gt; <strong>Search first:</strong> DepMap, GenomeRNAi, PubMed, BioGRID ORCS</li>
+</ul>
+<p>For each mechanism, describe:
+- The causal chain from initial trigger to clinical manifestation
+- Which mechanisms are upstream vs downstream
+- What cell types and biological processes are involved
+- Suggest GO terms for biological processes and CL terms for cell types</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ Level</strong>:</li>
+<li>Primary organs directly affected</li>
+<li>Secondary organ involvement (complications, secondary effects)</li>
+<li>Body systems involved (cardiovascular, nervous, digestive, respiratory, endocrine, etc.)<blockquote>
+<p><strong>Search first:</strong> Uberon, FMA (Foundational Model of Anatomy), OMIM, HPO, ICD-11, MeSH, SNOMED CT</p>
+</blockquote>
+</li>
+<li><strong>Tissue and Cell Level</strong>:</li>
+<li>Specific tissue types affected (epithelial, connective, muscle, nervous)</li>
+<li>Specific cell populations targeted (with Cell Ontology terms)<blockquote>
+<p><strong>Search first:</strong> Uberon, Human Protein Atlas, Cell Ontology, Human Cell Atlas, CellMarker, PanglaoDB</p>
+</blockquote>
+</li>
+<li><strong>Subcellular Level</strong>:</li>
+<li>Cellular compartments involved (mitochondria, nucleus, ER, lysosomes) (with GO Cellular Component terms)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (Cellular Component), UniProt, Human Protein Atlas</p>
+</blockquote>
+</li>
+<li><strong>Localization</strong>:</li>
+<li>Specific anatomical sites (with UBERON terms)
+    &gt; <strong>Search first:</strong> FMA, Uberon, NeuroNames (for brain), SNOMED CT</li>
+<li>Lateralization (unilateral, bilateral, asymmetric)
+    &gt; <strong>Search first:</strong> HPO, clinical literature, imaging databases</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset</strong>:</li>
+<li>Typical age of onset (congenital, pediatric, adult, geriatric)</li>
+<li>Onset pattern (acute, subacute, chronic, insidious)<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Progression</strong>:</li>
+<li>Disease stages (early, intermediate, advanced, end-stage)
+    &gt; <strong>Search first:</strong> Cancer Staging Manual (AJCC), WHO classifications, PubMed</li>
+<li>Progression rate (rapid, slow, variable)</li>
+<li>Disease course pattern (episodic, relapsing-remitting, progressive, stable)</li>
+<li>Disease duration (self-limited, chronic lifelong)<blockquote>
+<p><strong>Search first:</strong> Disease registries, longitudinal cohort databases, natural history studies, PubMed, Orphanet, OMIM</p>
+</blockquote>
+</li>
+<li><strong>Patterns</strong>:</li>
+<li>Remission patterns (spontaneous, treatment-induced)
+    &gt; <strong>Search first:</strong> Clinical trial databases, disease registries, PubMed</li>
+<li>Critical periods (time windows of vulnerability or opportunity for intervention)
+    &gt; <strong>Search first:</strong> PubMed, developmental biology databases, clinical guidelines</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology</strong>:</li>
+<li>Prevalence (cases per 100,000 at given time)</li>
+<li>Incidence (new cases per 100,000 per year)<blockquote>
+<p><strong>Search first:</strong> Orphanet, CDC, WHO, GBD (Global Burden of Disease), national registries, SEER, disease registries</p>
+</blockquote>
+</li>
+<li><strong>For Genetic Etiology</strong>:</li>
+<li>Inheritance pattern (AD, AR, X-linked, mitochondrial, multifactorial, polygenic)
+    &gt; <strong>Search first:</strong> OMIM, Orphanet, ClinVar, GTR (Genetic Testing Registry)</li>
+<li>Penetrance (complete, incomplete, age-dependent)
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, PubMed, ClinGen</li>
+<li>Expressivity (variable, consistent)
+    &gt; <strong>Search first:</strong> OMIM, ClinVar, PubMed</li>
+<li>Genetic anticipation (increasing severity in successive generations)
+    &gt; <strong>Search first:</strong> OMIM, PubMed (especially for repeat expansion disorders)</li>
+<li>Germline mosaicism
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, genetic counseling literature, PubMed</li>
+<li>Founder effects (population-specific mutations)
+    &gt; <strong>Search first:</strong> gnomAD, population genetics databases, PubMed</li>
+<li>Consanguinity role
+    &gt; <strong>Search first:</strong> OMIM, population studies, genetic counseling resources</li>
+<li>Carrier frequency
+    &gt; <strong>Search first:</strong> gnomAD, carrier screening databases, GeneReviews, GTR</li>
+<li><strong>Population Demographics</strong>:</li>
+<li>Affected populations (ethnic or demographic groups with higher prevalence)
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, PAGE Study, PubMed, population registries</li>
+<li>Geographic distribution (endemic areas, regional variation)
+    &gt; <strong>Search first:</strong> WHO, CDC, GBD, Orphanet, geographic epidemiology databases</li>
+<li>Geographic distribution of specific variants</li>
+<li>Sex ratio (male:female)
+    &gt; <strong>Search first:</strong> Disease registries, OMIM, PubMed, epidemiological databases</li>
+<li>Age distribution of affected individuals
+    &gt; <strong>Search first:</strong> CDC, disease registries, SEER, Orphanet</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Clinical Tests</strong>:</li>
+<li>Laboratory tests (blood, urine, tissue chemistry, specific enzyme assays)
+    &gt; <strong>Search first:</strong> LOINC, LabTests Online, PubMed</li>
+<li>Biomarkers (proteins, metabolites, genetic markers, circulating biomarkers)
+    &gt; <strong>Search first:</strong> FDA Biomarker List, BEST (Biomarkers, EndpointS, and other Tools), PubMed</li>
+<li>Imaging studies (X-ray, CT, MRI, PET, ultrasound)
+    &gt; <strong>Search first:</strong> RadLex, DICOM, Radiopaedia, imaging databases</li>
+<li>Functional tests (pulmonary function, cardiac stress tests)
+    &gt; <strong>Search first:</strong> LOINC, clinical guidelines, PubMed</li>
+<li>Electrophysiology (EEG, EMG, ECG, nerve conduction studies)
+    &gt; <strong>Search first:</strong> LOINC, clinical neurophysiology databases, PubMed</li>
+<li>Biopsy findings (histopathology, immunohistochemistry)
+    &gt; <strong>Search first:</strong> SNOMED CT, College of American Pathologists resources, PubMed</li>
+<li>Pathology findings (microscopic examination)
+    &gt; <strong>Search first:</strong> SNOMED CT, Digital Pathology databases, PubMed</li>
+<li><strong>Genetic Testing</strong>:<blockquote>
+<p><strong>Search first:</strong> GTR (Genetic Testing Registry), GeneReviews, ClinGen</p>
+</blockquote>
+</li>
+<li>Overview of recommended genetic testing approach</li>
+<li>Whole genome sequencing (WGS) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, GEL (Genomics England), gnomAD</li>
+<li>Whole exome sequencing (WES) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneMatcher</li>
+<li>Gene panels (which panels, which genes)
+    &gt; <strong>Search first:</strong> GTR, ClinVar, laboratory-specific databases</li>
+<li>Single gene testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneReviews</li>
+<li>Chromosomal microarray (CMA)
+    &gt; <strong>Search first:</strong> DECIPHER, ClinVar, dbVar, ECARUCA</li>
+<li>Karyotyping
+    &gt; <strong>Search first:</strong> Chromosome Abnormality Database, ClinVar, cytogenetics resources</li>
+<li>FISH
+    &gt; <strong>Search first:</strong> ClinVar, cytogenetics databases, PubMed</li>
+<li>Mitochondrial DNA testing
+    &gt; <strong>Search first:</strong> MITOMAP, MSeqDR, ClinVar, GTR</li>
+<li>Repeat expansion testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, repeat expansion databases, PubMed</li>
+<li><strong>Omics-Based Diagnostics</strong> (if applicable):</li>
+<li>RNA sequencing / transcriptomics
+    &gt; <strong>Search first:</strong> GEO, ArrayExpress, GTEx, RNA-seq databases</li>
+<li>Proteomics
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, FDA Biomarker database</li>
+<li>Metabolomics
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB</li>
+<li>Epigenomics
+    &gt; <strong>Search first:</strong> GEO, ENCODE, Roadmap Epigenomics, MethBase</li>
+<li>Liquid biopsy
+    &gt; <strong>Search first:</strong> COSMIC, ClinVar, liquid biopsy databases, PubMed</li>
+<li><strong>Clinical Criteria</strong>:</li>
+<li>Standardized diagnostic criteria (DSM, ICD, society guidelines)
+    &gt; <strong>Search first:</strong> DSM-5, ICD-11, clinical society guidelines, UpToDate</li>
+<li>Differential diagnosis (other conditions to rule out, with distinguishing features)
+    &gt; <strong>Search first:</strong> DynaMed, UpToDate, clinical decision support systems</li>
+<li><strong>Screening</strong>:</li>
+<li>Screening methods for asymptomatic individuals (newborn screening, carrier screening, cascade screening)
+    &gt; <strong>Search first:</strong> ACMG recommendations, CDC newborn screening, GTR</li>
+</ul>
+<h3>11. Outcome/Prognosis</h3>
+<ul>
+<li><strong>Survival and Mortality</strong>:</li>
+<li>Survival rate (5-year, 10-year, overall)
+    &gt; <strong>Search first:</strong> SEER, cancer registries, disease-specific registries, PubMed</li>
+<li>Life expectancy (with and without treatment if applicable)
+    &gt; <strong>Search first:</strong> Orphanet, disease registries, actuarial databases, PubMed</li>
+<li>Mortality rate
+    &gt; <strong>Search first:</strong> CDC, WHO, GBD, national mortality databases</li>
+<li>Disease-specific mortality (deaths directly attributable to disease)
+    &gt; <strong>Search first:</strong> Disease registries, CDC Wonder, GBD, PubMed</li>
+<li><strong>Morbidity and Function</strong>:</li>
+<li>Morbidity (disease-related disability and health impacts)
+    &gt; <strong>Search first:</strong> GBD, WHO, disability databases, PubMed</li>
+<li>Disability outcomes (long-term functional impairments)
+    &gt; <strong>Search first:</strong> ICF (International Classification of Functioning), disability registries</li>
+<li>Quality of life measures (EQ-5D, SF-36, PROMIS, disease-specific tools)
+    &gt; <strong>Search first:</strong> EQ-5D database, SF-36, PROMIS, PubMed</li>
+<li><strong>Disease Course</strong>:</li>
+<li>Complications (secondary problems: infections, organ failure, etc.)
+    &gt; <strong>Search first:</strong> ICD codes, disease registries, clinical databases, PubMed</li>
+<li>Recovery potential (likelihood and extent of recovery, with vs without treatment)
+    &gt; <strong>Search first:</strong> Natural history studies, rehabilitation databases, PubMed</li>
+<li><strong>Prediction</strong>:</li>
+<li>Prognostic factors (age, disease severity, biomarkers, treatment response)
+    &gt; <strong>Search first:</strong> Prognostic models databases, clinical calculators, PubMed</li>
+<li>Prognostic biomarkers (molecular markers predicting disease course)
+    &gt; <strong>Search first:</strong> FDA Biomarker database, PubMed, cancer prognostic databases</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Pharmacotherapy</strong>:</li>
+<li>Pharmacological treatments (drug names, drug classes, mechanisms of action)
+    &gt; <strong>Search first:</strong> DrugBank, RxNorm, ATC classification, DailyMed, FDA databases</li>
+<li>Pharmacogenomics (how genetic variants affect drug metabolism, efficacy, toxicity)
+    &gt; <strong>Search first:</strong> PharmGKB, CPIC (Clinical Pharmacogenetics), FDA Table of PGx Biomarkers</li>
+<li><strong>Advanced Therapeutics</strong>:</li>
+<li>Gene therapy (viral vectors, CRISPR, gene replacement, gene editing)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA gene therapy database, ASGCT resources</li>
+<li>Cell therapy (stem cell transplant, CAR-T, cellular therapeutics)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA cell therapy database, FACT standards</li>
+<li>RNA-based therapies (ASOs, siRNA, mRNA therapies)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA approvals, PubMed</li>
+<li>Targeted therapies (treatments directed at specific molecular targets)
+    &gt; <strong>Search first:</strong> My Cancer Genome, OncoKB, ClinicalTrials.gov, FDA approvals</li>
+<li>Immunotherapies (checkpoint inhibitors, monoclonal antibodies)
+    &gt; <strong>Search first:</strong> Cancer Immunotherapy Database, FDA approvals, ClinicalTrials.gov</li>
+<li><strong>Surgical and Interventional</strong>:</li>
+<li>Surgical interventions (types of surgery, timing, outcomes)
+    &gt; <strong>Search first:</strong> CPT codes, surgical registries, clinical guidelines, PubMed</li>
+<li><strong>Supportive and Rehabilitative</strong>:</li>
+<li>Supportive care (symptom management, pain control, nutrition)
+    &gt; <strong>Search first:</strong> Clinical guidelines, Cochrane Library, PubMed</li>
+<li>Rehabilitation (physical therapy, occupational therapy, speech therapy)
+    &gt; <strong>Search first:</strong> Rehabilitation medicine databases, clinical guidelines, PubMed</li>
+<li><strong>Experimental</strong>:</li>
+<li>Experimental treatments in clinical trials (with NCT identifiers if available)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, EU Clinical Trials Register, WHO ICTRP</li>
+<li><strong>Treatment Outcomes</strong>:</li>
+<li>Treatment response rates
+    &gt; <strong>Search first:</strong> Clinical trial databases, FDA reviews, systematic reviews, PubMed</li>
+<li>Side effects and adverse events
+    &gt; <strong>Search first:</strong> FDA Adverse Event Reporting System (FAERS), MedWatch, PubMed</li>
+<li><strong>Treatment Strategy</strong>:</li>
+<li>Treatment algorithms (clinical pathways, decision trees)
+    &gt; <strong>Search first:</strong> Clinical practice guidelines, NCCN Guidelines, UpToDate</li>
+<li>Combination therapies
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, treatment guidelines, PubMed</li>
+<li>Personalized medicine approaches (genotype-guided treatment)
+    &gt; <strong>Search first:</strong> My Cancer Genome, CIViC, PharmGKB, precision medicine databases</li>
+</ul>
+<p>For each treatment, suggest MAXO (Medical Action Ontology) terms where applicable.</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Prevention Levels</strong>:</li>
+<li>Primary prevention (preventing disease occurrence: vaccination, risk factor modification)
+    &gt; <strong>Search first:</strong> CDC, WHO, USPSTF recommendations, Cochrane Library</li>
+<li>Secondary prevention (early detection and treatment: screening programs, early intervention)
+    &gt; <strong>Search first:</strong> USPSTF, CDC screening guidelines, WHO</li>
+<li>Tertiary prevention (preventing complications in those with disease)
+    &gt; <strong>Search first:</strong> Clinical guidelines, disease management protocols, PubMed</li>
+<li><strong>Immunization</strong>: Vaccine strategies (if applicable)<blockquote>
+<p><strong>Search first:</strong> CDC vaccine schedules, WHO immunization, FDA vaccine database</p>
+</blockquote>
+</li>
+<li><strong>Screening and Early Detection</strong>:</li>
+<li>Screening programs (population-based: newborn screening, cancer screening)
+    &gt; <strong>Search first:</strong> CDC screening programs, USPSTF, cancer screening databases</li>
+<li>Genetic screening (carrier screening, preimplantation genetic diagnosis, prenatal testing)
+    &gt; <strong>Search first:</strong> ACMG recommendations, ACOG guidelines, GTR</li>
+<li>Risk stratification (identifying high-risk individuals for targeted prevention)
+    &gt; <strong>Search first:</strong> Risk prediction models, clinical calculators, PubMed</li>
+<li><strong>Behavioral Interventions</strong>: Lifestyle modifications to reduce risk<blockquote>
+<p><strong>Search first:</strong> CDC, WHO, behavioral intervention databases, Cochrane Library</p>
+</blockquote>
+</li>
+<li><strong>Counseling</strong>: Genetic counseling (risk assessment, family planning guidance)<blockquote>
+<p><strong>Search first:</strong> NSGC resources, ACMG guidelines, GeneReviews</p>
+</blockquote>
+</li>
+<li><strong>Public Health</strong>:</li>
+<li>Public health interventions (sanitation, vector control, health education)
+    &gt; <strong>Search first:</strong> CDC, WHO, public health databases, PubMed</li>
+<li>Environmental interventions (reducing environmental risk factors)
+    &gt; <strong>Search first:</strong> EPA databases, WHO environmental health, PubMed</li>
+<li><strong>Prophylaxis</strong>: Preventive medications or procedures<blockquote>
+<p><strong>Search first:</strong> Clinical guidelines, FDA approvals, PubMed</p>
+</blockquote>
+</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy</strong>: Species affected (with NCBI Taxon identifiers)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy</p>
+</blockquote>
+</li>
+<li><strong>Breed</strong>: Specific breeds affected (with VBO identifiers if applicable)<blockquote>
+<p><strong>Search first:</strong> VBO (Vertebrate Breed Ontology)</p>
+</blockquote>
+</li>
+<li><strong>Gene</strong>: Orthologous genes in other species (with NCBI Gene IDs)<blockquote>
+<p><strong>Search first:</strong> NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Natural Disease</strong>:</li>
+<li>Naturally occurring disease in other species (companion animals, wildlife)
+    &gt; <strong>Search first:</strong> OMIA (Online Mendelian Inheritance in Animals), VetCompass, PubMed</li>
+<li>Veterinary relevance and importance in animal health
+    &gt; <strong>Search first:</strong> OMIA, veterinary databases, PubMed</li>
+<li><strong>Comparative Biology</strong>:</li>
+<li>Comparative pathology (similarities and differences across species)
+    &gt; <strong>Search first:</strong> OMIA, comparative pathology databases, PubMed</li>
+<li>Evolutionary conservation of disease mechanisms
+    &gt; <strong>Search first:</strong> HomoloGene, OrthoMCL, Alliance of Genome Resources</li>
+<li><strong>Transmission</strong> (if applicable):</li>
+<li>Zoonotic potential
+    &gt; <strong>Search first:</strong> CDC zoonotic diseases, WHO zoonoses, GIDEON</li>
+<li>Cross-species susceptibility
+    &gt; <strong>Search first:</strong> NCBI Taxonomy, veterinary databases, PubMed</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Model Types</strong>:</li>
+<li>Model organism type (mammalian, invertebrate, cellular, in vitro)
+    &gt; <strong>Search first:</strong> Alliance of Genome Resources, model organism databases</li>
+<li>Specific model systems (mouse, rat, zebrafish, Drosophila, C. elegans, yeast, cell lines, organoids, iPSCs)
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, SGD, ATCC, Cellosaurus</li>
+<li>Induced models (drug treatment, surgical intervention, environmental manipulation)
+    &gt; <strong>Search first:</strong> MGI, model organism databases, PubMed</li>
+<li><strong>Genetic Models</strong>:</li>
+<li>Types available (knockout, knock-in, transgenic, conditional, humanized)
+    &gt; <strong>Search first:</strong> MGI, IMPC, KOMP, EuMMCR, IMSR</li>
+<li><strong>Model Characteristics</strong>:</li>
+<li>Phenotype recapitulation (how well model reproduces human disease features)
+    &gt; <strong>Search first:</strong> Model organism databases, comparative studies, PubMed</li>
+<li>Model limitations (aspects of human disease not captured)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed, review articles</li>
+<li><strong>Applications</strong>:</li>
+<li>Research applications (what aspects of disease can be studied)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed</li>
+<li><strong>Resources</strong>:</li>
+<li>Model databases
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, IMSR, EMMA, MMRRC</li>
+</ul>
+<hr />
+<h2>Citation Requirements</h2>
+<ul>
+<li>Cite primary literature (PMID preferred) for all mechanistic and clinical claims</li>
+<li>Prioritize recent reviews and landmark papers</li>
+<li>Include direct quotes from abstracts where possible to support key statements</li>
+<li>Distinguish evidence source types: human clinical, model organism, in vitro, computational</li>
+</ul>
+<h2>Output Format</h2>
+<p>Structure your response as a comprehensive narrative organized by the sections above.
+For each section, provide:
+- Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
+- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, MAXO, MONDO) where applicable
+- Evidence citations with PMIDs
+- Direct quotes from abstracts to support key claims
+- Clear indication when information is not available or not applicable for this disease</p>
+<p>This report will be used to populate a disease knowledge base entry with:
+- Pathophysiology descriptions with causal chains
+- Gene/protein annotations (HGNC, GO terms)
+- Phenotype associations (HP terms) with frequencies
+- Cell type involvement (CL terms)
+- Anatomical locations (UBERON terms)
+- Chemical entities (CHEBI terms)
+- Treatment annotations (MAXO terms)
+- Evidence items with PMIDs and exact abstract quotes
+- Epidemiology, prognosis, diagnostic, and prevention information
+- Animal model descriptions with phenotype recapitulation details</p>
+<h2>Cadmium Poisoning (Cadmium Toxicity): Comprehensive Disease Characteristics Report (Environmental)</h2>
+<h3>1. Disease Information</h3>
+<p>Cadmium poisoning (also termed <em>cadmium toxicity</em> or <em>cadmium intoxication</em>) is an exposure-mediated toxicologic disorder caused by acute high-dose cadmium (Cd) exposure (often inhalational) or chronic low-to-moderate exposure with long-term bioaccumulation, particularly in the kidney cortex. Acute disease is often dominated by pulmonary injury, while chronic disease is dominated by renal tubular injury with downstream effects on bone and other systems. (balalimood2025recentadvancesin pages 9-11, chakif2026heavymetaltoxicity pages 12-13)</p>
+<p><strong>Key identifiers (ontology/classification):</strong> MONDO, MeSH, ICD-10/ICD-11 identifiers were <strong>not retrievable from the tool evidence</strong> in this run and therefore are not reported here to avoid fabrication. (artifact-00)</p>
+<p><strong>Common synonyms/alternative names:</strong> cadmium toxicity; cadmium intoxication; chronic cadmium exposure toxicity; cadmium-induced nephrotoxicity (subset). (vamsi2024cadmiumtoxicityunveiling pages 8-9, balalimood2025recentadvancesin pages 9-11)</p>
+<p><strong>Evidence sources:</strong> The retrieved evidence base is primarily aggregated disease-level resources (reviews) and population/cohort studies (NHANES, regional cohorts), not EHR-derived phenotyping. (balalimood2025recentadvancesin pages 9-11, shi2024associationsofmixed pages 1-2)</p>
+<table>
+<thead>
+<tr>
+<th>Concept item</th>
+<th>Details</th>
+<th>Evidence/notes</th>
+<th>Key sources (URL; year)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease name</td>
+<td>Cadmium poisoning</td>
+<td>Environmental/toxic exposure disorder caused by acute or chronic exposure to cadmium or cadmium compounds. Acute disease is dominated by inhalational or high-dose ingestion toxicity; chronic disease reflects bioaccumulation, especially in kidney cortex. (balalimood2025recentadvancesin pages 9-11, chakif2026heavymetaltoxicity pages 12-13)</td>
+<td>Balali-Mood et al., Heliyon, https://doi.org/10.1016/j.heliyon.2025.e42696; 2025. Chakif &amp; Furrer, Int J Mol Sci, https://doi.org/10.3390/ijms27083513; 2026.</td>
+</tr>
+<tr>
+<td>Core alternative names</td>
+<td>Cadmium toxicity; cadmium intoxication; cadmium exposure toxicity</td>
+<td>Recent reviews use these terms interchangeably in clinical/environmental toxicology contexts rather than as distinct diseases. (balalimood2025recentadvancesin pages 11-12, vamsi2024cadmiumtoxicityunveiling pages 8-9)</td>
+<td>Balali-Mood et al., https://doi.org/10.1016/j.heliyon.2025.e42696; 2025. Vamsi et al., https://doi.org/10.36468/pharmaceutical-sciences.1427; 2024.</td>
+</tr>
+<tr>
+<td>Disease category</td>
+<td>Environmental / toxicologic / heavy-metal poisoning</td>
+<td>Non-Mendelian, exposure-mediated condition; evidence in retrieved tools is disease-level literature and cohort/review evidence, not patient-specific EHR-derived ontology records. (balalimood2025recentadvancesin pages 9-11, chakif2026heavymetaltoxicity pages 12-13)</td>
+<td>Balali-Mood et al., https://doi.org/10.1016/j.heliyon.2025.e42696; 2025. Chakif &amp; Furrer, https://doi.org/10.3390/ijms27083513; 2026.</td>
+</tr>
+<tr>
+<td>MONDO ID</td>
+<td>not retrieved from tool evidence</td>
+<td>Do not infer or invent identifier.</td>
+<td>Not retrieved from ontology-focused tool evidence.</td>
+</tr>
+<tr>
+<td>MeSH ID / descriptor ID</td>
+<td>not retrieved from tool evidence</td>
+<td>Do not infer or invent identifier.</td>
+<td>Not retrieved from ontology-focused tool evidence.</td>
+</tr>
+<tr>
+<td>ICD-10 / ICD-11 code</td>
+<td>not retrieved from tool evidence</td>
+<td>Toxic-effect coding likely exists in classification systems, but explicit code was not retrieved from tool evidence and should not be invented here.</td>
+<td>Not retrieved from tool evidence.</td>
+</tr>
+<tr>
+<td>Acute cadmium poisoning</td>
+<td>Usually follows inhalation of cadmium oxide fumes/dust or high-dose ingestion</td>
+<td>Defined clinically by respiratory irritation with symptom onset typically within 6–12 h after inhalation; may progress to cough, fever, respiratory distress, hypoxia, pneumonitis, pulmonary insufficiency, or death in severe cases. One review notes inhalation of 5 mg/m3 for 8 h may be lethal. (balalimood2025recentadvancesin pages 9-11, balalimood2025recentadvancesin pages 11-12, chakif2026heavymetaltoxicity pages 12-13)</td>
+<td>Balali-Mood et al., https://doi.org/10.1016/j.heliyon.2025.e42696; 2025. Chakif &amp; Furrer, https://doi.org/10.3390/ijms27083513; 2026.</td>
+</tr>
+<tr>
+<td>Chronic cadmium poisoning</td>
+<td>Long-term bioaccumulation disorder, especially affecting kidney, bone, lung, and cardiovascular system</td>
+<td>Cadmium has a very long biologic half-life in kidney (~20–30 years in review evidence). Hallmark chronic effects are renal proximal tubular injury, proteinuria, progressive CKD, and skeletal demineralization/osteomalacia/osteoporosis. (chakif2026heavymetaltoxicity pages 12-13, chakif2026heavymetaltoxicity pages 7-8)</td>
+<td>Chakif &amp; Furrer, https://doi.org/10.3390/ijms27083513; 2026. Balali-Mood et al., https://doi.org/10.1016/j.heliyon.2025.e42696; 2025.</td>
+</tr>
+<tr>
+<td>Major exposure sources</td>
+<td>Food, smoking/tobacco, occupational inhalation, contaminated air/water/soil</td>
+<td>Tobacco smoke is a major source; each cigarette may contain ~0.5–1 µg Cd. Occupational sources include mining, smelting, battery manufacture/recycling, fossil fuel combustion, plating, fertilizer production, and waste disposal. (balalimood2025recentadvancesin pages 9-11, chakif2026heavymetaltoxicity pages 7-8)</td>
+<td>Balali-Mood et al., https://doi.org/10.1016/j.heliyon.2025.e42696; 2025. Chakif &amp; Furrer, https://doi.org/10.3390/ijms27083513; 2026.</td>
+</tr>
+<tr>
+<td>Renal hallmark definition</td>
+<td>Cadmium nephrotoxicity with tubular and glomerular effects</td>
+<td>Chronic exposure causes often irreversible proteinuria and tubular dysfunction. Nordberg review notes albuminuria is mainly glomerular and may fall when blood Cd decreases, while tubular dysfunction markers (β2-microglobulin, NAG) appear linked to accumulated tubular Cd and seem more irreversible. (nordberg2025metallothioneinandother pages 9-11)</td>
+<td>Nordberg &amp; Nordberg, Biomolecules, https://doi.org/10.3390/biom15081083; 2025.</td>
+</tr>
+<tr>
+<td>Key renal biomarkers</td>
+<td>Urine Cd (body burden), blood Cd (recent/ongoing exposure), urinary β2-microglobulin, urinary NAG, urinary albumin, eGFR</td>
+<td>Reviews and cohorts repeatedly use urine Cd and blood Cd as exposure biomarkers; β2-microglobulin (B2-MG/β2-MG), NAG, and albuminuria are effect biomarkers; eGFR decline tracks clinically important renal loss. (nordberg2025metallothioneinandother pages 12-14, nordberg2025metallothioneinandother pages 9-11, chakif2026heavymetaltoxicity pages 12-13, chakif2026heavymetaltoxicity pages 14-16)</td>
+<td>Nordberg &amp; Nordberg, https://doi.org/10.3390/biom15081083; 2025. Chakif &amp; Furrer, https://doi.org/10.3390/ijms27083513; 2026.</td>
+</tr>
+<tr>
+<td>β2-microglobulinuria threshold</td>
+<td>Urinary β2-microglobulin &gt;300 µg/g creatinine (or &gt;300 µg/L in some studies)</td>
+<td>Used in multiple studies/reviews as a threshold for cadmium-related tubular dysfunction/kidney dysfunction. Nordberg review explicitly references urinary B2M &gt;300 µg/g creatinine; Kwon study used β2-MG &gt;300 µg/L as reference exceedance. (nordberg2025metallothioneinandother pages 9-11, nordberg2025metallothioneinandother pages 11-12, kwon2023associationbetweenlevels pages 9-10)</td>
+<td>Nordberg &amp; Nordberg, https://doi.org/10.3390/biom15081083; 2025. Kwon et al., https://doi.org/10.1038/s41598-022-27292-7; 2023.</td>
+</tr>
+<tr>
+<td>NAG threshold / interpretation</td>
+<td>Urinary NAG is an early tubular injury biomarker; threshold examples vary by study</td>
+<td>Nordberg figure legend cited UNAG &gt;23 U/g creatinine; Kwon study used NAG &gt;11.5 U/L as reference exceedance; increased NAG is consistently linked with urinary cadmium. (nordberg2025metallothioneinandother pages 11-12, kwon2023associationbetweenlevels pages 9-10)</td>
+<td>Nordberg &amp; Nordberg, https://doi.org/10.3390/biom15081083; 2025. Kwon et al., https://doi.org/10.1038/s41598-022-27292-7; 2023.</td>
+</tr>
+<tr>
+<td>Urinary cadmium threshold for renal risk</td>
+<td>~2–5 µg/g creatinine may indicate elevated body burden/renal risk; &gt;10 µg/g creatinine associated with irreversible kidney damage in one review</td>
+<td>Chakif review states chronic renal risk may occur at lower urinary levels than older models suggested and that ~2–5 µg/g creatinine may indicate elevated burden/risk. Vamsi review states urinary Cd &lt;10 µg/g creatinine is associated with reversible renal dysfunction, whereas &gt;10 µg/g creatinine can cause irreversible kidney damage. (chakif2026heavymetaltoxicity pages 14-16, vamsi2024cadmiumtoxicityunveiling pages 8-9)</td>
+<td>Chakif &amp; Furrer, https://doi.org/10.3390/ijms27083513; 2026. Vamsi et al., https://doi.org/10.36468/pharmaceutical-sciences.1427; 2024.</td>
+</tr>
+<tr>
+<td>Metallothionein-related definition</td>
+<td>Cadmium binds metallothionein (MT); MT is central to transport, sequestration, and renal toxicity modification</td>
+<td>Nordberg review emphasizes MT as central to toxicokinetics: Cd-MT transports cadmium to renal tubules, and MT expression/protection modifies kidney injury risk. Anti-MT antibodies and low zinc status may worsen susceptibility. (nordberg2025metallothioneinandother pages 12-14, nordberg2025metallothioneinandother pages 9-11)</td>
+<td>Nordberg &amp; Nordberg, https://doi.org/10.3390/biom15081083; 2025.</td>
+</tr>
+<tr>
+<td>Bone disease definition</td>
+<td>Cadmium-related osteotoxicity / Itai-itai-like disease</td>
+<td>Chronic exposure is associated with low bone mineralization, decalcification, fractures, osteomalacia, and osteoporosis; classic severe manifestation is Itai-itai disease. (balalimood2025recentadvancesin pages 9-11, chakif2026heavymetaltoxicity pages 12-13)</td>
+<td>Balali-Mood et al., https://doi.org/10.1016/j.heliyon.2025.e42696; 2025. Chakif &amp; Furrer, https://doi.org/10.3390/ijms27083513; 2026.</td>
+</tr>
+<tr>
+<td>Lung involvement definition</td>
+<td>Acute toxic inhalation injury and chronic pulmonary toxicity</td>
+<td>Acute inhalation causes irritant pneumonitis/respiratory distress; chronic exposure has been linked to COPD/emphysema in reviews. (balalimood2025recentadvancesin pages 9-11, balalimood2025recentadvancesin pages 11-12)</td>
+<td>Balali-Mood et al., https://doi.org/10.1016/j.heliyon.2025.e42696; 2025.</td>
+</tr>
+<tr>
+<td>Clinical management definition</td>
+<td>Source control and supportive care are first-line; chelation is limited/controversial for cadmium</td>
+<td>Reviews emphasize removing exposure, supportive care, occupational controls, smoking cessation, and nutrition. Routine chelation is not first-line; benefits are uncertain and some agents may worsen toxicity. BAL/dimercaprol is specifically discouraged/contraindicated for cadmium because Cd-BAL complexes may be more nephrotoxic. (balalimood2025recentadvancesin pages 11-12, chakif2026heavymetaltoxicity pages 16-17, chakif2026heavymetaltoxicity pages 8-9, vamsi2024cadmiumtoxicityunveiling pages 8-9)</td>
+<td>Balali-Mood et al., https://doi.org/10.1016/j.heliyon.2025.e42696; 2025. Chakif &amp; Furrer, https://doi.org/10.3390/ijms27083513; 2026. Vamsi et al., https://doi.org/10.36468/pharmaceutical-sciences.1427; 2024.</td>
+</tr>
+<tr>
+<td>Protective/nutritional modifiers</td>
+<td>Adequate zinc, iron, selenium, calcium may reduce cadmium uptake or toxicity</td>
+<td>Reviews cite dietary sufficiency and good zinc status as protective; Nordberg review highlights inverse associations between zinc status/Zn-Cd quotient and tubular dysfunction. (balalimood2025recentadvancesin pages 9-11, nordberg2025metallothioneinandother pages 11-12)</td>
+<td>Balali-Mood et al., https://doi.org/10.1016/j.heliyon.2025.e42696; 2025. Nordberg &amp; Nordberg, https://doi.org/10.3390/biom15081083; 2025.</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes the key identifiers, synonyms, and working clinical definitions for cadmium poisoning from the retrieved evidence base. It highlights how recent reviews define acute versus chronic toxicity and the main biomarkers and thresholds used in practice.</em></p>
+<hr />
+<h3>2. Etiology</h3>
+<h4>2.1 Primary causal factors</h4>
+<p>Cadmium poisoning is primarily an <strong>environmental/occupational toxic exposure</strong> condition. Primary exposure routes include ingestion (diet), inhalation (occupational, tobacco smoke), and exposure through contaminated air/water/soil. (balalimood2025recentadvancesin pages 9-11, chakif2026heavymetaltoxicity pages 7-8)</p>
+<h4>2.2 Risk factors</h4>
+<p><strong>Major exposure sources:</strong>
+- <strong>Tobacco smoking:</strong> A recent clinical review notes that “each cigarette may contain ~0.5–1 μg Cd,” highlighting tobacco smoke as a major atmospheric source. (balalimood2025recentadvancesin pages 9-11)
+- <strong>Occupational/industrial:</strong> mining, smelting, battery manufacture/recycling, fossil fuel combustion, plating, fertilizer production, and waste disposal are emphasized as major sources. (balalimood2025recentadvancesin pages 9-11)
+- <strong>Dietary exposure:</strong> Cd is widely present in foods; chronic exposure is therefore common. (satarug2025hypertensioninpeople pages 16-17)</p>
+<p><strong>Host susceptibility:</strong>
+- <strong>Iron deficiency/low iron stores</strong> can increase intestinal absorption of Cd; women and children are noted as higher-risk groups due to lower iron stores. (satarug2026aretheguidelines pages 3-5)
+- <strong>Zinc deficiency/low zinc status</strong> increases susceptibility to Cd kidney injury; zinc status modifies tubular toxicity risk in human evidence. (nordberg2025metallothioneinandother pages 9-11)</p>
+<p><strong>Co-exposures:</strong>
+- Co-exposure to <strong>inorganic arsenic</strong> can potentiate Cd nephrotoxicity with more-than-additive tubular effects, and MT status may modify susceptibility in animal data summarized in review. (nordberg2025metallothioneinandother pages 12-14, nordberg2025metallothioneinandother pages 11-12)</p>
+<h4>2.3 Protective factors</h4>
+<ul>
+<li><strong>Adequate zinc status</strong> is associated with lower prevalence of Cd-related tubular dysfunction; higher Zn/Cd quotients were strongly protective in population data summarized in a kidney-focused review. (nordberg2025metallothioneinandother pages 11-12)</li>
+<li>Nutritional sufficiency (iron/zinc/selenium; calcium) is repeatedly proposed as a practical exposure-mitigation approach for oral Cd assimilation. (balalimood2025recentadvancesin pages 9-11, satarug2025hypertensioninpeople pages 16-17)</li>
+</ul>
+<h4>2.4 Gene–environment interactions (current evidence base)</h4>
+<p>Cadmium toxicity is not typically modeled as a monogenic disorder; instead, <strong>gene–environment</strong> interactions are framed through toxicokinetics/toxicodynamics modifiers. Metallothionein (MT) induction and MT-related biomarkers/antibodies are repeatedly discussed as determinants of Cd distribution and kidney injury susceptibility in human and animal evidence. (nordberg2025metallothioneinandother pages 12-14, nordberg2025metallothioneinandother pages 9-11)</p>
+<p><em>Ontology suggestions (non-exhaustive):</em> CHEBI: cadmium(2+) (cadmium ion); environmental exposure to heavy metal; exposure to tobacco smoke.</p>
+<hr />
+<h3>3. Phenotypes</h3>
+<p>Cadmium toxicity phenotypes depend on dose and route.</p>
+<h4>3.1 Acute cadmium poisoning (typically inhalation)</h4>
+<p><strong>Core manifestations:</strong> respiratory irritation progressing over hours to pneumonitis/respiratory distress.
+- A clinical review describes symptom onset within <strong>6–12 hours</strong> after inhalation with cough/fever/respiratory distress and potential progression to hypoxia and pulmonary failure. (balalimood2025recentadvancesin pages 9-11)
+- Quantitative lethality estimate in one review: <strong>“The inhalation exposure to 5 mg/m3 for 8 h may be lethal.”</strong> (balalimood2025recentadvancesin pages 11-12)</p>
+<p><strong>Suggested HPO terms (examples):</strong>
+- Dyspnea (HP:0002094)
+- Cough (HP:0012735)
+- Fever (HP:0001945)
+- Hypoxemia (HP:0012418)</p>
+<h4>3.2 Chronic cadmium toxicity (bioaccumulation)</h4>
+<p><strong>Kidney (most sensitive/critical target):</strong>
+- Renal tubular injury with low-molecular-weight proteinuria; chronic kidney disease risk; effect biomarkers include urinary β2-microglobulin and urinary NAG; clinical endpoints include eGFR decline and albuminuria/proteinuria. (chakif2026heavymetaltoxicity pages 12-13, nordberg2025metallothioneinandother pages 9-11)
+- Chronic renal injury is often described as difficult to reverse once established; a review emphasizes that tubular biomarkers may reflect more irreversible injury compared with albuminuria changes following reductions in blood Cd. (nordberg2025metallothioneinandother pages 9-11)</p>
+<p><strong>Bone:</strong> osteomalacia/osteoporosis/fractures (classically Itai-itai disease in severe exposures). (balalimood2025recentadvancesin pages 9-11, chakif2026heavymetaltoxicity pages 12-13)</p>
+<p><strong>Neurologic/cognitive:</strong> neurotoxicity signals in population studies (see Epidemiology/Statistics). (lu2024associationofurinary pages 1-2)</p>
+<p><strong>Cardiovascular:</strong> hypertension risk and related kidney-mediated mechanisms are discussed in expert reviews. (satarug2025hypertensioninpeople pages 10-12)</p>
+<p><strong>Suggested HPO terms (examples):</strong>
+- Proteinuria (HP:0000093)
+- Albuminuria (HP:0000097)
+- Abnormal glomerular filtration rate (HP:0012211)
+- Renal tubular dysfunction (HP:0000126)
+- Osteoporosis (HP:0000939)
+- Bone pain (HP:0002653)</p>
+<p><strong>Quality of life impacts (evidence directionality):</strong> In severe or chronic exposure, renal dysfunction and bone disease plausibly impair mobility and daily functioning; however, standardized QoL metrics (SF-36/EQ-5D) were not captured in the retrieved tool evidence.</p>
+<hr />
+<h3>4. Genetic/Molecular Information</h3>
+<h4>4.1 Causal genes / pathogenic variants</h4>
+<p>Cadmium poisoning is not a Mendelian disorder in the retrieved evidence; thus <strong>no causal gene list or pathogenic variant catalog</strong> is appropriate as “disease-causing” in the classical clinical genetics sense.</p>
+<h4>4.2 Molecular modifiers and key targets (mechanistic relevance)</h4>
+<p><strong>Metallothionein (MT):</strong> central protective/sequestration protein in Cd toxicokinetics and renal tubular handling. MT influences transport of Cd to renal tubules and binds Cd intracellularly, modulating injury risk. (nordberg2025metallothioneinandother pages 12-14, nordberg2025metallothioneinandother pages 9-11)</p>
+<p><strong>Metal transporters implicated in uptake (review evidence):</strong> DMT1, ZIP14, ATP7A, TRPV6 are discussed as routes by which Cd enters cells, with higher absorption in low-iron states. (satarug2026aretheguidelines pages 3-5)</p>
+<p><em>Ontology suggestions:</em>
+- GO (biological process): response to cadmium ion; metal ion transport; response to oxidative stress; renal tubular cell apoptotic process; inflammatory response.
+- CL (cell types): kidney proximal tubule epithelial cell (CL:0002306); hepatocyte (CL:0000182); macrophage (CL:0000235).</p>
+<hr />
+<h3>5. Environmental Information</h3>
+<p><strong>Environmental factors:</strong> cadmium contamination of air, water, soil, and food chain; occupational industrial emissions; battery waste. (balalimood2025recentadvancesin pages 9-11)</p>
+<p><strong>Lifestyle factors:</strong> cigarette smoking is repeatedly highlighted as a major preventable contributor to Cd body burden; smoking cessation is explicitly recommended as a cadmium reduction strategy. (chakif2026heavymetaltoxicity pages 16-17)</p>
+<p><strong>Infectious agents:</strong> not applicable.</p>
+<hr />
+<h3>6. Mechanism / Pathophysiology (Causal Chain)</h3>
+<p>A consensus mechanistic chain in the retrieved evidence is:</p>
+<p>1) <strong>Exposure and absorption:</strong> via inhalation (occupational/tobacco) and ingestion (diet). (balalimood2025recentadvancesin pages 9-11, chakif2026heavymetaltoxicity pages 7-8)</p>
+<p>2) <strong>Distribution and long residence time:</strong> Cd binds proteins including metallothionein and concentrates in the <strong>renal cortex</strong>; a recent review states cadmium has a very long biologic half-life (~<strong>20–30 years</strong>). (chakif2026heavymetaltoxicity pages 12-13)</p>
+<p>3) <strong>Cellular entry and injury pathways:</strong> Cd can hijack metal transporters (e.g., DMT1/ZIP14/ATP7A/TRPV6) to enter target cells. (satarug2026aretheguidelines pages 3-5)</p>
+<p>4) <strong>Renal tubular injury and functional decline:</strong> proximal tubular dysfunction is a central clinical manifestation, with effect biomarkers including β2-microglobulin and NAG. (chakif2026heavymetaltoxicity pages 12-13, chakif2026heavymetaltoxicity pages 14-16)</p>
+<p>5) <strong>System-level outcomes:</strong> CKD progression (eGFR loss), proteinuria/albuminuria; downstream effects include bone demineralization/fractures and cardiometabolic outcomes. (chakif2026heavymetaltoxicity pages 12-13, satarug2025hypertensioninpeople pages 10-12)</p>
+<p><strong>Oxidative stress/mitochondrial dysfunction:</strong> Reviews describe Cd-driven ROS generation and mitochondrial impairment; expert commentary also links Cd exposure to oxidative stress and inflammation across organs. (satarug2026aretheguidelines pages 16-18, balalimood2025recentadvancesin pages 9-11)</p>
+<p><strong>Metallothionein and zinc interactions:</strong> MT is portrayed as protective by binding Cd, and zinc status modifies susceptibility (e.g., higher Zn/Cd quotients protective against tubular dysfunction in population evidence summarized by Nordberg &amp; Nordberg). (nordberg2025metallothioneinandother pages 11-12)</p>
+<p><strong>Advanced/omics evidence:</strong> mixture modeling and pathway-based analyses are emerging in human studies (e.g., mixed metal exposure modeling in NHANES; BKMR/WQS approaches), supporting a shift from single-metal to mixture-aware causal inference. (shi2024associationsofmixed pages 1-2)</p>
+<hr />
+<h3>7. Anatomical Structures Affected</h3>
+<p><strong>Primary organs:</strong>
+- <strong>Kidney (renal cortex; proximal tubule):</strong> principal site of accumulation and chronic injury. (chakif2026heavymetaltoxicity pages 12-13)
+- <strong>Lung:</strong> key site for acute inhalational injury. (balalimood2025recentadvancesin pages 9-11)
+- <strong>Bone/skeleton:</strong> demineralization/osteomalacia/osteoporosis and fracture risk. (chakif2026heavymetaltoxicity pages 12-13)</p>
+<p><strong>Secondary systems:</strong> cardiovascular (hypertension), nervous system (neurotoxicity/cognition), liver involvement in toxicokinetics. (satarug2025hypertensioninpeople pages 10-12, lu2024associationofurinary pages 1-2)</p>
+<p><em>Ontology suggestions:</em>
+- UBERON: kidney cortex; proximal convoluted tubule; lung; bone tissue.
+- GO Cellular Component: mitochondrion; cytosol; nucleus.</p>
+<hr />
+<h3>8. Temporal Development</h3>
+<p><strong>Onset patterns:</strong>
+- <strong>Acute:</strong> subacute respiratory syndrome hours after inhalation (6–12 h described). (balalimood2025recentadvancesin pages 9-11)
+- <strong>Chronic:</strong> insidious, cumulative exposure with long tissue half-life, manifesting over years to decades. (chakif2026heavymetaltoxicity pages 12-13)</p>
+<p><strong>Progression:</strong>
+- Expert review emphasizes that Cd-related loss of eGFR due to nephron destruction is irreversible once established (“eGFR deterioration due to Cd-induced nephron destruction is irreversible”). (satarug2025hypertensioninpeople pages 16-17)</p>
+<hr />
+<h3>9. Inheritance and Population</h3>
+<p>Cadmium poisoning is <strong>not inherited</strong>; it is primarily exposure-driven.</p>
+<p><strong>Epidemiology/burden (recent quantitative data):</strong>
+- In NHANES 2011–2020 (n=9,056), kidney stone prevalence was <strong>10.82%</strong>, and urinary Cd was associated with higher kidney stone odds (see Section 5 Table). (ye2023nationalanalysisof pages 4-5)
+- In NHANES 2011–2018 mixture analysis (n=3,080), CKD prevalence was <strong>18.90%</strong> (582 cases) and high mixed-metal exposure increased CKD odds; cadmium was a high-importance contributor in BKMR (PIP 0.911 in urine; 0.845 in blood). (shi2024associationsofmixed pages 4-5)
+- In a Korean vulnerable-area cohort (n=298; mean age 70.3), exposure-area mean blood Cd was <strong>1.89 µg/L</strong> vs <strong>0.89 µg/L</strong> in control; urinary Cd <strong>2.11 µg/L</strong> vs <strong>1.11 µg/L</strong>, with renal biomarker associations. (kwon2023associationbetweenlevels pages 1-2)</p>
+<p><strong>Demographics:</strong> Susceptibility patterns include sex differences and higher absorption risk in low-iron states; race/ethnicity differences appear in some outcomes (e.g., cognition association in REGARDS observed among White but not Black participants). (satarug2026aretheguidelines pages 3-5, lu2024associationofurinary pages 1-2)</p>
+<hr />
+<h3>10. Diagnostics</h3>
+<p><strong>Core diagnostic strategy:</strong> exposure history + biomonitoring + organ injury assessment.</p>
+<h4>10.1 Exposure biomarkers</h4>
+<ul>
+<li><strong>Urine cadmium (creatinine-corrected):</strong> emphasized as a marker of Cd body burden; one review notes urine is often preferred for cadmium body burden. (chakif2026heavymetaltoxicity pages 14-16)</li>
+<li><strong>Blood cadmium:</strong> more reflective of recent/ongoing exposure in many frameworks; correlated with some kidney outcomes and albuminuria trajectories in review evidence. (nordberg2025metallothioneinandother pages 9-11)</li>
+</ul>
+<h4>10.2 Effect biomarkers (kidney)</h4>
+<p>Common effect biomarkers in human studies/reviews include:
+- <strong>Urinary β2-microglobulin</strong> (β2M): tubular reabsorptive dysfunction marker. A widely used threshold is <strong>β2M excretion 300 µg/g creatinine</strong> (β2-microglobulinuria). (satarug2025hypertensioninpeople pages 14-16)
+- <strong>Urinary NAG:</strong> tubular injury marker. Thresholds vary by study (examples include UNAG &gt;23 U/g creatinine in a review figure legend and NAG &gt;11.5 U/L as a reference exceedance in a regional cohort study). (nordberg2025metallothioneinandother pages 11-12, kwon2023associationbetweenlevels pages 9-10)
+- <strong>Albuminuria/proteinuria and eGFR:</strong> clinically relevant endpoints; expert analysis argues eGFR decline should be prioritized in risk assessment relative to β2M-based endpoints. (satarug2026aretheguidelines pages 3-5, satarug2025hypertensioninpeople pages 10-12)</p>
+<p><strong>Threshold examples (interpretation is study-specific):</strong>
+- A 2024 review states urinary Cd &lt;10 µg/g creatinine is associated with reversible renal dysfunction, while &gt;10 µg/g creatinine can cause irreversible damage. (vamsi2024cadmiumtoxicityunveiling pages 8-9)
+- Another review suggests chronic renal risk may occur at <strong>~2–5 µg/g creatinine</strong> urinary Cd. (chakif2026heavymetaltoxicity pages 14-16)</p>
+<h4>10.3 Differential diagnosis</h4>
+<p>Not systematically enumerated in the retrieved tool evidence; clinically, differential for tubular proteinuria/CKD includes diabetes, hypertension, other nephrotoxins (e.g., lead), and multiple-metal co-exposures, consistent with mixture analyses. (shi2024associationsofmixed pages 1-2)</p>
+<hr />
+<h3>11. Outcome / Prognosis</h3>
+<p><strong>Renal prognosis:</strong> Chronic Cd exposure is associated with persistent renal tubular injury and progressive CKD risk. Expert commentary emphasizes irreversibility of eGFR deterioration once nephron destruction occurs. (satarug2025hypertensioninpeople pages 16-17)</p>
+<p><strong>Population outcome signals:</strong>
+- In a Thai cohort analysis (n=737), risks of low eGFR and albuminuria rose ~twofold per doubling ECd/Ccr, and severe tubular injury risk (NAG/Ccr) increased with Cd burden. (satarug2024urinarynacetylglucosaminidasein pages 12-13)</p>
+<p>Mortality rates and formal survival estimates were not retrieved in the tool evidence.</p>
+<hr />
+<h3>12. Treatment</h3>
+<p><strong>General principle:</strong> remove exposure and provide supportive care; routine chelation is controversial for cadmium.</p>
+<h4>12.1 Immediate management (acute inhalation/ingestion)</h4>
+<p>A clinical review emphasizes supportive measures including decontamination and pulmonary management. For acute cases it describes GI decontamination (e.g., gastric lavage when appropriate) and the use of corticosteroids for pulmonary inflammation in some contexts; dialysis is generally not effective except in renal failure. (balalimood2025recentadvancesin pages 11-12)</p>
+<h4>12.2 Chelation therapy (evidence limitations)</h4>
+<ul>
+<li>Expert review statement: <strong>“therapeutically effective chelation treatment to remove Cd from the kidneys does not exist.”</strong> (satarug2025hypertensioninpeople pages 16-17)</li>
+<li>Dimercaprol (BAL) is discouraged/contraindicated for cadmium in review evidence because Cd–BAL complexes can be more nephrotoxic than cadmium alone. (vamsi2024cadmiumtoxicityunveiling pages 8-9)</li>
+<li>Succimer (DMSA), DMPS, and DTPA are discussed as possible chelation options in some reviews, but with uncertain clinical benefit and important limitations; multiple sources stress that chelation should only be considered if benefits outweigh harms and that “source control is the anchor.” (balalimood2025recentadvancesin pages 11-12, chakif2026heavymetaltoxicity pages 16-17)</li>
+</ul>
+<h4>12.3 Emerging/experimental strategies</h4>
+<p>A prevention-oriented approach using an orally administered chelating polymer (Chitosan@DOTAGA) was tested in mice to chelate Cd in the gut and reduce systemic effects from contaminated diet exposure (7 mg/kg cadmium in food). The polymer remained confined to the GI tract and reduced pathology scores (kidney score control 2 vs saline 27 vs treated 7) in this model. (howard2023combatingleadand pages 6-8)</p>
+<p><strong>MAXO suggestions (non-exhaustive):</strong>
+- Removal of exposure source; smoking cessation; occupational exposure mitigation; supportive care; toxicology consultation; chelation therapy (restricted/conditional).</p>
+<hr />
+<h3>13. Prevention</h3>
+<p>Prevention is emphasized as the dominant strategy:
+- Smoking cessation and dietary/exposure avoidance are repeatedly recommended. (chakif2026heavymetaltoxicity pages 16-17, satarug2025hypertensioninpeople pages 16-17)
+- Occupational hygiene and ventilation; limiting industrial Cd uses; proper battery recycling/disposal; and nutrition optimization (iron/zinc/selenium adequacy) to reduce uptake are recommended in clinical management review evidence. (balalimood2025recentadvancesin pages 9-11, balalimood2025recentadvancesin pages 11-12)</p>
+<hr />
+<h3>14. Other Species / Natural Disease</h3>
+<p>Naturally occurring cadmium toxicosis in animals was not explicitly retrieved in the tool evidence; however, multiple reviews describe cadmium toxicity across humans and animals and emphasize conserved renal and bone targets. (nordberg2025metallothioneinandother pages 17-18)</p>
+<hr />
+<h3>15. Model Organisms</h3>
+<p><strong>Mouse models (in vivo):</strong>
+- A 2023 mouse study used dietary Cd exposure (7 mg/kg in food) and assessed mitigation via oral chelating polymer (Chitosan@DOTAGA). The polymer’s biodistribution was confined to the digestive tract and it reduced kidney and liver pathology scores compared with saline-exposed mice. (howard2023combatingleadand pages 6-8, howard2023combatingleadand pages 5-6)</p>
+<p>Model limitations: exposure regimen and doses may not reflect human chronic low-dose dietary exposure; translation requires careful toxicokinetic scaling.</p>
+<hr />
+<h2>Recent Developments and Real-World Implementations (2023–2024 emphasis)</h2>
+<p>Recent literature shows a shift toward (i) <strong>mixture-aware exposure modeling</strong> (e.g., BKMR/WQS in NHANES), (ii) <strong>lower-effect thresholds</strong> and debates about which renal endpoints best reflect clinically meaningful harm (eGFR vs β2M), and (iii) preventive “gut chelation” or exposure-blocking strategies in preclinical models. (shi2024associationsofmixed pages 4-5, satarug2025hypertensioninpeople pages 10-12, howard2023combatingleadand pages 6-8)</p>
+<table>
+<thead>
+<tr>
+<th>Study (first author, year)</th>
+<th>Population/design</th>
+<th>Exposure metric</th>
+<th>Outcome(s)</th>
+<th>Key quantitative results</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ye, 2023</td>
+<td>NHANES 2011–2020 cross-sectional analysis; 9,056 U.S. adults aged ≥20 years</td>
+<td>Urinary cadmium, quartiles: Q1 0.025–0.104 µg/L; Q2 0.105–0.218 µg/L; Q3 0.219–0.435 µg/L; Q4 0.435–7.581 µg/L</td>
+<td>Self-reported kidney stones</td>
+<td>Kidney stone prevalence 10.82%. Fully adjusted ORs vs Q1: Q2 1.40 (95% CI 1.06–1.84), Q3 1.18 (0.88–1.59), Q4 1.54 (1.10–2.06); continuous urinary Cd OR 1.13 (1.01–1.26). Restricted cubic spline showed a non-linear association (P for non-linear &lt;0.001). DOI: https://doi.org/10.3389/fpubh.2023.1146263 (ye2023nationalanalysisof pages 1-2, ye2023nationalanalysisof pages 4-5)</td>
+<td>Suggests even relatively low urinary Cd ranges are associated with higher kidney stone odds; cross-sectional design limits causal inference.</td>
+</tr>
+<tr>
+<td>Shi, 2024</td>
+<td>NHANES 2011–2018 cross-sectional mixture analysis; 3,080 adults, 582 CKD cases (18.90%)</td>
+<td>Urine and whole-blood metal mixtures including cadmium, manganese, lead, mercury</td>
+<td>Chronic kidney disease (CKD)</td>
+<td>High mixed-metal exposure associated with increased CKD odds: urine mixture OR 1.58 (95% CI 1.26–1.99); whole-blood mixture OR 1.67 (1.19–2.34). BKMR PIPs in overall population highlighted urine Cd 0.911 and blood Cd 0.845 among important contributors. DOI: https://doi.org/10.1038/s41598-024-63858-3 (shi2024associationsofmixed pages 4-5, shi2024associationsofmixed pages 1-2)</td>
+<td>Cadmium acted within a co-exposure context rather than as a single-metal model; interactions were more evident in participants with T2DM.</td>
+</tr>
+<tr>
+<td>Kwon, 2023</td>
+<td>Korean environmentally vulnerable-area study; n=298 total (low-exposure abandoned mine n=74, high-exposure abandoned mine n=68, refinery n=121, control n=35); mean age 70.3 years</td>
+<td>Blood Cd and urinary Cd; heavy metal biomonitoring in exposed vs control regions</td>
+<td>Renal biomarkers: urinary NAG, urinary β2-microglobulin (β2-MG), eGFR</td>
+<td>In exposure areas vs control: mean blood Cd 1.89 vs 0.89 µg/L; urinary Cd 2.11 vs 1.11 µg/L. Blood Cd in refinery area had OR 38 for exceeding reference value vs control; urinary Cd was 7-fold higher in the low-exposure mine area vs control. Urinary Cd positively correlated with NAG in all areas; blood Cd associated with increased odds of β2-MG &gt;300 µg/L and eGFR &lt;60 mL/min/1.73 m²; NAG reference threshold &gt;11.5 U/L. DOI: https://doi.org/10.1038/s41598-022-27292-7 (kwon2023associationbetweenlevels pages 9-10, kwon2023associationbetweenlevels pages 1-2)</td>
+<td>Supports renal tubular injury as a prominent human signal of environmental Cd exposure; small regional study but with strong area contrasts.</td>
+</tr>
+<tr>
+<td>Satarug, 2024</td>
+<td>Thai environmentally exposed cohort/cross-sectional analysis; 737 non-diabetic adults, 9.1% with eGFR ≤60 mL/min/1.73 m²</td>
+<td>Urinary Cd normalized to creatinine clearance (ECd/Ccr); renal biomarkers normalized similarly</td>
+<td>Low eGFR, albuminuria, tubular injury (NAG), β2-microglobulin-related tubular dysfunction</td>
+<td>Risks of low eGFR and albuminuria rose twofold per doubling ECd/Ccr. Doubling ECd/Ccr increased risk of severe tubular injury measured by NAG/Ccr (POR 4.80, p=0.015). ENAG/Ccr associated with ECd/Ccr in men β=0.447 and women β=0.394; inversely associated with eGFR in women β=-0.178 and in high-Cd body burden group β=-0.223. Reported benchmark/threshold values include ECd/Ecr 0.5 µg/g linked to 2.6- to 3.6-fold higher odds of abnormal NAG excretion; BMDLs 0.5–0.8 and 0.7–1.2 µg/g creatinine; some studies suggest &lt;0.3 µg/g. DOI: https://doi.org/10.3390/toxics12110775 (satarug2024urinarynacetylglucosaminidasein pages 12-13)</td>
+<td>Highlights that tubular biomarkers and GFR decline may reflect partly different mechanisms/kinetics of Cd nephrotoxicity.</td>
+</tr>
+<tr>
+<td>Lu, 2024</td>
+<td>REGARDS prospective cohort subcohort; 2,172 adults free of baseline cognitive impairment/stroke; mean age 64.1 years; 54.8% female; 38.7% Black; average follow-up ~10 years</td>
+<td>Baseline urinary creatinine-corrected cadmium; dichotomized at median or analyzed by tertiles</td>
+<td>Global cognitive impairment and domain-based cognitive impairment</td>
+<td>During follow-up: 195 cases of global cognitive impairment and 53 domain-based cases. No overall association in full sample, but among White participants, high urinary Cd (≥median) was associated with doubled odds of global cognitive impairment: OR 2.07 (95% CI 1.18–3.64). Median urinary Cd was similar by race: Black 0.414 µg/g, White 0.407 µg/g. DOI: https://doi.org/10.1212/WNL.0000000000209808 (lu2024associationofurinary pages 1-2, lu2024associationofurinary pages 4-5, lu2024associationofurinary pages 8-9, lu2024associationofurinary pages 2-4)</td>
+<td>Prospective design strengthens temporal inference; association appeared race-specific in this cohort and was not seen for domain-specific impairment overall.</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes recent human studies linking cadmium exposure to kidney, renal biomarker, and cognitive outcomes, emphasizing 2023–2024 evidence. It is useful for quickly comparing exposure metrics, sample sizes, and quantitative effect estimates relevant to cadmium poisoning and chronic cadmium toxicity.</em></p>
+<hr />
+<h2>Visual Evidence (Tables)</h2>
+<p>The following extracted tables provide visual documentation of participant characteristics and measured blood/urine cadmium levels by region in a vulnerable-area cohort study.</p>
+<ul>
+<li>Participant characteristics and biomarker tables (cadmium levels; renal indicators) from Kwon et al. (Scientific Reports, 2023). (kwon2023associationbetweenlevels media 0a68bf68, kwon2023associationbetweenlevels media a1f51e53)</li>
+</ul>
+<hr />
+<h2>Notes on Evidence Quality and Gaps</h2>
+<ul>
+<li>Many quantitative human findings come from cross-sectional analyses (NHANES), which support association but not definitive causality. (ye2023nationalanalysisof pages 1-2, shi2024associationsofmixed pages 1-2)</li>
+<li>Prospective evidence exists for some outcomes (e.g., cognition in REGARDS), but findings can be subgroup-dependent and require replication. (lu2024associationofurinary pages 1-2)</li>
+<li>Standard ontology identifiers (MONDO/MeSH/ICD) were not retrievable from tool evidence in this run and should be added from dedicated ontology resources in a subsequent curation step. (artifact-00)</li>
+</ul>
+<p>References</p>
+<ol>
+<li>
+<p>(balalimood2025recentadvancesin pages 9-11): Mahdi Balali-Mood, Nastaran Eizadi-Mood, Hossein Hassanian-Moghaddam, Leila Etemad, Mohammad Moshiri, Maryam Vahabzadeh, and Mahmood Sadeghi. Recent advances in the clinical management of intoxication by five heavy metals: mercury, lead, chromium, cadmium and arsenic. Heliyon, 11:e42696, Feb 2025. URL: https://doi.org/10.1016/j.heliyon.2025.e42696, doi:10.1016/j.heliyon.2025.e42696. This article has 65 citations.</p>
+</li>
+<li>
+<p>(chakif2026heavymetaltoxicity pages 12-13): Dib Chakif and Julien Furrer. Heavy metal toxicity in clinical and environmental health: sources, mechanisms, diagnostics, and evidence-based management of mercury, lead, cadmium, and arsenic. International Journal of Molecular Sciences, 27:3513, Apr 2026. URL: https://doi.org/10.3390/ijms27083513, doi:10.3390/ijms27083513. This article has 0 citations.</p>
+</li>
+<li>
+<p>(vamsi2024cadmiumtoxicityunveiling pages 8-9): N. Mohana Vamsi, J. Pavan Kumar, K. Ramadevi, and P. Swathi. Cadmium toxicity: unveiling the threat to human health. Indian Journal of Pharmaceutical Sciences, Jan 2024. URL: https://doi.org/10.36468/pharmaceutical-sciences.1427, doi:10.36468/pharmaceutical-sciences.1427. This article has 27 citations.</p>
+</li>
+<li>
+<p>(shi2024associationsofmixed pages 1-2): Xiaoru Shi, Xiao Wang, Jia Zhang, Ying Dang, Changping Ouyang, Jinhua Pan, Aimin Yang, and Xiaobin Hu. Associations of mixed metal exposure with chronic kidney disease from nhanes 2011–2018. Scientific Reports, Jun 2024. URL: https://doi.org/10.1038/s41598-024-63858-3, doi:10.1038/s41598-024-63858-3. This article has 29 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(balalimood2025recentadvancesin pages 11-12): Mahdi Balali-Mood, Nastaran Eizadi-Mood, Hossein Hassanian-Moghaddam, Leila Etemad, Mohammad Moshiri, Maryam Vahabzadeh, and Mahmood Sadeghi. Recent advances in the clinical management of intoxication by five heavy metals: mercury, lead, chromium, cadmium and arsenic. Heliyon, 11:e42696, Feb 2025. URL: https://doi.org/10.1016/j.heliyon.2025.e42696, doi:10.1016/j.heliyon.2025.e42696. This article has 65 citations.</p>
+</li>
+<li>
+<p>(chakif2026heavymetaltoxicity pages 7-8): Dib Chakif and Julien Furrer. Heavy metal toxicity in clinical and environmental health: sources, mechanisms, diagnostics, and evidence-based management of mercury, lead, cadmium, and arsenic. International Journal of Molecular Sciences, 27:3513, Apr 2026. URL: https://doi.org/10.3390/ijms27083513, doi:10.3390/ijms27083513. This article has 0 citations.</p>
+</li>
+<li>
+<p>(nordberg2025metallothioneinandother pages 9-11): Gunnar F. Nordberg and Monica Nordberg. Metallothionein and other factors influencing cadmium-induced kidney dysfunction: review and commentary. Biomolecules, 15:1083, Jul 2025. URL: https://doi.org/10.3390/biom15081083, doi:10.3390/biom15081083. This article has 8 citations.</p>
+</li>
+<li>
+<p>(nordberg2025metallothioneinandother pages 12-14): Gunnar F. Nordberg and Monica Nordberg. Metallothionein and other factors influencing cadmium-induced kidney dysfunction: review and commentary. Biomolecules, 15:1083, Jul 2025. URL: https://doi.org/10.3390/biom15081083, doi:10.3390/biom15081083. This article has 8 citations.</p>
+</li>
+<li>
+<p>(chakif2026heavymetaltoxicity pages 14-16): Dib Chakif and Julien Furrer. Heavy metal toxicity in clinical and environmental health: sources, mechanisms, diagnostics, and evidence-based management of mercury, lead, cadmium, and arsenic. International Journal of Molecular Sciences, 27:3513, Apr 2026. URL: https://doi.org/10.3390/ijms27083513, doi:10.3390/ijms27083513. This article has 0 citations.</p>
+</li>
+<li>
+<p>(nordberg2025metallothioneinandother pages 11-12): Gunnar F. Nordberg and Monica Nordberg. Metallothionein and other factors influencing cadmium-induced kidney dysfunction: review and commentary. Biomolecules, 15:1083, Jul 2025. URL: https://doi.org/10.3390/biom15081083, doi:10.3390/biom15081083. This article has 8 citations.</p>
+</li>
+<li>
+<p>(kwon2023associationbetweenlevels pages 9-10): Jung-Yeon Kwon, Seungho Lee, Ulziikhishig Surenbaatar, Hyoun-Ju Lim, Byoung-Gwon Kim, Sang-Yong Eom, Yong Min Cho, Woo Jin Kim, Byeng-Chul Yu, Kwan Lee, and Young-Seoub Hong. Association between levels of exposure to heavy metals and renal function indicators of residents in environmentally vulnerable areas. Scientific Reports, Feb 2023. URL: https://doi.org/10.1038/s41598-022-27292-7, doi:10.1038/s41598-022-27292-7. This article has 40 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(chakif2026heavymetaltoxicity pages 16-17): Dib Chakif and Julien Furrer. Heavy metal toxicity in clinical and environmental health: sources, mechanisms, diagnostics, and evidence-based management of mercury, lead, cadmium, and arsenic. International Journal of Molecular Sciences, 27:3513, Apr 2026. URL: https://doi.org/10.3390/ijms27083513, doi:10.3390/ijms27083513. This article has 0 citations.</p>
+</li>
+<li>
+<p>(chakif2026heavymetaltoxicity pages 8-9): Dib Chakif and Julien Furrer. Heavy metal toxicity in clinical and environmental health: sources, mechanisms, diagnostics, and evidence-based management of mercury, lead, cadmium, and arsenic. International Journal of Molecular Sciences, 27:3513, Apr 2026. URL: https://doi.org/10.3390/ijms27083513, doi:10.3390/ijms27083513. This article has 0 citations.</p>
+</li>
+<li>
+<p>(satarug2025hypertensioninpeople pages 16-17): Soisungwan Satarug. Hypertension in people exposed to environmental cadmium: roles for 20-hydroxyeicosatetraenoic acid in the kidney. Journal of Xenobiotics, Aug 2025. URL: https://doi.org/10.3390/jox15040122, doi:10.3390/jox15040122. This article has 2 citations.</p>
+</li>
+<li>
+<p>(satarug2026aretheguidelines pages 3-5): Soisungwan Satarug. Are the guidelines for dietary and workplace exposure to cadmium adequate? Unknown journal, Apr 2026. URL: https://doi.org/10.20944/preprints202604.0484.v1, doi:10.20944/preprints202604.0484.v1.</p>
+</li>
+<li>
+<p>(lu2024associationofurinary pages 1-2): Liping Lu, Yijia Zhang, Meghan Angley, Shai Bejerano, John D. Brockman, Leslie A. McClure, Frederick W. Unverzagt, Alyce D. Fly, and Ka Kahe. Association of urinary cadmium concentration with cognitive impairment in us adults. Neurology, Oct 2024. URL: https://doi.org/10.1212/wnl.0000000000209808, doi:10.1212/wnl.0000000000209808. This article has 10 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(satarug2025hypertensioninpeople pages 10-12): Soisungwan Satarug. Hypertension in people exposed to environmental cadmium: roles for 20-hydroxyeicosatetraenoic acid in the kidney. Journal of Xenobiotics, Aug 2025. URL: https://doi.org/10.3390/jox15040122, doi:10.3390/jox15040122. This article has 2 citations.</p>
+</li>
+<li>
+<p>(satarug2026aretheguidelines pages 16-18): Soisungwan Satarug. Are the guidelines for dietary and workplace exposure to cadmium adequate? Unknown journal, Apr 2026. URL: https://doi.org/10.20944/preprints202604.0484.v1, doi:10.20944/preprints202604.0484.v1.</p>
+</li>
+<li>
+<p>(ye2023nationalanalysisof pages 4-5): Zhenyang Ye, Zaizhi Chen, Jin-Ying Luo, Lijing Xu, Dongping Fan, and Jia Wang. National analysis of urinary cadmium concentration and kidney stone: evidence from nhanes (2011–2020). Frontiers in Public Health, Mar 2023. URL: https://doi.org/10.3389/fpubh.2023.1146263, doi:10.3389/fpubh.2023.1146263. This article has 8 citations.</p>
+</li>
+<li>
+<p>(shi2024associationsofmixed pages 4-5): Xiaoru Shi, Xiao Wang, Jia Zhang, Ying Dang, Changping Ouyang, Jinhua Pan, Aimin Yang, and Xiaobin Hu. Associations of mixed metal exposure with chronic kidney disease from nhanes 2011–2018. Scientific Reports, Jun 2024. URL: https://doi.org/10.1038/s41598-024-63858-3, doi:10.1038/s41598-024-63858-3. This article has 29 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(kwon2023associationbetweenlevels pages 1-2): Jung-Yeon Kwon, Seungho Lee, Ulziikhishig Surenbaatar, Hyoun-Ju Lim, Byoung-Gwon Kim, Sang-Yong Eom, Yong Min Cho, Woo Jin Kim, Byeng-Chul Yu, Kwan Lee, and Young-Seoub Hong. Association between levels of exposure to heavy metals and renal function indicators of residents in environmentally vulnerable areas. Scientific Reports, Feb 2023. URL: https://doi.org/10.1038/s41598-022-27292-7, doi:10.1038/s41598-022-27292-7. This article has 40 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(satarug2025hypertensioninpeople pages 14-16): Soisungwan Satarug. Hypertension in people exposed to environmental cadmium: roles for 20-hydroxyeicosatetraenoic acid in the kidney. Journal of Xenobiotics, Aug 2025. URL: https://doi.org/10.3390/jox15040122, doi:10.3390/jox15040122. This article has 2 citations.</p>
+</li>
+<li>
+<p>(satarug2024urinarynacetylglucosaminidasein pages 12-13): Soisungwan Satarug. Urinary n-acetylglucosaminidase in people environmentally exposed to cadmium is minimally related to cadmium-induced nephron destruction. Toxics, 12:775, Oct 2024. URL: https://doi.org/10.3390/toxics12110775, doi:10.3390/toxics12110775. This article has 7 citations.</p>
+</li>
+<li>
+<p>(howard2023combatingleadand pages 6-8): Jordyn Ann Howard, Halyna Kuznietsova, Natalia Dziubenko, Axel Aigle, Marco Natuzzi, Eloise Thomas, Vladimir Lysenko, Laurent David, Thomas Brichart, François Lux, and Olivier Tillement. Combating lead and cadmium exposure with an orally administered chitosan-based chelating polymer. Scientific Reports, Feb 2023. URL: https://doi.org/10.1038/s41598-023-28968-4, doi:10.1038/s41598-023-28968-4. This article has 23 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(nordberg2025metallothioneinandother pages 17-18): Gunnar F. Nordberg and Monica Nordberg. Metallothionein and other factors influencing cadmium-induced kidney dysfunction: review and commentary. Biomolecules, 15:1083, Jul 2025. URL: https://doi.org/10.3390/biom15081083, doi:10.3390/biom15081083. This article has 8 citations.</p>
+</li>
+<li>
+<p>(howard2023combatingleadand pages 5-6): Jordyn Ann Howard, Halyna Kuznietsova, Natalia Dziubenko, Axel Aigle, Marco Natuzzi, Eloise Thomas, Vladimir Lysenko, Laurent David, Thomas Brichart, François Lux, and Olivier Tillement. Combating lead and cadmium exposure with an orally administered chitosan-based chelating polymer. Scientific Reports, Feb 2023. URL: https://doi.org/10.1038/s41598-023-28968-4, doi:10.1038/s41598-023-28968-4. This article has 23 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(ye2023nationalanalysisof pages 1-2): Zhenyang Ye, Zaizhi Chen, Jin-Ying Luo, Lijing Xu, Dongping Fan, and Jia Wang. National analysis of urinary cadmium concentration and kidney stone: evidence from nhanes (2011–2020). Frontiers in Public Health, Mar 2023. URL: https://doi.org/10.3389/fpubh.2023.1146263, doi:10.3389/fpubh.2023.1146263. This article has 8 citations.</p>
+</li>
+<li>
+<p>(lu2024associationofurinary pages 4-5): Liping Lu, Yijia Zhang, Meghan Angley, Shai Bejerano, John D. Brockman, Leslie A. McClure, Frederick W. Unverzagt, Alyce D. Fly, and Ka Kahe. Association of urinary cadmium concentration with cognitive impairment in us adults. Neurology, Oct 2024. URL: https://doi.org/10.1212/wnl.0000000000209808, doi:10.1212/wnl.0000000000209808. This article has 10 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(lu2024associationofurinary pages 8-9): Liping Lu, Yijia Zhang, Meghan Angley, Shai Bejerano, John D. Brockman, Leslie A. McClure, Frederick W. Unverzagt, Alyce D. Fly, and Ka Kahe. Association of urinary cadmium concentration with cognitive impairment in us adults. Neurology, Oct 2024. URL: https://doi.org/10.1212/wnl.0000000000209808, doi:10.1212/wnl.0000000000209808. This article has 10 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(lu2024associationofurinary pages 2-4): Liping Lu, Yijia Zhang, Meghan Angley, Shai Bejerano, John D. Brockman, Leslie A. McClure, Frederick W. Unverzagt, Alyce D. Fly, and Ka Kahe. Association of urinary cadmium concentration with cognitive impairment in us adults. Neurology, Oct 2024. URL: https://doi.org/10.1212/wnl.0000000000209808, doi:10.1212/wnl.0000000000209808. This article has 10 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(kwon2023associationbetweenlevels media 0a68bf68): Jung-Yeon Kwon, Seungho Lee, Ulziikhishig Surenbaatar, Hyoun-Ju Lim, Byoung-Gwon Kim, Sang-Yong Eom, Yong Min Cho, Woo Jin Kim, Byeng-Chul Yu, Kwan Lee, and Young-Seoub Hong. Association between levels of exposure to heavy metals and renal function indicators of residents in environmentally vulnerable areas. Scientific Reports, Feb 2023. URL: https://doi.org/10.1038/s41598-022-27292-7, doi:10.1038/s41598-022-27292-7. This article has 40 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(kwon2023associationbetweenlevels media a1f51e53): Jung-Yeon Kwon, Seungho Lee, Ulziikhishig Surenbaatar, Hyoun-Ju Lim, Byoung-Gwon Kim, Sang-Yong Eom, Yong Min Cho, Woo Jin Kim, Byeng-Chul Yu, Kwan Lee, and Young-Seoub Hong. Association between levels of exposure to heavy metals and renal function indicators of residents in environmentally vulnerable areas. Scientific Reports, Feb 2023. URL: https://doi.org/10.1038/s41598-022-27292-7, doi:10.1038/s41598-022-27292-7. This article has 40 citations and is from a peer-reviewed journal.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </div>
         
 
         <footer class="page-footer">
@@ -9194,7 +11146,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Cadmium Poisoning", "mondoId": "MONDO:0043523", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cadmium_Poisoning", "yamlRevision": "31feb0dfb16e"};
+        const OS_CONFIG = {"diseaseName": "Cadmium Poisoning", "mondoId": "MONDO:0043523", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cadmium_Poisoning", "yamlRevision": "8ea16afcf3dc"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

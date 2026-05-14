@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2597,7 +2750,7 @@
             
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
-                <div class="stat-value">10</div>
+                <div class="stat-value">11</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
@@ -4967,7 +5120,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACTA1 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"ACTA1\"], \"subtypes\": [\"NEM3\"], \"frequency\": \"FREQUENT\", \"association\": \"Causative\"}}, {\"id\": \"CFL2 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CFL2\"], \"association\": \"Causative\"}}, {\"id\": \"Fast Skeletal Muscle Troponin Activators (Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tirasemtiv and related fast skeletal muscle troponin activators increase submaximal muscle tension in preclinical NM models by enhancing thin filament calcium sensitivity. Improved respiratory efficiency observed in NEM3 mouse models.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Difficulty with sucking and swallowing in infancy due to bulbar muscle weakness. In NEB-NM, 32% of patients require gastrostomy tube feeding, and dysphagia is associated with ventilatory support use.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0008872\"}}, {\"id\": \"Generalized Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Proximal greater than distal muscle weakness, predominantly affecting limb-girdle and axial muscles. In NEB-NM, 35% are unable to walk without support.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003324\"}}, {\"id\": \"KLHL40 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"KLHL40\"], \"association\": \"Causative\"}}, {\"id\": \"LMOD3 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LMOD3\"], \"subtypes\": [\"NEM10\"], \"association\": \"Causative\"}}, {\"id\": \"Myosin Activators (Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Omecamtiv mecarbil, a small-molecule cardiac myosin activator, substantially increased submaximal tension in type 1 muscle fibers from NEB-NM patients, with the largest effects in those with the lowest nebulin levels.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"NEB Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"NEB\"], \"subtypes\": [\"NEM2\"], \"frequency\": \"VERY_FREQUENT\", \"association\": \"Causative\"}}, {\"id\": \"NRAP-Mediated Sarcomere Disorganization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In nebulin deficiency, upregulation of the nebulin-related anchoring protein NRAP contributes to sarcomere structural defects and protein aggregate formation. NRAP acts as a disease modifier, and its reduction can rescue sarcomeric disorganization and eliminate nemaline bodies.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"sarcomere organization\", \"myofibril assembly\"], \"genes\": [\"NRAP\", \"NEB\"]}}, {\"id\": \"Nemaline Bodies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rod-shaped inclusions composed of Z-disc and thin filament proteins visible on modified Gomori trichrome stain and electron microscopy. The defining histopathological feature of nemaline myopathy. Rods stain red on modified Gomori trichrome and show electron-dense lattice-like structures on EM.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0003798\"}}, {\"id\": \"Nemaline Rod Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nemaline rods are electron-dense inclusions composed of alpha-actinin, actin, tropomyosin, cofilin-2, telethonin, nebulin, and other Z-disc proteins. They are derived from Z lines and have a similar lattice structure and protein content. In inherited NM, rods are typically found in subsarcolemmal or central aggregates. Rod shape in KLHL40 and LMOD3 cases is distinctive. The number and distribution of rods does not correlate with severity or prognosis. In severe ACTA1 cases, intranuclear rods and cytoplasmic bodies are characteristic.\\n\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"Myofibril Assembly\", \"Sarcomere Organization\"]}}, {\"id\": \"Nuclear Envelope Disruption (ACTA1)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In severe ACTA1-NM, skeletal muscle alpha-actin contributes to nuclear shape maintenance. Mutant ACTA1 causes enlargement of the perinuclear space and abnormal localization of lamin A/C, Nesprin-1, and Nesprin-2, which form the nuclear lamina and LINC complex ensuring nuclear envelope integrity. This identifies a novel pathomechanistic axis beyond sarcomeric dysfunction.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"nuclear envelope organization\"], \"genes\": [\"ACTA1\"]}}, {\"id\": \"Nutritional Support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Gastrostomy tube feeding for patients with severe bulbar weakness and failure to thrive. In NEB-NM, 32% of patients require gastrostomy.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Orthopedic Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management of scoliosis (bracing or surgical correction), foot deformities, and joint contractures.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Physical Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ongoing physical therapy and rehabilitation to maintain mobility, prevent contractures, and optimize functional capacity.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Reduced Sarcomeric Tension\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective thin filament architecture in nemaline myopathy lowers maximal and submaximal muscle tension, reducing force output in limb and respiratory muscles.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"skeletal muscle contraction\"]}}, {\"id\": \"Respiratory Insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Weakness of respiratory muscles leads to hypoventilation. In NEB-NM, 55% of patients required ventilatory support, with progressive respiratory involvement over time.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002747\"}}, {\"id\": \"Respiratory Support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Nocturnal non-invasive ventilation (BiPAP) or continuous ventilatory support for respiratory muscle weakness. In NEB-NM, 55% of patients require ventilatory support with progressive need over time.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive scoliosis due to chronic axial muscle weakness. In NEB-NM, scoliosis is more common among patients using ventilatory support and in older age groups, suggesting disease progression.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"TNNT1 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TNNT1\"], \"subtypes\": [\"Amish nemaline myopathy\"], \"association\": \"Causative\"}}, {\"id\": \"TPM2 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TPM2\"], \"association\": \"Causative\"}}, {\"id\": \"TPM3 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TPM3\"], \"subtypes\": [\"NEM1\"], \"association\": \"Causative\"}}, {\"id\": \"Thin Filament Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in genes encoding thin filament components (nebulin, skeletal alpha-actin, tropomyosins, troponins, cofilin-2, leiomodin-3) disrupt the normal structure and function of the sarcomeric thin filament. This leads to impaired actin-myosin cross-bridge cycling and reduced muscle force generation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Skeletal Muscle Fiber\", \"Type I Muscle Cell\"], \"biological_processes\": [\"Skeletal Muscle Contraction\", \"Actin Filament Organization\", \"Skeletal Muscle Thin Filament Assembly\"], \"molecular_functions\": [\"Actin Filament Binding\"], \"genes\": [\"NEB\", \"ACTA1\", \"TPM3\", \"TPM2\", \"TNNT1\", \"CFL2\", \"LMOD3\"]}}, {\"id\": \"Thin Filament Length Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nebulin acts as a molecular ruler specifying thin filament length. Loss of nebulin leads to shorter thin filaments, reducing the overlap zone with thick filaments and impairing force generation. Pathogenic NEB duplications can also produce longer-than-normal thin filaments, demonstrating that uniformity in thin filament length is critical and both shortened and elongated filaments are deleterious.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Sarcomere Organization\"]}}, {\"id\": \"Ubiquitin-Proteasome Pathway Dysregulation (KLHL40)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KLHL40 functions as a CUL3 E3 ubiquitin ligase substrate-specific adapter. Loss of KLHL40 disrupts ubiquitin-mediated degradation of SAR1A, leading to defective ER-to-Golgi vesicle trafficking, impaired extracellular matrix protein secretion, and downstream structural and functional abnormalities in skeletal muscle.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Protein Ubiquitination\", \"ER to Golgi Vesicle-Mediated Transport\"], \"genes\": [\"KLHL40\", \"SAR1A\"]}}], \"edges\": [{\"source\": \"Thin Filament Dysfunction\", \"target\": \"Thin Filament Length Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Thin Filament Dysfunction\", \"target\": \"Reduced Sarcomeric Tension\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Thin Filament Dysfunction\", \"target\": \"NRAP-Mediated Sarcomere Disorganization\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Nemaline Rod Formation\", \"target\": \"Nemaline Bodies\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Nemaline Rod Formation\", \"target\": \"Generalized Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Thin Filament Length Dysregulation\", \"target\": \"Reduced Sarcomeric Tension\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced Sarcomeric Tension\", \"target\": \"Generalized Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced Sarcomeric Tension\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ubiquitin-Proteasome Pathway Dysregulation (KLHL40)\", \"target\": \"Thin Filament Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ubiquitin-Proteasome Pathway Dysregulation (KLHL40)\", \"target\": \"Reduced Sarcomeric Tension\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Nuclear Envelope Disruption (ACTA1)\", \"target\": \"Nemaline Rod Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Nuclear Envelope Disruption (ACTA1)\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"NRAP-Mediated Sarcomere Disorganization\", \"target\": \"Nemaline Rod Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"NRAP-Mediated Sarcomere Disorganization\", \"target\": \"Reduced Sarcomeric Tension\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Respiratory Support\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical Therapy\", \"target\": \"Generalized Muscle Weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical Therapy\", \"target\": \"Scoliosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Nutritional Support\", \"target\": \"Feeding Difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Orthopedic Management\", \"target\": \"Scoliosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Fast Skeletal Muscle Troponin Activators (Investigational)\", \"target\": \"Thin Filament Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Fast Skeletal Muscle Troponin Activators (Investigational)\", \"target\": \"Reduced Sarcomeric Tension\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Fast Skeletal Muscle Troponin Activators (Investigational)\", \"target\": \"Generalized Muscle Weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Fast Skeletal Muscle Troponin Activators (Investigational)\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Myosin Activators (Investigational)\", \"target\": \"Reduced Sarcomeric Tension\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Myosin Activators (Investigational)\", \"target\": \"Generalized Muscle Weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"NEB Mutations\", \"target\": \"NRAP-Mediated Sarcomere Disorganization\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NEB Mutations\", \"target\": \"Thin Filament Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ACTA1 Mutations\", \"target\": \"Nuclear Envelope Disruption (ACTA1)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ACTA1 Mutations\", \"target\": \"Thin Filament Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KLHL40 Mutations\", \"target\": \"Ubiquitin-Proteasome Pathway Dysregulation (KLHL40)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TPM3 Mutations\", \"target\": \"Thin Filament Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TPM2 Mutations\", \"target\": \"Thin Filament Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TNNT1 Mutations\", \"target\": \"Thin Filament Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CFL2 Mutations\", \"target\": \"Thin Filament Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LMOD3 Mutations\", \"target\": \"Thin Filament Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACTA1 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"ACTA1\"], \"subtypes\": [\"NEM3\"], \"frequency\": \"FREQUENT\", \"association\": \"Causative\"}}, {\"id\": \"CFL2 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CFL2\"], \"association\": \"Causative\"}}, {\"id\": \"Fast Skeletal Muscle Troponin Activators (Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tirasemtiv and related fast skeletal muscle troponin activators increase submaximal muscle tension in preclinical NM models by enhancing thin filament calcium sensitivity. Improved respiratory efficiency observed in NEM3 mouse models.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Difficulty with sucking and swallowing in infancy due to bulbar muscle weakness. In NEB-NM, 32% of patients require gastrostomy tube feeding, and dysphagia is associated with ventilatory support use.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0008872\"}}, {\"id\": \"Generalized Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Proximal greater than distal muscle weakness, predominantly affecting limb-girdle and axial muscles. In NEB-NM, 35% are unable to walk without support.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003324\"}}, {\"id\": \"KLHL40 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"KLHL40\"], \"association\": \"Causative\"}}, {\"id\": \"LMOD3 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LMOD3\"], \"subtypes\": [\"NEM10\"], \"association\": \"Causative\"}}, {\"id\": \"Myosin Activators (Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Omecamtiv mecarbil, a small-molecule cardiac myosin activator, substantially increased submaximal tension in type 1 muscle fibers from NEB-NM patients, with the largest effects in those with the lowest nebulin levels.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"NEB Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"NEB\"], \"subtypes\": [\"NEM2\"], \"frequency\": \"VERY_FREQUENT\", \"association\": \"Causative\"}}, {\"id\": \"NRAP-Mediated Sarcomere Disorganization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In nebulin deficiency, upregulation of the nebulin-related anchoring protein NRAP contributes to sarcomere structural defects and protein aggregate formation. NRAP acts as a disease modifier, and its reduction can rescue sarcomeric disorganization and eliminate nemaline bodies.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"sarcomere organization\", \"myofibril assembly\"], \"genes\": [\"NRAP\", \"NEB\"]}}, {\"id\": \"Nemaline Bodies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rod-shaped inclusions composed of Z-disc and thin filament proteins visible on modified Gomori trichrome stain and electron microscopy. The defining histopathological feature of nemaline myopathy. Rods stain red on modified Gomori trichrome and show electron-dense lattice-like structures on EM.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0003798\"}}, {\"id\": \"Nemaline Rod Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nemaline rods are electron-dense inclusions composed of alpha-actinin, actin, tropomyosin, cofilin-2, telethonin, nebulin, and other Z-disc proteins. They are derived from Z lines and have a similar lattice structure and protein content. In inherited NM, rods are typically found in subsarcolemmal or central aggregates. Rod shape in KLHL40 and LMOD3 cases is distinctive. The number and distribution of rods does not correlate with severity or prognosis. In severe ACTA1 cases, intranuclear rods and cytoplasmic bodies are characteristic.\\n\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"Myofibril Assembly\", \"Sarcomere Organization\"]}}, {\"id\": \"Nuclear Envelope Disruption (ACTA1)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In severe ACTA1-NM, skeletal muscle alpha-actin contributes to nuclear shape maintenance. Mutant ACTA1 causes enlargement of the perinuclear space and abnormal localization of lamin A/C, Nesprin-1, and Nesprin-2, which form the nuclear lamina and LINC complex ensuring nuclear envelope integrity. This identifies a novel pathomechanistic axis beyond sarcomeric dysfunction.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"nuclear envelope organization\"], \"genes\": [\"ACTA1\"]}}, {\"id\": \"Nutritional Support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Gastrostomy tube feeding for patients with severe bulbar weakness and failure to thrive. In NEB-NM, 32% of patients require gastrostomy.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Orthopedic Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management of scoliosis (bracing or surgical correction), foot deformities, and joint contractures.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Physical Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ongoing physical therapy and rehabilitation to maintain mobility, prevent contractures, and optimize functional capacity.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Reduced Sarcomeric Tension\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective thin filament architecture in nemaline myopathy lowers maximal and submaximal muscle tension, reducing force output in limb and respiratory muscles.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"skeletal muscle contraction\"]}}, {\"id\": \"Respiratory Insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Weakness of respiratory muscles leads to hypoventilation. In NEB-NM, 55% of patients required ventilatory support, with progressive respiratory involvement over time.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002747\"}}, {\"id\": \"Respiratory Support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Nocturnal non-invasive ventilation (BiPAP) or continuous ventilatory support for respiratory muscle weakness. In NEB-NM, 55% of patients require ventilatory support with progressive need over time.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive scoliosis due to chronic axial muscle weakness. In NEB-NM, scoliosis is more common among patients using ventilatory support and in older age groups, suggesting disease progression.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"TNNT1 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"TNNT1\"], \"subtypes\": [\"Amish nemaline myopathy\"], \"association\": \"Causative\"}}, {\"id\": \"TPM2 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TPM2\"], \"association\": \"Causative\"}}, {\"id\": \"TPM3 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TPM3\"], \"subtypes\": [\"NEM1\"], \"association\": \"Causative\"}}, {\"id\": \"Thin Filament Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in genes encoding thin filament components (nebulin, skeletal alpha-actin, tropomyosins, troponins, cofilin-2, leiomodin-3) disrupt the normal structure and function of the sarcomeric thin filament. This leads to impaired actin-myosin cross-bridge cycling and reduced muscle force generation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Skeletal Muscle Fiber\", \"Type I Muscle Cell\"], \"biological_processes\": [\"Skeletal Muscle Contraction\", \"Actin Filament Organization\", \"Skeletal Muscle Thin Filament Assembly\"], \"molecular_functions\": [\"Actin Filament Binding\"], \"genes\": [\"NEB\", \"ACTA1\", \"TPM3\", \"TPM2\", \"TNNT1\", \"CFL2\", \"LMOD3\"]}}, {\"id\": \"Thin Filament Length Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nebulin acts as a molecular ruler specifying thin filament length. Loss of nebulin leads to shorter thin filaments, reducing the overlap zone with thick filaments and impairing force generation. Pathogenic NEB duplications can also produce longer-than-normal thin filaments, demonstrating that uniformity in thin filament length is critical and both shortened and elongated filaments are deleterious.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Sarcomere Organization\"]}}, {\"id\": \"Ubiquitin-Proteasome Pathway Dysregulation (KLHL40)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KLHL40 functions as a CUL3 E3 ubiquitin ligase substrate-specific adapter. Loss of KLHL40 disrupts ubiquitin-mediated degradation of SAR1A, leading to defective ER-to-Golgi vesicle trafficking, impaired extracellular matrix protein secretion, and downstream structural and functional abnormalities in skeletal muscle.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Protein Ubiquitination\", \"ER to Golgi Vesicle-Mediated Transport\"], \"genes\": [\"KLHL40\", \"SAR1A\"]}}], \"edges\": [{\"source\": \"Thin Filament Dysfunction\", \"target\": \"Thin Filament Length Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Thin Filament Dysfunction\", \"target\": \"Reduced Sarcomeric Tension\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Thin Filament Dysfunction\", \"target\": \"NRAP-Mediated Sarcomere Disorganization\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Nemaline Rod Formation\", \"target\": \"Nemaline Bodies\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Nemaline Rod Formation\", \"target\": \"Generalized Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Thin Filament Length Dysregulation\", \"target\": \"Reduced Sarcomeric Tension\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced Sarcomeric Tension\", \"target\": \"Generalized Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced Sarcomeric Tension\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ubiquitin-Proteasome Pathway Dysregulation (KLHL40)\", \"target\": \"Thin Filament Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ubiquitin-Proteasome Pathway Dysregulation (KLHL40)\", \"target\": \"Reduced Sarcomeric Tension\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Nuclear Envelope Disruption (ACTA1)\", \"target\": \"Nemaline Rod Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Nuclear Envelope Disruption (ACTA1)\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"NRAP-Mediated Sarcomere Disorganization\", \"target\": \"Nemaline Rod Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"NRAP-Mediated Sarcomere Disorganization\", \"target\": \"Reduced Sarcomeric Tension\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Respiratory Support\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical Therapy\", \"target\": \"Generalized Muscle Weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical Therapy\", \"target\": \"Scoliosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Nutritional Support\", \"target\": \"Feeding Difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Orthopedic Management\", \"target\": \"Scoliosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Fast Skeletal Muscle Troponin Activators (Investigational)\", \"target\": \"Thin Filament Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Fast Skeletal Muscle Troponin Activators (Investigational)\", \"target\": \"Reduced Sarcomeric Tension\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Fast Skeletal Muscle Troponin Activators (Investigational)\", \"target\": \"Generalized Muscle Weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Fast Skeletal Muscle Troponin Activators (Investigational)\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Myosin Activators (Investigational)\", \"target\": \"Reduced Sarcomeric Tension\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Myosin Activators (Investigational)\", \"target\": \"Generalized Muscle Weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"NEB Mutations\", \"target\": \"NRAP-Mediated Sarcomere Disorganization\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NEB Mutations\", \"target\": \"Thin Filament Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ACTA1 Mutations\", \"target\": \"Nuclear Envelope Disruption (ACTA1)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ACTA1 Mutations\", \"target\": \"Thin Filament Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KLHL40 Mutations\", \"target\": \"Ubiquitin-Proteasome Pathway Dysregulation (KLHL40)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TPM3 Mutations\", \"target\": \"Thin Filament Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TPM2 Mutations\", \"target\": \"Thin Filament Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TNNT1 Mutations\", \"target\": \"Thin Filament Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CFL2 Mutations\", \"target\": \"Thin Filament Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LMOD3 Mutations\", \"target\": \"Thin Filament Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5772,7 +5925,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">10</span>
+                <span class="card-count">11</span>
             </div>
             
             <div class="item-box genetic-box">
@@ -6127,7 +6280,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -6148,6 +6301,26 @@
                 
                 
                 <div class="evidence-explanation">Cohort natural-history data establish pathogenic TNNT1 variants as causative in Amish nemaline myopathy.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_b5e1f9d1-b21e-46f6-94ce-10cb551ea92a-2025-03-24T160000.000Z" target="_blank">CGGV:assertion_b5e1f9d1-b21e-46f6-94ce-10cb551ea92a-2025-03-24T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"TNNT1 | HGNC:11948 | nemaline myopathy | MONDO:0018958 | AD | Limited"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the TNNT1-nemaline myopathy gene-disease relationship as limited with autosomal dominant inheritance.</div>
                 
             </div>
             
@@ -6277,6 +6450,49 @@
                 
                 
                 <div class="evidence-explanation">Whole-exome sequencing and follow-up cohort data support KLHL41 as a causative nemaline myopathy gene.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    TNNT3
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_9617fa6c-fcb4-460a-be4b-2e437267f608-2025-02-24T170000.000Z" target="_blank">CGGV:assertion_9617fa6c-fcb4-460a-be4b-2e437267f608-2025-02-24T170000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"TNNT3 | HGNC:11950 | nemaline myopathy | MONDO:0018958 | AR | Limited"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the TNNT3-nemaline myopathy gene-disease relationship as limited with autosomal recessive inheritance.</div>
                 
             </div>
             
@@ -8798,6 +9014,12 @@ genetic:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We describe the natural history of &#39;Amish&#39; nemaline myopathy (ANM), an infantile-onset, lethal disease linked to a pathogenic c.505G&gt;T nonsense mutation of TNNT1, which encodes the slow fiber isoform of troponin T (TNNT1; a.k.a. TnT).&#34;
     explanation: Cohort natural-history data establish pathogenic TNNT1 variants as causative in Amish nemaline myopathy.
+  - reference: CGGV:assertion_b5e1f9d1-b21e-46f6-94ce-10cb551ea92a-2025-03-24T160000.000Z
+    reference_title: &#34;TNNT1 / nemaline myopathy (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;TNNT1 | HGNC:11948 | nemaline myopathy | MONDO:0018958 | AD | Limited&#34;
+    explanation: ClinGen classifies the TNNT1-nemaline myopathy gene-disease relationship as limited with autosomal dominant inheritance.
 - name: CFL2 Mutations
   gene_term:
     preferred_term: CFL2
@@ -8850,6 +9072,20 @@ genetic:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We performed whole-exome sequencing and have identified recessive small deletions and missense changes in the Kelch-like family member 41 gene (KLHL41) in four individuals from unrelated NM families.&#34;
     explanation: Whole-exome sequencing and follow-up cohort data support KLHL41 as a causative nemaline myopathy gene.
+- name: TNNT3
+  gene_term:
+    preferred_term: TNNT3
+    term:
+      id: hgnc:11950
+      label: TNNT3
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_9617fa6c-fcb4-460a-be4b-2e437267f608-2025-02-24T170000.000Z
+    reference_title: &#34;TNNT3 / nemaline myopathy (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;TNNT3 | HGNC:11950 | nemaline myopathy | MONDO:0018958 | AR | Limited&#34;
+    explanation: ClinGen classifies the TNNT3-nemaline myopathy gene-disease relationship as limited with autosomal recessive inheritance.
 diagnosis:
 - name: Muscle biopsy with modified Gomori trichrome and electron microscopy
   presence: Nemaline rods identified on modified Gomori trichrome staining and confirmed by ultrastructural electron microscopy.
@@ -9741,7 +9977,7 @@ These initiatives operationalize clinically meaningful outcome domains (motor, v
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Nemaline Myopathy", "mondoId": "MONDO:0018958", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Nemaline_Myopathy", "yamlRevision": "3aaf87620733"};
+        const OS_CONFIG = {"diseaseName": "Nemaline Myopathy", "mondoId": "MONDO:0018958", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Nemaline_Myopathy", "yamlRevision": "546d4b238e31"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

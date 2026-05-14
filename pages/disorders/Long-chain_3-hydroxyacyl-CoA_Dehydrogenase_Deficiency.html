@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,7 +2570,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 32</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Fatty Acid Oxidation Disorder</span>
@@ -2555,7 +2708,7 @@
             
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
-                <div class="stat-value">5</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">Pathophysiology</div>
             </div>
             </a>
@@ -2577,7 +2730,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">7</div>
+                <div class="stat-value">32</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -2664,7 +2817,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">7</span>
             </div>
             
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hadha-molecular-function-deficiency-within-mitochondrial-trifunctional-protein">
@@ -2680,6 +2833,8 @@
                     <span class="tag tag-gene">
                         HADHA
                         
+                        <a href="https://bioregistry.io/hgnc:4801" target="_blank" class="linkout">link</a>
+                        
                     </span>
                     
                 </div>
@@ -2690,14 +2845,18 @@
                 <div class="item-meta">
                     
                     <span class="tag tag-bio">
-                        catalytic activity
+                        long-chain 3-hydroxyacyl-CoA dehydrogenase activity
                         
-                        <a href="http://purl.obolibrary.org/obo/GO_0003824" target="_blank" class="linkout">link</a>
+                        <a href="http://purl.obolibrary.org/obo/GO_0003857" target="_blank" class="linkout">link</a>
                         
                     </span>
                     
     
     
+    
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
     
     
     
@@ -2758,11 +2917,13 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"LC-FAODs are caused by mutations in nuclear genes encoding mitochondrial enzymes involved in the conversion of dietary long-chain fatty acids (LCFAs) into energy during times of fasting and physiologic stress."</div>
+                <div class="evidence-snippet">"LC-FAODs are caused by mutations in nuclear genes encoding mitochondrial 
+enzymes involved in the conversion of dietary long-chain fatty acids (LCFAs) 
+into energy during times of fasting and physiologic stress."</div>
                 
                 
                 <div class="evidence-explanation">Supports molecular dysfunction of mitochondrial FAO enzymes including HADHA in LCHADD.</div>
@@ -2921,7 +3082,35 @@
 	                        </div>
 	                        
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Cardiolipin remodeling defect and mitochondrial bioenergetic impairment</span>
+	                            <span class="crosslink-meta">Cardiolipin remodeling defect</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Catabolic stress-triggered energy failure</span>
+	                            
+	                            <span class="crosslink-desc">During fasting, illness, or exertion, impaired long-chain FAO limits energy production and ketogenesis.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Long-chain 3-hydroxyacylcarnitines (C16OH, C18OH, C18:1OH)</span>
+	                            
+	                            <span class="crosslink-desc">The LCHAD enzymatic block produces elevated long-chain 3-hydroxyacylcarnitines used for diagnosis.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">HADHA ratio (C16OH + C18OH + C18:1OH)/C0</span>
+	                            
+	                            <span class="crosslink-desc">The diagnostic HADHA ratio aggregates the elevated C16OH, C18OH, and C18:1OH species normalized to free carnitine.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Ketone bodies</span>
+	                            
+	                            <span class="crosslink-desc">Impaired hepatic long-chain FAO limits ketogenesis during fasting or physiologic stress.</span>
 	                            
 	                        </div>
 	                        
@@ -2945,14 +3134,248 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"LC-FAODs are caused by mutations in nuclear genes encoding mitochondrial enzymes involved in the conversion of dietary long-chain fatty acids (LCFAs) into energy during times of fasting and physiologic stress."</div>
+                <div class="evidence-snippet">"LC-FAODs are caused by mutations in nuclear genes encoding mitochondrial 
+enzymes involved in the conversion of dietary long-chain fatty acids (LCFAs) 
+into energy during times of fasting and physiologic stress."</div>
                 
                 
                 <div class="evidence-explanation">Supports impaired long-chain FAO and stress-related energy failure downstream of HADHA dysfunction.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+	            </div>
+	            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-catabolic-stress-triggered-energy-failure">
+                <div class="item-name">Catabolic stress-triggered energy failure</div>
+                
+                <div class="item-desc">Fasting, febrile illness, exercise, and other physiologic stressors increase dependence on long-chain fatty acid oxidation. Because LCHADD cannot efficiently use long-chain fatty acids for energy, catabolic stress produces acute energy crises with hypoketotic hypoglycemia, hepatic dysfunction, cardiomyopathy, exercise intolerance, and rhabdomyolysis.
+</div>
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-cell">
+                        hepatocyte
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    <span class="tag tag-cell">
+                        cardiac muscle cell
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    <span class="tag tag-cell">
+                        skeletal muscle fiber
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        fatty acid beta-oxidation
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0006635" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    <span class="tag tag-bio">
+                        ketone body biosynthetic process
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0046951" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hypoketotic hypoglycemia</span>
+	                            
+	                            <span class="crosslink-desc">Impaired fatty acid oxidation and ketogenesis during fasting leads to severe hypoglycemia with inadequate ketone production.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Metabolic decompensation</span>
+	                            
+	                            <span class="crosslink-desc">Acute crises of energy production occur during fasting, illness, or other catabolic stress.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Lethargy</span>
+	                            
+	                            <span class="crosslink-desc">Severe hypoglycemic crises can progress to reduced alertness or coma.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hepatopathy</span>
+	                            
+	                            <span class="crosslink-desc">Catabolic energy failure causes hepatic dysfunction and steatosis during decompensation.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cardiomyopathy</span>
+	                            
+	                            <span class="crosslink-desc">Cardiac muscle reliance on long-chain FAO links energy crises to cardiomyopathy.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Myopathy</span>
+	                            
+	                            <span class="crosslink-desc">Skeletal muscle energy shortage during sustained demand contributes to chronic myopathy.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Rhabdomyolysis</span>
+	                            
+	                            <span class="crosslink-desc">Exercise, fasting, and illness trigger skeletal muscle breakdown when fatty acid oxidation cannot meet energy demand.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Exercise intolerance</span>
+	                            
+	                            <span class="crosslink-desc">Limited fatty acid-derived energy during exertion reduces exercise capacity.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
+	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32840329" target="_blank">PMID:32840329</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Patients may present with 
+rhabdomyolysis induced by exercise; fasting or illness; hepatic dysfunction, 
+including severe hypoglycemia and hyperammonemia; and cardiomyopathy."</div>
+                
+                
+                <div class="evidence-explanation">Identifies the stress-triggered clinical manifestations of long-chain FAO defects including LCHADD.</div>
                 
             </div>
             
@@ -3063,7 +3486,28 @@
 	                    <div class="crosslink-list">
 	                        
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">RPE-specific lipid peroxidation and chorioretinopathy</span>
+	                            <span class="crosslink-meta">RPE-specific lipid peroxidation</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Free carnitine (C0)</span>
+	                            
+	                            <span class="crosslink-desc">Accumulated acyl-CoA intermediates are conjugated to carnitine, contributing to secondary depletion of free carnitine.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hypocarnitinemia</span>
+	                            
+	                            <span class="crosslink-desc">Increased acylcarnitine formation and excretion contributes to the hypocarnitinemia observed in LCHADD.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Peripheral neuropathy</span>
+	                            
+	                            <span class="crosslink-desc">LCHADD-specific toxic intermediate burden is linked clinically to peripheral neuropathy.</span>
 	                            
 	                        </div>
 	                        
@@ -3091,7 +3535,10 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"When LCHADD-RPE are exposed to docosahexaenoic acid (DHA), they have increased oxidative stress, lipid peroxidation, decreased viability, and are rescued by antioxidant agents potentially explaining the pathologic mechanism of RPE loss in LCHADD."</div>
+                <div class="evidence-snippet">"When LCHADD-RPE are exposed to docosahexaenoic acid (DHA), they 
+have increased oxidative stress, lipid peroxidation, decreased viability, and 
+are rescued by antioxidant agents potentially explaining the pathologic 
+mechanism of RPE loss in LCHADD."</div>
                 
                 
                 <div class="evidence-explanation">Demonstrates oxidative stress and lipid peroxidation from toxic intermediate accumulation in LCHADD RPE cells.</div>
@@ -3105,10 +3552,10 @@
     
 	            </div>
 	            
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiolipin-remodeling-defect-and-mitochondrial-bioenergetic-impairment">
-                <div class="item-name">Cardiolipin remodeling defect and mitochondrial bioenergetic impairment</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiolipin-remodeling-defect">
+                <div class="item-name">Cardiolipin remodeling defect</div>
                 
-                <div class="item-desc">The TFP alpha-subunit (HADHA) possesses monolysocardiolipin acyltransferase activity linking fatty acid oxidation to cardiolipin remodeling. HADHA mutations disrupt cardiolipin content and composition, leading to reduced mitochondrial maximal respiration and spare respiratory capacity. This secondary mitochondrial membrane defect may underlie stress intolerance and tissue-specific vulnerability.
+                <div class="item-desc">The TFP alpha-subunit (HADHA) possesses monolysocardiolipin acyltransferase activity linking fatty acid oxidation to cardiolipin remodeling. HADHA/TFP mutations disrupt cardiolipin content and composition, creating a mitochondrial inner-membrane lipid abnormality distinct from the primary beta-oxidation block.
 </div>
                 
                 
@@ -3176,6 +3623,27 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cardiolipin</span>
+	                            
+	                            <span class="crosslink-desc">Abnormal TFP/HADHA function reduces cardiolipin abundance in mitochondrial membranes.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Mitochondrial bioenergetic abnormalities</span>
+	                            
+	                            <span class="crosslink-desc">Cardiolipin composition changes are linked to altered mitochondrial bioenergetic parameters in TFP-deficient fibroblasts.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
@@ -3197,7 +3665,10 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Although CL reduction was universally identified, a simultaneous increase in monolysocardiolipins was discrepant among cells. A similar profile was seen in liver mitochondria isolates from a TFP-deficient mouse model."</div>
+                <div class="evidence-snippet">"Although CL reduction was 
+universally identified, a simultaneous increase in monolysocardiolipins was 
+discrepant among cells. A similar profile was seen in liver mitochondria 
+isolates from a TFP-deficient mouse model."</div>
                 
                 
                 <div class="evidence-explanation">Demonstrates cardiolipin remodeling defect in TFP/LCHAD-deficient fibroblasts and mouse liver mitochondria.</div>
@@ -3217,7 +3688,9 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"TFP also catalyzes a step in the remodeling of cardiolipin (CL), a phospholipid critical to mitochondrial membrane stability and function."</div>
+                <div class="evidence-snippet">"TFP 
+also catalyzes a step in the remodeling of cardiolipin (CL), a phospholipid 
+critical to mitochondrial membrane stability and function."</div>
                 
                 
                 <div class="evidence-explanation">Establishes TFP role in cardiolipin remodeling beyond fatty acid oxidation.</div>
@@ -3231,10 +3704,98 @@
     
 	            </div>
 	            
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-rpe-specific-lipid-peroxidation-and-chorioretinopathy">
-                <div class="item-name">RPE-specific lipid peroxidation and chorioretinopathy</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-bioenergetic-abnormalities">
+                <div class="item-name">Mitochondrial bioenergetic abnormalities</div>
                 
-                <div class="item-desc">The retinal pigment epithelium (RPE) relies on fatty acid oxidation for energy, and LCHADD causes a tissue-specific block manifesting as progressive chorioretinopathy unique among fatty acid oxidation disorders. RPE cells accumulate 3-hydroxyacylcarnitines and are susceptible to DHA-triggered lipid peroxidation, leading to RPE degeneration and vision loss. Exogenous HADHA gene addition rescues the biochemical and oxidative stress phenotypes.
+                <div class="item-desc">TFP-deficient patient fibroblasts show altered mitochondrial bioenergetic parameters downstream of cardiolipin and phospholipid remodeling abnormalities. This separates the respiratory/bioenergetic consequence from the upstream cardiolipin remodeling defect.
+</div>
+                
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        oxidative phosphorylation
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-location">
+                        mitochondrial inner membrane
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0005743" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+	                
+	                
+	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39088276" target="_blank">PMID:39088276</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Abnormalities in these parameters varied 
+extensively among different fibroblasts, and some cells were able to maintain 
+basal oxygen consumption rates similar to controls."</div>
+                
+                
+                <div class="evidence-explanation">Patient-derived fibroblast data support abnormal mitochondrial bioenergetic parameters in TFP deficiency.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+	            </div>
+	            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-rpe-specific-lipid-peroxidation">
+                <div class="item-name">RPE-specific lipid peroxidation</div>
+                
+                <div class="item-desc">The retinal pigment epithelium (RPE) relies on fatty acid oxidation for energy. In LCHADD, RPE cells accumulate 3-hydroxyacylcarnitines and are susceptible to DHA-triggered lipid peroxidation, leading to RPE degeneration and vision loss. Exogenous HADHA gene addition rescues the biochemical and oxidative stress phenotypes.
 </div>
                 
                 
@@ -3326,6 +3887,27 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Chorioretinopathy</span>
+	                            
+	                            <span class="crosslink-desc">RPE lipid peroxidation and degeneration produce progressive LCHADD-associated chorioretinopathy.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Myopia</span>
+	                            
+	                            <span class="crosslink-desc">Myopia is part of the ophthalmic phenotype observed alongside choroidal atrophy and outer retinal disruption.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
@@ -3347,7 +3929,9 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"LCHADD-RPE express TFP subunits and accumulate 3-hydroxy-acylcarnitines, cannot oxidize palmitate, and release fewer ketones than WT-RPE."</div>
+                <div class="evidence-snippet">"LCHADD-RPE express TFP subunits and accumulate 
+3-hydroxy-acylcarnitines, cannot oxidize palmitate, and release fewer ketones 
+than WT-RPE."</div>
                 
                 
                 <div class="evidence-explanation">Demonstrates impaired fatty acid oxidation and metabolite accumulation in LCHADD RPE cells.</div>
@@ -3367,7 +3951,9 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"LCHADD RPE/sclera samples had a 5- to 7-fold increase in long-chain hydroxyacylcarnitines compared to WT, suggesting an impaired LCHAD step in long-chain FAO."</div>
+                <div class="evidence-snippet">"LCHADD RPE/sclera samples had a 5- to 7-fold increase in long-chain 
+hydroxyacylcarnitines compared to WT, suggesting an impaired LCHAD step in 
+long-chain FAO."</div>
                 
                 
                 <div class="evidence-explanation">Demonstrates tissue-specific accumulation of toxic intermediates in RPE in vivo.</div>
@@ -3406,7 +3992,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cardiolipin remodeling defect and mitochondrial bioenergetic impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The TFP alpha-subunit (HADHA) possesses monolysocardiolipin acyltransferase activity linking fatty acid oxidation to cardiolipin remodeling. HADHA mutations disrupt cardiolipin content and composition, leading to reduced mitochondrial maximal respiration and spare respiratory capacity. This secondary mitochondrial membrane defect may underlie stress intolerance and tissue-specific vulnerability.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cardiolipin metabolic process\", \"oxidative phosphorylation\"], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"HADHA c.1528G\u003eC (p.Glu510Gln)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The most common pathogenic variant in LCHADD, a founder mutation affecting the LCHAD catalytic site. This variant selectively impairs LCHAD activity while relatively preserving the other two TFP enzymatic functions (enoyl-CoA hydratase and 3-ketoacyl-CoA thiolase). Carrier frequency in Finland is 1:240.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"HADHA molecular function deficiency within mitochondrial trifunctional protein\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in HADHA reduce long-chain 3-hydroxyacyl-CoA dehydrogenase catalytic activity within mitochondrial trifunctional protein.\\n\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"catalytic activity\"], \"genes\": [\"HADHA\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"HADHA pathogenic variants causing LCHADD\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"variant_count\": 1}}, {\"id\": \"Impaired mitochondrial long-chain fatty acid beta-oxidation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficiency of LCHAD catalytic activity blocks the third step of long-chain fatty acid beta-oxidation, reducing acetyl-CoA and reducing equivalent supply for ketogenesis and oxidative phosphorylation. This causes energy failure during fasting, illness, or prolonged exercise when tissues depend on fatty acid oxidation for fuel.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\", \"cardiac muscle cell\", \"skeletal muscle fiber\"], \"biological_processes\": [\"fatty acid beta-oxidation\", \"ketone body biosynthetic process\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"RPE-specific lipid peroxidation and chorioretinopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The retinal pigment epithelium (RPE) relies on fatty acid oxidation for energy, and LCHADD causes a tissue-specific block manifesting as progressive chorioretinopathy unique among fatty acid oxidation disorders. RPE cells accumulate 3-hydroxyacylcarnitines and are susceptible to DHA-triggered lipid peroxidation, leading to RPE degeneration and vision loss. Exogenous HADHA gene addition rescues the biochemical and oxidative stress phenotypes.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal pigment epithelial cell\"], \"biological_processes\": [\"fatty acid beta-oxidation\", \"response to oxidative stress\"], \"locations\": [\"retina\"]}}, {\"id\": \"Toxic intermediate accumulation and oxidative stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired LCHAD activity leads to accumulation of long-chain 3-hydroxyacyl-CoA intermediates and their corresponding acylcarnitines (C16OH, C18OH, C18:1OH). These toxic intermediates induce oxidative stress, lipid peroxidation, and altered cell homeostasis, contributing to tissue damage in heart, skeletal muscle, liver, and retina.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal pigment epithelial cell\"], \"biological_processes\": [\"response to oxidative stress\", \"lipid oxidation\"], \"locations\": [\"mitochondrial inner membrane\"]}}], \"edges\": [{\"source\": \"HADHA molecular function deficiency within mitochondrial trifunctional protein\", \"target\": \"Impaired mitochondrial long-chain fatty acid beta-oxidation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid beta-oxidation\", \"target\": \"Toxic intermediate accumulation and oxidative stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid beta-oxidation\", \"target\": \"Cardiolipin remodeling defect and mitochondrial bioenergetic impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic intermediate accumulation and oxidative stress\", \"target\": \"RPE-specific lipid peroxidation and chorioretinopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"HADHA c.1528G\u003eC (p.Glu510Gln)\", \"target\": \"HADHA pathogenic variants causing LCHADD\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cardiac monitoring and management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Regular cardiac monitoring with echocardiography is recommended given the 28% prevalence of cardiomyopathy. European metabolic centers include cardiac monitoring as a consensus practice in long-term follow-up of LCFAOD patients.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cardiolipin\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\"}}, {\"id\": \"Cardiolipin remodeling defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The TFP alpha-subunit (HADHA) possesses monolysocardiolipin acyltransferase activity linking fatty acid oxidation to cardiolipin remodeling. HADHA/TFP mutations disrupt cardiolipin content and composition, creating a mitochondrial inner-membrane lipid abnormality distinct from the primary beta-oxidation block.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cardiolipin metabolic process\", \"oxidative phosphorylation\"], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac involvement with cardiomyopathy, particularly dilated cardiomyopathy, occurring in approximately 28% of screened individuals. Reflects cardiac dependence on fatty acid oxidation for energy.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001638\"}}, {\"id\": \"Carnitine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"L-carnitine supplementation to address secondary carnitine deficiency and support excretion of toxic acyl-CoA intermediates as acylcarnitines. Use remains somewhat controversial but commonly employed.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Catabolic stress-triggered energy failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fasting, febrile illness, exercise, and other physiologic stressors increase dependence on long-chain fatty acid oxidation. Because LCHADD cannot efficiently use long-chain fatty acids for energy, catabolic stress produces acute energy crises with hypoketotic hypoglycemia, hepatic dysfunction, cardiomyopathy, exercise intolerance, and rhabdomyolysis.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\", \"cardiac muscle cell\", \"skeletal muscle fiber\"], \"biological_processes\": [\"fatty acid beta-oxidation\", \"ketone body biosynthetic process\"]}}, {\"id\": \"Chorioretinopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive chorioretinopathy unique to LCHADD and not observed in other fatty acid oxidation disorders. Involves choroidal atrophy, outer retinal layer disruption, and pigment dispersion. Observed in 17% of screened individuals and linked to RPE dysfunction and lipid peroxidation.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001135\"}}, {\"id\": \"Dietary fat restriction with MCT supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Core dietary management involves restriction of long-chain triglycerides (LCT) to approximately 10% of total energy with supplementation of medium-chain triglycerides (MCT) at 10-25% of total energy. Essential fatty acid intake (linoleic and linolenic acid) must be maintained. Avoidance of prolonged fasting is critical.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Emergency glucose infusion for acute decompensation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Acute metabolic decompensation requires emergency IV glucose administration (10% dextrose at approximately 8 mg/kg/min) to suppress lipolysis and catabolism. Cessation of protein and fat intake and monitoring of electrolytes and creatine kinase are essential.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Exercise intolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced exercise capacity due to impaired muscle fatty acid oxidation and energy generation.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003546\"}}, {\"id\": \"Free carnitine (C0)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\"}}, {\"id\": \"HADHA c.1528G\u003eC (p.Glu510Gln)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The most common pathogenic variant in LCHADD, a founder mutation affecting the LCHAD catalytic site. This variant selectively impairs LCHAD activity while relatively preserving the other two TFP enzymatic functions (enoyl-CoA hydratase and 3-ketoacyl-CoA thiolase). Carrier frequency in Finland is 1:240.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"HADHA molecular function deficiency within mitochondrial trifunctional protein\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in HADHA reduce long-chain 3-hydroxyacyl-CoA dehydrogenase catalytic activity within mitochondrial trifunctional protein.\\n\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"long-chain 3-hydroxyacyl-CoA dehydrogenase activity\"], \"genes\": [\"HADHA\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"HADHA pathogenic variants causing LCHADD\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"HADHA\"], \"variant_count\": 1}}, {\"id\": \"HADHA ratio (C16OH + C18OH + C18:1OH)/C0\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Hepatopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatic dysfunction including hepatic steatosis during metabolic decompensation, occurring in approximately 32% of screened individuals.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001397\"}}, {\"id\": \"Hypocarnitinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Secondary carnitine deficiency due to increased carnitine conjugation and excretion of accumulated long-chain intermediates.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003234\"}}, {\"id\": \"Hypoketotic hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fasting intolerance with low ketone production and hypoglycemia, reflecting impaired fatty acid oxidation and ketogenesis during catabolic states.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001985\"}}, {\"id\": \"Impaired mitochondrial long-chain fatty acid beta-oxidation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficiency of LCHAD catalytic activity blocks the third step of long-chain fatty acid beta-oxidation, reducing acetyl-CoA and reducing equivalent supply for ketogenesis and oxidative phosphorylation. This causes energy failure during fasting, illness, or prolonged exercise when tissues depend on fatty acid oxidation for fuel.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\", \"cardiac muscle cell\", \"skeletal muscle fiber\"], \"biological_processes\": [\"fatty acid beta-oxidation\", \"ketone body biosynthetic process\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Ketone bodies\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"DECREASED\"}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Decreased alertness and lethargy during episodes of acute metabolic decompensation.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001254\"}}, {\"id\": \"Long-chain 3-hydroxyacylcarnitines (C16OH, C18OH, C18:1OH)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"Metabolic decompensation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent episodes of metabolic decompensation triggered by fasting, febrile illness, or physiologic stress, occurring in 80% of screened individuals. Presents with lethargy, vomiting, and hypoglycemia.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\"}}, {\"id\": \"Mitochondrial bioenergetic abnormalities\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TFP-deficient patient fibroblasts show altered mitochondrial bioenergetic parameters downstream of cardiolipin and phospholipid remodeling abnormalities. This separates the respiratory/bioenergetic consequence from the upstream cardiolipin remodeling defect.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"oxidative phosphorylation\"], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"Myopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Skeletal myopathy is the most common long-term complication, occurring in 82% of screened individuals. Manifests as exercise intolerance and recurrent rhabdomyolysis triggered by fasting, illness, or exertion.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003198\"}}, {\"id\": \"Myopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive shortsightedness observed in LCHADD patients as part of the ophthalmic spectrum.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000545\"}}, {\"id\": \"Ophthalmologic monitoring\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Regular retinal screening for chorioretinopathy is essential for all LCHADD patients, as choroidal atrophy and pigment dispersion are early signs of retinal degeneration. European metabolic centers concur on the importance of retinopathy screening as part of long-term monitoring.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Peripheral neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic peripheral neuropathy is a recognized long-term complication, occurring in 22% of screened individuals. Onset is later in isolated LCHADD (median 11.4 years) compared to combined MTP deficiency (median 3.9 years).\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0009830\"}}, {\"id\": \"RPE-specific lipid peroxidation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The retinal pigment epithelium (RPE) relies on fatty acid oxidation for energy. In LCHADD, RPE cells accumulate 3-hydroxyacylcarnitines and are susceptible to DHA-triggered lipid peroxidation, leading to RPE degeneration and vision loss. Exogenous HADHA gene addition rescues the biochemical and oxidative stress phenotypes.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal pigment epithelial cell\"], \"biological_processes\": [\"fatty acid beta-oxidation\", \"response to oxidative stress\"], \"locations\": [\"retina\"]}}, {\"id\": \"Rhabdomyolysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Stress-induced skeletal muscle breakdown with elevated creatine kinase, triggered by fasting, febrile illness, or prolonged exercise.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003201\"}}, {\"id\": \"Toxic intermediate accumulation and oxidative stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired LCHAD activity leads to accumulation of long-chain 3-hydroxyacyl-CoA intermediates and their corresponding acylcarnitines (C16OH, C18OH, C18:1OH). These toxic intermediates induce oxidative stress, lipid peroxidation, and altered cell homeostasis, contributing to tissue damage in heart, skeletal muscle, liver, and retina.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal pigment epithelial cell\"], \"biological_processes\": [\"response to oxidative stress\", \"lipid oxidation\"], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"Triheptanoin (Dojolvi)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Triheptanoin is an FDA-approved odd-chain triglyceride providing anaplerotic substrate (propionyl-CoA converted to succinyl-CoA) to support TCA cycle intermediate replenishment and energy generation in long-chain fatty acid oxidation disorders. Reported to reduce decompensation frequency and hospitalizations.\\n\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"HADHA molecular function deficiency within mitochondrial trifunctional protein\", \"target\": \"Impaired mitochondrial long-chain fatty acid beta-oxidation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid beta-oxidation\", \"target\": \"Toxic intermediate accumulation and oxidative stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid beta-oxidation\", \"target\": \"Cardiolipin remodeling defect\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid beta-oxidation\", \"target\": \"Catabolic stress-triggered energy failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid beta-oxidation\", \"target\": \"Long-chain 3-hydroxyacylcarnitines (C16OH, C18OH, C18:1OH)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid beta-oxidation\", \"target\": \"HADHA ratio (C16OH + C18OH + C18:1OH)/C0\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid beta-oxidation\", \"target\": \"Ketone bodies\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic stress-triggered energy failure\", \"target\": \"Hypoketotic hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic stress-triggered energy failure\", \"target\": \"Metabolic decompensation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic stress-triggered energy failure\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic stress-triggered energy failure\", \"target\": \"Hepatopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic stress-triggered energy failure\", \"target\": \"Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic stress-triggered energy failure\", \"target\": \"Myopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic stress-triggered energy failure\", \"target\": \"Rhabdomyolysis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic stress-triggered energy failure\", \"target\": \"Exercise intolerance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic intermediate accumulation and oxidative stress\", \"target\": \"RPE-specific lipid peroxidation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic intermediate accumulation and oxidative stress\", \"target\": \"Free carnitine (C0)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic intermediate accumulation and oxidative stress\", \"target\": \"Hypocarnitinemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic intermediate accumulation and oxidative stress\", \"target\": \"Peripheral neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiolipin remodeling defect\", \"target\": \"Cardiolipin\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiolipin remodeling defect\", \"target\": \"Mitochondrial bioenergetic abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"RPE-specific lipid peroxidation\", \"target\": \"Chorioretinopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"RPE-specific lipid peroxidation\", \"target\": \"Myopia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dietary fat restriction with MCT supplementation\", \"target\": \"Impaired mitochondrial long-chain fatty acid beta-oxidation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dietary fat restriction with MCT supplementation\", \"target\": \"Catabolic stress-triggered energy failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dietary fat restriction with MCT supplementation\", \"target\": \"Hypoketotic hypoglycemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Dietary fat restriction with MCT supplementation\", \"target\": \"Rhabdomyolysis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Emergency glucose infusion for acute decompensation\", \"target\": \"Catabolic stress-triggered energy failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Emergency glucose infusion for acute decompensation\", \"target\": \"Hypoketotic hypoglycemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Emergency glucose infusion for acute decompensation\", \"target\": \"Lethargy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Triheptanoin (Dojolvi)\", \"target\": \"Catabolic stress-triggered energy failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Carnitine supplementation\", \"target\": \"Hypocarnitinemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmologic monitoring\", \"target\": \"Chorioretinopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmologic monitoring\", \"target\": \"Myopia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cardiac monitoring and management\", \"target\": \"Cardiomyopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"HADHA pathogenic variants causing LCHADD\", \"target\": \"HADHA molecular function deficiency within mitochondrial trifunctional protein\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HADHA c.1528G\u003eC (p.Glu510Gln)\", \"target\": \"HADHA pathogenic variants causing LCHADD\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3431,7 +4017,7 @@
                 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(2)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(1)</span></button>
                 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(2)</span></button>
                 
@@ -3440,6 +4026,8 @@
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Cellular<span class="pill-count">(1)</span></button>
                 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Constitutional<span class="pill-count">(1)</span></button>
+                
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(1)</span></button>
                 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -3491,7 +4079,9 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"neonatal decompensations (28%), symptomatic disease course (94%), later metabolic decompensations (80%), cardiomyopathy (28%), myopathy (82%)"</div>
+                <div class="evidence-snippet">"neonatal decompensations (28%), 
+symptomatic disease course (94%), later metabolic decompensations (80%), 
+cardiomyopathy (28%), myopathy (82%)"</div>
                 
                 
                 <div class="evidence-explanation">Quantifies cardiomyopathy at 28% in the German NBS cohort, supporting OCCASIONAL frequency.</div>
@@ -3511,7 +4101,8 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"LCHADD mice exhibit lower ketones with fasting, exhaust earlier during treadmill exercise and develop a dilated cardiomyopathy compared to WT mice."</div>
+                <div class="evidence-snippet">"LCHADD mice exhibit lower ketones with fasting, exhaust earlier during 
+treadmill exercise and develop a dilated cardiomyopathy compared to WT mice."</div>
                 
                 
                 <div class="evidence-explanation">Recapitulates dilated cardiomyopathy in the knock-in mouse model.</div>
@@ -3576,7 +4167,9 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Like several beta-oxidation defects, it presents during infancy with hypoglycemic coma, hepatic steatosis, and hypocarnitinemia."</div>
+                <div class="evidence-snippet">"Like 
+several beta-oxidation defects, it presents during infancy with hypoglycemic 
+coma, hepatic steatosis, and hypocarnitinemia."</div>
                 
                 
                 <div class="evidence-explanation">Confirms hepatic steatosis as a presenting feature.</div>
@@ -3641,7 +4234,8 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"The main ophthalmic symptoms of LCHAD deficiency were choroidal atrophy, disorganization of the outer retinal layer, and myopia."</div>
+                <div class="evidence-snippet">"The main ophthalmic symptoms of LCHAD deficiency were choroidal 
+atrophy, disorganization of the outer retinal layer, and myopia."</div>
                 
                 
                 <div class="evidence-explanation">Details the specific ophthalmic features of LCHADD chorioretinopathy including choroidal atrophy.</div>
@@ -3661,7 +4255,8 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"LCHADD mice have progressively decreased visual performance and increased RPE degeneration starting at 6 months."</div>
+                <div class="evidence-snippet">"LCHADD mice have progressively decreased visual performance and 
+increased RPE degeneration starting at 6 months."</div>
                 
                 
                 <div class="evidence-explanation">Recapitulates progressive chorioretinopathy in the LCHADD mouse model.</div>
@@ -3717,7 +4312,8 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"The main ophthalmic symptoms of LCHAD deficiency were choroidal atrophy, disorganization of the outer retinal layer, and myopia."</div>
+                <div class="evidence-snippet">"The main ophthalmic symptoms of LCHAD deficiency were choroidal 
+atrophy, disorganization of the outer retinal layer, and myopia."</div>
                 
                 
                 <div class="evidence-explanation">Confirms myopia as part of the ophthalmic phenotype in LCHADD.</div>
@@ -3740,7 +4336,7 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">1</span>
                 </summary>
                 
                 <div class="item-box phenotype-box">
@@ -3782,7 +4378,9 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Like several beta-oxidation defects, it presents during infancy with hypoglycemic coma, hepatic steatosis, and hypocarnitinemia."</div>
+                <div class="evidence-snippet">"Like 
+several beta-oxidation defects, it presents during infancy with hypoglycemic 
+coma, hepatic steatosis, and hypocarnitinemia."</div>
                 
                 
                 <div class="evidence-explanation">Directly supports hypoketotic hypoglycemia as a presenting feature of LCHADD.</div>
@@ -3802,66 +4400,11 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"LCHADD mice exhibit lower ketones with fasting, exhaust earlier during treadmill exercise and develop a dilated cardiomyopathy compared to WT mice."</div>
+                <div class="evidence-snippet">"LCHADD mice exhibit lower ketones with fasting, exhaust earlier during 
+treadmill exercise and develop a dilated cardiomyopathy compared to WT mice."</div>
                 
                 
                 <div class="evidence-explanation">Confirms hypoketotic state during fasting in the LCHADD mouse model.</div>
-                
-            </div>
-            
-            
-        </div>
-    </details>
-    
-    
-                    
-    
-    
-                </div>
-                
-                <div class="item-box phenotype-box">
-                    <div class="item-name">
-                        Metabolic decompensation
-                        
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
-                    <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0004911" target="_blank">
-                            Episodic metabolic acidosis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0004911)</span>
-                        </span>
-                        
-                    </div>
-                    
-                    
-                    
-                    
-    
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32840329" target="_blank">PMID:32840329</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"Despite newborn screening, current management options leave many patients continuing to experience major clinical events, and mortality rates remain elevated."</div>
-                
-                
-                <div class="evidence-explanation">Supports persistence of metabolic decompensation episodes despite NBS and treatment.</div>
                 
             </div>
             
@@ -3923,7 +4466,9 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"neonatal decompensations (28%), symptomatic disease course (94%), later metabolic decompensations (80%), cardiomyopathy (28%), myopathy (82%)"</div>
+                <div class="evidence-snippet">"neonatal decompensations (28%), 
+symptomatic disease course (94%), later metabolic decompensations (80%), 
+cardiomyopathy (28%), myopathy (82%)"</div>
                 
                 
                 <div class="evidence-explanation">Quantifies myopathy at 82% in the German NBS cohort, the most frequent complication.</div>
@@ -3979,7 +4524,9 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Other manifestations are cardiomyopathy and rhabdomyolysis, which are frequent in defects of long-chain fatty acid oxidation."</div>
+                <div class="evidence-snippet">"Other manifestations are 
+cardiomyopathy and rhabdomyolysis, which are frequent in defects of long-chain 
+fatty acid oxidation."</div>
                 
                 
                 <div class="evidence-explanation">Confirms rhabdomyolysis as a frequent manifestation in long-chain FAO defects.</div>
@@ -3995,11 +4542,12 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"Patients may present with rhabdomyolysis induced by exercise; fasting or illness"</div>
+                <div class="evidence-snippet">"Patients may present with 
+rhabdomyolysis induced by exercise; fasting or illness"</div>
                 
                 
                 <div class="evidence-explanation">Supports rhabdomyolysis triggered by exercise, fasting, or illness.</div>
@@ -4064,7 +4612,8 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"In addition, LCHAD deficiency has specific features, namely peripheral neuropathy and chorioretinopathy."</div>
+                <div class="evidence-snippet">"In addition, LCHAD deficiency has specific features, 
+namely peripheral neuropathy and chorioretinopathy."</div>
                 
                 
                 <div class="evidence-explanation">Confirms peripheral neuropathy as a specific feature of LCHADD.</div>
@@ -4120,7 +4669,9 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Like several beta-oxidation defects, it presents during infancy with hypoglycemic coma, hepatic steatosis, and hypocarnitinemia."</div>
+                <div class="evidence-snippet">"Like 
+several beta-oxidation defects, it presents during infancy with hypoglycemic 
+coma, hepatic steatosis, and hypocarnitinemia."</div>
                 
                 
                 <div class="evidence-explanation">Hypoglycemic coma presentation is consistent with severe lethargy during decompensation.</div>
@@ -4185,7 +4736,9 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Like several beta-oxidation defects, it presents during infancy with hypoglycemic coma, hepatic steatosis, and hypocarnitinemia."</div>
+                <div class="evidence-snippet">"Like 
+several beta-oxidation defects, it presents during infancy with hypoglycemic 
+coma, hepatic steatosis, and hypocarnitinemia."</div>
                 
                 
                 <div class="evidence-explanation">Directly supports hypocarnitinemia as a presenting feature of LCHADD.</div>
@@ -4246,11 +4799,12 @@
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"Patients may present with rhabdomyolysis induced by exercise; fasting or illness"</div>
+                <div class="evidence-snippet">"Patients may present with 
+rhabdomyolysis induced by exercise; fasting or illness"</div>
                 
                 
                 <div class="evidence-explanation">Supports exercise as a trigger for muscle complications in LC-FAODs including LCHADD, consistent with exercise intolerance.</div>
@@ -4270,10 +4824,71 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"LCHADD mice exhibit lower ketones with fasting, exhaust earlier during treadmill exercise and develop a dilated cardiomyopathy compared to WT mice."</div>
+                <div class="evidence-snippet">"LCHADD mice exhibit lower ketones with fasting, exhaust earlier during 
+treadmill exercise and develop a dilated cardiomyopathy compared to WT mice."</div>
                 
                 
                 <div class="evidence-explanation">Demonstrates exercise intolerance in the LCHADD knock-in mouse model.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+            </details>
+            
+            <details class="phenotype-category-group" id="pheno-cat-9">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Metabolic decompensation
+                        
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+                        
+                    
+                    </div>
+                    
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32840329" target="_blank">PMID:32840329</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Despite newborn 
+screening, current management options leave many patients continuing to 
+experience major clinical events, and mortality rates remain elevated."</div>
+                
+                
+                <div class="evidence-explanation">Supports persistence of metabolic decompensation episodes despite NBS and treatment.</div>
                 
             </div>
             
@@ -4342,7 +4957,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
             
@@ -4359,7 +4974,9 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Disease courses in screened individuals with LCHAD and MTP deficiency were similar except for neuropathy, occurring earlier in individuals with MTP deficiency (median 3.9 vs. 11.4 years; p = 0.0447)."</div>
+                <div class="evidence-snippet">"Disease courses in screened individuals with LCHAD and MTP 
+deficiency were similar except for neuropathy, occurring earlier in individuals 
+with MTP deficiency (median 3.9 vs. 11.4 years; p = 0.0447)."</div>
                 
                 
                 <div class="evidence-explanation">Distinguishes LCHADD from MTPD clinical course.</div>
@@ -4379,10 +4996,31 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"A single common mutation, HADHA c.1528G&gt;C (p.E510Q), leads to isolated 3-hydroxyacyl-CoA dehydrogenase deficiency."</div>
+                <div class="evidence-snippet">"A single common mutation, HADHA c.1528G&gt;C 
+(p.E510Q), leads to isolated 3-hydroxyacyl-CoA dehydrogenase deficiency."</div>
                 
                 
                 <div class="evidence-explanation">Distinguishes isolated LCHAD from combined TFP deficiency at the genetic level.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_c8a5e15b-21f7-49cc-987c-5f3585742bbe-2018-02-12T170000.000Z" target="_blank">CGGV:assertion_c8a5e15b-21f7-49cc-987c-5f3585742bbe-2018-02-12T170000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"HADHA | HGNC:4801 | long chain 3-hydroxyacyl-CoA dehydrogenase deficiency | MONDO:0012173 | AR | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the HADHA-long chain 3-hydroxyacyl-CoA dehydrogenase deficiency gene-disease relationship as definitive with autosomal recessive inheritance.</div>
                 
             </div>
             
@@ -4446,6 +5084,122 @@
 </div>
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            BYPASSES
+                        </span>
+                        <strong style="color: #5b21b6;">Impaired mitochondrial long-chain fatty acid beta-oxidation</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Medium-chain triglycerides provide medium-chain fatty-acid substrate that bypasses reliance on the impaired long-chain beta-oxidation pathway.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39203843" target="_blank">PMID:39203843</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"In long-chain 
+deficits, long-chain triglyceride restriction should be 10% of total energy, 
+with linoleic acid and linolenic acid intake of 3-4% and 0.5-1% (5/1-10/1 
+ratio), with medium-chain triglyceride supplementation at 10-25% of total energy"</div>
+                
+                
+                <div class="evidence-explanation">Nutritional guidance supports long-chain fat restriction with MCT supplementation as bypass dietary therapy for long-chain FAO defects.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+                        <strong style="color: #5b21b6;">Catabolic stress-triggered energy failure</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Continuous caloric intake and long-chain fat restriction reduce lipolysis and reliance on the impaired long-chain FAO pathway.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39203843" target="_blank">PMID:39203843</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Treatment of fatty acid oxidation disorders is based on dietary, pharmacological 
+and metabolic decompensation measures. It is essential to provide the patient 
+with sufficient glucose to prevent lipolysis and to avoid the use of fatty acids 
+as fuel as far as possible."</div>
+                
+                
+                <div class="evidence-explanation">Supports dietary management as a way to reduce catabolic reliance on fatty acids.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Hypoketotic hypoglycemia
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0001985" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Rhabdomyolysis
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0003201" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
                 
                 
                 
@@ -4465,11 +5219,14 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"In long-chain deficits, long-chain triglyceride restriction should be 10% of total energy, with linoleic acid and linolenic acid intake of 3-4% and 0.5-1% (5/1-10/1 ratio), with medium-chain triglyceride supplementation at 10-25% of total energy"</div>
+                <div class="evidence-snippet">"In long-chain 
+deficits, long-chain triglyceride restriction should be 10% of total energy, 
+with linoleic acid and linolenic acid intake of 3-4% and 0.5-1% (5/1-10/1 
+ratio), with medium-chain triglyceride supplementation at 10-25% of total energy"</div>
                 
                 
                 <div class="evidence-explanation">Specifies LCT restriction and MCT supplementation targets for long-chain FAO defects.</div>
@@ -4485,11 +5242,14 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"Treatment of fatty acid oxidation disorders is based on dietary, pharmacological and metabolic decompensation measures. It is essential to provide the patient with sufficient glucose to prevent lipolysis and to avoid the use of fatty acids as fuel as far as possible."</div>
+                <div class="evidence-snippet">"Treatment of fatty acid oxidation disorders is based on dietary, pharmacological 
+and metabolic decompensation measures. It is essential to provide the patient 
+with sufficient glucose to prevent lipolysis and to avoid the use of fatty acids 
+as fuel as far as possible."</div>
                 
                 
                 <div class="evidence-explanation">Supports dietary management as the foundation of FAOD treatment.</div>
@@ -4544,6 +5304,74 @@
 </div>
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            BYPASSES
+                        </span>
+                        <strong style="color: #5b21b6;">Catabolic stress-triggered energy failure</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Intravenous glucose supplies immediate carbohydrate energy and suppresses lipolysis during acute crises.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39203843" target="_blank">PMID:39203843</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The main measure in emergency hospital treatment is the 
+administration of IV glucose."</div>
+                
+                
+                <div class="evidence-explanation">Directly supports IV glucose as emergency management for fatty acid oxidation decompensation.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Hypoketotic hypoglycemia
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0001985" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Lethargy
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0001254" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
                 
                 
                 
@@ -4563,11 +5391,13 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"Long-chain fatty acid oxidation disorders (LC-FAODs) are rare, life-threatening, autosomal recessive genetic disorders characterized by acute crises of energy production and chronic energy deficiency."</div>
+                <div class="evidence-snippet">"Long-chain fatty acid oxidation disorders (LC-FAODs) are rare, life-threatening, 
+autosomal recessive genetic disorders characterized by acute crises of energy 
+production and chronic energy deficiency."</div>
                 
                 
                 <div class="evidence-explanation">Supports the need for emergency management of acute metabolic crises.</div>
@@ -4583,11 +5413,12 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"The main measure in emergency hospital treatment is the administration of IV glucose."</div>
+                <div class="evidence-snippet">"The main measure in emergency hospital treatment is the 
+administration of IV glucose."</div>
                 
                 
                 <div class="evidence-explanation">Directly supports IV glucose as the primary emergency intervention.</div>
@@ -4642,6 +5473,56 @@
 </div>
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            BYPASSES
+                        </span>
+                        <strong style="color: #5b21b6;">Catabolic stress-triggered energy failure</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Triheptanoin provides anaplerotic odd-chain substrate to support energy metabolism despite impaired long-chain FAO.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32840329" target="_blank">PMID:32840329</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"In recent years, the 
+use of medium, odd-chain fatty acids, such as triheptanoin, have been studied as 
+a treatment of LC-FAODs due to its anaplerotic properties."</div>
+                
+                
+                <div class="evidence-explanation">Supports triheptanoin as an anaplerotic bypass strategy in LC-FAODs.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
+                
                 
                 
                 
@@ -4661,11 +5542,13 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"In recent years, the use of medium, odd-chain fatty acids, such as triheptanoin, have been studied as a treatment of LC-FAODs due to its anaplerotic properties."</div>
+                <div class="evidence-snippet">"In recent years, the 
+use of medium, odd-chain fatty acids, such as triheptanoin, have been studied as 
+a treatment of LC-FAODs due to its anaplerotic properties."</div>
                 
                 
                 <div class="evidence-explanation">Supports triheptanoin as an anaplerotic therapy for LC-FAODs.</div>
@@ -4681,11 +5564,12 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"Trihepatnoin is a new therapeutic option with a good safety and efficacy profile."</div>
+                <div class="evidence-snippet">"Trihepatnoin is a new therapeutic option with a 
+good safety and efficacy profile."</div>
                 
                 
                 <div class="evidence-explanation">Confirms triheptanoin as a therapeutic option with favorable profile. Note &#34;Trihepatnoin&#34; is a typo in the original publication abstract.</div>
@@ -4763,7 +5647,9 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Sixty-seven individuals with LCHAD/MTP deficiency were included in the study, thereof 54 identified by NBS. All screened individuals with LCHAD deficiency survived"</div>
+                <div class="evidence-snippet">"Sixty-seven individuals with LCHAD/MTP deficiency were included in the 
+study, thereof 54 identified by NBS. All screened individuals with LCHAD 
+deficiency survived"</div>
                 
                 
                 <div class="evidence-explanation">Demonstrates improved survival with NBS but persistent morbidity.</div>
@@ -4783,7 +5669,9 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"The established &#34;HADHA ratio&#34; = (C16OH + C18OH + C18:1OH)/C0 was significantly elevated in all 54 affected individuals in comparison to the control group."</div>
+                <div class="evidence-snippet">"The established &#34;HADHA ratio&#34; = (C16OH + 
+C18OH + C18:1OH)/C0 was significantly elevated in all 54 affected individuals in 
+comparison to the control group."</div>
                 
                 
                 <div class="evidence-explanation">Supports acylcarnitine-based NBS biomarkers for LCHADD detection.</div>
@@ -4839,6 +5727,18 @@
                 
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Hypocarnitinemia
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0003234" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
     
@@ -4857,11 +5757,12 @@
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"The use of carnitine remains controversial and new therapeutic options are under investigation."</div>
+                <div class="evidence-snippet">"The use of carnitine remains controversial and new 
+therapeutic options are under investigation."</div>
                 
                 
                 <div class="evidence-explanation">Acknowledges carnitine supplementation while noting it remains controversial.</div>
@@ -4881,7 +5782,9 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Like several beta-oxidation defects, it presents during infancy with hypoglycemic coma, hepatic steatosis, and hypocarnitinemia."</div>
+                <div class="evidence-snippet">"Like 
+several beta-oxidation defects, it presents during infancy with hypoglycemic 
+coma, hepatic steatosis, and hypocarnitinemia."</div>
                 
                 
                 <div class="evidence-explanation">Supports the rationale for carnitine supplementation given hypocarnitinemia.</div>
@@ -4937,6 +5840,25 @@
                 
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Chorioretinopathy
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0001135" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Myopia
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0000545" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
     
@@ -4959,7 +5881,10 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"The centres concurred in many aspects of long-term monitoring of LCFAOD including the frequency of clinical visits, determination of laboratory parameters, cardiac monitoring and retinopathy screening."</div>
+                <div class="evidence-snippet">"The centres concurred in many aspects of 
+long-term monitoring of LCFAOD including the frequency of clinical visits, 
+determination of laboratory parameters, cardiac monitoring and retinopathy 
+screening."</div>
                 
                 
                 <div class="evidence-explanation">Confirms retinopathy screening as a consensus monitoring practice.</div>
@@ -4979,7 +5904,9 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Choroidal atrophy and pigment dispersion were consistently the earliest signs of LCHAD-associated chorioretinopathy."</div>
+                <div class="evidence-snippet">"Choroidal 
+atrophy and pigment dispersion were consistently the earliest signs of 
+LCHAD-associated chorioretinopathy."</div>
                 
                 
                 <div class="evidence-explanation">Supports the importance of regular ophthalmologic monitoring to detect early signs.</div>
@@ -5057,7 +5984,9 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Because of therapeutic and prenatal diagnostic opportunities in LCHAD deficiency, it is important to recognize this severe disorder early in its course."</div>
+                <div class="evidence-snippet">"Because of therapeutic and prenatal diagnostic opportunities 
+in LCHAD deficiency, it is important to recognize this severe disorder early in 
+its course."</div>
                 
                 
                 <div class="evidence-explanation">Supports the importance of early diagnosis and prenatal counseling for LCHADD.</div>
@@ -5113,6 +6042,18 @@
                 
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Cardiomyopathy
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
     
@@ -5135,7 +6076,10 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"The centres concurred in many aspects of long-term monitoring of LCFAOD including the frequency of clinical visits, determination of laboratory parameters, cardiac monitoring and retinopathy screening."</div>
+                <div class="evidence-snippet">"The centres concurred in many aspects of 
+long-term monitoring of LCFAOD including the frequency of clinical visits, 
+determination of laboratory parameters, cardiac monitoring and retinopathy 
+screening."</div>
                 
                 
                 <div class="evidence-explanation">Confirms cardiac monitoring as consensus practice in European metabolic centers.</div>
@@ -5153,58 +6097,6 @@
         
 
         <!-- Environmental Factors -->
-        
-        <div class="card">
-            <div class="card-header">
-                <div class="card-icon" style="background: #ccfbf1; color: #0d9488;">🌍</div>
-                <h2 class="card-title">Environmental Factors</h2>
-                <span class="card-count">1</span>
-            </div>
-            
-            <div class="item-box environmental-box">
-                <div class="item-name">Fasting and catabolic stress</div>
-                
-                
-                
-                <div class="item-desc">Prolonged fasting, febrile illness, and physiologic stress increase reliance on fatty acid oxidation and trigger metabolic decompensation. Fasting avoidance is the cornerstone of preventive management.
-</div>
-                
-                
-    
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32840329" target="_blank">PMID:32840329</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"Patients may present with rhabdomyolysis induced by exercise; fasting or illness; hepatic dysfunction, including severe hypoglycemia and hyperammonemia; and cardiomyopathy."</div>
-                
-                
-                <div class="evidence-explanation">Identifies fasting, exercise, and illness as triggers for clinical manifestations.</div>
-                
-            </div>
-            
-            
-        </div>
-    </details>
-    
-    
-            </div>
-            
-        </div>
         
 
         <!-- Biochemical Markers -->
@@ -5228,6 +6120,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5248,7 +6141,9 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"The established &#34;HADHA ratio&#34; = (C16OH + C18OH + C18:1OH)/C0 was significantly elevated in all 54 affected individuals in comparison to the control group."</div>
+                <div class="evidence-snippet">"The established &#34;HADHA ratio&#34; = (C16OH + 
+C18OH + C18:1OH)/C0 was significantly elevated in all 54 affected individuals in 
+comparison to the control group."</div>
                 
                 
                 <div class="evidence-explanation">Quantifies elevation of diagnostic hydroxyacylcarnitines in all affected patients.</div>
@@ -5268,7 +6163,9 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Diagnosis is suggested by 3-hydroxylated acylcarnitine species in blood and the definitive diagnosis can be made by measuring intermediates of fatty acid beta-oxidation in fibroblasts or by detecting disease causing mutations."</div>
+                <div class="evidence-snippet">"Diagnosis is suggested by 3-hydroxylated acylcarnitine species in blood and the 
+definitive diagnosis can be made by measuring intermediates of fatty acid 
+beta-oxidation in fibroblasts or by detecting disease causing mutations."</div>
                 
                 
                 <div class="evidence-explanation">Supports 3-hydroxyacylcarnitines as diagnostic biomarkers.</div>
@@ -5294,6 +6191,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5314,7 +6212,9 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"As VLCAD-deficient patients did not show increased &#34;HADHA ratio&#34;, the results emphasized the high specificity of this new ratio."</div>
+                <div class="evidence-snippet">"As VLCAD-deficient patients did not show 
+increased &#34;HADHA ratio&#34;, the results emphasized the high specificity of this new 
+ratio."</div>
                 
                 
                 <div class="evidence-explanation">Demonstrates specificity of the HADHA ratio for LCHADD vs VLCAD.</div>
@@ -5340,6 +6240,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5360,7 +6261,9 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Like several beta-oxidation defects, it presents during infancy with hypoglycemic coma, hepatic steatosis, and hypocarnitinemia."</div>
+                <div class="evidence-snippet">"Like 
+several beta-oxidation defects, it presents during infancy with hypoglycemic 
+coma, hepatic steatosis, and hypocarnitinemia."</div>
                 
                 
                 <div class="evidence-explanation">Directly supports reduced free carnitine in LCHADD.</div>
@@ -5386,6 +6289,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5406,7 +6310,9 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"LCHADD-RPE express TFP subunits and accumulate 3-hydroxy-acylcarnitines, cannot oxidize palmitate, and release fewer ketones than WT-RPE."</div>
+                <div class="evidence-snippet">"LCHADD-RPE express TFP subunits and accumulate 
+3-hydroxy-acylcarnitines, cannot oxidize palmitate, and release fewer ketones 
+than WT-RPE."</div>
                 
                 
                 <div class="evidence-explanation">Demonstrates reduced ketone production in LCHADD cells.</div>
@@ -5452,6 +6358,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5472,7 +6379,10 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Although CL reduction was universally identified, a simultaneous increase in monolysocardiolipins was discrepant among cells. A similar profile was seen in liver mitochondria isolates from a TFP-deficient mouse model."</div>
+                <div class="evidence-snippet">"Although CL reduction was 
+universally identified, a simultaneous increase in monolysocardiolipins was 
+discrepant among cells. A similar profile was seen in liver mitochondria 
+isolates from a TFP-deficient mouse model."</div>
                 
                 
                 <div class="evidence-explanation">Demonstrates universal cardiolipin reduction in TFP-deficient cells and mouse liver.</div>
@@ -5518,7 +6428,7 @@
                 <pre class="yaml-preview">name: Long-chain 3-hydroxyacyl-CoA Dehydrogenase Deficiency
 category: Mendelian
 creation_date: &#39;2025-06-12T20:16:27Z&#39;
-updated_date: &#39;2026-04-22T20:53:03Z&#39;
+updated_date: &#39;2026-05-08T15:47:23Z&#39;
 synonyms:
 - LCHADD
 - LCHAD deficiency
@@ -5546,13 +6456,13 @@ prevalence:
     reference_title: &#34;Long-chain 3-hydroxyacyl-CoA dehydrogenase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Analysis of the frequency of the G1528C mutation in Finland revealed carrier frequency of 1:240.
+    snippet: &#34;Analysis of the frequency of the G1528C mutation in Finland revealed carrier \nfrequency of 1:240.&#34;
     explanation: Provides carrier frequency data in Finland.
   - reference: PMID:38595698
     reference_title: &#34;Ophthalmic Symptoms of Long-Chain 3-Hydroxyacyl-CoA Dehydrogenase Deficiency: A Report of Three Cases.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Long-chain 3-hydroxyacyl-CoA dehydrogenase (LCHAD) deficiency, typically inherited as a recessive trait, is a genetic condition predominantly observed in Central and Eastern Europe, with birth prevalence in Poland amounting to 1/118,336.
+    snippet: &#34;Long-chain 3-hydroxyacyl-CoA dehydrogenase (LCHAD) deficiency, \ntypically inherited as a recessive trait, is a genetic condition predominantly \nobserved in Central and Eastern Europe, with birth prevalence in Poland \namounting to 1/118,336.&#34;
     explanation: Provides birth prevalence estimate for Poland.
 progression:
 - phase: Neonatal/Infantile onset
@@ -5564,7 +6474,7 @@ progression:
     reference_title: &#34;Neurological outcome in long-chain hydroxy fatty acid oxidation disorders.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: neonatal decompensations (28%), symptomatic disease course (94%)
+    snippet: &#34;neonatal decompensations (28%), \nsymptomatic disease course (94%)&#34;
     explanation: Quantifies early disease onset despite newborn screening.
 - phase: Chronic progressive course
   notes: &#39;Despite improved neonatal survival through NBS, 94% of screened individuals develop symptomatic disease. Long-term complications include myopathy (82%), metabolic decompensations (80%), cardiomyopathy (28%), hepatopathy (32%), retinopathy (17%), and neuropathy (22%). Hospitalization rates up to 2.4 per year. Dietary adherence decreases with age (75% in year 1 to 12% by age 10).
@@ -5575,7 +6485,7 @@ progression:
     reference_title: &#34;Neurological outcome in long-chain hydroxy fatty acid oxidation disorders.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: While NBS and early treatment result in improved (neonatal) survival, they cannot reliably prevent long-term morbidity in screened individuals with LCHAD/MTP deficiency, highlighting the urgent need of better therapeutic strategies and the development of disease course-altering treatment.
+    snippet: &#34;While NBS and early treatment result in improved (neonatal) \nsurvival, they cannot reliably prevent long-term morbidity in screened \nindividuals with LCHAD/MTP deficiency, highlighting the urgent need of better \ntherapeutic strategies and the development of disease course-altering treatment.&#34;
     explanation: Confirms persistent long-term morbidity despite NBS.
 pathophysiology:
 - name: HADHA molecular function deficiency within mitochondrial trifunctional protein
@@ -5584,11 +6494,15 @@ pathophysiology:
     &#39;
   genes:
   - preferred_term: HADHA
-  molecular_functions:
-  - preferred_term: catalytic activity
     term:
-      id: GO:0003824
-      label: catalytic activity
+      id: hgnc:4801
+      label: HADHA
+  molecular_functions:
+  - preferred_term: long-chain 3-hydroxyacyl-CoA dehydrogenase activity
+    term:
+      id: GO:0003857
+      label: (3S)-3-hydroxyacyl-CoA dehydrogenase (NAD+) activity
+    modifier: DECREASED
   locations:
   - preferred_term: mitochondrion
     term:
@@ -5598,8 +6512,8 @@ pathophysiology:
   - reference: PMID:32840329
     reference_title: &#34;Long-chain fatty acid oxidation disorders and current management strategies.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: LC-FAODs are caused by mutations in nuclear genes encoding mitochondrial enzymes involved in the conversion of dietary long-chain fatty acids (LCFAs) into energy during times of fasting and physiologic stress.
+    evidence_source: OTHER
+    snippet: &#34;LC-FAODs are caused by mutations in nuclear genes encoding mitochondrial \nenzymes involved in the conversion of dietary long-chain fatty acids (LCFAs) \ninto energy during times of fasting and physiologic stress.&#34;
     explanation: Supports molecular dysfunction of mitochondrial FAO enzymes including HADHA in LCHADD.
   downstream:
   - target: Impaired mitochondrial long-chain fatty acid beta-oxidation
@@ -5639,12 +6553,114 @@ pathophysiology:
   - reference: PMID:32840329
     reference_title: &#34;Long-chain fatty acid oxidation disorders and current management strategies.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: LC-FAODs are caused by mutations in nuclear genes encoding mitochondrial enzymes involved in the conversion of dietary long-chain fatty acids (LCFAs) into energy during times of fasting and physiologic stress.
+    evidence_source: OTHER
+    snippet: &#34;LC-FAODs are caused by mutations in nuclear genes encoding mitochondrial \nenzymes involved in the conversion of dietary long-chain fatty acids (LCFAs) \ninto energy during times of fasting and physiologic stress.&#34;
     explanation: Supports impaired long-chain FAO and stress-related energy failure downstream of HADHA dysfunction.
   downstream:
   - target: Toxic intermediate accumulation and oxidative stress
-  - target: Cardiolipin remodeling defect and mitochondrial bioenergetic impairment
+  - target: Cardiolipin remodeling defect
+  - target: Catabolic stress-triggered energy failure
+    description: During fasting, illness, or exertion, impaired long-chain FAO limits energy production and ketogenesis.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:32840329
+      reference_title: &#34;Long-chain fatty acid oxidation disorders and current management strategies.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;LC-FAODs are caused by mutations in nuclear genes encoding mitochondrial \nenzymes involved in the conversion of dietary long-chain fatty acids (LCFAs) \ninto energy during times of fasting and physiologic stress.&#34;
+      explanation: Clinical review evidence links long-chain FAO enzyme defects to energy failure during fasting and physiologic stress.
+  - target: Long-chain 3-hydroxyacylcarnitines (C16OH, C18OH, C18:1OH)
+    description: The LCHAD enzymatic block produces elevated long-chain 3-hydroxyacylcarnitines used for diagnosis.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:10229030
+      reference_title: &#34;Long-chain 3-hydroxyacyl-CoA dehydrogenase deficiency.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Diagnosis is suggested by 3-hydroxylated acylcarnitine species in blood and the \ndefinitive diagnosis can be made by measuring intermediates of fatty acid \nbeta-oxidation in fibroblasts or by detecting disease causing mutations.&#34;
+      explanation: Directly supports 3-hydroxylated acylcarnitines as the biochemical consequence of the beta-oxidation defect.
+  - target: HADHA ratio (C16OH + C18OH + C18:1OH)/C0
+    description: The diagnostic HADHA ratio aggregates the elevated C16OH, C18OH, and C18:1OH species normalized to free carnitine.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:37754774
+      reference_title: &#34;New Acylcarnitine Ratio as a Reliable Indicator of Long-Chain 3-Hydroxyacyl-CoA Dehydrogenase Deficiency.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The established \&#34;HADHA ratio\&#34; = (C16OH + \nC18OH + C18:1OH)/C0 was significantly elevated in all 54 affected individuals in \ncomparison to the control group.&#34;
+      explanation: Patient biomarker data support the HADHA ratio as a downstream biochemical readout.
+  - target: Ketone bodies
+    description: Impaired hepatic long-chain FAO limits ketogenesis during fasting or physiologic stress.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:37644104
+      reference_title: &#34;A G1528C Hadha knock-in mouse model recapitulates aspects of human clinical phenotypes for long-chain 3-hydroxyacyl-CoA dehydrogenase deficiency.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: LCHADD mice exhibit lower ketones with fasting
+      explanation: Knock-in mouse data support reduced ketogenesis downstream of LCHAD deficiency during fasting.
+- name: Catabolic stress-triggered energy failure
+  description: &#39;Fasting, febrile illness, exercise, and other physiologic stressors increase dependence on long-chain fatty acid oxidation. Because LCHADD cannot efficiently use long-chain fatty acids for energy, catabolic stress produces acute energy crises with hypoketotic hypoglycemia, hepatic dysfunction, cardiomyopathy, exercise intolerance, and rhabdomyolysis.
+
+    &#39;
+  biological_processes:
+  - preferred_term: fatty acid beta-oxidation
+    term:
+      id: GO:0006635
+      label: fatty acid beta-oxidation
+    modifier: DECREASED
+  - preferred_term: ketone body biosynthetic process
+    term:
+      id: GO:0046951
+      label: ketone body biosynthetic process
+    modifier: DECREASED
+  cell_types:
+  - preferred_term: hepatocyte
+    term:
+      id: CL:0000182
+      label: hepatocyte
+  - preferred_term: cardiac muscle cell
+    term:
+      id: CL:0000746
+      label: cardiac muscle cell
+  - preferred_term: skeletal muscle fiber
+    term:
+      id: CL:0008002
+      label: skeletal muscle fiber
+  evidence:
+  - reference: PMID:32840329
+    reference_title: &#34;Long-chain fatty acid oxidation disorders and current management strategies.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Patients may present with \nrhabdomyolysis induced by exercise; fasting or illness; hepatic dysfunction, \nincluding severe hypoglycemia and hyperammonemia; and cardiomyopathy.&#34;
+    explanation: Identifies the stress-triggered clinical manifestations of long-chain FAO defects including LCHADD.
+  downstream:
+  - target: Hypoketotic hypoglycemia
+    description: Impaired fatty acid oxidation and ketogenesis during fasting leads to severe hypoglycemia with inadequate ketone production.
+    causal_link_type: DIRECT
+  - target: Metabolic decompensation
+    description: Acute crises of energy production occur during fasting, illness, or other catabolic stress.
+    causal_link_type: DIRECT
+  - target: Lethargy
+    description: Severe hypoglycemic crises can progress to reduced alertness or coma.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Hypoketotic hypoglycemia
+  - target: Hepatopathy
+    description: Catabolic energy failure causes hepatic dysfunction and steatosis during decompensation.
+    causal_link_type: DIRECT
+  - target: Cardiomyopathy
+    description: Cardiac muscle reliance on long-chain FAO links energy crises to cardiomyopathy.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+  - target: Myopathy
+    description: Skeletal muscle energy shortage during sustained demand contributes to chronic myopathy.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+  - target: Rhabdomyolysis
+    description: Exercise, fasting, and illness trigger skeletal muscle breakdown when fatty acid oxidation cannot meet energy demand.
+    causal_link_type: DIRECT
+  - target: Exercise intolerance
+    description: Limited fatty acid-derived energy during exertion reduces exercise capacity.
+    causal_link_type: DIRECT
 - name: Toxic intermediate accumulation and oxidative stress
   description: &#39;Impaired LCHAD activity leads to accumulation of long-chain 3-hydroxyacyl-CoA intermediates and their corresponding acylcarnitines (C16OH, C18OH, C18:1OH). These toxic intermediates induce oxidative stress, lipid peroxidation, and altered cell homeostasis, contributing to tissue damage in heart, skeletal muscle, liver, and retina.
 
@@ -5673,12 +6689,28 @@ pathophysiology:
     reference_title: &#34;iPSC-Derived LCHADD Retinal Pigment Epithelial Cells Are Susceptible to Lipid Peroxidation and Rescued by Transfection of a Wildtype AAV-HADHA Vector.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
-    snippet: When LCHADD-RPE are exposed to docosahexaenoic acid (DHA), they have increased oxidative stress, lipid peroxidation, decreased viability, and are rescued by antioxidant agents potentially explaining the pathologic mechanism of RPE loss in LCHADD.
+    snippet: &#34;When LCHADD-RPE are exposed to docosahexaenoic acid (DHA), they \nhave increased oxidative stress, lipid peroxidation, decreased viability, and \nare rescued by antioxidant agents potentially explaining the pathologic \nmechanism of RPE loss in LCHADD.&#34;
     explanation: Demonstrates oxidative stress and lipid peroxidation from toxic intermediate accumulation in LCHADD RPE cells.
   downstream:
-  - target: RPE-specific lipid peroxidation and chorioretinopathy
-- name: Cardiolipin remodeling defect and mitochondrial bioenergetic impairment
-  description: &#39;The TFP alpha-subunit (HADHA) possesses monolysocardiolipin acyltransferase activity linking fatty acid oxidation to cardiolipin remodeling. HADHA mutations disrupt cardiolipin content and composition, leading to reduced mitochondrial maximal respiration and spare respiratory capacity. This secondary mitochondrial membrane defect may underlie stress intolerance and tissue-specific vulnerability.
+  - target: RPE-specific lipid peroxidation
+  - target: Free carnitine (C0)
+    description: Accumulated acyl-CoA intermediates are conjugated to carnitine, contributing to secondary depletion of free carnitine.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+  - target: Hypocarnitinemia
+    description: Increased acylcarnitine formation and excretion contributes to the hypocarnitinemia observed in LCHADD.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+  - target: Peripheral neuropathy
+    description: LCHADD-specific toxic intermediate burden is linked clinically to peripheral neuropathy.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:10229030
+      reference_title: &#34;Long-chain 3-hydroxyacyl-CoA dehydrogenase deficiency.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;In addition, LCHAD deficiency has specific features, \nnamely peripheral neuropathy and chorioretinopathy.&#34;
+      explanation: The clinical association supports connecting peripheral neuropathy to the LCHADD-specific toxic-metabolite branch, while the exact intermediate mechanism remains unresolved.
+- name: Cardiolipin remodeling defect
+  description: &#39;The TFP alpha-subunit (HADHA) possesses monolysocardiolipin acyltransferase activity linking fatty acid oxidation to cardiolipin remodeling. HADHA/TFP mutations disrupt cardiolipin content and composition, creating a mitochondrial inner-membrane lipid abnormality distinct from the primary beta-oxidation block.
 
     &#39;
   biological_processes:
@@ -5700,16 +6732,44 @@ pathophysiology:
     reference_title: &#34;Mitochondrial bioenergetics and cardiolipin remodeling abnormalities in mitochondrial trifunctional protein deficiency.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
-    snippet: Although CL reduction was universally identified, a simultaneous increase in monolysocardiolipins was discrepant among cells. A similar profile was seen in liver mitochondria isolates from a TFP-deficient mouse model.
+    snippet: &#34;Although CL reduction was \nuniversally identified, a simultaneous increase in monolysocardiolipins was \ndiscrepant among cells. A similar profile was seen in liver mitochondria \nisolates from a TFP-deficient mouse model.&#34;
     explanation: Demonstrates cardiolipin remodeling defect in TFP/LCHAD-deficient fibroblasts and mouse liver mitochondria.
   - reference: PMID:39088276
     reference_title: &#34;Mitochondrial bioenergetics and cardiolipin remodeling abnormalities in mitochondrial trifunctional protein deficiency.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
-    snippet: TFP also catalyzes a step in the remodeling of cardiolipin (CL), a phospholipid critical to mitochondrial membrane stability and function.
+    snippet: &#34;TFP \nalso catalyzes a step in the remodeling of cardiolipin (CL), a phospholipid \ncritical to mitochondrial membrane stability and function.&#34;
     explanation: Establishes TFP role in cardiolipin remodeling beyond fatty acid oxidation.
-- name: RPE-specific lipid peroxidation and chorioretinopathy
-  description: &#39;The retinal pigment epithelium (RPE) relies on fatty acid oxidation for energy, and LCHADD causes a tissue-specific block manifesting as progressive chorioretinopathy unique among fatty acid oxidation disorders. RPE cells accumulate 3-hydroxyacylcarnitines and are susceptible to DHA-triggered lipid peroxidation, leading to RPE degeneration and vision loss. Exogenous HADHA gene addition rescues the biochemical and oxidative stress phenotypes.
+  downstream:
+  - target: Cardiolipin
+    description: Abnormal TFP/HADHA function reduces cardiolipin abundance in mitochondrial membranes.
+    causal_link_type: DIRECT
+  - target: Mitochondrial bioenergetic abnormalities
+    description: Cardiolipin composition changes are linked to altered mitochondrial bioenergetic parameters in TFP-deficient fibroblasts.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+- name: Mitochondrial bioenergetic abnormalities
+  description: &#39;TFP-deficient patient fibroblasts show altered mitochondrial bioenergetic parameters downstream of cardiolipin and phospholipid remodeling abnormalities. This separates the respiratory/bioenergetic consequence from the upstream cardiolipin remodeling defect.
+
+    &#39;
+  biological_processes:
+  - preferred_term: oxidative phosphorylation
+    term:
+      id: GO:0006119
+      label: oxidative phosphorylation
+  locations:
+  - preferred_term: mitochondrial inner membrane
+    term:
+      id: GO:0005743
+      label: mitochondrial inner membrane
+  evidence:
+  - reference: PMID:39088276
+    reference_title: &#34;Mitochondrial bioenergetics and cardiolipin remodeling abnormalities in mitochondrial trifunctional protein deficiency.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;Abnormalities in these parameters varied \nextensively among different fibroblasts, and some cells were able to maintain \nbasal oxygen consumption rates similar to controls.&#34;
+    explanation: Patient-derived fibroblast data support abnormal mitochondrial bioenergetic parameters in TFP deficiency.
+- name: RPE-specific lipid peroxidation
+  description: &#39;The retinal pigment epithelium (RPE) relies on fatty acid oxidation for energy. In LCHADD, RPE cells accumulate 3-hydroxyacylcarnitines and are susceptible to DHA-triggered lipid peroxidation, leading to RPE degeneration and vision loss. Exogenous HADHA gene addition rescues the biochemical and oxidative stress phenotypes.
 
     &#39;
   biological_processes:
@@ -5736,14 +6796,21 @@ pathophysiology:
     reference_title: &#34;iPSC-Derived LCHADD Retinal Pigment Epithelial Cells Are Susceptible to Lipid Peroxidation and Rescued by Transfection of a Wildtype AAV-HADHA Vector.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
-    snippet: LCHADD-RPE express TFP subunits and accumulate 3-hydroxy-acylcarnitines, cannot oxidize palmitate, and release fewer ketones than WT-RPE.
+    snippet: &#34;LCHADD-RPE express TFP subunits and accumulate \n3-hydroxy-acylcarnitines, cannot oxidize palmitate, and release fewer ketones \nthan WT-RPE.&#34;
     explanation: Demonstrates impaired fatty acid oxidation and metabolite accumulation in LCHADD RPE cells.
   - reference: PMID:38904639
     reference_title: &#34;The LCHADD Mouse Model Recapitulates Early-Stage Chorioretinopathy in LCHADD Patients.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
-    snippet: LCHADD RPE/sclera samples had a 5- to 7-fold increase in long-chain hydroxyacylcarnitines compared to WT, suggesting an impaired LCHAD step in long-chain FAO.
+    snippet: &#34;LCHADD RPE/sclera samples had a 5- to 7-fold increase in long-chain \nhydroxyacylcarnitines compared to WT, suggesting an impaired LCHAD step in \nlong-chain FAO.&#34;
     explanation: Demonstrates tissue-specific accumulation of toxic intermediates in RPE in vivo.
+  downstream:
+  - target: Chorioretinopathy
+    description: RPE lipid peroxidation and degeneration produce progressive LCHADD-associated chorioretinopathy.
+    causal_link_type: DIRECT
+  - target: Myopia
+    description: Myopia is part of the ophthalmic phenotype observed alongside choroidal atrophy and outer retinal disruption.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
 phenotypes:
 - name: Hypoketotic hypoglycemia
   frequency: VERY_FREQUENT
@@ -5760,13 +6827,13 @@ phenotypes:
     reference_title: &#34;Long-chain 3-hydroxyacyl-CoA dehydrogenase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Like several beta-oxidation defects, it presents during infancy with hypoglycemic coma, hepatic steatosis, and hypocarnitinemia.
+    snippet: &#34;Like \nseveral beta-oxidation defects, it presents during infancy with hypoglycemic \ncoma, hepatic steatosis, and hypocarnitinemia.&#34;
     explanation: Directly supports hypoketotic hypoglycemia as a presenting feature of LCHADD.
   - reference: PMID:37644104
     reference_title: &#34;A G1528C Hadha knock-in mouse model recapitulates aspects of human clinical phenotypes for long-chain 3-hydroxyacyl-CoA dehydrogenase deficiency.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
-    snippet: LCHADD mice exhibit lower ketones with fasting, exhaust earlier during treadmill exercise and develop a dilated cardiomyopathy compared to WT mice.
+    snippet: &#34;LCHADD mice exhibit lower ketones with fasting, exhaust earlier during \ntreadmill exercise and develop a dilated cardiomyopathy compared to WT mice.&#34;
     explanation: Confirms hypoketotic state during fasting in the LCHADD mouse model.
 - name: Cardiomyopathy
   frequency: OCCASIONAL
@@ -5783,13 +6850,13 @@ phenotypes:
     reference_title: &#34;Neurological outcome in long-chain hydroxy fatty acid oxidation disorders.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: neonatal decompensations (28%), symptomatic disease course (94%), later metabolic decompensations (80%), cardiomyopathy (28%), myopathy (82%)
+    snippet: &#34;neonatal decompensations (28%), \nsymptomatic disease course (94%), later metabolic decompensations (80%), \ncardiomyopathy (28%), myopathy (82%)&#34;
     explanation: Quantifies cardiomyopathy at 28% in the German NBS cohort, supporting OCCASIONAL frequency.
   - reference: PMID:37644104
     reference_title: &#34;A G1528C Hadha knock-in mouse model recapitulates aspects of human clinical phenotypes for long-chain 3-hydroxyacyl-CoA dehydrogenase deficiency.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
-    snippet: LCHADD mice exhibit lower ketones with fasting, exhaust earlier during treadmill exercise and develop a dilated cardiomyopathy compared to WT mice.
+    snippet: &#34;LCHADD mice exhibit lower ketones with fasting, exhaust earlier during \ntreadmill exercise and develop a dilated cardiomyopathy compared to WT mice.&#34;
     explanation: Recapitulates dilated cardiomyopathy in the knock-in mouse model.
 - name: Myopathy
   frequency: VERY_FREQUENT
@@ -5806,7 +6873,7 @@ phenotypes:
     reference_title: &#34;Neurological outcome in long-chain hydroxy fatty acid oxidation disorders.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: neonatal decompensations (28%), symptomatic disease course (94%), later metabolic decompensations (80%), cardiomyopathy (28%), myopathy (82%)
+    snippet: &#34;neonatal decompensations (28%), \nsymptomatic disease course (94%), later metabolic decompensations (80%), \ncardiomyopathy (28%), myopathy (82%)&#34;
     explanation: Quantifies myopathy at 82% in the German NBS cohort, the most frequent complication.
 - name: Rhabdomyolysis
   frequency: FREQUENT
@@ -5823,13 +6890,13 @@ phenotypes:
     reference_title: &#34;Long-chain 3-hydroxyacyl-CoA dehydrogenase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Other manifestations are cardiomyopathy and rhabdomyolysis, which are frequent in defects of long-chain fatty acid oxidation.
+    snippet: &#34;Other manifestations are \ncardiomyopathy and rhabdomyolysis, which are frequent in defects of long-chain \nfatty acid oxidation.&#34;
     explanation: Confirms rhabdomyolysis as a frequent manifestation in long-chain FAO defects.
   - reference: PMID:32840329
     reference_title: &#34;Long-chain fatty acid oxidation disorders and current management strategies.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: Patients may present with rhabdomyolysis induced by exercise; fasting or illness
+    evidence_source: OTHER
+    snippet: &#34;Patients may present with \nrhabdomyolysis induced by exercise; fasting or illness&#34;
     explanation: Supports rhabdomyolysis triggered by exercise, fasting, or illness.
 - name: Hepatopathy
   frequency: FREQUENT
@@ -5846,7 +6913,7 @@ phenotypes:
     reference_title: &#34;Long-chain 3-hydroxyacyl-CoA dehydrogenase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Like several beta-oxidation defects, it presents during infancy with hypoglycemic coma, hepatic steatosis, and hypocarnitinemia.
+    snippet: &#34;Like \nseveral beta-oxidation defects, it presents during infancy with hypoglycemic \ncoma, hepatic steatosis, and hypocarnitinemia.&#34;
     explanation: Confirms hepatic steatosis as a presenting feature.
 - name: Chorioretinopathy
   frequency: OCCASIONAL
@@ -5863,13 +6930,13 @@ phenotypes:
     reference_title: &#34;Ophthalmic Symptoms of Long-Chain 3-Hydroxyacyl-CoA Dehydrogenase Deficiency: A Report of Three Cases.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: The main ophthalmic symptoms of LCHAD deficiency were choroidal atrophy, disorganization of the outer retinal layer, and myopia.
+    snippet: &#34;The main ophthalmic symptoms of LCHAD deficiency were choroidal \natrophy, disorganization of the outer retinal layer, and myopia.&#34;
     explanation: Details the specific ophthalmic features of LCHADD chorioretinopathy including choroidal atrophy.
   - reference: PMID:38904639
     reference_title: &#34;The LCHADD Mouse Model Recapitulates Early-Stage Chorioretinopathy in LCHADD Patients.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
-    snippet: LCHADD mice have progressively decreased visual performance and increased RPE degeneration starting at 6 months.
+    snippet: &#34;LCHADD mice have progressively decreased visual performance and \nincreased RPE degeneration starting at 6 months.&#34;
     explanation: Recapitulates progressive chorioretinopathy in the LCHADD mouse model.
 - name: Peripheral neuropathy
   frequency: OCCASIONAL
@@ -5886,24 +6953,19 @@ phenotypes:
     reference_title: &#34;Long-chain 3-hydroxyacyl-CoA dehydrogenase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: In addition, LCHAD deficiency has specific features, namely peripheral neuropathy and chorioretinopathy.
+    snippet: &#34;In addition, LCHAD deficiency has specific features, \nnamely peripheral neuropathy and chorioretinopathy.&#34;
     explanation: Confirms peripheral neuropathy as a specific feature of LCHADD.
 - name: Metabolic decompensation
   frequency: VERY_FREQUENT
   description: &#39;Recurrent episodes of metabolic decompensation triggered by fasting, febrile illness, or physiologic stress, occurring in 80% of screened individuals. Presents with lethargy, vomiting, and hypoglycemia.
 
     &#39;
-  phenotype_term:
-    preferred_term: Episodic metabolic acidosis
-    term:
-      id: HP:0004911
-      label: Episodic metabolic acidosis
   evidence:
   - reference: PMID:32840329
     reference_title: &#34;Long-chain fatty acid oxidation disorders and current management strategies.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: Despite newborn screening, current management options leave many patients continuing to experience major clinical events, and mortality rates remain elevated.
+    evidence_source: OTHER
+    snippet: &#34;Despite newborn \nscreening, current management options leave many patients continuing to \nexperience major clinical events, and mortality rates remain elevated.&#34;
     explanation: Supports persistence of metabolic decompensation episodes despite NBS and treatment.
 - name: Lethargy
   frequency: FREQUENT
@@ -5920,7 +6982,7 @@ phenotypes:
     reference_title: &#34;Long-chain 3-hydroxyacyl-CoA dehydrogenase deficiency.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
-    snippet: Like several beta-oxidation defects, it presents during infancy with hypoglycemic coma, hepatic steatosis, and hypocarnitinemia.
+    snippet: &#34;Like \nseveral beta-oxidation defects, it presents during infancy with hypoglycemic \ncoma, hepatic steatosis, and hypocarnitinemia.&#34;
     explanation: Hypoglycemic coma presentation is consistent with severe lethargy during decompensation.
 - name: Hypocarnitinemia
   frequency: FREQUENT
@@ -5937,7 +6999,7 @@ phenotypes:
     reference_title: &#34;Long-chain 3-hydroxyacyl-CoA dehydrogenase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Like several beta-oxidation defects, it presents during infancy with hypoglycemic coma, hepatic steatosis, and hypocarnitinemia.
+    snippet: &#34;Like \nseveral beta-oxidation defects, it presents during infancy with hypoglycemic \ncoma, hepatic steatosis, and hypocarnitinemia.&#34;
     explanation: Directly supports hypocarnitinemia as a presenting feature of LCHADD.
 - name: Exercise intolerance
   frequency: VERY_FREQUENT
@@ -5953,14 +7015,14 @@ phenotypes:
   - reference: PMID:32840329
     reference_title: &#34;Long-chain fatty acid oxidation disorders and current management strategies.&#34;
     supports: PARTIAL
-    evidence_source: HUMAN_CLINICAL
-    snippet: Patients may present with rhabdomyolysis induced by exercise; fasting or illness
+    evidence_source: OTHER
+    snippet: &#34;Patients may present with \nrhabdomyolysis induced by exercise; fasting or illness&#34;
     explanation: Supports exercise as a trigger for muscle complications in LC-FAODs including LCHADD, consistent with exercise intolerance.
   - reference: PMID:37644104
     reference_title: &#34;A G1528C Hadha knock-in mouse model recapitulates aspects of human clinical phenotypes for long-chain 3-hydroxyacyl-CoA dehydrogenase deficiency.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
-    snippet: LCHADD mice exhibit lower ketones with fasting, exhaust earlier during treadmill exercise and develop a dilated cardiomyopathy compared to WT mice.
+    snippet: &#34;LCHADD mice exhibit lower ketones with fasting, exhaust earlier during \ntreadmill exercise and develop a dilated cardiomyopathy compared to WT mice.&#34;
     explanation: Demonstrates exercise intolerance in the LCHADD knock-in mouse model.
 - name: Myopia
   frequency: OCCASIONAL
@@ -5977,7 +7039,7 @@ phenotypes:
     reference_title: &#34;Ophthalmic Symptoms of Long-Chain 3-Hydroxyacyl-CoA Dehydrogenase Deficiency: A Report of Three Cases.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: The main ophthalmic symptoms of LCHAD deficiency were choroidal atrophy, disorganization of the outer retinal layer, and myopia.
+    snippet: &#34;The main ophthalmic symptoms of LCHAD deficiency were choroidal \natrophy, disorganization of the outer retinal layer, and myopia.&#34;
     explanation: Confirms myopia as part of the ophthalmic phenotype in LCHADD.
 biochemical:
 - name: Long-chain 3-hydroxyacylcarnitines (C16OH, C18OH, C18:1OH)
@@ -5990,13 +7052,13 @@ biochemical:
     reference_title: &#34;New Acylcarnitine Ratio as a Reliable Indicator of Long-Chain 3-Hydroxyacyl-CoA Dehydrogenase Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: The established &#34;HADHA ratio&#34; = (C16OH + C18OH + C18:1OH)/C0 was significantly elevated in all 54 affected individuals in comparison to the control group.
+    snippet: &#34;The established \&#34;HADHA ratio\&#34; = (C16OH + \nC18OH + C18:1OH)/C0 was significantly elevated in all 54 affected individuals in \ncomparison to the control group.&#34;
     explanation: Quantifies elevation of diagnostic hydroxyacylcarnitines in all affected patients.
   - reference: PMID:10229030
     reference_title: &#34;Long-chain 3-hydroxyacyl-CoA dehydrogenase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Diagnosis is suggested by 3-hydroxylated acylcarnitine species in blood and the definitive diagnosis can be made by measuring intermediates of fatty acid beta-oxidation in fibroblasts or by detecting disease causing mutations.
+    snippet: &#34;Diagnosis is suggested by 3-hydroxylated acylcarnitine species in blood and the \ndefinitive diagnosis can be made by measuring intermediates of fatty acid \nbeta-oxidation in fibroblasts or by detecting disease causing mutations.&#34;
     explanation: Supports 3-hydroxyacylcarnitines as diagnostic biomarkers.
 - name: HADHA ratio (C16OH + C18OH + C18:1OH)/C0
   presence: INCREASED
@@ -6008,7 +7070,7 @@ biochemical:
     reference_title: &#34;New Acylcarnitine Ratio as a Reliable Indicator of Long-Chain 3-Hydroxyacyl-CoA Dehydrogenase Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: As VLCAD-deficient patients did not show increased &#34;HADHA ratio&#34;, the results emphasized the high specificity of this new ratio.
+    snippet: &#34;As VLCAD-deficient patients did not show \nincreased \&#34;HADHA ratio\&#34;, the results emphasized the high specificity of this new \nratio.&#34;
     explanation: Demonstrates specificity of the HADHA ratio for LCHADD vs VLCAD.
 - name: Free carnitine (C0)
   presence: DECREASED
@@ -6020,7 +7082,7 @@ biochemical:
     reference_title: &#34;Long-chain 3-hydroxyacyl-CoA dehydrogenase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Like several beta-oxidation defects, it presents during infancy with hypoglycemic coma, hepatic steatosis, and hypocarnitinemia.
+    snippet: &#34;Like \nseveral beta-oxidation defects, it presents during infancy with hypoglycemic \ncoma, hepatic steatosis, and hypocarnitinemia.&#34;
     explanation: Directly supports reduced free carnitine in LCHADD.
 - name: Ketone bodies
   presence: DECREASED
@@ -6032,7 +7094,7 @@ biochemical:
     reference_title: &#34;iPSC-Derived LCHADD Retinal Pigment Epithelial Cells Are Susceptible to Lipid Peroxidation and Rescued by Transfection of a Wildtype AAV-HADHA Vector.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
-    snippet: LCHADD-RPE express TFP subunits and accumulate 3-hydroxy-acylcarnitines, cannot oxidize palmitate, and release fewer ketones than WT-RPE.
+    snippet: &#34;LCHADD-RPE express TFP subunits and accumulate \n3-hydroxy-acylcarnitines, cannot oxidize palmitate, and release fewer ketones \nthan WT-RPE.&#34;
     explanation: Demonstrates reduced ketone production in LCHADD cells.
   - reference: PMID:37644104
     reference_title: &#34;A G1528C Hadha knock-in mouse model recapitulates aspects of human clinical phenotypes for long-chain 3-hydroxyacyl-CoA dehydrogenase deficiency.&#34;
@@ -6050,10 +7112,15 @@ biochemical:
     reference_title: &#34;Mitochondrial bioenergetics and cardiolipin remodeling abnormalities in mitochondrial trifunctional protein deficiency.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
-    snippet: Although CL reduction was universally identified, a simultaneous increase in monolysocardiolipins was discrepant among cells. A similar profile was seen in liver mitochondria isolates from a TFP-deficient mouse model.
+    snippet: &#34;Although CL reduction was \nuniversally identified, a simultaneous increase in monolysocardiolipins was \ndiscrepant among cells. A similar profile was seen in liver mitochondria \nisolates from a TFP-deficient mouse model.&#34;
     explanation: Demonstrates universal cardiolipin reduction in TFP-deficient cells and mouse liver.
 genetic:
 - name: HADHA pathogenic variants causing LCHADD
+  gene_term:
+    preferred_term: HADHA
+    term:
+      id: hgnc:4801
+      label: HADHA
   inheritance:
   - name: Autosomal recessive
     evidence:
@@ -6061,7 +7128,7 @@ genetic:
       reference_title: &#34;Long-chain 3-hydroxyacyl-CoA dehydrogenase deficiency.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: In the vast majority of patients, LCHAD deficiency is caused by a common autosomal recessive mutation G1528C.
+      snippet: &#34;In the vast majority of patients, LCHAD \ndeficiency is caused by a common autosomal recessive mutation G1528C.&#34;
       explanation: Directly supports autosomal recessive inheritance pattern.
   variants:
   - name: HADHA c.1528G&gt;C (p.Glu510Gln)
@@ -6073,13 +7140,13 @@ genetic:
       reference_title: &#34;Long-chain 3-hydroxyacyl-CoA dehydrogenase deficiency.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: In the vast majority of patients, LCHAD deficiency is caused by a common autosomal recessive mutation G1528C.
+      snippet: &#34;In the vast majority of patients, LCHAD \ndeficiency is caused by a common autosomal recessive mutation G1528C.&#34;
       explanation: Confirms c.1528G&gt;C as the predominant mutation.
     - reference: PMID:10229030
       reference_title: &#34;Long-chain 3-hydroxyacyl-CoA dehydrogenase deficiency.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: Analysis of the frequency of the G1528C mutation in Finland revealed carrier frequency of 1:240.
+      snippet: &#34;Analysis of the frequency of the G1528C mutation in Finland revealed carrier \nfrequency of 1:240.&#34;
       explanation: Quantifies carrier frequency in the Finnish population.
   features: &#39;LCHADD is caused by biallelic pathogenic variants in HADHA, which encodes the alpha-subunit of the mitochondrial trifunctional protein. The common c.1528G&gt;C (p.Glu510Gln) founder mutation selectively reduces LCHAD catalytic activity. Other HADHA or HADHB variants that reduce multiple TFP enzyme activities cause the broader phenotype of mitochondrial trifunctional protein deficiency (MTPD), which has a similar but often more severe clinical course including earlier neuropathy onset.
 
@@ -6089,14 +7156,20 @@ genetic:
     reference_title: &#34;Neurological outcome in long-chain hydroxy fatty acid oxidation disorders.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Disease courses in screened individuals with LCHAD and MTP deficiency were similar except for neuropathy, occurring earlier in individuals with MTP deficiency (median 3.9 vs. 11.4 years; p = 0.0447).
+    snippet: &#34;Disease courses in screened individuals with LCHAD and MTP \ndeficiency were similar except for neuropathy, occurring earlier in individuals \nwith MTP deficiency (median 3.9 vs. 11.4 years; p = 0.0447).&#34;
     explanation: Distinguishes LCHADD from MTPD clinical course.
   - reference: PMID:39088276
     reference_title: &#34;Mitochondrial bioenergetics and cardiolipin remodeling abnormalities in mitochondrial trifunctional protein deficiency.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
-    snippet: A single common mutation, HADHA c.1528G&gt;C (p.E510Q), leads to isolated 3-hydroxyacyl-CoA dehydrogenase deficiency.
+    snippet: &#34;A single common mutation, HADHA c.1528G&gt;C \n(p.E510Q), leads to isolated 3-hydroxyacyl-CoA dehydrogenase deficiency.&#34;
     explanation: Distinguishes isolated LCHAD from combined TFP deficiency at the genetic level.
+  - reference: CGGV:assertion_c8a5e15b-21f7-49cc-987c-5f3585742bbe-2018-02-12T170000.000Z
+    reference_title: &#34;HADHA / long chain 3-hydroxyacyl-CoA dehydrogenase deficiency (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;HADHA | HGNC:4801 | long chain 3-hydroxyacyl-CoA dehydrogenase deficiency | MONDO:0012173 | AR | Definitive&#34;
+    explanation: ClinGen classifies the HADHA-long chain 3-hydroxyacyl-CoA dehydrogenase deficiency gene-disease relationship as definitive with autosomal recessive inheritance.
 treatments:
 - name: Dietary fat restriction with MCT supplementation
   description: &#39;Core dietary management involves restriction of long-chain triglycerides (LCT) to approximately 10% of total energy with supplementation of medium-chain triglycerides (MCT) at 10-25% of total energy. Essential fatty acid intake (linoleic and linolenic acid) must be maintained. Avoidance of prolonged fasting is critical.
@@ -6107,18 +7180,48 @@ treatments:
     term:
       id: MAXO:0000088
       label: dietary intervention
+  target_phenotypes:
+  - preferred_term: Hypoketotic hypoglycemia
+    term:
+      id: HP:0001985
+      label: Hypoketotic hypoglycemia
+  - preferred_term: Rhabdomyolysis
+    term:
+      id: HP:0003201
+      label: Rhabdomyolysis
+  target_mechanisms:
+  - target: Impaired mitochondrial long-chain fatty acid beta-oxidation
+    treatment_effect: BYPASSES
+    description: Medium-chain triglycerides provide medium-chain fatty-acid substrate that bypasses reliance on the impaired long-chain beta-oxidation pathway.
+    evidence:
+    - reference: PMID:39203843
+      reference_title: &#34;Nutritional Management of Patients with Fatty Acid Oxidation Disorders.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;In long-chain \ndeficits, long-chain triglyceride restriction should be 10% of total energy, \nwith linoleic acid and linolenic acid intake of 3-4% and 0.5-1% (5/1-10/1 \nratio), with medium-chain triglyceride supplementation at 10-25% of total energy&#34;
+      explanation: Nutritional guidance supports long-chain fat restriction with MCT supplementation as bypass dietary therapy for long-chain FAO defects.
+  - target: Catabolic stress-triggered energy failure
+    treatment_effect: MODULATES
+    description: Continuous caloric intake and long-chain fat restriction reduce lipolysis and reliance on the impaired long-chain FAO pathway.
+    evidence:
+    - reference: PMID:39203843
+      reference_title: &#34;Nutritional Management of Patients with Fatty Acid Oxidation Disorders.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Treatment of fatty acid oxidation disorders is based on dietary, pharmacological \nand metabolic decompensation measures. It is essential to provide the patient \nwith sufficient glucose to prevent lipolysis and to avoid the use of fatty acids \nas fuel as far as possible.&#34;
+      explanation: Supports dietary management as a way to reduce catabolic reliance on fatty acids.
   evidence:
   - reference: PMID:39203843
     reference_title: &#34;Nutritional Management of Patients with Fatty Acid Oxidation Disorders.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: In long-chain deficits, long-chain triglyceride restriction should be 10% of total energy, with linoleic acid and linolenic acid intake of 3-4% and 0.5-1% (5/1-10/1 ratio), with medium-chain triglyceride supplementation at 10-25% of total energy
+    evidence_source: OTHER
+    snippet: &#34;In long-chain \ndeficits, long-chain triglyceride restriction should be 10% of total energy, \nwith linoleic acid and linolenic acid intake of 3-4% and 0.5-1% (5/1-10/1 \nratio), with medium-chain triglyceride supplementation at 10-25% of total energy&#34;
     explanation: Specifies LCT restriction and MCT supplementation targets for long-chain FAO defects.
   - reference: PMID:39203843
     reference_title: &#34;Nutritional Management of Patients with Fatty Acid Oxidation Disorders.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: Treatment of fatty acid oxidation disorders is based on dietary, pharmacological and metabolic decompensation measures. It is essential to provide the patient with sufficient glucose to prevent lipolysis and to avoid the use of fatty acids as fuel as far as possible.
+    evidence_source: OTHER
+    snippet: &#34;Treatment of fatty acid oxidation disorders is based on dietary, pharmacological \nand metabolic decompensation measures. It is essential to provide the patient \nwith sufficient glucose to prevent lipolysis and to avoid the use of fatty acids \nas fuel as far as possible.&#34;
     explanation: Supports dietary management as the foundation of FAOD treatment.
 - name: Emergency glucose infusion for acute decompensation
   description: &#39;Acute metabolic decompensation requires emergency IV glucose administration (10% dextrose at approximately 8 mg/kg/min) to suppress lipolysis and catabolism. Cessation of protein and fat intake and monitoring of electrolytes and creatine kinase are essential.
@@ -6129,18 +7232,38 @@ treatments:
     term:
       id: MAXO:0000950
       label: supportive care
+  target_phenotypes:
+  - preferred_term: Hypoketotic hypoglycemia
+    term:
+      id: HP:0001985
+      label: Hypoketotic hypoglycemia
+  - preferred_term: Lethargy
+    term:
+      id: HP:0001254
+      label: Lethargy
+  target_mechanisms:
+  - target: Catabolic stress-triggered energy failure
+    treatment_effect: BYPASSES
+    description: Intravenous glucose supplies immediate carbohydrate energy and suppresses lipolysis during acute crises.
+    evidence:
+    - reference: PMID:39203843
+      reference_title: &#34;Nutritional Management of Patients with Fatty Acid Oxidation Disorders.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;The main measure in emergency hospital treatment is the \nadministration of IV glucose.&#34;
+      explanation: Directly supports IV glucose as emergency management for fatty acid oxidation decompensation.
   evidence:
   - reference: PMID:32840329
     reference_title: &#34;Long-chain fatty acid oxidation disorders and current management strategies.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: Long-chain fatty acid oxidation disorders (LC-FAODs) are rare, life-threatening, autosomal recessive genetic disorders characterized by acute crises of energy production and chronic energy deficiency.
+    evidence_source: OTHER
+    snippet: &#34;Long-chain fatty acid oxidation disorders (LC-FAODs) are rare, life-threatening, \nautosomal recessive genetic disorders characterized by acute crises of energy \nproduction and chronic energy deficiency.&#34;
     explanation: Supports the need for emergency management of acute metabolic crises.
   - reference: PMID:39203843
     reference_title: &#34;Nutritional Management of Patients with Fatty Acid Oxidation Disorders.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: The main measure in emergency hospital treatment is the administration of IV glucose.
+    evidence_source: OTHER
+    snippet: &#34;The main measure in emergency hospital treatment is the \nadministration of IV glucose.&#34;
     explanation: Directly supports IV glucose as the primary emergency intervention.
 - name: Triheptanoin (Dojolvi)
   description: &#39;Triheptanoin is an FDA-approved odd-chain triglyceride providing anaplerotic substrate (propionyl-CoA converted to succinyl-CoA) to support TCA cycle intermediate replenishment and energy generation in long-chain fatty acid oxidation disorders. Reported to reduce decompensation frequency and hospitalizations.
@@ -6151,18 +7274,29 @@ treatments:
     term:
       id: MAXO:0000106
       label: nutritional supplementation
+  target_mechanisms:
+  - target: Catabolic stress-triggered energy failure
+    treatment_effect: BYPASSES
+    description: Triheptanoin provides anaplerotic odd-chain substrate to support energy metabolism despite impaired long-chain FAO.
+    evidence:
+    - reference: PMID:32840329
+      reference_title: &#34;Long-chain fatty acid oxidation disorders and current management strategies.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;In recent years, the \nuse of medium, odd-chain fatty acids, such as triheptanoin, have been studied as \na treatment of LC-FAODs due to its anaplerotic properties.&#34;
+      explanation: Supports triheptanoin as an anaplerotic bypass strategy in LC-FAODs.
   evidence:
   - reference: PMID:32840329
     reference_title: &#34;Long-chain fatty acid oxidation disorders and current management strategies.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: In recent years, the use of medium, odd-chain fatty acids, such as triheptanoin, have been studied as a treatment of LC-FAODs due to its anaplerotic properties.
+    evidence_source: OTHER
+    snippet: &#34;In recent years, the \nuse of medium, odd-chain fatty acids, such as triheptanoin, have been studied as \na treatment of LC-FAODs due to its anaplerotic properties.&#34;
     explanation: Supports triheptanoin as an anaplerotic therapy for LC-FAODs.
   - reference: PMID:39203843
     reference_title: &#34;Nutritional Management of Patients with Fatty Acid Oxidation Disorders.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: Trihepatnoin is a new therapeutic option with a good safety and efficacy profile.
+    evidence_source: OTHER
+    snippet: &#34;Trihepatnoin is a new therapeutic option with a \ngood safety and efficacy profile.&#34;
     explanation: Confirms triheptanoin as a therapeutic option with favorable profile. Note &#34;Trihepatnoin&#34; is a typo in the original publication abstract.
 - name: Newborn screening
   description: &#39;Expanded newborn screening using tandem mass spectrometry acylcarnitine profiling identifies affected infants presymptomatically. Screening detects elevated C16OH, C18OH, and C18:1OH. While NBS improves neonatal survival, it does not reliably prevent long-term morbidity.
@@ -6178,13 +7312,13 @@ treatments:
     reference_title: &#34;Neurological outcome in long-chain hydroxy fatty acid oxidation disorders.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Sixty-seven individuals with LCHAD/MTP deficiency were included in the study, thereof 54 identified by NBS. All screened individuals with LCHAD deficiency survived
+    snippet: &#34;Sixty-seven individuals with LCHAD/MTP deficiency were included in the \nstudy, thereof 54 identified by NBS. All screened individuals with LCHAD \ndeficiency survived&#34;
     explanation: Demonstrates improved survival with NBS but persistent morbidity.
   - reference: PMID:37754774
     reference_title: &#34;New Acylcarnitine Ratio as a Reliable Indicator of Long-Chain 3-Hydroxyacyl-CoA Dehydrogenase Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: The established &#34;HADHA ratio&#34; = (C16OH + C18OH + C18:1OH)/C0 was significantly elevated in all 54 affected individuals in comparison to the control group.
+    snippet: &#34;The established \&#34;HADHA ratio\&#34; = (C16OH + \nC18OH + C18:1OH)/C0 was significantly elevated in all 54 affected individuals in \ncomparison to the control group.&#34;
     explanation: Supports acylcarnitine-based NBS biomarkers for LCHADD detection.
 - name: Carnitine supplementation
   description: &#39;L-carnitine supplementation to address secondary carnitine deficiency and support excretion of toxic acyl-CoA intermediates as acylcarnitines. Use remains somewhat controversial but commonly employed.
@@ -6195,18 +7329,23 @@ treatments:
     term:
       id: MAXO:0010006
       label: carnitine supplementation
+  target_phenotypes:
+  - preferred_term: Hypocarnitinemia
+    term:
+      id: HP:0003234
+      label: Decreased circulating carnitine concentration
   evidence:
   - reference: PMID:39203843
     reference_title: &#34;Nutritional Management of Patients with Fatty Acid Oxidation Disorders.&#34;
     supports: PARTIAL
-    evidence_source: HUMAN_CLINICAL
-    snippet: The use of carnitine remains controversial and new therapeutic options are under investigation.
+    evidence_source: OTHER
+    snippet: &#34;The use of carnitine remains controversial and new \ntherapeutic options are under investigation.&#34;
     explanation: Acknowledges carnitine supplementation while noting it remains controversial.
   - reference: PMID:10229030
     reference_title: &#34;Long-chain 3-hydroxyacyl-CoA dehydrogenase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Like several beta-oxidation defects, it presents during infancy with hypoglycemic coma, hepatic steatosis, and hypocarnitinemia.
+    snippet: &#34;Like \nseveral beta-oxidation defects, it presents during infancy with hypoglycemic \ncoma, hepatic steatosis, and hypocarnitinemia.&#34;
     explanation: Supports the rationale for carnitine supplementation given hypocarnitinemia.
 - name: Ophthalmologic monitoring
   description: &#39;Regular retinal screening for chorioretinopathy is essential for all LCHADD patients, as choroidal atrophy and pigment dispersion are early signs of retinal degeneration. European metabolic centers concur on the importance of retinopathy screening as part of long-term monitoring.
@@ -6217,18 +7356,27 @@ treatments:
     term:
       id: MAXO:0001155
       label: eye examination
+  target_phenotypes:
+  - preferred_term: Chorioretinopathy
+    term:
+      id: HP:0001135
+      label: Chorioretinal dystrophy
+  - preferred_term: Myopia
+    term:
+      id: HP:0000545
+      label: Myopia
   evidence:
   - reference: PMID:38245779
     reference_title: &#34;Long-term monitoring of fatty acid oxidation defects: results from a MetabERN survey.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: The centres concurred in many aspects of long-term monitoring of LCFAOD including the frequency of clinical visits, determination of laboratory parameters, cardiac monitoring and retinopathy screening.
+    snippet: &#34;The centres concurred in many aspects of \nlong-term monitoring of LCFAOD including the frequency of clinical visits, \ndetermination of laboratory parameters, cardiac monitoring and retinopathy \nscreening.&#34;
     explanation: Confirms retinopathy screening as a consensus monitoring practice.
   - reference: PMID:38595698
     reference_title: &#34;Ophthalmic Symptoms of Long-Chain 3-Hydroxyacyl-CoA Dehydrogenase Deficiency: A Report of Three Cases.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Choroidal atrophy and pigment dispersion were consistently the earliest signs of LCHAD-associated chorioretinopathy.
+    snippet: &#34;Choroidal \natrophy and pigment dispersion were consistently the earliest signs of \nLCHAD-associated chorioretinopathy.&#34;
     explanation: Supports the importance of regular ophthalmologic monitoring to detect early signs.
 - name: Genetic counseling
   description: &#39;Genetic counseling for affected families including discussion of autosomal recessive inheritance, recurrence risk (25% for carrier parents), carrier testing, and prenatal diagnostic opportunities.
@@ -6244,7 +7392,7 @@ treatments:
     reference_title: &#34;Long-chain 3-hydroxyacyl-CoA dehydrogenase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Because of therapeutic and prenatal diagnostic opportunities in LCHAD deficiency, it is important to recognize this severe disorder early in its course.
+    snippet: &#34;Because of therapeutic and prenatal diagnostic opportunities \nin LCHAD deficiency, it is important to recognize this severe disorder early in \nits course.&#34;
     explanation: Supports the importance of early diagnosis and prenatal counseling for LCHADD.
 - name: Cardiac monitoring and management
   description: &#39;Regular cardiac monitoring with echocardiography is recommended given the 28% prevalence of cardiomyopathy. European metabolic centers include cardiac monitoring as a consensus practice in long-term follow-up of LCFAOD patients.
@@ -6255,25 +7403,18 @@ treatments:
     term:
       id: MAXO:0000950
       label: supportive care
+  target_phenotypes:
+  - preferred_term: Cardiomyopathy
+    term:
+      id: HP:0001638
+      label: Cardiomyopathy
   evidence:
   - reference: PMID:38245779
     reference_title: &#34;Long-term monitoring of fatty acid oxidation defects: results from a MetabERN survey.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: The centres concurred in many aspects of long-term monitoring of LCFAOD including the frequency of clinical visits, determination of laboratory parameters, cardiac monitoring and retinopathy screening.
+    snippet: &#34;The centres concurred in many aspects of \nlong-term monitoring of LCFAOD including the frequency of clinical visits, \ndetermination of laboratory parameters, cardiac monitoring and retinopathy \nscreening.&#34;
     explanation: Confirms cardiac monitoring as consensus practice in European metabolic centers.
-environmental:
-- name: Fasting and catabolic stress
-  description: &#39;Prolonged fasting, febrile illness, and physiologic stress increase reliance on fatty acid oxidation and trigger metabolic decompensation. Fasting avoidance is the cornerstone of preventive management.
-
-    &#39;
-  evidence:
-  - reference: PMID:32840329
-    reference_title: &#34;Long-chain fatty acid oxidation disorders and current management strategies.&#34;
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: Patients may present with rhabdomyolysis induced by exercise; fasting or illness; hepatic dysfunction, including severe hypoglycemia and hyperammonemia; and cardiomyopathy.
-    explanation: Identifies fasting, exercise, and illness as triggers for clinical manifestations.
 notes: &#39;LCHADD is distinguished from the broader mitochondrial trifunctional protein deficiency (MTPD) by the selective impairment of LCHAD activity due to the common HADHA c.1528G&gt;C variant. MTPD involves additional loss of enoyl-CoA hydratase and 3-ketoacyl-CoA thiolase activities due to other HADHA or HADHB variants. An association between fetal LCHAD/MTP deficiency and maternal acute fatty liver of pregnancy (AFLP) or HELLP syndrome has been described, attributed to toxic 3-hydroxy intermediate metabolites released from the deficient placenta into maternal circulation. Emerging 2024 research demonstrates a gene therapy approach using AAV-HADHA to rescue RPE cell phenotypes, providing preclinical rationale for retinal gene-addition therapy.
 
   &#39;
@@ -6634,7 +7775,7 @@ PMIDs were not available in the retrieved excerpts/metadata for the key 2023–2
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Long-chain 3-hydroxyacyl-CoA Dehydrogenase Deficiency", "mondoId": "MONDO:0012173", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Long-chain_3-hydroxyacyl-CoA_Dehydrogenase_Deficiency", "yamlRevision": "840311ac5345"};
+        const OS_CONFIG = {"diseaseName": "Long-chain 3-hydroxyacyl-CoA Dehydrogenase Deficiency", "mondoId": "MONDO:0012173", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Long-chain_3-hydroxyacyl-CoA_Dehydrogenase_Deficiency", "yamlRevision": "d431be3ab99b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2644,11 +2797,18 @@
             
             <a class="stat-link" href="#references">
             <div class="stat-item">
-                <div class="stat-value">10</div>
+                <div class="stat-value">18</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
             
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -5329,6 +5489,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5372,6 +5533,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5413,6 +5575,7 @@
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(DECREASED)</span>
                     
                 </div>
+                
                 
                 
     
@@ -5478,6 +5641,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5519,6 +5683,7 @@
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(DECREASED)</span>
                     
                 </div>
+                
                 
                 
     
@@ -5587,7 +5752,7 @@
                 <pre class="yaml-preview">name: Gitelman syndrome
 category: Mendelian
 creation_date: &#39;2026-05-03T20:36:52Z&#39;
-updated_date: &#39;2026-05-03T21:10:52Z&#39;
+updated_date: &#39;2026-05-09T03:15:56Z&#39;
 synonyms:
 - Gitelman&#39;s syndrome
 - Familial hypokalemia-hypomagnesemia
@@ -6463,7 +6628,18 @@ references:
   findings: []
 - reference: PMID:28003083
   title: &#34;Gitelman syndrome: consensus and guidance from a Kidney Disease: Improving Global Outcomes (KDIGO) Controversies Conference.&#34;
-  findings: []
+  findings:
+  - statement: &#39;2017 Jan;91(1):24-33. doi: 10.1016/j.kint.2016.09.046.&#39;
+    supporting_text: &#39;2017 Jan;91(1):24-33. doi: 10.1016/j.kint.2016.09.046.&#39;
+    evidence:
+    - reference: PMID:28003083
+      reference_title: &#39;Gitelman syndrome: consensus and guidance from a Kidney Disease: Improving Global Outcomes (KDIGO) Controversies Conference.&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#39;2017 Jan;91(1):24-33. doi: 10.1016/j.kint.2016.09.046.&#39;
+      explanation: Deep research cited this publication as relevant literature for Gitelman Syndrome.
+  found_in:
+  - Gitelman_Syndrome-deep-research-falcon.md
 - reference: PMID:35173827
   title: Renal calcium and magnesium handling in Gitelman syndrome.
   findings: []
@@ -6482,6 +6658,102 @@ references:
 - reference: PMID:41278357
   title: &#34;Clinical Characteristics, Symptoms, and Long-Term Outcomes in Gitelman Syndrome.&#34;
   findings: []
+- reference: DOI:10.1016/j.ekir.2018.09.015
+  title: Clinical and Genetic Characteristics in Patients With Gitelman Syndrome
+  found_in:
+  - Gitelman_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: Clinical and Genetic Characteristics in Patients With Gitelman Syndrome
+    supporting_text: Clinical and Genetic Characteristics in Patients With Gitelman Syndrome
+- reference: DOI:10.1093/ndt/gfw019
+  title: &#39;Magnesium lactate in the treatment of Gitelman syndrome: patient-reported outcomes&#39;
+  found_in:
+  - Gitelman_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: Gitelman syndrome (GS) is a rare recessively inherited renal tubulopathy associated with renal potassium (K) and magnesium (Mg) loss.
+    supporting_text: Gitelman syndrome (GS) is a rare recessively inherited renal tubulopathy associated with renal potassium (K) and magnesium (Mg) loss.
+    evidence:
+    - reference: DOI:10.1093/ndt/gfw019
+      reference_title: &#39;Magnesium lactate in the treatment of Gitelman syndrome: patient-reported outcomes&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Gitelman syndrome (GS) is a rare recessively inherited renal tubulopathy associated with renal potassium (K) and magnesium (Mg) loss.
+      explanation: Deep research cited this publication as relevant literature for Gitelman Syndrome.
+- reference: DOI:10.1101/2025.04.28.25326317
+  title: Mutations in 329 probands with suspected renal electrolyte disorders
+  found_in:
+  - Gitelman_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: The spectrum of coding and non-coding of mutations that contribute to Mendelian diseases is largely unknown.
+    supporting_text: The spectrum of coding and non-coding of mutations that contribute to Mendelian diseases is largely unknown.
+    evidence:
+    - reference: DOI:10.1101/2025.04.28.25326317
+      reference_title: Mutations in 329 probands with suspected renal electrolyte disorders
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The spectrum of coding and non-coding of mutations that contribute to Mendelian diseases is largely unknown.
+      explanation: Deep research cited this publication as relevant literature for Gitelman Syndrome.
+- reference: DOI:10.1681/asn.2022050627
+  title: Long-Read Sequencing Identifies Novel Pathogenic Intronic Variants in Gitelman Syndrome
+  found_in:
+  - Gitelman_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: Significance Statement Gitelman syndrome is caused by biallelic pathogenic variants in SLC12A3 , which encodes the thiazide-sensitive sodium-chloride cotransporter (NCC).
+    supporting_text: Significance Statement Gitelman syndrome is caused by biallelic pathogenic variants in SLC12A3 , which encodes the thiazide-sensitive sodium-chloride cotransporter (NCC).
+    evidence:
+    - reference: DOI:10.1681/asn.2022050627
+      reference_title: Long-Read Sequencing Identifies Novel Pathogenic Intronic Variants in Gitelman Syndrome
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Significance Statement Gitelman syndrome is caused by biallelic pathogenic variants in SLC12A3 , which encodes the thiazide-sensitive sodium-chloride cotransporter (NCC).
+      explanation: Deep research cited this publication as relevant literature for Gitelman Syndrome.
+- reference: DOI:10.3389/fped.2023.1188098
+  title: &#39;Sudden cardiac arrest in a child with Gitelman syndrome: a case report and literature review&#39;
+  found_in:
+  - Gitelman_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: Salt-losing tubulopathies are well-recognised diseases predisposing to metabolic disturbances in affected patients.
+    supporting_text: Salt-losing tubulopathies are well-recognised diseases predisposing to metabolic disturbances in affected patients.
+    evidence:
+    - reference: DOI:10.3389/fped.2023.1188098
+      reference_title: &#39;Sudden cardiac arrest in a child with Gitelman syndrome: a case report and literature review&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Salt-losing tubulopathies are well-recognised diseases predisposing to metabolic disturbances in affected patients.
+      explanation: Deep research cited this publication as relevant literature for Gitelman Syndrome.
+- reference: DOI:10.3390/ijms24033019
+  title: CRISPR-Cas9-Mediated Correction of SLC12A3 Gene Mutation Rescues the Gitelman’s Disease Phenotype in a Patient-Derived Kidney Organoid System
+  found_in:
+  - Gitelman_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: CRISPR-Cas9-Mediated Correction of SLC12A3 Gene Mutation Rescues the Gitelman’s Disease Phenotype in a Patient-Derived Kidney Organoid System
+    supporting_text: The aim of this study is to explore the possibility of modeling Gitelman’s disease (GIT) with human-induced pluripotent stem cell (hiPSC)-derived kidney organoids and to test whether gene correction using CRISPR/Cas9 can rescue the disease phenotype of GIT.
+    evidence:
+    - reference: DOI:10.3390/ijms24033019
+      reference_title: CRISPR-Cas9-Mediated Correction of SLC12A3 Gene Mutation Rescues the Gitelman’s Disease Phenotype in a Patient-Derived Kidney Organoid System
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The aim of this study is to explore the possibility of modeling Gitelman’s disease (GIT) with human-induced pluripotent stem cell (hiPSC)-derived kidney organoids and to test whether gene correction using CRISPR/Cas9 can rescue the disease phenotype of GIT.
+      explanation: Deep research cited this publication as relevant literature for Gitelman Syndrome.
+- reference: DOI:10.3390/ijms25179332
+  title: Untangling the Uncertain Role of Overactivation of the Renin–Angiotensin–Aldosterone System with the Aging Process Based on Sodium Wasting Human Models
+  found_in:
+  - Gitelman_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: Every individual at some point encounters the progressive biological process of aging, which is considered one of the major risk factors for common diseases.
+    supporting_text: Every individual at some point encounters the progressive biological process of aging, which is considered one of the major risk factors for common diseases.
+    evidence:
+    - reference: DOI:10.3390/ijms25179332
+      reference_title: Untangling the Uncertain Role of Overactivation of the Renin–Angiotensin–Aldosterone System with the Aging Process Based on Sodium Wasting Human Models
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Every individual at some point encounters the progressive biological process of aging, which is considered one of the major risk factors for common diseases.
+      explanation: Deep research cited this publication as relevant literature for Gitelman Syndrome.
+- reference: DOI:10.1016/j.kint.2016.09.046
+  title: &#34;Gitelman syndrome: consensus and guidance from a Kidney Disease: Improving Global Outcomes (KDIGO) Controversies Conference&#34;
+  found_in:
+  - Gitelman_Syndrome-deep-research-falcon.md
+  findings: []
 </pre>
             </div>
         </div>
@@ -6497,7 +6769,7 @@ references:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">10</span>
+                    <span class="card-count">18</span>
                 </div>
                 
                 <div class="reference-entry">
@@ -6562,9 +6834,59 @@ references:
                             
                         </div>
                         
+                        <span class="reference-summary">1 finding</span>
+                        
                     </div>
                     
-                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2017 Jan;91(1):24-33. doi: 10.1016/j.kint.2016.09.046.</div>
+            
+            
+            <div class="reference-finding-supporting">"2017 Jan;91(1):24-33. doi: 10.1016/j.kint.2016.09.046."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28003083" target="_blank">PMID:28003083</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"2017 Jan;91(1):24-33. doi: 10.1016/j.kint.2016.09.046."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Gitelman Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
                     
                 </div>
                 
@@ -6670,8 +6992,1349 @@ references:
                     
                 </div>
                 
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1016/j.ekir.2018.09.015" target="_blank">DOI:10.1016/j.ekir.2018.09.015</a>
+                            </div>
+                            
+                            <div class="reference-title">Clinical and Genetic Characteristics in Patients With Gitelman Syndrome</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Clinical and Genetic Characteristics in Patients With Gitelman Syndrome</div>
+            
+            
+            <div class="reference-finding-supporting">"Clinical and Genetic Characteristics in Patients With Gitelman Syndrome"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1093/ndt/gfw019" target="_blank">DOI:10.1093/ndt/gfw019</a>
+                            </div>
+                            
+                            <div class="reference-title">Magnesium lactate in the treatment of Gitelman syndrome: patient-reported outcomes</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Gitelman syndrome (GS) is a rare recessively inherited renal tubulopathy associated with renal potassium (K) and magnesium (Mg) loss.</div>
+            
+            
+            <div class="reference-finding-supporting">"Gitelman syndrome (GS) is a rare recessively inherited renal tubulopathy associated with renal potassium (K) and magnesium (Mg) loss."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/ndt/gfw019" target="_blank">DOI:10.1093/ndt/gfw019</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Gitelman syndrome (GS) is a rare recessively inherited renal tubulopathy associated with renal potassium (K) and magnesium (Mg) loss."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Gitelman Syndrome.</div>
+                
             </div>
             
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1101/2025.04.28.25326317" target="_blank">DOI:10.1101/2025.04.28.25326317</a>
+                            </div>
+                            
+                            <div class="reference-title">Mutations in 329 probands with suspected renal electrolyte disorders</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The spectrum of coding and non-coding of mutations that contribute to Mendelian diseases is largely unknown.</div>
+            
+            
+            <div class="reference-finding-supporting">"The spectrum of coding and non-coding of mutations that contribute to Mendelian diseases is largely unknown."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1101/2025.04.28.25326317" target="_blank">DOI:10.1101/2025.04.28.25326317</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The spectrum of coding and non-coding of mutations that contribute to Mendelian diseases is largely unknown."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Gitelman Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1681/asn.2022050627" target="_blank">DOI:10.1681/asn.2022050627</a>
+                            </div>
+                            
+                            <div class="reference-title">Long-Read Sequencing Identifies Novel Pathogenic Intronic Variants in Gitelman Syndrome</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Significance Statement Gitelman syndrome is caused by biallelic pathogenic variants in SLC12A3 , which encodes the thiazide-sensitive sodium-chloride cotransporter (NCC).</div>
+            
+            
+            <div class="reference-finding-supporting">"Significance Statement Gitelman syndrome is caused by biallelic pathogenic variants in SLC12A3 , which encodes the thiazide-sensitive sodium-chloride cotransporter (NCC)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1681/asn.2022050627" target="_blank">DOI:10.1681/asn.2022050627</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Significance Statement Gitelman syndrome is caused by biallelic pathogenic variants in SLC12A3 , which encodes the thiazide-sensitive sodium-chloride cotransporter (NCC)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Gitelman Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3389/fped.2023.1188098" target="_blank">DOI:10.3389/fped.2023.1188098</a>
+                            </div>
+                            
+                            <div class="reference-title">Sudden cardiac arrest in a child with Gitelman syndrome: a case report and literature review</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Salt-losing tubulopathies are well-recognised diseases predisposing to metabolic disturbances in affected patients.</div>
+            
+            
+            <div class="reference-finding-supporting">"Salt-losing tubulopathies are well-recognised diseases predisposing to metabolic disturbances in affected patients."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fped.2023.1188098" target="_blank">DOI:10.3389/fped.2023.1188098</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Salt-losing tubulopathies are well-recognised diseases predisposing to metabolic disturbances in affected patients."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Gitelman Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/ijms24033019" target="_blank">DOI:10.3390/ijms24033019</a>
+                            </div>
+                            
+                            <div class="reference-title">CRISPR-Cas9-Mediated Correction of SLC12A3 Gene Mutation Rescues the Gitelman’s Disease Phenotype in a Patient-Derived Kidney Organoid System</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">CRISPR-Cas9-Mediated Correction of SLC12A3 Gene Mutation Rescues the Gitelman’s Disease Phenotype in a Patient-Derived Kidney Organoid System</div>
+            
+            
+            <div class="reference-finding-supporting">"The aim of this study is to explore the possibility of modeling Gitelman’s disease (GIT) with human-induced pluripotent stem cell (hiPSC)-derived kidney organoids and to test whether gene correction using CRISPR/Cas9 can rescue the disease phenotype of GIT."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/ijms24033019" target="_blank">DOI:10.3390/ijms24033019</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The aim of this study is to explore the possibility of modeling Gitelman’s disease (GIT) with human-induced pluripotent stem cell (hiPSC)-derived kidney organoids and to test whether gene correction using CRISPR/Cas9 can rescue the disease phenotype of GIT."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Gitelman Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/ijms25179332" target="_blank">DOI:10.3390/ijms25179332</a>
+                            </div>
+                            
+                            <div class="reference-title">Untangling the Uncertain Role of Overactivation of the Renin–Angiotensin–Aldosterone System with the Aging Process Based on Sodium Wasting Human Models</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Every individual at some point encounters the progressive biological process of aging, which is considered one of the major risk factors for common diseases.</div>
+            
+            
+            <div class="reference-finding-supporting">"Every individual at some point encounters the progressive biological process of aging, which is considered one of the major risk factors for common diseases."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/ijms25179332" target="_blank">DOI:10.3390/ijms25179332</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Every individual at some point encounters the progressive biological process of aging, which is considered one of the major risk factors for common diseases."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Gitelman Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1016/j.kint.2016.09.046" target="_blank">DOI:10.1016/j.kint.2016.09.046</a>
+                            </div>
+                            
+                            <div class="reference-title">Gitelman syndrome: consensus and guidance from a Kidney Disease: Improving Global Outcomes (KDIGO) Controversies Conference</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">Disease Characteristics Research Template</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">20 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-08T19:11:49.918148</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
+<p>Provide detailed information focusing on:
+1. Key concepts and definitions with current understanding
+2. Recent developments and latest research (prioritize 2023-2024 sources)
+3. Current applications and real-world implementations
+4. Expert opinions and analysis from authoritative sources
+5. Relevant statistics and data from recent studies</p>
+<p>Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
+Always prioritize recent, authoritative sources and provide specific citations for all major claims.</p>
+<h1>Disease Characteristics Research Template</h1>
+<h2>Target Disease</h2>
+<ul>
+<li><strong>Disease Name:</strong> Gitelman syndrome</li>
+<li><strong>MONDO ID:</strong>  (if available)</li>
+<li><strong>Category:</strong> Mendelian</li>
+</ul>
+<h2>Research Objectives</h2>
+<p>Please provide a comprehensive research report on <strong>Gitelman syndrome</strong> covering all of the
+disease characteristics listed below. This report will be used to populate a disease knowledge
+base entry. Be thorough and cite primary literature (PMID preferred) for all claims.</p>
+<p>For each section, <strong>suggested databases/resources</strong> are listed. These are the first places
+you should search for information on each topic.</p>
+<hr />
+<h3>1. Disease Information</h3>
+<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, ICD-10/ICD-11, MeSH, PubMed</p>
+</blockquote>
+<ul>
+<li>What is the disease? Provide a concise overview.</li>
+<li>What are the key identifiers? (OMIM, Orphanet, ICD-10/ICD-11, MeSH, Mondo)</li>
+<li>What are the common synonyms and alternative names?</li>
+<li>Is the information derived from individual patients (e.g., EHR) or aggregated disease-level resources?</li>
+</ul>
+<h3>2. Etiology</h3>
+<ul>
+<li><strong>Disease Causal Factors</strong>: What are the primary causes? (genetic, environmental, infectious, mechanistic)</li>
+<li><strong>Risk Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, UpToDate, clinical guidelines, ClinVar, ClinGen, GWAS Catalog, PheGenI, CTD, CDC, WHO, epidemiological databases</p>
+</blockquote>
+</li>
+<li>Genetic risk factors (causal variants, susceptibility loci, modifier genes)</li>
+<li>Environmental risk factors (toxins, lifestyle, occupational exposures, age, sex, family history)</li>
+<li><strong>Protective Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, clinical trial databases, GWAS Catalog, gnomAD, WHO, CDC, nutrition databases</p>
+</blockquote>
+</li>
+<li>Genetic protective factors (protective variants, modifier alleles)</li>
+<li>Environmental protective factors (diet, lifestyle, exposures that reduce risk)</li>
+<li><strong>Gene-Environment Interactions</strong>: How do genetic and environmental factors interact to influence disease?<blockquote>
+<p><strong>Search first:</strong> CTD, PubMed, PheGenI, GxE databases</p>
+</blockquote>
+</li>
+</ul>
+<h3>3. Phenotypes</h3>
+<blockquote>
+<p><strong>Search first:</strong> HPO (Human Phenotype Ontology), OMIM, Orphanet, PubMed, clinicaltrials.gov, MedDRA, SNOMED CT, DECIPHER, LOINC</p>
+</blockquote>
+<p>For each phenotype, provide:
+- <strong>Phenotype type</strong>: symptoms, clinical signs, physical manifestations, behavioral changes, or laboratory abnormalities</p>
+<blockquote>
+<p>For symptoms/signs: HPO, OMIM, Orphanet, PubMed
+For behavioral changes: HPO, DSM, RDoC (Research Domain Criteria), PubMed
+For laboratory abnormalities: LOINC, SNOMED CT, LabTests Online, PubMed
+- <strong>Phenotype characteristics</strong>:
+<strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed
+  - Age of symptom onset (neonatal, childhood, adult-onset, late-onset)
+  - Symptom severity (mild, moderate, severe, variable)
+  - Symptom progression (stable, progressive, episodic, fluctuating)
+  - Frequency among affected individuals (percentage or qualitative)
+- <strong>Quality of life impact</strong>: Effects on daily functioning and well-being (per-phenotype when possible)
+<strong>Search first:</strong> EQ-5D database, SF-36, WHO QOL databases, PubMed
+- Suggest HPO (Human Phenotype Ontology) terms for each phenotype</p>
+</blockquote>
+<h3>4. Genetic/Molecular Information</h3>
+<ul>
+<li><strong>Causal Genes</strong>: Gene mutations or chromosomal abnormalities responsible for disease (gene symbols, OMIM IDs)<blockquote>
+<p><strong>Search first:</strong> OMIM, ClinVar, HGMD, Ensembl, NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Pathogenic Variants</strong>:</li>
+<li>Affected genes (gene symbols, HGNC IDs)
+    &gt; <strong>Search first:</strong> OMIM, NCBI Gene, Ensembl, HGNC, UniProt, GeneCards</li>
+<li>Variant classification (pathogenic, likely pathogenic, VUS per ACMG/AMP guidelines)
+    &gt; <strong>Search first:</strong> ClinVar, ClinGen, ACMG/AMP guidelines, VarSome</li>
+<li>Variant type/class (missense, frameshift, nonsense, splice-site, structural)</li>
+<li>Allele frequency in population databases
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, ExAC, TOPMed, dbSNP</li>
+<li>Somatic vs germline origin
+    &gt; <strong>Search first:</strong> COSMIC (somatic), ClinVar, ICGC, TCGA</li>
+<li>Functional consequences (loss of function, gain of function, dominant negative)</li>
+<li><strong>Modifier Genes</strong>: Genes that modify disease severity or expression</li>
+<li><strong>Epigenetic Information</strong>: DNA methylation, histone modifications, chromatin changes affecting disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Chromosomal Abnormalities</strong>: Large-scale genetic changes (aneuploidy, translocations, inversions)<blockquote>
+<p><strong>Search first:</strong> DECIPHER, ClinVar, ECARUCA, UCSC Genome Browser</p>
+</blockquote>
+</li>
+</ul>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Environmental Factors</strong>: Non-genetic contributing factors (toxins, radiation, pollution, occupational exposure)<blockquote>
+<p><strong>Search first:</strong> CTD (Comparative Toxicogenomics Database), TOXNET, PubMed, EPA databases</p>
+</blockquote>
+</li>
+<li><strong>Lifestyle Factors</strong>: Behavioral factors (smoking, diet, exercise, alcohol consumption)<blockquote>
+<p><strong>Search first:</strong> CDC databases, WHO, PubMed, NHANES</p>
+</blockquote>
+</li>
+<li><strong>Infectious Agents</strong>: If applicable, pathogens causing or triggering disease (bacteria, viruses, fungi, parasites)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON</p>
+</blockquote>
+</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<ul>
+<li><strong>Molecular Pathways</strong>: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)<blockquote>
+<p><strong>Search first:</strong> KEGG, Reactome, WikiPathways, PathBank, BioCyc</p>
+</blockquote>
+</li>
+<li><strong>Cellular Processes</strong>: Cell-level mechanisms (apoptosis, autophagy, cell cycle dysregulation, inflammation, etc.)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (GO), Reactome, KEGG, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Protein Dysfunction</strong>: How protein structure or function is altered (misfolding, aggregation, loss of function, gain of function)<blockquote>
+<p><strong>Search first:</strong> UniProt, PDB (Protein Data Bank), InterPro, Pfam, AlphaFold</p>
+</blockquote>
+</li>
+<li><strong>Metabolic Changes</strong>: Alterations in metabolic processes (energy metabolism, lipid metabolism, amino acid metabolism)<blockquote>
+<p><strong>Search first:</strong> KEGG, BioCyc, HMDB (Human Metabolome Database), BRENDA</p>
+</blockquote>
+</li>
+<li><strong>Immune System Involvement</strong>: Role of immune response (autoimmunity, immunodeficiency, chronic inflammation)<blockquote>
+<p><strong>Search first:</strong> ImmPort, Immunome Database, IEDB, Gene Ontology</p>
+</blockquote>
+</li>
+<li><strong>Tissue Damage Mechanisms</strong>: How tissues/ are injured (oxidative stress, ischemia, fibrosis, necrosis)<blockquote>
+<p><strong>Search first:</strong> PubMed, Gene Ontology, Reactome</p>
+</blockquote>
+</li>
+<li><strong>Biochemical Abnormalities</strong>: Specific molecular defects (enzyme deficiencies, receptor dysfunction, ion channel defects)<blockquote>
+<p><strong>Search first:</strong> BRENDA, UniProt, KEGG, OMIM, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Epigenetic Changes</strong>: DNA methylation, histone modifications affecting gene expression in disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Molecular Profiling</strong> (if available):</li>
+<li>Transcriptomics/gene expression changes
+    &gt; <strong>Search first:</strong> GEO (Gene Expression Omnibus), ArrayExpress, GTEx, Human Cell Atlas, SRA</li>
+<li>Proteomics findings
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, Human Protein Atlas, STRING, BioGRID</li>
+<li>Metabolomics signatures
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB, METLIN</li>
+<li>Lipidomics alterations
+    &gt; <strong>Search first:</strong> LIPID MAPS, SwissLipids, LipidHome, Metabolomics Workbench</li>
+<li>Genomic structural features
+    &gt; <strong>Search first:</strong> UCSC Genome Browser, Ensembl, NCBI, dbVar, DGV</li>
+<li><strong>Advanced Technologies</strong> (if applicable):</li>
+<li>Single-cell analysis findings (cell-type specific mechanisms, cellular heterogeneity)
+    &gt; <strong>Search first:</strong> Human Cell Atlas, Single Cell Portal, GEO, CELLxGENE</li>
+<li>Spatial transcriptomics findings
+    &gt; <strong>Search first:</strong> GEO, Spatial Research, Vizgen, 10x Genomics data</li>
+<li>Multi-omics integration results
+    &gt; <strong>Search first:</strong> TCGA, ICGC, cBioPortal, LinkedOmics, PubMed</li>
+<li>Functional genomics screens (CRISPR, RNAi)
+    &gt; <strong>Search first:</strong> DepMap, GenomeRNAi, PubMed, BioGRID ORCS</li>
+</ul>
+<p>For each mechanism, describe:
+- The causal chain from initial trigger to clinical manifestation
+- Which mechanisms are upstream vs downstream
+- What cell types and biological processes are involved
+- Suggest GO terms for biological processes and CL terms for cell types</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ Level</strong>:</li>
+<li>Primary organs directly affected</li>
+<li>Secondary organ involvement (complications, secondary effects)</li>
+<li>Body systems involved (cardiovascular, nervous, digestive, respiratory, endocrine, etc.)<blockquote>
+<p><strong>Search first:</strong> Uberon, FMA (Foundational Model of Anatomy), OMIM, HPO, ICD-11, MeSH, SNOMED CT</p>
+</blockquote>
+</li>
+<li><strong>Tissue and Cell Level</strong>:</li>
+<li>Specific tissue types affected (epithelial, connective, muscle, nervous)</li>
+<li>Specific cell populations targeted (with Cell Ontology terms)<blockquote>
+<p><strong>Search first:</strong> Uberon, Human Protein Atlas, Cell Ontology, Human Cell Atlas, CellMarker, PanglaoDB</p>
+</blockquote>
+</li>
+<li><strong>Subcellular Level</strong>:</li>
+<li>Cellular compartments involved (mitochondria, nucleus, ER, lysosomes) (with GO Cellular Component terms)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (Cellular Component), UniProt, Human Protein Atlas</p>
+</blockquote>
+</li>
+<li><strong>Localization</strong>:</li>
+<li>Specific anatomical sites (with UBERON terms)
+    &gt; <strong>Search first:</strong> FMA, Uberon, NeuroNames (for brain), SNOMED CT</li>
+<li>Lateralization (unilateral, bilateral, asymmetric)
+    &gt; <strong>Search first:</strong> HPO, clinical literature, imaging databases</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset</strong>:</li>
+<li>Typical age of onset (congenital, pediatric, adult, geriatric)</li>
+<li>Onset pattern (acute, subacute, chronic, insidious)<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Progression</strong>:</li>
+<li>Disease stages (early, intermediate, advanced, end-stage)
+    &gt; <strong>Search first:</strong> Cancer Staging Manual (AJCC), WHO classifications, PubMed</li>
+<li>Progression rate (rapid, slow, variable)</li>
+<li>Disease course pattern (episodic, relapsing-remitting, progressive, stable)</li>
+<li>Disease duration (self-limited, chronic lifelong)<blockquote>
+<p><strong>Search first:</strong> Disease registries, longitudinal cohort databases, natural history studies, PubMed, Orphanet, OMIM</p>
+</blockquote>
+</li>
+<li><strong>Patterns</strong>:</li>
+<li>Remission patterns (spontaneous, treatment-induced)
+    &gt; <strong>Search first:</strong> Clinical trial databases, disease registries, PubMed</li>
+<li>Critical periods (time windows of vulnerability or opportunity for intervention)
+    &gt; <strong>Search first:</strong> PubMed, developmental biology databases, clinical guidelines</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology</strong>:</li>
+<li>Prevalence (cases per 100,000 at given time)</li>
+<li>Incidence (new cases per 100,000 per year)<blockquote>
+<p><strong>Search first:</strong> Orphanet, CDC, WHO, GBD (Global Burden of Disease), national registries, SEER, disease registries</p>
+</blockquote>
+</li>
+<li><strong>For Genetic Etiology</strong>:</li>
+<li>Inheritance pattern (AD, AR, X-linked, mitochondrial, multifactorial, polygenic)
+    &gt; <strong>Search first:</strong> OMIM, Orphanet, ClinVar, GTR (Genetic Testing Registry)</li>
+<li>Penetrance (complete, incomplete, age-dependent)
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, PubMed, ClinGen</li>
+<li>Expressivity (variable, consistent)
+    &gt; <strong>Search first:</strong> OMIM, ClinVar, PubMed</li>
+<li>Genetic anticipation (increasing severity in successive generations)
+    &gt; <strong>Search first:</strong> OMIM, PubMed (especially for repeat expansion disorders)</li>
+<li>Germline mosaicism
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, genetic counseling literature, PubMed</li>
+<li>Founder effects (population-specific mutations)
+    &gt; <strong>Search first:</strong> gnomAD, population genetics databases, PubMed</li>
+<li>Consanguinity role
+    &gt; <strong>Search first:</strong> OMIM, population studies, genetic counseling resources</li>
+<li>Carrier frequency
+    &gt; <strong>Search first:</strong> gnomAD, carrier screening databases, GeneReviews, GTR</li>
+<li><strong>Population Demographics</strong>:</li>
+<li>Affected populations (ethnic or demographic groups with higher prevalence)
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, PAGE Study, PubMed, population registries</li>
+<li>Geographic distribution (endemic areas, regional variation)
+    &gt; <strong>Search first:</strong> WHO, CDC, GBD, Orphanet, geographic epidemiology databases</li>
+<li>Geographic distribution of specific variants</li>
+<li>Sex ratio (male:female)
+    &gt; <strong>Search first:</strong> Disease registries, OMIM, PubMed, epidemiological databases</li>
+<li>Age distribution of affected individuals
+    &gt; <strong>Search first:</strong> CDC, disease registries, SEER, Orphanet</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Clinical Tests</strong>:</li>
+<li>Laboratory tests (blood, urine, tissue chemistry, specific enzyme assays)
+    &gt; <strong>Search first:</strong> LOINC, LabTests Online, PubMed</li>
+<li>Biomarkers (proteins, metabolites, genetic markers, circulating biomarkers)
+    &gt; <strong>Search first:</strong> FDA Biomarker List, BEST (Biomarkers, EndpointS, and other Tools), PubMed</li>
+<li>Imaging studies (X-ray, CT, MRI, PET, ultrasound)
+    &gt; <strong>Search first:</strong> RadLex, DICOM, Radiopaedia, imaging databases</li>
+<li>Functional tests (pulmonary function, cardiac stress tests)
+    &gt; <strong>Search first:</strong> LOINC, clinical guidelines, PubMed</li>
+<li>Electrophysiology (EEG, EMG, ECG, nerve conduction studies)
+    &gt; <strong>Search first:</strong> LOINC, clinical neurophysiology databases, PubMed</li>
+<li>Biopsy findings (histopathology, immunohistochemistry)
+    &gt; <strong>Search first:</strong> SNOMED CT, College of American Pathologists resources, PubMed</li>
+<li>Pathology findings (microscopic examination)
+    &gt; <strong>Search first:</strong> SNOMED CT, Digital Pathology databases, PubMed</li>
+<li><strong>Genetic Testing</strong>:<blockquote>
+<p><strong>Search first:</strong> GTR (Genetic Testing Registry), GeneReviews, ClinGen</p>
+</blockquote>
+</li>
+<li>Overview of recommended genetic testing approach</li>
+<li>Whole genome sequencing (WGS) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, GEL (Genomics England), gnomAD</li>
+<li>Whole exome sequencing (WES) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneMatcher</li>
+<li>Gene panels (which panels, which genes)
+    &gt; <strong>Search first:</strong> GTR, ClinVar, laboratory-specific databases</li>
+<li>Single gene testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneReviews</li>
+<li>Chromosomal microarray (CMA)
+    &gt; <strong>Search first:</strong> DECIPHER, ClinVar, dbVar, ECARUCA</li>
+<li>Karyotyping
+    &gt; <strong>Search first:</strong> Chromosome Abnormality Database, ClinVar, cytogenetics resources</li>
+<li>FISH
+    &gt; <strong>Search first:</strong> ClinVar, cytogenetics databases, PubMed</li>
+<li>Mitochondrial DNA testing
+    &gt; <strong>Search first:</strong> MITOMAP, MSeqDR, ClinVar, GTR</li>
+<li>Repeat expansion testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, repeat expansion databases, PubMed</li>
+<li><strong>Omics-Based Diagnostics</strong> (if applicable):</li>
+<li>RNA sequencing / transcriptomics
+    &gt; <strong>Search first:</strong> GEO, ArrayExpress, GTEx, RNA-seq databases</li>
+<li>Proteomics
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, FDA Biomarker database</li>
+<li>Metabolomics
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB</li>
+<li>Epigenomics
+    &gt; <strong>Search first:</strong> GEO, ENCODE, Roadmap Epigenomics, MethBase</li>
+<li>Liquid biopsy
+    &gt; <strong>Search first:</strong> COSMIC, ClinVar, liquid biopsy databases, PubMed</li>
+<li><strong>Clinical Criteria</strong>:</li>
+<li>Standardized diagnostic criteria (DSM, ICD, society guidelines)
+    &gt; <strong>Search first:</strong> DSM-5, ICD-11, clinical society guidelines, UpToDate</li>
+<li>Differential diagnosis (other conditions to rule out, with distinguishing features)
+    &gt; <strong>Search first:</strong> DynaMed, UpToDate, clinical decision support systems</li>
+<li><strong>Screening</strong>:</li>
+<li>Screening methods for asymptomatic individuals (newborn screening, carrier screening, cascade screening)
+    &gt; <strong>Search first:</strong> ACMG recommendations, CDC newborn screening, GTR</li>
+</ul>
+<h3>11. Outcome/Prognosis</h3>
+<ul>
+<li><strong>Survival and Mortality</strong>:</li>
+<li>Survival rate (5-year, 10-year, overall)
+    &gt; <strong>Search first:</strong> SEER, cancer registries, disease-specific registries, PubMed</li>
+<li>Life expectancy (with and without treatment if applicable)
+    &gt; <strong>Search first:</strong> Orphanet, disease registries, actuarial databases, PubMed</li>
+<li>Mortality rate
+    &gt; <strong>Search first:</strong> CDC, WHO, GBD, national mortality databases</li>
+<li>Disease-specific mortality (deaths directly attributable to disease)
+    &gt; <strong>Search first:</strong> Disease registries, CDC Wonder, GBD, PubMed</li>
+<li><strong>Morbidity and Function</strong>:</li>
+<li>Morbidity (disease-related disability and health impacts)
+    &gt; <strong>Search first:</strong> GBD, WHO, disability databases, PubMed</li>
+<li>Disability outcomes (long-term functional impairments)
+    &gt; <strong>Search first:</strong> ICF (International Classification of Functioning), disability registries</li>
+<li>Quality of life measures (EQ-5D, SF-36, PROMIS, disease-specific tools)
+    &gt; <strong>Search first:</strong> EQ-5D database, SF-36, PROMIS, PubMed</li>
+<li><strong>Disease Course</strong>:</li>
+<li>Complications (secondary problems: infections, organ failure, etc.)
+    &gt; <strong>Search first:</strong> ICD codes, disease registries, clinical databases, PubMed</li>
+<li>Recovery potential (likelihood and extent of recovery, with vs without treatment)
+    &gt; <strong>Search first:</strong> Natural history studies, rehabilitation databases, PubMed</li>
+<li><strong>Prediction</strong>:</li>
+<li>Prognostic factors (age, disease severity, biomarkers, treatment response)
+    &gt; <strong>Search first:</strong> Prognostic models databases, clinical calculators, PubMed</li>
+<li>Prognostic biomarkers (molecular markers predicting disease course)
+    &gt; <strong>Search first:</strong> FDA Biomarker database, PubMed, cancer prognostic databases</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Pharmacotherapy</strong>:</li>
+<li>Pharmacological treatments (drug names, drug classes, mechanisms of action)
+    &gt; <strong>Search first:</strong> DrugBank, RxNorm, ATC classification, DailyMed, FDA databases</li>
+<li>Pharmacogenomics (how genetic variants affect drug metabolism, efficacy, toxicity)
+    &gt; <strong>Search first:</strong> PharmGKB, CPIC (Clinical Pharmacogenetics), FDA Table of PGx Biomarkers</li>
+<li><strong>Advanced Therapeutics</strong>:</li>
+<li>Gene therapy (viral vectors, CRISPR, gene replacement, gene editing)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA gene therapy database, ASGCT resources</li>
+<li>Cell therapy (stem cell transplant, CAR-T, cellular therapeutics)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA cell therapy database, FACT standards</li>
+<li>RNA-based therapies (ASOs, siRNA, mRNA therapies)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA approvals, PubMed</li>
+<li>Targeted therapies (treatments directed at specific molecular targets)
+    &gt; <strong>Search first:</strong> My Cancer Genome, OncoKB, ClinicalTrials.gov, FDA approvals</li>
+<li>Immunotherapies (checkpoint inhibitors, monoclonal antibodies)
+    &gt; <strong>Search first:</strong> Cancer Immunotherapy Database, FDA approvals, ClinicalTrials.gov</li>
+<li><strong>Surgical and Interventional</strong>:</li>
+<li>Surgical interventions (types of surgery, timing, outcomes)
+    &gt; <strong>Search first:</strong> CPT codes, surgical registries, clinical guidelines, PubMed</li>
+<li><strong>Supportive and Rehabilitative</strong>:</li>
+<li>Supportive care (symptom management, pain control, nutrition)
+    &gt; <strong>Search first:</strong> Clinical guidelines, Cochrane Library, PubMed</li>
+<li>Rehabilitation (physical therapy, occupational therapy, speech therapy)
+    &gt; <strong>Search first:</strong> Rehabilitation medicine databases, clinical guidelines, PubMed</li>
+<li><strong>Experimental</strong>:</li>
+<li>Experimental treatments in clinical trials (with NCT identifiers if available)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, EU Clinical Trials Register, WHO ICTRP</li>
+<li><strong>Treatment Outcomes</strong>:</li>
+<li>Treatment response rates
+    &gt; <strong>Search first:</strong> Clinical trial databases, FDA reviews, systematic reviews, PubMed</li>
+<li>Side effects and adverse events
+    &gt; <strong>Search first:</strong> FDA Adverse Event Reporting System (FAERS), MedWatch, PubMed</li>
+<li><strong>Treatment Strategy</strong>:</li>
+<li>Treatment algorithms (clinical pathways, decision trees)
+    &gt; <strong>Search first:</strong> Clinical practice guidelines, NCCN Guidelines, UpToDate</li>
+<li>Combination therapies
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, treatment guidelines, PubMed</li>
+<li>Personalized medicine approaches (genotype-guided treatment)
+    &gt; <strong>Search first:</strong> My Cancer Genome, CIViC, PharmGKB, precision medicine databases</li>
+</ul>
+<p>For each treatment, suggest MAXO (Medical Action Ontology) terms where applicable.</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Prevention Levels</strong>:</li>
+<li>Primary prevention (preventing disease occurrence: vaccination, risk factor modification)
+    &gt; <strong>Search first:</strong> CDC, WHO, USPSTF recommendations, Cochrane Library</li>
+<li>Secondary prevention (early detection and treatment: screening programs, early intervention)
+    &gt; <strong>Search first:</strong> USPSTF, CDC screening guidelines, WHO</li>
+<li>Tertiary prevention (preventing complications in those with disease)
+    &gt; <strong>Search first:</strong> Clinical guidelines, disease management protocols, PubMed</li>
+<li><strong>Immunization</strong>: Vaccine strategies (if applicable)<blockquote>
+<p><strong>Search first:</strong> CDC vaccine schedules, WHO immunization, FDA vaccine database</p>
+</blockquote>
+</li>
+<li><strong>Screening and Early Detection</strong>:</li>
+<li>Screening programs (population-based: newborn screening, cancer screening)
+    &gt; <strong>Search first:</strong> CDC screening programs, USPSTF, cancer screening databases</li>
+<li>Genetic screening (carrier screening, preimplantation genetic diagnosis, prenatal testing)
+    &gt; <strong>Search first:</strong> ACMG recommendations, ACOG guidelines, GTR</li>
+<li>Risk stratification (identifying high-risk individuals for targeted prevention)
+    &gt; <strong>Search first:</strong> Risk prediction models, clinical calculators, PubMed</li>
+<li><strong>Behavioral Interventions</strong>: Lifestyle modifications to reduce risk<blockquote>
+<p><strong>Search first:</strong> CDC, WHO, behavioral intervention databases, Cochrane Library</p>
+</blockquote>
+</li>
+<li><strong>Counseling</strong>: Genetic counseling (risk assessment, family planning guidance)<blockquote>
+<p><strong>Search first:</strong> NSGC resources, ACMG guidelines, GeneReviews</p>
+</blockquote>
+</li>
+<li><strong>Public Health</strong>:</li>
+<li>Public health interventions (sanitation, vector control, health education)
+    &gt; <strong>Search first:</strong> CDC, WHO, public health databases, PubMed</li>
+<li>Environmental interventions (reducing environmental risk factors)
+    &gt; <strong>Search first:</strong> EPA databases, WHO environmental health, PubMed</li>
+<li><strong>Prophylaxis</strong>: Preventive medications or procedures<blockquote>
+<p><strong>Search first:</strong> Clinical guidelines, FDA approvals, PubMed</p>
+</blockquote>
+</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy</strong>: Species affected (with NCBI Taxon identifiers)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy</p>
+</blockquote>
+</li>
+<li><strong>Breed</strong>: Specific breeds affected (with VBO identifiers if applicable)<blockquote>
+<p><strong>Search first:</strong> VBO (Vertebrate Breed Ontology)</p>
+</blockquote>
+</li>
+<li><strong>Gene</strong>: Orthologous genes in other species (with NCBI Gene IDs)<blockquote>
+<p><strong>Search first:</strong> NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Natural Disease</strong>:</li>
+<li>Naturally occurring disease in other species (companion animals, wildlife)
+    &gt; <strong>Search first:</strong> OMIA (Online Mendelian Inheritance in Animals), VetCompass, PubMed</li>
+<li>Veterinary relevance and importance in animal health
+    &gt; <strong>Search first:</strong> OMIA, veterinary databases, PubMed</li>
+<li><strong>Comparative Biology</strong>:</li>
+<li>Comparative pathology (similarities and differences across species)
+    &gt; <strong>Search first:</strong> OMIA, comparative pathology databases, PubMed</li>
+<li>Evolutionary conservation of disease mechanisms
+    &gt; <strong>Search first:</strong> HomoloGene, OrthoMCL, Alliance of Genome Resources</li>
+<li><strong>Transmission</strong> (if applicable):</li>
+<li>Zoonotic potential
+    &gt; <strong>Search first:</strong> CDC zoonotic diseases, WHO zoonoses, GIDEON</li>
+<li>Cross-species susceptibility
+    &gt; <strong>Search first:</strong> NCBI Taxonomy, veterinary databases, PubMed</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Model Types</strong>:</li>
+<li>Model organism type (mammalian, invertebrate, cellular, in vitro)
+    &gt; <strong>Search first:</strong> Alliance of Genome Resources, model organism databases</li>
+<li>Specific model systems (mouse, rat, zebrafish, Drosophila, C. elegans, yeast, cell lines, organoids, iPSCs)
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, SGD, ATCC, Cellosaurus</li>
+<li>Induced models (drug treatment, surgical intervention, environmental manipulation)
+    &gt; <strong>Search first:</strong> MGI, model organism databases, PubMed</li>
+<li><strong>Genetic Models</strong>:</li>
+<li>Types available (knockout, knock-in, transgenic, conditional, humanized)
+    &gt; <strong>Search first:</strong> MGI, IMPC, KOMP, EuMMCR, IMSR</li>
+<li><strong>Model Characteristics</strong>:</li>
+<li>Phenotype recapitulation (how well model reproduces human disease features)
+    &gt; <strong>Search first:</strong> Model organism databases, comparative studies, PubMed</li>
+<li>Model limitations (aspects of human disease not captured)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed, review articles</li>
+<li><strong>Applications</strong>:</li>
+<li>Research applications (what aspects of disease can be studied)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed</li>
+<li><strong>Resources</strong>:</li>
+<li>Model databases
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, IMSR, EMMA, MMRRC</li>
+</ul>
+<hr />
+<h2>Citation Requirements</h2>
+<ul>
+<li>Cite primary literature (PMID preferred) for all mechanistic and clinical claims</li>
+<li>Prioritize recent reviews and landmark papers</li>
+<li>Include direct quotes from abstracts where possible to support key statements</li>
+<li>Distinguish evidence source types: human clinical, model organism, in vitro, computational</li>
+</ul>
+<h2>Output Format</h2>
+<p>Structure your response as a comprehensive narrative organized by the sections above.
+For each section, provide:
+- Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
+- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, MAXO, MONDO) where applicable
+- Evidence citations with PMIDs
+- Direct quotes from abstracts to support key claims
+- Clear indication when information is not available or not applicable for this disease</p>
+<p>This report will be used to populate a disease knowledge base entry with:
+- Pathophysiology descriptions with causal chains
+- Gene/protein annotations (HGNC, GO terms)
+- Phenotype associations (HP terms) with frequencies
+- Cell type involvement (CL terms)
+- Anatomical locations (UBERON terms)
+- Chemical entities (CHEBI terms)
+- Treatment annotations (MAXO terms)
+- Evidence items with PMIDs and exact abstract quotes
+- Epidemiology, prognosis, diagnostic, and prevention information
+- Animal model descriptions with phenotype recapitulation details</p>
+<h2>Comprehensive disease characteristics report: Gitelman syndrome (Mendelian tubulopathy)</h2>
+<h3>Executive summary (current understanding)</h3>
+<p>Gitelman syndrome (GS) is a <strong>rare, recessively inherited salt-losing tubulopathy</strong> characterized by <strong>hypokalemic metabolic alkalosis with hypomagnesemia and hypocalciuria</strong>, caused by <strong>biallelic inactivating variants in SLC12A3</strong>, which encodes the thiazide-sensitive sodium–chloride cotransporter (<strong>NCC/NCCT</strong>) expressed in the distal convoluted tubule (DCT) (blanchard2017gitelmansyndromeconsensus pages 1-2, fujimura2019clinicalandgenetic pages 1-2, thimm2024untanglingtheuncertain pages 1-2). GS is clinically important because chronic potassium and magnesium depletion can substantially reduce quality of life and can precipitate <strong>cardiac arrhythmias</strong>, including rare life-threatening events (blanchard2017gitelmansyndromeconsensus pages 4-5, zieg2023suddencardiacarrest pages 1-2).</p>
+<p>A compact evidence-backed summary table is provided below.</p>
+<table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>Summary</th>
+<th>Source (year; journal)</th>
+<th>DOI/URL</th>
+<th>Evidence type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease name / synonyms</td>
+<td><strong>Gitelman syndrome (GS)</strong>; also referred to as <strong>familial hypokalemia-hypomagnesemia</strong> in KDIGO and review literature (blanchard2017gitelmansyndromeconsensus pages 1-2, thimm2024untanglingtheuncertain pages 1-2)</td>
+<td>Blanchard et al. 2017; <em>Kidney International</em> (blanchard2017gitelmansyndromeconsensus pages 1-2)</td>
+<td>https://doi.org/10.1016/j.kint.2016.09.046</td>
+<td>Guideline / consensus</td>
+</tr>
+<tr>
+<td>Inheritance</td>
+<td><strong>Autosomal recessive / recessively inherited</strong> salt-losing tubulopathy caused by <strong>biallelic inactivating variants</strong> (blanchard2017gitelmansyndromeconsensus pages 1-2, thimm2024untanglingtheuncertain pages 1-2)</td>
+<td>Blanchard et al. 2017; <em>Kidney International</em> (blanchard2017gitelmansyndromeconsensus pages 1-2)</td>
+<td>https://doi.org/10.1016/j.kint.2016.09.046</td>
+<td>Guideline / consensus</td>
+</tr>
+<tr>
+<td>Causal gene / protein</td>
+<td><strong>SLC12A3</strong> encodes the <strong>thiazide-sensitive sodium-chloride cotransporter (NCC/NCCT)</strong> in the <strong>apical membrane of distal convoluted tubule cells</strong>; loss of function causes GS (blanchard2017gitelmansyndromeconsensus pages 1-2, thimm2024untanglingtheuncertain pages 1-2, fujimura2019clinicalandgenetic pages 1-2)</td>
+<td>Blanchard et al. 2017; <em>Kidney International</em> (blanchard2017gitelmansyndromeconsensus pages 1-2)</td>
+<td>https://doi.org/10.1016/j.kint.2016.09.046</td>
+<td>Guideline / consensus</td>
+</tr>
+<tr>
+<td>Key biochemical hallmarks</td>
+<td>Core biochemical pattern: <strong>chronic hypokalemia</strong>, <strong>metabolic alkalosis</strong>, <strong>hypomagnesemia</strong>, <strong>hypocalciuria</strong>, often with <strong>hyperreninemic hyperaldosteronism</strong> and normotension; KDIGO notes hypocalciuria and hypomagnesemia are highly predictive though variable (blanchard2017gitelmansyndromeconsensus pages 1-2, blanchard2017gitelmansyndromeconsensus pages 4-5, zieg2023suddencardiacarrest pages 1-2)</td>
+<td>Blanchard et al. 2017; <em>Kidney International</em> (blanchard2017gitelmansyndromeconsensus pages 1-2)</td>
+<td>https://doi.org/10.1016/j.kint.2016.09.046</td>
+<td>Guideline / consensus</td>
+</tr>
+<tr>
+<td>Prevalence estimate (general / mainly European ancestry)</td>
+<td>KDIGO review: prevalence <strong>~1 to 10 per 40,000</strong>; described as arguably the most frequent inherited tubulopathy (blanchard2017gitelmansyndromeconsensus pages 1-2)</td>
+<td>Blanchard et al. 2017; <em>Kidney International</em> (blanchard2017gitelmansyndromeconsensus pages 1-2)</td>
+<td>https://doi.org/10.1016/j.kint.2016.09.046</td>
+<td>Guideline / consensus</td>
+</tr>
+<tr>
+<td>Prevalence estimate (case report literature)</td>
+<td>Pediatric case report/literature review cites prevalence <strong>~25 per million</strong> (zieg2023suddencardiacarrest pages 1-2)</td>
+<td>Zieg et al. 2023; <em>Frontiers in Pediatrics</em> (zieg2023suddencardiacarrest pages 1-2)</td>
+<td>https://doi.org/10.3389/fped.2023.1188098</td>
+<td>Case report / literature review</td>
+</tr>
+<tr>
+<td>Prevalence estimate (Caucasian / Asian populations)</td>
+<td>2024 review states estimated prevalence <strong>1:40,000 in Caucasian individuals</strong> and <strong>~1.7 per 1000</strong> in an Asian population; review also gives <strong>OMIM 263800</strong> (thimm2024untanglingtheuncertain pages 1-2)</td>
+<td>Thimm &amp; Adjaye 2024; <em>International Journal of Molecular Sciences</em> (thimm2024untanglingtheuncertain pages 1-2)</td>
+<td>https://doi.org/10.3390/ijms25179332</td>
+<td>Review</td>
+</tr>
+<tr>
+<td>Genetic spectrum</td>
+<td>KDIGO: <strong>&gt;350 SLC12A3 mutations</strong> reported; many patients are compound heterozygotes; some clinically diagnosed patients carry only one detected pathogenic variant on routine testing (blanchard2017gitelmansyndromeconsensus pages 1-2). Japanese cohort notes <strong>~500 different mutations</strong> reported, including nonsense, splice-site, and missense (fujimura2019clinicalandgenetic pages 1-2)</td>
+<td>Fujimura et al. 2019; <em>Kidney International Reports</em> (fujimura2019clinicalandgenetic pages 1-2)</td>
+<td>https://doi.org/10.1016/j.ekir.2018.09.015</td>
+<td>Cohort</td>
+</tr>
+<tr>
+<td>Cohort clinical anchors</td>
+<td>In 185 genetically proven Japanese cases, diagnosis followed <strong>chance blood tests (54.7%)</strong>, <strong>tetany (32.6%)</strong>, <strong>short stature (7.2%)</strong>; median <strong>serum K 2.5 mEq/L</strong> and <strong>serum Mg 1.6 mg/dL</strong> (fujimura2019clinicalandgenetic pages 1-2)</td>
+<td>Fujimura et al. 2019; <em>Kidney International Reports</em> (fujimura2019clinicalandgenetic pages 1-2)</td>
+<td>https://doi.org/10.1016/j.ekir.2018.09.015</td>
+<td>Cohort</td>
+</tr>
+<tr>
+<td>Real-world diagnostic genetics update</td>
+<td>Long-read sequencing study found a second likely pathogenic/pathogenic variant in <strong>45/67 (67%)</strong> patients with previously monoallelic/unsolved GS; <strong>16/45</strong> resolved cases involved intronic variants outside canonical splice sites, supporting second-tier long-read testing (blanchard2017gitelmansyndromeconsensus pages 4-5)</td>
+<td>Viering et al. 2023; <em>Journal of the American Society of Nephrology</em> (blanchard2017gitelmansyndromeconsensus pages 4-5)</td>
+<td>https://doi.org/10.1681/ASN.2022050627</td>
+<td>Cohort / diagnostic study</td>
+</tr>
+<tr>
+<td>Key guideline / consensus source</td>
+<td><strong>KDIGO Controversies Conference consensus</strong> recommends diagnosis based on biochemical phenotype plus genetic testing; management with <strong>liberal salt intake</strong> and <strong>oral magnesium and potassium supplementation</strong>; gene panels should include <strong>SLC12A3, CLCNKB, HNF1B</strong> at minimum (blanchard2017gitelmansyndromeconsensus pages 4-5, blanchard2017gitelmansyndromeconsensus pages 1-2)</td>
+<td>Blanchard et al. 2017; <em>Kidney International</em> (blanchard2017gitelmansyndromeconsensus pages 4-5)</td>
+<td>https://doi.org/10.1016/j.kint.2016.09.046</td>
+<td>Guideline / consensus</td>
+</tr>
+<tr>
+<td>Additional management source</td>
+<td>Modified-release <strong>magnesium lactate</strong> cohort: <strong>89%</strong> preferred the regimen, <strong>68%</strong> reported improved symptom burden, and biochemistry improved in <strong>91%</strong> of continuing patients switched from other preparations (robinson2017magnesiumlactatein pages 2-3)</td>
+<td>Robinson &amp; Karet Frankl 2017; <em>Nephrology Dialysis Transplantation</em> (robinson2017magnesiumlactatein pages 2-3)</td>
+<td>https://doi.org/10.1093/ndt/gfw019</td>
+<td>Cohort / patient-reported outcomes</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table compacts the most actionable disease-level facts for Gitelman syndrome: name/synonyms, inheritance, causal gene and transporter, hallmark biochemistry, prevalence estimates across populations, and the main consensus/guideline and cohort sources supporting diagnosis and management.</em></p>
+<hr />
+<h2>1. Disease information</h2>
+<h3>1.1 What is the disease?</h3>
+<p><strong>Definition/overview.</strong> KDIGO consensus defines GS as “a rare, salt-losing tubulopathy characterized by hypokalemic metabolic alkalosis with hypomagnesemia and hypocalciuria” and caused by inactivating SLC12A3 variants encoding NCC (blanchard2017gitelmansyndromeconsensus pages 1-2).</p>
+<p><strong>Typical clinical context.</strong> GS is often detected in adolescence/adulthood, sometimes incidentally or with nonspecific neuromuscular symptoms (fatigue, weakness, cramps), but severe manifestations can occur (blanchard2017gitelmansyndromeconsensus pages 1-2, fujimura2019clinicalandgenetic pages 1-2).</p>
+<h3>1.2 Key identifiers</h3>
+<ul>
+<li><strong>OMIM:</strong> <strong>263800</strong> (explicitly stated in a 2024 review) (thimm2024untanglingtheuncertain pages 1-2).</li>
+<li><strong>MONDO / Orphanet (Orpha code) / ICD-10/ICD-11 / MeSH:</strong> Not extractable from the retrieved full-text evidence in this run; therefore, no evidence-backed identifiers can be asserted here.</li>
+</ul>
+<h3>1.3 Synonyms / alternative names</h3>
+<ul>
+<li>“<strong>familial hypokalemia–hypomagnesemia</strong>” (thimm2024untanglingtheuncertain pages 1-2, blanchard2017gitelmansyndromeconsensus pages 1-2).</li>
+</ul>
+<h3>1.4 Evidence provenance (patient-level vs aggregated)</h3>
+<p>Evidence used here includes: an international consensus/guideline document (aggregated expert consensus) (blanchard2017gitelmansyndromeconsensus pages 1-2), a national cohort (aggregated observational clinical data) (fujimura2019clinicalandgenetic pages 1-2), a case report with literature review (patient-level + literature synthesis) (zieg2023suddencardiacarrest pages 1-2), a patient-reported outcomes cohort (robinson2017magnesiumlactatein pages 2-3), and an experimental iPSC-organoid study (in vitro model) (lim2023crisprcas9mediatedcorrectionof pages 2-6).</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>2.1 Disease causal factors</h3>
+<p><strong>Primary cause (genetic/mechanistic).</strong> GS is caused by <strong>biallelic inactivating pathogenic variants in SLC12A3</strong>, leading to loss of function of NCC/NCCT in the DCT (blanchard2017gitelmansyndromeconsensus pages 1-2, fujimura2019clinicalandgenetic pages 1-2, thimm2024untanglingtheuncertain pages 1-2).</p>
+<p><strong>Variant spectrum (classes).</strong> A 2024 review summarizes that &gt;350 distinct SLC12A3 mutations have been described and provides approximate distribution: missense/nonsense (~62.1%), splice (~13–14%), and small deletions (~12%), with other/large rearrangements comprising the remainder (thimm2024untanglingtheuncertain pages 2-4). A Japanese cohort paper notes ~500 different SLC12A3 mutations have been reported, including nonsense, splice-site, and missense variants (fujimura2019clinicalandgenetic pages 1-2).</p>
+<h3>2.2 Risk factors</h3>
+<ul>
+<li><strong>Genetic risk:</strong> Having <strong>biallelic</strong> pathogenic variants in SLC12A3 is causal (blanchard2017gitelmansyndromeconsensus pages 1-2, thimm2024untanglingtheuncertain pages 1-2).</li>
+<li><strong>Non-genetic “mimics” (important diagnostic risk context):</strong> KDIGO notes a GS-like phenotype can occur with mutations in other genes (e.g., CLCNKB for classic Bartter type III), which increases misclassification risk without genetic testing (blanchard2017gitelmansyndromeconsensus pages 1-2).</li>
+</ul>
+<h3>2.3 Protective factors</h3>
+<p>No evidence-backed protective genetic or environmental factors were identified in the retrieved corpus.</p>
+<h3>2.4 Gene–environment interactions</h3>
+<p>No direct gene–environment interaction studies were retrieved in the accessible evidence. Clinically, intercurrent illness and/or medication/exposure patterns can unmask or exacerbate electrolyte derangements, but robust GxE evidence is not established in the cited texts.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>3.1 Core phenotype types</h3>
+<p><strong>Laboratory abnormalities (hallmark).</strong> Chronic hypokalemia, metabolic alkalosis, hypomagnesemia, and hypocalciuria are core, with renin–aldosterone system activation typical; normotension/low blood pressure is common (blanchard2017gitelmansyndromeconsensus pages 1-2, thimm2024untanglingtheuncertain pages 1-2, zieg2023suddencardiacarrest pages 1-2).</p>
+<p><strong>Symptoms/signs.</strong> KDIGO lists salt craving; muscle weakness/fatigue; limited endurance; episodes of fainting; cramps/tetany/paresthesia/carpopedal spasms; growth retardation/puberty delay/short stature; thirst/abnormal drinking; abdominal pain, with dizziness/vertigo/polyuria/nocturia/palpitations/joint pain/visual problems sometimes in adults (blanchard2017gitelmansyndromeconsensus pages 1-2).</p>
+<h3>3.2 Phenotype characteristics (age, severity, frequencies)</h3>
+<p><strong>Age at onset.</strong> GS can present in childhood and occasionally neonatally, but often becomes clinically apparent later; a 2023 pediatric case/literature review states typical onset is after age 6 years but neonatal cases exist (zieg2023suddencardiacarrest pages 1-2). KDIGO likewise notes adolescent/adult presentation is common (blanchard2017gitelmansyndromeconsensus pages 1-2).</p>
+<p><strong>Cohort statistics (Japan, n=185 genetically proven).</strong>
+* Diagnostic opportunity: <strong>chance blood test 54.7%</strong>, <strong>tetany 32.6%</strong>, <strong>short stature 7.2%</strong> (fujimura2019clinicalandgenetic pages 1-2).
+* Complications: <strong>short stature 16.3%</strong>, <strong>febrile convulsion 13.7%</strong>, <strong>thyroid dysfunction 4.3%</strong>, <strong>epilepsy 2.5%</strong>; <strong>QT prolongation detected in one case</strong> (fujimura2019clinicalandgenetic pages 1-2).
+* Biochemical medians (same cohort): serum <strong>K 2.5 mEq/L</strong> (range 1.2–3.8), serum <strong>Mg 1.6 mg/dL</strong> (range 0.6–2.7) (fujimura2019clinicalandgenetic pages 1-2).</p>
+<h3>3.3 Quality-of-life impact</h3>
+<p>KDIGO consensus explicitly states GS is associated with “a significant reduction in the quality of life” (blanchard2017gitelmansyndromeconsensus pages 1-2). A patient-reported outcomes cohort switching to slow-release magnesium lactate found high preference and symptom improvement (see Treatment section) (robinson2017magnesiumlactatein pages 2-3).</p>
+<h3>3.4 Suggested HPO terms (non-exhaustive)</h3>
+<p>Evidence-backed phenotype mapping to HPO is not directly provided in the retrieved papers; the following are <strong>suggested</strong> mappings based on the cited clinical descriptions:
+* Hypokalemia (<strong>HP:0002900</strong>)
+* Hypomagnesemia (<strong>HP:0002917</strong>)
+* Metabolic alkalosis (<strong>HP:0001940</strong>)
+* Hypocalciuria (<strong>HP:0012073</strong>, if available in your HPO version)
+* Muscle weakness (<strong>HP:0001324</strong>)
+* Muscle cramps (<strong>HP:0003394</strong>)
+* Tetany (<strong>HP:0001285</strong>)
+* Paresthesia (<strong>HP:0003401</strong>)
+* Salt craving (<strong>HP term may vary; often annotated as abnormal food craving</strong>)
+* Short stature (<strong>HP:0004322</strong>)
+* Cardiac arrhythmia (<strong>HP:0011675</strong>)
+* Prolonged QT interval (<strong>HP:0001657</strong>)</p>
+<hr />
+<h2>4. Genetic / molecular information</h2>
+<h3>4.1 Causal genes</h3>
+<ul>
+<li><strong>SLC12A3</strong> (encodes NCC/NCCT), expressed at the apical membrane of DCT cells (blanchard2017gitelmansyndromeconsensus pages 1-2, thimm2024untanglingtheuncertain pages 1-2).</li>
+</ul>
+<h3>4.2 Pathogenic variants</h3>
+<p><strong>Variant types.</strong> Missense/nonsense are the largest class; splice variants and small deletions are also substantial contributors (thimm2024untanglingtheuncertain pages 2-4). KDIGO notes larger rearrangements/deletions can occur and may require MLPA for detection (blanchard2017gitelmansyndromeconsensus pages 4-5).</p>
+<p><strong>Monoallelic findings and “missing second allele.”</strong> KDIGO states that in <strong>15–20%</strong> of patients, only one pathogenic mutation is found on routine testing, partly due to noncoding/intronic mutations or other mechanisms (blanchard2017gitelmansyndromeconsensus pages 4-5). A large sequencing cohort preprint reported that WGS in monoallelic cases can detect deep intronic splice-gain variants and small exonic deletions missed by WES, while estimating that truly noncoding pathogenic alleles are a small fraction of all SLC12A3 alleles in that referral cohort (aparicio2025mutationsin329 pages 1-3, aparicio2025mutationsin329 pages 14-16). (Note: this specific cohort is 2025 and preprint status.)</p>
+<p><strong>Example pathogenic variants (case-level).</strong> A pediatric sudden cardiac arrest case identified two pathogenic SLC12A3 variants: <strong>c.2633+1G&gt;A</strong> and <strong>c.2221G&gt;A</strong> (zieg2023suddencardiacarrest pages 1-2).</p>
+<h3>4.3 Genotype–phenotype correlations / modifiers</h3>
+<p>In the Japanese cohort (n=185), carriers of common hotspot variants <strong>p.Arg642Cys and/or p.Leu858His</strong> had significantly higher serum magnesium compared with those without these variants (<strong>1.76 vs 1.43 mg/dL; P&lt;0.001</strong>), supporting variant-dependent phenotypic modulation (fujimura2019clinicalandgenetic pages 1-2).</p>
+<p>Strong evidence for independent <strong>modifier genes</strong> was not identified in the retrieved evidence beyond case-level comorbidity reports.</p>
+<h3>4.4 Epigenetic information / chromosomal abnormalities</h3>
+<p>No GS-specific epigenetic signature or recurrent chromosomal abnormalities were identified in the retrieved evidence. (Epigenetic assays are mainly discussed in differential diagnoses rather than GS itself in available evidence.)</p>
+<hr />
+<h2>5. Environmental information</h2>
+<p>No environmental toxin, infectious, or lifestyle causes are established for GS in the retrieved evidence. Environmental/behavioral factors are primarily important as <strong>phenocopies</strong> (e.g., medication-induced renal wasting) or triggers of symptomatic episodes rather than etiologic causes.</p>
+<hr />
+<h2>6. Mechanism / pathophysiology</h2>
+<h3>6.1 Causal chain (gene → transporter defect → biochemical phenotype → symptoms)</h3>
+<ol>
+<li><strong>Biallelic SLC12A3 loss-of-function</strong> reduces NCC-mediated NaCl reabsorption in DCT cells (blanchard2017gitelmansyndromeconsensus pages 1-2, thimm2024untanglingtheuncertain pages 1-2).</li>
+<li>Reduced NaCl reabsorption causes <strong>renal salt wasting</strong>, leading to <strong>volume contraction</strong> and compensatory activation of the <strong>renin–angiotensin–aldosterone system (RAAS)</strong> (thimm2024untanglingtheuncertain pages 2-4, thimm2024untanglingtheuncertain pages 1-2).</li>
+<li>RAAS activation increases distal sodium reabsorption in exchange for <strong>potassium and hydrogen secretion</strong>, causing <strong>hypokalemia and metabolic alkalosis</strong> (zieg2023suddencardiacarrest pages 1-2, thimm2024untanglingtheuncertain pages 1-2).</li>
+<li>GS features <strong>renal magnesium wasting</strong> with resultant hypomagnesemia; clinically, hypomagnesemia can worsen hypokalemia and contribute to symptoms (blanchard2017gitelmansyndromeconsensus pages 4-5, thimm2024untanglingtheuncertain pages 1-2).</li>
+<li>Low K/Mg can prolong the cardiac action potential and QT interval; KDIGO notes prolonged QT “in ~50% of the patients” and recommends ECG screening, acknowledging rare ventricular tachycardia/sudden death reports (blanchard2017gitelmansyndromeconsensus pages 4-5). A pediatric case report documents ventricular fibrillation/sudden cardiac arrest in GS without a precipitating event (zieg2023suddencardiacarrest pages 1-2).</li>
+</ol>
+<h3>6.2 Molecular pathways and processes (suggested ontology mappings)</h3>
+<p>Evidence emphasizes renal electrolyte transport and RAAS physiology (thimm2024untanglingtheuncertain pages 1-2, thimm2024untanglingtheuncertain pages 2-4). Suggested GO terms:
+* <strong>GO:0006811 ion transport</strong>
+* <strong>GO:0006814 sodium ion transport</strong>
+* <strong>GO:0071436 sodium ion transmembrane transport</strong>
+* <strong>GO:0006820 anion transport / chloride transport</strong>
+* <strong>GO:0006874 cellular calcium ion homeostasis</strong> (downstream DCT effects)
+* <strong>GO:0008202 steroid metabolic process</strong> (aldosterone physiology; contextual)</p>
+<p>Cell types (suggested CL terms):
+* <strong>Distal convoluted tubule epithelial cell</strong> (kidney tubule epithelial cell subtype; CL term depends on ontology version) (blanchard2017gitelmansyndromeconsensus pages 1-2, thimm2024untanglingtheuncertain pages 1-2).</p>
+<h3>6.3 Immune system involvement</h3>
+<p>A 2024 review (aging/RAAS framing) states in its abstract that “Individuals with sodium deficiency-associated diseases such as Gitelman syndrome (GS) and Bartter syndrome (BS) show <strong>downregulation of inflammation-related processes</strong> and have <strong>reduced oxidative stress and ROS</strong>,” and that GS/BS patients sustain higher SIRT1 activity (thimm2024untanglingtheuncertain pages 1-2). These are mechanistic hypotheses from review-level synthesis rather than GS-specific causal immune pathology.</p>
+<h3>6.4 Molecular profiling / advanced technologies (latest research)</h3>
+<p><strong>Patient-derived iPSC kidney organoids + CRISPR correction (2023).</strong> A 2023 study generated patient-derived hiPSCs with SLC12A3 mutations and differentiated them into kidney organoids, then used CRISPR/Cas9 to correct the mutation and assess phenotype rescue. Quantitatively, the “number of matured kidney organoids” was lower in patient organoids than control (<strong>3.7 ± 0.2/cm² vs 16.7 ± 1.3/cm²</strong>), and was partially restored after correction (<strong>12.2 ± 0.7/cm² vs 3.7 ± 0.2/cm²</strong>) (lim2023crisprcas9mediatedcorrectionof pages 2-6). This provides an in vitro platform for functional validation and potential future therapeutic exploration.</p>
+<hr />
+<h2>7. Anatomical structures affected</h2>
+<h3>7.1 Primary organs / systems</h3>
+<ul>
+<li><strong>Kidney</strong>, especially the <strong>distal convoluted tubule (DCT)</strong>, is the primary affected structure (blanchard2017gitelmansyndromeconsensus pages 1-2, thimm2024untanglingtheuncertain pages 1-2).</li>
+<li>Secondary system impacts include <strong>neuromuscular</strong> (cramps, tetany, weakness), <strong>cardiac electrophysiology</strong> (QT prolongation/arrhythmias), and endocrine/other complications (short stature, thyroid dysfunction) (blanchard2017gitelmansyndromeconsensus pages 1-2, fujimura2019clinicalandgenetic pages 1-2, blanchard2017gitelmansyndromeconsensus pages 4-5).</li>
+</ul>
+<h3>7.2 Suggested UBERON terms</h3>
+<ul>
+<li>Kidney (<strong>UBERON:0002113</strong>)</li>
+<li>Distal convoluted tubule (<strong>UBERON:0001285</strong>, depending on ontology version)</li>
+</ul>
+<h3>7.3 Subcellular localization (suggested GO Cellular Component)</h3>
+<p>NCC/NCCT is localized to the <strong>apical membrane</strong> of DCT epithelial cells (blanchard2017gitelmansyndromeconsensus pages 1-2, thimm2024untanglingtheuncertain pages 1-2). Suggested GO CC term: <strong>GO:0016324 apical plasma membrane</strong>.</p>
+<hr />
+<h2>8. Temporal development</h2>
+<h3>Onset</h3>
+<p>Typically adolescent/adult detection, but childhood and even neonatal presentation can occur (blanchard2017gitelmansyndromeconsensus pages 1-2, zieg2023suddencardiacarrest pages 1-2).</p>
+<h3>Progression / course</h3>
+<p>GS is generally chronic and lifelong, requiring ongoing management. KDIGO highlights high phenotypic variability and potential severity; long-term monitoring is implied by consensus follow-up recommendations, including cardiac monitoring in relevant patients (blanchard2017gitelmansyndromeconsensus pages 1-2, blanchard2017gitelmansyndromeconsensus pages 4-5).</p>
+<hr />
+<h2>9. Inheritance and population</h2>
+<h3>9.1 Inheritance</h3>
+<p><strong>Autosomal recessive</strong> (biallelic SLC12A3 pathogenic variants) (blanchard2017gitelmansyndromeconsensus pages 1-2, thimm2024untanglingtheuncertain pages 1-2).</p>
+<h3>9.2 Epidemiology (statistics)</h3>
+<p>Reported prevalence estimates vary by source/population:
+* KDIGO (2017): “prevalence at ~1 to 10 per 40,000, and potentially higher in Asia” (blanchard2017gitelmansyndromeconsensus pages 1-2).
+* Review (2024): “estimated prevalence of <strong>1:40,000</strong> Caucasian individuals” and “estimated at around <strong>1.7 per 1000</strong> people” in an Asian population (thimm2024untanglingtheuncertain pages 1-2).
+* Pediatric case/literature review (2023): ~“<strong>25 per million</strong>” (zieg2023suddencardiacarrest pages 1-2).</p>
+<p>Carrier frequency and founder effects were not extractable from Orphanet/gnomAD-like sources in this run; therefore they are not asserted.</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>10.1 Clinical and laboratory evaluation</h3>
+<p>KDIGO proposes biochemical criteria for suspecting GS (Table 2), which include chronic hypokalemia and associated features. The consensus emphasizes that hypocalciuria plus hypomagnesemia is “highly predictive” though both can be variable (blanchard2017gitelmansyndromeconsensus pages 1-2). A cropped image of this diagnostic criteria table is included as visual evidence (blanchard2017gitelmansyndromeconsensus media 4476f44a).</p>
+<h3>10.2 Genetic testing (real-world workflows)</h3>
+<p>KDIGO recommends next-generation sequencing (NGS) diagnostic approaches, noting gene panels should include <strong>SLC12A3, CLCNKB, and HNF1B</strong> at minimum to address phenotypic overlap and differential diagnosis (blanchard2017gitelmansyndromeconsensus pages 4-5). KDIGO also notes that routine genetic testing can miss noncoding/intronic variants and larger rearrangements, supporting extended analyses (e.g., MLPA) when only one allele is found (blanchard2017gitelmansyndromeconsensus pages 4-5).</p>
+<h3>10.3 Differential diagnosis (key mimics)</h3>
+<p>GS-like phenotypes can be caused by <strong>CLCNKB</strong> variants (classic Bartter syndrome type III) due to overlap at the DCT; other tubulopathies and genetic disorders can mimic GS clinically and biochemically, making molecular testing important for resolution in ambiguous cases (blanchard2017gitelmansyndromeconsensus pages 1-2).</p>
+<hr />
+<h2>11. Outcome / prognosis</h2>
+<h3>11.1 Survival and mortality</h3>
+<p>No cohort-derived survival curves or life expectancy estimates were retrieved in accessible evidence.</p>
+<h3>11.2 Morbidity and complications</h3>
+<ul>
+<li><strong>Cardiac electrophysiology risk.</strong> KDIGO states K/Mg depletion can prolong action potential duration and QT interval (noting prolonged QT in ~50% of patients), with isolated reports of ventricular tachycardia and sudden death, motivating ECG surveillance (blanchard2017gitelmansyndromeconsensus pages 4-5).</li>
+<li><strong>Severe arrhythmia case evidence (2023).</strong> A 10-year-old child experienced ventricular fibrillation and sudden cardiac arrest attributed to severe hypokalemia, with subsequent ICD placement and stabilization with electrolyte therapy (zieg2023suddencardiacarrest pages 1-2).</li>
+<li><strong>Extrarenal complications (cohort).</strong> Short stature, febrile convulsions, thyroid dysfunction, epilepsy, and QT prolongation are documented with frequencies in the Japanese cohort (fujimura2019clinicalandgenetic pages 1-2).</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<h3>12.1 Standard management (real-world implementation)</h3>
+<p>KDIGO consensus indicates GS is “usually managed by a <strong>liberal salt intake</strong> together with <strong>oral magnesium and potassium supplements</strong>” (blanchard2017gitelmansyndromeconsensus pages 1-2). KDIGO further notes that hypomagnesemia can aggravate and render hypokalemia refractory, supporting combined replacement strategies (blanchard2017gitelmansyndromeconsensus pages 4-5).</p>
+<p><strong>Arrhythmia risk management.</strong> KDIGO recommends resting ECG, with further cardiology evaluation for symptoms or high-risk features (blanchard2017gitelmansyndromeconsensus pages 4-5).</p>
+<h3>12.2 Evidence on magnesium formulation: patient-reported outcomes</h3>
+<p>A specialist-clinic cohort study evaluated slow-release magnesium lactate in genetically proven GS (n=28). Key statistics reported include:
+* “almost <strong>90%</strong> (n=25) choosing to continue long term” (robinson2017magnesiumlactatein pages 2-3).
+* Side effects vs prior Mg: <strong>59%</strong> reported fewer side effects, <strong>32%</strong> same, <strong>9%</strong> worse (robinson2017magnesiumlactatein pages 2-3).
+The authors’ abstract further reports preference and symptom/biochemical improvement rates (89% preference; 68% symptom improvement among those preferring; biochemical improvement in 91% of continuing patients switched from other preparations) (robinson2017magnesiumlactatein pages 2-3).</p>
+<h3>12.3 MAXO (Medical Action Ontology) suggestions (non-exhaustive)</h3>
+<ul>
+<li>Oral potassium supplementation</li>
+<li>Oral magnesium supplementation</li>
+<li>Dietary sodium chloride supplementation (liberal salt intake)</li>
+<li>Electrocardiographic monitoring</li>
+<li>Genetic testing / gene panel testing</li>
+</ul>
+<p>(These are ontology mapping suggestions; MAXO IDs were not provided in the retrieved evidence.)</p>
+<h3>12.4 Experimental/advanced therapeutics (research stage)</h3>
+<p>The iPSC kidney organoid + CRISPR correction study demonstrates proof-of-concept <strong>gene correction rescuing organoid phenotype metrics</strong>, providing “therapeutic insight” at a preclinical stage (lim2023crisprcas9mediatedcorrectionof pages 2-6).</p>
+<h3>12.5 Clinical trials</h3>
+<p>ClinicalTrials.gov entries were retrieved by the tool, but the trial text chunks returned were not added to the evidence store with citable context IDs in this run; therefore, trial identifiers and outcomes are not cited here.</p>
+<hr />
+<h2>13. Prevention</h2>
+<p>Primary prevention of an autosomal recessive monogenic disorder is not generally feasible outside reproductive genetics.</p>
+<p><strong>Genetic counseling and reproductive options.</strong> KDIGO notes genetic counseling is recommended and that prenatal/preimplantation testing is technically feasible when two pathogenic variants are identified (blanchard2017gitelmansyndromeconsensus pages 4-5).</p>
+<p><strong>Secondary/tertiary prevention.</strong> Early identification and electrolyte management aim to prevent complications such as arrhythmias (blanchard2017gitelmansyndromeconsensus pages 4-5, zieg2023suddencardiacarrest pages 1-2).</p>
+<hr />
+<h2>14. Other species / natural disease</h2>
+<p>No naturally occurring GS in non-human species was identified in the retrieved evidence.</p>
+<hr />
+<h2>15. Model organisms and in vitro models</h2>
+<h3>15.1 In vitro patient-derived models (2023 development)</h3>
+<p>The patient-derived iPSC kidney organoid system with CRISPR correction provides a human-cell-based model for GS, including quantitative phenotypes (organoid maturation counts) that respond to gene correction (lim2023crisprcas9mediatedcorrectionof pages 2-6).</p>
+<h3>15.2 Suggested model utility</h3>
+<ul>
+<li>Functional validation of candidate SLC12A3 variants</li>
+<li>Testing strategies to restore NCC expression/function in DCT-like compartments</li>
+</ul>
+<hr />
+<h2>Evidence excerpt quotes (as requested; from abstracts/full text)</h2>
+<ul>
+<li>KDIGO opening definition: “Gitelman syndrome (GS) is a rare, salt-losing tubulopathy characterized by hypokalemic metabolic alkalosis with hypomagnesemia and hypocalciuria.” (blanchard2017gitelmansyndromeconsensus pages 1-2)</li>
+<li>2024 review abstract statement: “Individuals with sodium deficiency-associated diseases such as Gitelman syndrome (GS) and Bartter syndrome (BS) show downregulation of inflammation-related processes and have reduced oxidative stress and ROS.” (thimm2024untanglingtheuncertain pages 1-2)</li>
+<li>Magnesium lactate cohort (full text): “patient responses were very positive regarding SRMgL, with almost 90% (n = 25) choosing to continue long term” (robinson2017magnesiumlactatein pages 2-3).</li>
+</ul>
+<hr />
+<h2>Limitations of this report (evidence availability)</h2>
+<ul>
+<li><strong>Orphanet (Orpha code), ICD-10/ICD-11, MeSH, MONDO IDs</strong> were not present in the retrieved full-text evidence; they therefore cannot be asserted with citations here.</li>
+<li>Cohort-level <strong>incidence</strong>, <strong>mortality</strong>, and robust <strong>carrier-frequency</strong> estimates from population databases were not available in the cited sources.</li>
+<li>Clinical trial identifiers were retrieved by the tools, but not in a way that produced citable context IDs for this final report.</li>
+</ul>
+<p>References</p>
+<ol>
+<li>
+<p>(blanchard2017gitelmansyndromeconsensus pages 1-2): Anne Blanchard, Detlef Bockenhauer, Davide Bolignano, Lorenzo A Calò, Etienne Cosyns, Olivier Devuyst, David H Ellison, Fiona E Karet Frankl, Nine VAM Knoers, Martin Konrad, Shih-Hua Lin, and Rosa Vargas-Poussou. Gitelman syndrome: consensus and guidance from a kidney disease: improving global outcomes (kdigo) controversies conference. Kidney international, 91 1:24-33, Feb 2017. URL: https://doi.org/10.1016/j.kint.2016.09.046, doi:10.1016/j.kint.2016.09.046. This article has 443 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(fujimura2019clinicalandgenetic pages 1-2): Junya Fujimura, Kandai Nozu, Tomohiko Yamamura, Shogo Minamikawa, Keita Nakanishi, Tomoko Horinouchi, China Nagano, Nana Sakakibara, Koichi Nakanishi, Yuko Shima, Kenichi Miyako, Yoshimi Nozu, Naoya Morisada, Hiroaki Nagase, Takeshi Ninchoji, Hiroshi Kaito, and Kazumoto Iijima. Clinical and genetic characteristics in patients with gitelman syndrome. Kidney International Reports, 4:119-125, Jan 2019. URL: https://doi.org/10.1016/j.ekir.2018.09.015, doi:10.1016/j.ekir.2018.09.015. This article has 98 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(thimm2024untanglingtheuncertain pages 1-2): Chantelle Thimm and James Adjaye. Untangling the uncertain role of overactivation of the renin–angiotensin–aldosterone system with the aging process based on sodium wasting human models. International Journal of Molecular Sciences, 25:9332, Aug 2024. URL: https://doi.org/10.3390/ijms25179332, doi:10.3390/ijms25179332. This article has 6 citations.</p>
+</li>
+<li>
+<p>(blanchard2017gitelmansyndromeconsensus pages 4-5): Anne Blanchard, Detlef Bockenhauer, Davide Bolignano, Lorenzo A Calò, Etienne Cosyns, Olivier Devuyst, David H Ellison, Fiona E Karet Frankl, Nine VAM Knoers, Martin Konrad, Shih-Hua Lin, and Rosa Vargas-Poussou. Gitelman syndrome: consensus and guidance from a kidney disease: improving global outcomes (kdigo) controversies conference. Kidney international, 91 1:24-33, Feb 2017. URL: https://doi.org/10.1016/j.kint.2016.09.046, doi:10.1016/j.kint.2016.09.046. This article has 443 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(zieg2023suddencardiacarrest pages 1-2): Jakub Zieg, Terezia Tavačová, Miroslava Balaščáková, Petra Peldová, Filip Fencl, and Peter Kubuš. Sudden cardiac arrest in a child with gitelman syndrome: a case report and literature review. Frontiers in Pediatrics, Jun 2023. URL: https://doi.org/10.3389/fped.2023.1188098, doi:10.3389/fped.2023.1188098. This article has 2 citations.</p>
+</li>
+<li>
+<p>(robinson2017magnesiumlactatein pages 2-3): Caroline M. Robinson and Fiona E. Karet Frankl. Magnesium lactate in the treatment of gitelman syndrome: patient-reported outcomes. Nephrology Dialysis Transplantation, 32:508-512, Mar 2017. URL: https://doi.org/10.1093/ndt/gfw019, doi:10.1093/ndt/gfw019. This article has 31 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(lim2023crisprcas9mediatedcorrectionof pages 2-6): Sun Woo Lim, Xianying Fang, Sheng Cui, Hanbi Lee, Yoo Jin Shin, Eun Jeong Ko, Kang In Lee, Jae Young Lee, Byung Ha Chung, and Chul Woo Yang. Crispr-cas9-mediated correction of slc12a3 gene mutation rescues the gitelman’s disease phenotype in a patient-derived kidney organoid system. International Journal of Molecular Sciences, 24:3019, Feb 2023. URL: https://doi.org/10.3390/ijms24033019, doi:10.3390/ijms24033019. This article has 12 citations.</p>
+</li>
+<li>
+<p>(thimm2024untanglingtheuncertain pages 2-4): Chantelle Thimm and James Adjaye. Untangling the uncertain role of overactivation of the renin–angiotensin–aldosterone system with the aging process based on sodium wasting human models. International Journal of Molecular Sciences, 25:9332, Aug 2024. URL: https://doi.org/10.3390/ijms25179332, doi:10.3390/ijms25179332. This article has 6 citations.</p>
+</li>
+<li>
+<p>(aparicio2025mutationsin329 pages 1-3): Renan Eduardo Aparicio, Sheng Chih Jin, Weilai Dong, Samir Zaidi, Michael C Sierant, James Knight, Robert D Bjornson, Christopher Castaldi, Shrikant M Mane, Thomas M. Kaneko, Carol Nelson-Williams, and Richard P. Lifton. Mutations in 329 probands with suspected renal electrolyte disorders. MedRxiv, May 2025. URL: https://doi.org/10.1101/2025.04.28.25326317, doi:10.1101/2025.04.28.25326317. This article has 0 citations.</p>
+</li>
+<li>
+<p>(aparicio2025mutationsin329 pages 14-16): Renan Eduardo Aparicio, Sheng Chih Jin, Weilai Dong, Samir Zaidi, Michael C Sierant, James Knight, Robert D Bjornson, Christopher Castaldi, Shrikant M Mane, Thomas M. Kaneko, Carol Nelson-Williams, and Richard P. Lifton. Mutations in 329 probands with suspected renal electrolyte disorders. MedRxiv, May 2025. URL: https://doi.org/10.1101/2025.04.28.25326317, doi:10.1101/2025.04.28.25326317. This article has 0 citations.</p>
+</li>
+<li>
+<p>(blanchard2017gitelmansyndromeconsensus media 4476f44a): Anne Blanchard, Detlef Bockenhauer, Davide Bolignano, Lorenzo A Calò, Etienne Cosyns, Olivier Devuyst, David H Ellison, Fiona E Karet Frankl, Nine VAM Knoers, Martin Konrad, Shih-Hua Lin, and Rosa Vargas-Poussou. Gitelman syndrome: consensus and guidance from a kidney disease: improving global outcomes (kdigo) controversies conference. Kidney international, 91 1:24-33, Feb 2017. URL: https://doi.org/10.1016/j.kint.2016.09.046, doi:10.1016/j.kint.2016.09.046. This article has 443 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
             
         </div>
         
@@ -6724,7 +8387,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Gitelman syndrome", "mondoId": "MONDO:0009904", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Gitelman_syndrome", "yamlRevision": "b8cdb175b46e"};
+        const OS_CONFIG = {"diseaseName": "Gitelman syndrome", "mondoId": "MONDO:0009904", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Gitelman_syndrome", "yamlRevision": "aedc586267e7"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

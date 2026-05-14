@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,7 +2570,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 12</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Metabolic Disease</span>
@@ -2579,7 +2732,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">8</div>
+                <div class="stat-value">12</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -2632,6 +2785,20 @@
             
             
             
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-value">6</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -2706,7 +2873,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Hereditary fructose intolerance (HFI) is an inborn error of fructose metabolism of autosomal recessive inheritance caused by pathogenic variants in the ALDOB gene that lead to aldolase B deficiency in the liver, kidneys, and intestine."</div>
+                <div class="evidence-snippet">"of autosomal recessive inheritance caused by pathogenic variants in the ALDOB"</div>
                 
                 
                 <div class="evidence-explanation">This directly supports autosomal recessive inheritance and identifies ALDOB as the causal gene.</div>
@@ -2833,7 +3000,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Hereditary fructose intolerance (HFI) is an inborn error of fructose metabolism of autosomal recessive inheritance caused by pathogenic variants in the ALDOB gene that lead to aldolase B deficiency in the liver, kidneys, and intestine."</div>
+                <div class="evidence-snippet">"gene that lead to aldolase B deficiency in the liver, kidneys, and intestine."</div>
                 
                 
                 <div class="evidence-explanation">This supports ALDOB deficiency in liver, kidney, and intestine as the primary lesion in HFI.</div>
@@ -2956,6 +3123,20 @@
 	                    <div class="crosslink-list">
 	                        
 	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Fructose-1-phosphate</span>
+	                            
+	                            <span class="crosslink-desc">The Fru1P/ATP-depletion mechanism is measured biochemically as increased fructose-1-phosphate.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">ATP</span>
+	                            
+	                            <span class="crosslink-desc">The Fru1P/ATP-depletion mechanism is measured biochemically as decreased ATP.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Hypoglycemia</span>
 	                            
 	                            <span class="crosslink-desc">Impaired hepatic glucose production after fructose exposure produces symptomatic hypoglycemia.</span>
@@ -2983,6 +3164,13 @@
 	                            
 	                        </div>
 	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Transaminases</span>
+	                            
+	                            <span class="crosslink-desc">Hepatic metabolic injury from the core fructose toxicity mechanism can present as elevated transaminases.</span>
+	                            
+	                        </div>
+	                        
 	                    </div>
 	                </div>
 	                
@@ -3007,7 +3195,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"In patients with HFI, ingestion of fructose results in accumulation of Fru 1P and depletion of ATP, which are believed to cause symptoms, such as nausea, vomiting, hypoglycemia, and liver and kidney failure."</div>
+                <div class="evidence-snippet">"ingestion of fructose results in accumulation of Fru 1P and"</div>
                 
                 
                 <div class="evidence-explanation">This review summarizes the central toxic metabolic mechanism linking fructose exposure to acute organ dysfunction.</div>
@@ -3046,7 +3234,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALDOB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ALDOB\"], \"association\": \"Causative\"}}, {\"id\": \"Aldolase B deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic ALDOB pathogenic variants reduce aldolase B activity in the liver, kidneys, and intestine, blocking normal fructose metabolism after exposure to fructose-containing sugars.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Hepatocyte\", \"epithelial cell of proximal tubule\"], \"genes\": [\"ALDOB\"]}}, {\"id\": \"Fructose-1-phosphate accumulation and ATP depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulated fructose-1-phosphate with phosphate and ATP depletion impairs hepatic glucose release and contributes to liver and kidney injury after fructose exposure.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Hepatocyte\"], \"biological_processes\": [\"Gluconeogenesis\", \"Glycogen catabolic process\", \"Glucose homeostasis\"]}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatomegaly reflects hepatic metabolic injury and is often accompanied by steatosis or transaminase elevation.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoglycemia is a hallmark acute manifestation after fructose exposure and reflects impaired hepatic glucose output.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001943\"}}, {\"id\": \"Ketohexokinase inhibition (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ketohexokinase-directed therapy is a preclinical, mechanism-based strategy intended to reduce fructose-1-phosphate generation upstream of the blocked aldolase B step. No approved KHK-targeted therapy for HFI currently exists.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Renal Tubular Dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Renal involvement usually affects the proximal tubule and can progress to chronic renal insufficiency if the disorder is not recognized and managed.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000124\"}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vomiting commonly accompanies acute intolerance episodes after fructose ingestion.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002013\"}}], \"edges\": [{\"source\": \"Aldolase B deficiency\", \"target\": \"Fructose-1-phosphate accumulation and ATP depletion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fructose-1-phosphate accumulation and ATP depletion\", \"target\": \"Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fructose-1-phosphate accumulation and ATP depletion\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fructose-1-phosphate accumulation and ATP depletion\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fructose-1-phosphate accumulation and ATP depletion\", \"target\": \"Renal Tubular Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ketohexokinase inhibition (investigational)\", \"target\": \"Fructose-1-phosphate accumulation and ATP depletion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ALDOB\", \"target\": \"Aldolase B deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALDOB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ALDOB\"], \"association\": \"Causative\"}}, {\"id\": \"ATP\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\"}}, {\"id\": \"Aldolase B deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic ALDOB pathogenic variants reduce aldolase B activity in the liver, kidneys, and intestine, blocking normal fructose metabolism after exposure to fructose-containing sugars.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Hepatocyte\", \"epithelial cell of proximal tubule\"], \"genes\": [\"ALDOB\"]}}, {\"id\": \"Fructose-, sucrose-, and sorbitol-restricted diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Absolute avoidance of fructose, sucrose, and sorbitol is the standard lifelong treatment and usually prevents acute metabolic toxicity when started and maintained consistently.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Fructose-1-phosphate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Fructose-1-phosphate accumulation and ATP depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulated fructose-1-phosphate with phosphate and ATP depletion impairs hepatic glucose release and contributes to liver and kidney injury after fructose exposure.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Hepatocyte\"], \"biological_processes\": [\"Gluconeogenesis\", \"Glycogen catabolic process\", \"Glucose homeostasis\"]}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatomegaly reflects hepatic metabolic injury and is often accompanied by steatosis or transaminase elevation.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoglycemia is a hallmark acute manifestation after fructose exposure and reflects impaired hepatic glucose output.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001943\"}}, {\"id\": \"Ketohexokinase inhibition (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ketohexokinase-directed therapy is a preclinical, mechanism-based strategy intended to reduce fructose-1-phosphate generation upstream of the blocked aldolase B step. No approved KHK-targeted therapy for HFI currently exists.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Renal Tubular Dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Renal involvement usually affects the proximal tubule and can progress to chronic renal insufficiency if the disorder is not recognized and managed.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000124\"}}, {\"id\": \"Transaminases\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vomiting commonly accompanies acute intolerance episodes after fructose ingestion.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002013\"}}], \"edges\": [{\"source\": \"Aldolase B deficiency\", \"target\": \"Fructose-1-phosphate accumulation and ATP depletion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fructose-1-phosphate accumulation and ATP depletion\", \"target\": \"Fructose-1-phosphate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fructose-1-phosphate accumulation and ATP depletion\", \"target\": \"ATP\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fructose-1-phosphate accumulation and ATP depletion\", \"target\": \"Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fructose-1-phosphate accumulation and ATP depletion\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fructose-1-phosphate accumulation and ATP depletion\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fructose-1-phosphate accumulation and ATP depletion\", \"target\": \"Renal Tubular Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fructose-1-phosphate accumulation and ATP depletion\", \"target\": \"Transaminases\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fructose-, sucrose-, and sorbitol-restricted diet\", \"target\": \"Fructose-1-phosphate accumulation and ATP depletion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Fructose-, sucrose-, and sorbitol-restricted diet\", \"target\": \"Hypoglycemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Fructose-, sucrose-, and sorbitol-restricted diet\", \"target\": \"Vomiting\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Fructose-, sucrose-, and sorbitol-restricted diet\", \"target\": \"Hepatomegaly\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ketohexokinase inhibition (investigational)\", \"target\": \"Fructose-1-phosphate accumulation and ATP depletion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ALDOB\", \"target\": \"Aldolase B deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3119,7 +3307,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Patients manifest symptoms, such as ketotic hypoglycemia, vomiting, nausea, in addition to hepatomegaly and other liver and kidney dysfunctions."</div>
+                <div class="evidence-snippet">"Patients manifest symptoms, such as ketotic hypoglycemia, vomiting, nausea, in"</div>
                 
                 
                 <div class="evidence-explanation">This supports vomiting as a characteristic symptomatic response to fructose exposure in HFI.</div>
@@ -3173,7 +3361,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Patients manifest symptoms, such as ketotic hypoglycemia, vomiting, nausea, in addition to hepatomegaly and other liver and kidney dysfunctions."</div>
+                <div class="evidence-snippet">"addition to hepatomegaly and other liver and kidney dysfunctions."</div>
                 
                 
                 <div class="evidence-explanation">This supports hepatomegaly as part of the core hepatic phenotype in HFI.</div>
@@ -3236,7 +3424,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Renal involvement usually occurs in the form of proximal renal tubular acidosis and may lead to chronic renal insufficiency."</div>
+                <div class="evidence-snippet">"usually occurs in the form of proximal renal tubular acidosis and may lead to"</div>
                 
                 
                 <div class="evidence-explanation">Proximal renal tubular acidosis is a specific form of renal tubular dysfunction in HFI.</div>
@@ -3299,7 +3487,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Most commonly children are affected with gastrointestinal symptoms, feeding issues, aversion to sweets and hypoglycemia."</div>
+                <div class="evidence-snippet">"and hypoglycemia. Liver manifestations include an asymptomatic increase of"</div>
                 
                 
                 <div class="evidence-explanation">This review identifies hypoglycemia as a common clinical manifestation in children with HFI.</div>
@@ -3367,7 +3555,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -3384,10 +3572,30 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Hereditary fructose intolerance (HFI) is an inborn error of fructose metabolism of autosomal recessive inheritance caused by pathogenic variants in the ALDOB gene that lead to aldolase B deficiency in the liver, kidneys, and intestine."</div>
+                <div class="evidence-snippet">"of autosomal recessive inheritance caused by pathogenic variants in the ALDOB"</div>
                 
                 
                 <div class="evidence-explanation">This directly supports ALDOB as the causative gene in HFI.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_9997dba9-812f-4480-98d8-d0b3a050dbc7-2025-09-04T170000.000Z" target="_blank">CGGV:assertion_9997dba9-812f-4480-98d8-d0b3a050dbc7-2025-09-04T170000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"ALDOB | HGNC:417 | hereditary fructose intolerance | MONDO:0009249 | AR | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the ALDOB-hereditary fructose intolerance gene-disease relationship as definitive with autosomal recessive inheritance.</div>
                 
             </div>
             
@@ -3451,6 +3659,100 @@
 </div>
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Fructose-1-phosphate accumulation and ATP depletion</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Avoiding fructose, sucrose, and sorbitol prevents the fructose-triggered Fru1P accumulation and ATP depletion mechanism.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31713637" target="_blank">PMID:31713637</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"prevented by a fructose-restricted diet."</div>
+                
+                
+                <div class="evidence-explanation">The review states that sequelae of Fru1P accumulation and ATP depletion can be prevented by fructose restriction.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36052111" target="_blank">PMID:36052111</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"absolute avoidance of foods containing fructose,"</div>
+                
+                
+                <div class="evidence-explanation">Independent review evidence supports strict dietary avoidance as the management mechanism.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Hypoglycemia
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0001943" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Vomiting
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Hepatomegaly
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
                 
                 
                 
@@ -3474,7 +3776,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Treatment consists of a lifelong diet restricted in fructose, sucrose, and sorbitol (FSS)."</div>
+                <div class="evidence-snippet">"Treatment consists of a lifelong diet"</div>
                 
                 
                 <div class="evidence-explanation">This cohort study directly states the standard lifelong dietary treatment for HFI.</div>
@@ -3494,7 +3796,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"The crux of HFI management lies in the absolute avoidance of foods containing fructose, sucrose, and sorbitol (FSS)."</div>
+                <div class="evidence-snippet">"absolute avoidance of foods containing fructose,"</div>
                 
                 
                 <div class="evidence-explanation">This independent review confirms strict FSS avoidance as the central management strategy.</div>
@@ -3582,7 +3884,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"The liver phenotype in aldolase B-deficient mice was prevented by reduction in intrahepatic Fru 1P concentrations by crossing these mice with mice deficient for ketohexokinase, the enzyme that catalyzes the synthesis of Fru 1P."</div>
+                <div class="evidence-snippet">"intrahepatic Fru 1P concentrations by crossing these mice with mice deficient"</div>
                 
                 
                 <div class="evidence-explanation">This provides model-organism proof of concept that blocking upstream Fru1P synthesis can rescue HFI liver pathology.</div>
@@ -3621,7 +3923,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"These new findings not only provide a potential novel treatment for HFI, but lend insight into the pathogenesis of fructose-induced non-alcoholic fatty liver disease (NAFLD), which has raised to epidemic proportions in Western society."</div>
+                <div class="evidence-snippet">"findings not only provide a potential novel treatment for HFI"</div>
                 
                 
                 <div class="evidence-explanation">This review explicitly identifies ketohexokinase-directed Fru1P reduction as a potential novel treatment strategy for HFI.</div>
@@ -3662,6 +3964,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3682,7 +3985,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"In patients with HFI, ingestion of fructose results in accumulation of Fru 1P and depletion of ATP, which are believed to cause symptoms, such as nausea, vomiting, hypoglycemia, and liver and kidney failure."</div>
+                <div class="evidence-snippet">"ingestion of fructose results in accumulation of Fru 1P and"</div>
                 
                 
                 <div class="evidence-explanation">This directly supports fructose-1-phosphate accumulation as the core biochemical abnormality in HFI.</div>
@@ -3708,6 +4011,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3728,7 +4032,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"In patients with HFI, ingestion of fructose results in accumulation of Fru 1P and depletion of ATP, which are believed to cause symptoms, such as nausea, vomiting, hypoglycemia, and liver and kidney failure."</div>
+                <div class="evidence-snippet">"depletion of ATP, which are believed to cause symptoms, such as nausea,"</div>
                 
                 
                 <div class="evidence-explanation">This directly supports ATP depletion as a key biochemical consequence of fructose exposure in HFI.</div>
@@ -3754,6 +4058,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3774,7 +4079,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Liver manifestations include an asymptomatic increase of transaminases, steatohepatitis and rarely liver failure."</div>
+                <div class="evidence-snippet">"transaminases, steatohepatitis and rarely liver failure."</div>
                 
                 
                 <div class="evidence-explanation">This review directly supports elevated transaminases as a liver biochemical feature of HFI.</div>
@@ -3819,7 +4124,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Hereditary Fructose Intolerance
 creation_date: &#39;2026-04-21T04:43:27Z&#39;
-updated_date: &#39;2026-04-22T21:54:51Z&#39;
+updated_date: &#39;2026-05-09T03:17:29Z&#39;
 category: Genetic
 synonyms:
 - HFI
@@ -3857,7 +4162,7 @@ inheritance:
     reference_title: &#34;Epidemiological aspects of hereditary fructose intolerance: A database study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Hereditary fructose intolerance (HFI) is an inborn error of fructose metabolism of autosomal recessive inheritance caused by pathogenic variants in the ALDOB gene that lead to aldolase B deficiency in the liver, kidneys, and intestine.&#34;
+    snippet: &#34;of autosomal recessive inheritance caused by pathogenic variants in the ALDOB&#34;
     explanation: This directly supports autosomal recessive inheritance and identifies ALDOB as the causal gene.
 prevalence:
 - population: Carrier-frequency based estimate across gnomAD populations
@@ -3870,20 +4175,20 @@ prevalence:
     reference_title: &#34;Epidemiological aspects of hereditary fructose intolerance: A database study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;The data show that HFI has a wide distribution and an estimated prevalence of ~1:10,000.&#34;
+    snippet: &#34;HFI has a wide distribution and an estimated prevalence of ~1:10,000.&#34;
     explanation: This database study provides a concise prevalence estimate for HFI.
 progression:
 - phase: Symptom onset after fructose introduction
   notes: &gt;
     Symptoms usually emerge once fructose-containing foods are introduced,
     with gastrointestinal complaints, feeding difficulty, aversion to sweets,
-    and hypoglycemia becoming apparent in childhood.
+    and acute metabolic symptoms becoming apparent in childhood.
   evidence:
   - reference: PMID:36052111
     reference_title: &#34;Hereditary fructose intolerance: A comprehensive review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Most commonly children are affected with gastrointestinal symptoms, feeding issues, aversion to sweets and hypoglycemia.&#34;
+    snippet: &#34;are affected with gastrointestinal symptoms, feeding issues, aversion to sweets&#34;
     explanation: This review summarizes the typical early symptomatic phase after dietary fructose exposure begins.
 - phase: Persistent hepatic steatosis despite dietary treatment
   notes: &gt;
@@ -3895,7 +4200,7 @@ progression:
     reference_title: &#34;Lipidomics uncovers metabolic manifestations related to liver steatosis and low-grade systemic inflammation in diet-treated hereditary fructose intolerance patients.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Indeed, significant liver steatosis, assessed by MRS proton density fat fraction (MRS-PDFF), was present in 75 % of HFI patients compared to 7 % in the control group.&#34;
+    snippet: &#34;in 75 % of HFI patients compared to 7 % in the control group.&#34;
     explanation: This cohort study shows that clinically important liver disease can persist despite dietary treatment.
 pathophysiology:
 - name: Aldolase B deficiency
@@ -3930,14 +4235,14 @@ pathophysiology:
       reference_title: &#34;Recent advances in the pathogenesis of hereditary fructose intolerance: implications for its treatment and the understanding of fructose-induced non-alcoholic fatty liver disease.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;In patients with HFI, ingestion of fructose results in accumulation of Fru 1P and depletion of ATP, which are believed to cause symptoms, such as nausea, vomiting, hypoglycemia, and liver and kidney failure.&#34;
+      snippet: &#34;ingestion of fructose results in accumulation of Fru 1P and&#34;
       explanation: This directly links aldolase B deficiency to Fru1P accumulation and ATP depletion after fructose exposure.
   evidence:
   - reference: PMID:34524712
     reference_title: &#34;Epidemiological aspects of hereditary fructose intolerance: A database study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Hereditary fructose intolerance (HFI) is an inborn error of fructose metabolism of autosomal recessive inheritance caused by pathogenic variants in the ALDOB gene that lead to aldolase B deficiency in the liver, kidneys, and intestine.&#34;
+    snippet: &#34;gene that lead to aldolase B deficiency in the liver, kidneys, and intestine.&#34;
     explanation: This supports ALDOB deficiency in liver, kidney, and intestine as the primary lesion in HFI.
 - name: Fructose-1-phosphate accumulation and ATP depletion
   description: &gt;
@@ -3963,6 +4268,26 @@ pathophysiology:
       id: GO:0042593
       label: glucose homeostasis
   downstream:
+  - target: Fructose-1-phosphate
+    description: The Fru1P/ATP-depletion mechanism is measured biochemically as increased fructose-1-phosphate.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:31713637
+      reference_title: &#34;Recent advances in the pathogenesis of hereditary fructose intolerance: implications for its treatment and the understanding of fructose-induced non-alcoholic fatty liver disease.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;ingestion of fructose results in accumulation of Fru 1P and&#34;
+      explanation: This directly supports fructose-1-phosphate accumulation after fructose exposure in HFI.
+  - target: ATP
+    description: The Fru1P/ATP-depletion mechanism is measured biochemically as decreased ATP.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:31713637
+      reference_title: &#34;Recent advances in the pathogenesis of hereditary fructose intolerance: implications for its treatment and the understanding of fructose-induced non-alcoholic fatty liver disease.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;depletion of ATP, which are believed to cause symptoms, such as nausea,&#34;
+      explanation: This directly supports ATP depletion as part of the core fructose-exposure mechanism.
   - target: Hypoglycemia
     description: Impaired hepatic glucose production after fructose exposure produces symptomatic hypoglycemia.
     causal_link_type: DIRECT
@@ -3971,7 +4296,7 @@ pathophysiology:
       reference_title: &#34;Recent advances in the pathogenesis of hereditary fructose intolerance: implications for its treatment and the understanding of fructose-induced non-alcoholic fatty liver disease.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;In patients with HFI, ingestion of fructose results in accumulation of Fru 1P and depletion of ATP, which are believed to cause symptoms, such as nausea, vomiting, hypoglycemia, and liver and kidney failure.&#34;
+      snippet: &#34;vomiting, hypoglycemia, and liver and kidney failure.&#34;
       explanation: This supports hypoglycemia as a direct metabolic consequence of Fru1P accumulation and ATP depletion.
   - target: Vomiting
     description: Acute gastrointestinal intolerance, including vomiting, is triggered by the toxic metabolic response to fructose ingestion.
@@ -3981,7 +4306,7 @@ pathophysiology:
       reference_title: &#34;Recent advances in the pathogenesis of hereditary fructose intolerance: implications for its treatment and the understanding of fructose-induced non-alcoholic fatty liver disease.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;In patients with HFI, ingestion of fructose results in accumulation of Fru 1P and depletion of ATP, which are believed to cause symptoms, such as nausea, vomiting, hypoglycemia, and liver and kidney failure.&#34;
+      snippet: &#34;vomiting, hypoglycemia, and liver and kidney failure.&#34;
       explanation: This directly ties vomiting to the toxic metabolic consequences of fructose exposure in HFI.
   - target: Hepatomegaly
     description: Recurrent hepatocellular metabolic stress leads to liver enlargement and steatotic liver disease.
@@ -3991,13 +4316,13 @@ pathophysiology:
       reference_title: &#34;Epidemiological aspects of hereditary fructose intolerance: A database study.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;Patients manifest symptoms, such as ketotic hypoglycemia, vomiting, nausea, in addition to hepatomegaly and other liver and kidney dysfunctions.&#34;
+      snippet: &#34;addition to hepatomegaly and other liver and kidney dysfunctions.&#34;
       explanation: This supports hepatomegaly as part of the downstream hepatic injury phenotype in HFI.
     - reference: PMID:41806524
       reference_title: &#34;Lipidomics uncovers metabolic manifestations related to liver steatosis and low-grade systemic inflammation in diet-treated hereditary fructose intolerance patients.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;Indeed, significant liver steatosis, assessed by MRS proton density fat fraction (MRS-PDFF), was present in 75 % of HFI patients compared to 7 % in the control group.&#34;
+      snippet: &#34;steatosis, assessed by MRS proton density fat fraction (MRS-PDFF), was present&#34;
       explanation: Persistent steatosis in diet-treated patients supports chronic hepatic consequences downstream of the core metabolic defect.
   - target: Renal Tubular Dysfunction
     description: Renal aldolase B deficiency and fructose toxicity can produce proximal tubular dysfunction and chronic kidney injury.
@@ -4007,14 +4332,24 @@ pathophysiology:
       reference_title: &#34;Hereditary fructose intolerance: A comprehensive review.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;Renal involvement usually occurs in the form of proximal renal tubular acidosis and may lead to chronic renal insufficiency.&#34;
+      snippet: &#34;usually occurs in the form of proximal renal tubular acidosis and may lead to&#34;
       explanation: This review supports renal tubular dysfunction as a clinically relevant downstream renal consequence in HFI.
+  - target: Transaminases
+    description: Hepatic metabolic injury from the core fructose toxicity mechanism can present as elevated transaminases.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:36052111
+      reference_title: &#34;Hereditary fructose intolerance: A comprehensive review.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;transaminases, steatohepatitis and rarely liver failure.&#34;
+      explanation: The review directly lists transaminase elevation among liver manifestations of HFI.
   evidence:
   - reference: PMID:31713637
     reference_title: &#34;Recent advances in the pathogenesis of hereditary fructose intolerance: implications for its treatment and the understanding of fructose-induced non-alcoholic fatty liver disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;In patients with HFI, ingestion of fructose results in accumulation of Fru 1P and depletion of ATP, which are believed to cause symptoms, such as nausea, vomiting, hypoglycemia, and liver and kidney failure.&#34;
+    snippet: &#34;ingestion of fructose results in accumulation of Fru 1P and&#34;
     explanation: This review summarizes the central toxic metabolic mechanism linking fructose exposure to acute organ dysfunction.
 phenotypes:
 - name: Hypoglycemia
@@ -4033,7 +4368,7 @@ phenotypes:
     reference_title: &#34;Hereditary fructose intolerance: A comprehensive review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Most commonly children are affected with gastrointestinal symptoms, feeding issues, aversion to sweets and hypoglycemia.&#34;
+    snippet: &#34;and hypoglycemia. Liver manifestations include an asymptomatic increase of&#34;
     explanation: This review identifies hypoglycemia as a common clinical manifestation in children with HFI.
 - name: Vomiting
   category: Gastrointestinal
@@ -4051,7 +4386,7 @@ phenotypes:
     reference_title: &#34;Epidemiological aspects of hereditary fructose intolerance: A database study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Patients manifest symptoms, such as ketotic hypoglycemia, vomiting, nausea, in addition to hepatomegaly and other liver and kidney dysfunctions.&#34;
+    snippet: &#34;Patients manifest symptoms, such as ketotic hypoglycemia, vomiting, nausea, in&#34;
     explanation: This supports vomiting as a characteristic symptomatic response to fructose exposure in HFI.
 - name: Hepatomegaly
   category: Gastrointestinal
@@ -4069,7 +4404,7 @@ phenotypes:
     reference_title: &#34;Epidemiological aspects of hereditary fructose intolerance: A database study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Patients manifest symptoms, such as ketotic hypoglycemia, vomiting, nausea, in addition to hepatomegaly and other liver and kidney dysfunctions.&#34;
+    snippet: &#34;addition to hepatomegaly and other liver and kidney dysfunctions.&#34;
     explanation: This supports hepatomegaly as part of the core hepatic phenotype in HFI.
 - name: Renal Tubular Dysfunction
   category: Renal
@@ -4086,7 +4421,7 @@ phenotypes:
     reference_title: &#34;Hereditary fructose intolerance: A comprehensive review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Renal involvement usually occurs in the form of proximal renal tubular acidosis and may lead to chronic renal insufficiency.&#34;
+    snippet: &#34;usually occurs in the form of proximal renal tubular acidosis and may lead to&#34;
     explanation: Proximal renal tubular acidosis is a specific form of renal tubular dysfunction in HFI.
 biochemical:
 - name: Fructose-1-phosphate
@@ -4099,7 +4434,7 @@ biochemical:
     reference_title: &#34;Recent advances in the pathogenesis of hereditary fructose intolerance: implications for its treatment and the understanding of fructose-induced non-alcoholic fatty liver disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;In patients with HFI, ingestion of fructose results in accumulation of Fru 1P and depletion of ATP, which are believed to cause symptoms, such as nausea, vomiting, hypoglycemia, and liver and kidney failure.&#34;
+    snippet: &#34;ingestion of fructose results in accumulation of Fru 1P and&#34;
     explanation: This directly supports fructose-1-phosphate accumulation as the core biochemical abnormality in HFI.
 - name: ATP
   presence: DECREASED
@@ -4111,7 +4446,7 @@ biochemical:
     reference_title: &#34;Recent advances in the pathogenesis of hereditary fructose intolerance: implications for its treatment and the understanding of fructose-induced non-alcoholic fatty liver disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;In patients with HFI, ingestion of fructose results in accumulation of Fru 1P and depletion of ATP, which are believed to cause symptoms, such as nausea, vomiting, hypoglycemia, and liver and kidney failure.&#34;
+    snippet: &#34;depletion of ATP, which are believed to cause symptoms, such as nausea,&#34;
     explanation: This directly supports ATP depletion as a key biochemical consequence of fructose exposure in HFI.
 - name: Transaminases
   presence: INCREASED
@@ -4123,7 +4458,7 @@ biochemical:
     reference_title: &#34;Hereditary fructose intolerance: A comprehensive review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Liver manifestations include an asymptomatic increase of transaminases, steatohepatitis and rarely liver failure.&#34;
+    snippet: &#34;transaminases, steatohepatitis and rarely liver failure.&#34;
     explanation: This review directly supports elevated transaminases as a liver biochemical feature of HFI.
 genetic:
 - name: ALDOB
@@ -4141,8 +4476,14 @@ genetic:
     reference_title: &#34;Epidemiological aspects of hereditary fructose intolerance: A database study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Hereditary fructose intolerance (HFI) is an inborn error of fructose metabolism of autosomal recessive inheritance caused by pathogenic variants in the ALDOB gene that lead to aldolase B deficiency in the liver, kidneys, and intestine.&#34;
+    snippet: &#34;of autosomal recessive inheritance caused by pathogenic variants in the ALDOB&#34;
     explanation: This directly supports ALDOB as the causative gene in HFI.
+  - reference: CGGV:assertion_9997dba9-812f-4480-98d8-d0b3a050dbc7-2025-09-04T170000.000Z
+    reference_title: &#34;ALDOB / hereditary fructose intolerance (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;ALDOB | HGNC:417 | hereditary fructose intolerance | MONDO:0009249 | AR | Definitive&#34;
+    explanation: ClinGen classifies the ALDOB-hereditary fructose intolerance gene-disease relationship as definitive with autosomal recessive inheritance.
 diagnosis:
 - name: Molecular genetic testing
   description: &gt;-
@@ -4170,9 +4511,7 @@ diagnosis:
     reference_title: &#34;Hereditary fructose intolerance: A comprehensive review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &gt;-
-      For confirmation, a genetic test is favored over the measurement of
-      aldolase B activity in the liver biopsy specimen.
+    snippet: &#34;genetic test is favored over&#34;
     explanation: &gt;-
       Review-level evidence directly supports molecular genetic testing as the
       preferred confirmatory diagnostic approach in HFI.
@@ -4192,14 +4531,44 @@ treatments:
     reference_title: &#34;Dietary Patterns in a Nationwide Cohort of Patients with Hereditary Fructose Intolerance.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Treatment consists of a lifelong diet restricted in fructose, sucrose, and sorbitol (FSS).&#34;
+    snippet: &#34;Treatment consists of a lifelong diet&#34;
     explanation: This cohort study directly states the standard lifelong dietary treatment for HFI.
   - reference: PMID:36052111
     reference_title: &#34;Hereditary fructose intolerance: A comprehensive review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;The crux of HFI management lies in the absolute avoidance of foods containing fructose, sucrose, and sorbitol (FSS).&#34;
+    snippet: &#34;absolute avoidance of foods containing fructose,&#34;
     explanation: This independent review confirms strict FSS avoidance as the central management strategy.
+  target_mechanisms:
+  - target: Fructose-1-phosphate accumulation and ATP depletion
+    treatment_effect: INHIBITS
+    description: Avoiding fructose, sucrose, and sorbitol prevents the fructose-triggered Fru1P accumulation and ATP depletion mechanism.
+    evidence:
+    - reference: PMID:31713637
+      reference_title: &#34;Recent advances in the pathogenesis of hereditary fructose intolerance: implications for its treatment and the understanding of fructose-induced non-alcoholic fatty liver disease.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;prevented by a fructose-restricted diet.&#34;
+      explanation: The review states that sequelae of Fru1P accumulation and ATP depletion can be prevented by fructose restriction.
+    - reference: PMID:36052111
+      reference_title: &#34;Hereditary fructose intolerance: A comprehensive review.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;absolute avoidance of foods containing fructose,&#34;
+      explanation: Independent review evidence supports strict dietary avoidance as the management mechanism.
+  target_phenotypes:
+  - preferred_term: Hypoglycemia
+    term:
+      id: HP:0001943
+      label: Hypoglycemia
+  - preferred_term: Vomiting
+    term:
+      id: HP:0002013
+      label: Vomiting
+  - preferred_term: Hepatomegaly
+    term:
+      id: HP:0002240
+      label: Hepatomegaly
 - name: Ketohexokinase inhibition (investigational)
   description: &gt;
     Ketohexokinase-directed therapy is a preclinical, mechanism-based strategy
@@ -4221,14 +4590,14 @@ treatments:
       reference_title: &#34;Recent advances in the pathogenesis of hereditary fructose intolerance: implications for its treatment and the understanding of fructose-induced non-alcoholic fatty liver disease.&#34;
       supports: SUPPORT
       evidence_source: MODEL_ORGANISM
-      snippet: &#34;The liver phenotype in aldolase B-deficient mice was prevented by reduction in intrahepatic Fru 1P concentrations by crossing these mice with mice deficient for ketohexokinase, the enzyme that catalyzes the synthesis of Fru 1P.&#34;
+      snippet: &#34;intrahepatic Fru 1P concentrations by crossing these mice with mice deficient&#34;
       explanation: This provides model-organism proof of concept that blocking upstream Fru1P synthesis can rescue HFI liver pathology.
   evidence:
   - reference: PMID:31713637
     reference_title: &#34;Recent advances in the pathogenesis of hereditary fructose intolerance: implications for its treatment and the understanding of fructose-induced non-alcoholic fatty liver disease.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
-    snippet: &#34;These new findings not only provide a potential novel treatment for HFI, but lend insight into the pathogenesis of fructose-induced non-alcoholic fatty liver disease (NAFLD), which has raised to epidemic proportions in Western society.&#34;
+    snippet: &#34;findings not only provide a potential novel treatment for HFI&#34;
     explanation: This review explicitly identifies ketohexokinase-directed Fru1P reduction as a potential novel treatment strategy for HFI.
 notes: &gt;-
   HFI remains primarily a dietary management disorder. The strongest current
@@ -4237,11 +4606,1469 @@ notes: &gt;-
   preclinical. Diet-treated patients may still develop hepatic steatosis and
   metabolic complications, so long-term follow-up should not stop once acute
   fructose intolerance is controlled.
+references:
+- reference: DOI:10.1007/s40200-024-01527-y
+  title: &#39;The role of the analysis of sialotransferrin isoforms in the management of hereditary fructose intolerance: a systematic review&#39;
+  found_in:
+  - Hereditary_Fructose_Intolerance-deep-research-falcon.md
+  findings:
+  - statement: &#39;The role of the analysis of sialotransferrin isoforms in the management of hereditary fructose intolerance: a systematic review&#39;
+    supporting_text: &#39;The role of the analysis of sialotransferrin isoforms in the management of hereditary fructose intolerance: a systematic review&#39;
+- reference: DOI:10.1038/s42003-024-06539-1
+  title: Activation of AMPD2 drives metabolic dysregulation and liver disease in mice with hereditary fructose intolerance
+  found_in:
+  - Hereditary_Fructose_Intolerance-deep-research-falcon.md
+  findings:
+  - statement: Hereditary fructose intolerance (HFI) is a painful and potentially lethal genetic disease caused by a mutation in aldolase B resulting in accumulation of fructose-1-phosphate (F1P).
+    supporting_text: Hereditary fructose intolerance (HFI) is a painful and potentially lethal genetic disease caused by a mutation in aldolase B resulting in accumulation of fructose-1-phosphate (F1P).
+    evidence:
+    - reference: DOI:10.1038/s42003-024-06539-1
+      reference_title: Activation of AMPD2 drives metabolic dysregulation and liver disease in mice with hereditary fructose intolerance
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: Hereditary fructose intolerance (HFI) is a painful and potentially lethal genetic disease caused by a mutation in aldolase B resulting in accumulation of fructose-1-phosphate (F1P).
+      explanation: Deep research cited this publication as relevant literature for Hereditary Fructose Intolerance.
+- reference: DOI:10.1172/jci187376
+  title: Safety and efficacy of pharmacological inhibition of ketohexokinase in hereditary fructose intolerance
+  found_in:
+  - Hereditary_Fructose_Intolerance-deep-research-falcon.md
+  findings:
+  - statement: Safety and efficacy of pharmacological inhibition of ketohexokinase in hereditary fructose intolerance
+    supporting_text: Safety and efficacy of pharmacological inhibition of ketohexokinase in hereditary fructose intolerance
+- reference: DOI:10.3390/diseases12030044
+  title: Clinical Practice Guidelines for the Diagnosis and Management of Hereditary Fructose Intolerance
+  found_in:
+  - Hereditary_Fructose_Intolerance-deep-research-falcon.md
+  findings:
+  - statement: Hereditary fructose intolerance or hereditary fructosemia is an autosomal recessive metabolic disorder caused by a loss of function in the aldolase B gene.
+    supporting_text: Hereditary fructose intolerance or hereditary fructosemia is an autosomal recessive metabolic disorder caused by a loss of function in the aldolase B gene.
+    evidence:
+    - reference: DOI:10.3390/diseases12030044
+      reference_title: Clinical Practice Guidelines for the Diagnosis and Management of Hereditary Fructose Intolerance
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Hereditary fructose intolerance or hereditary fructosemia is an autosomal recessive metabolic disorder caused by a loss of function in the aldolase B gene.
+      explanation: Deep research cited this publication as relevant literature for Hereditary Fructose Intolerance.
+- reference: DOI:10.3390/healthcare12050573
+  title: Descriptive Analysis of Carrier and Affected Hereditary Fructose Intolerance in Women during Pregnancy
+  found_in:
+  - Hereditary_Fructose_Intolerance-deep-research-falcon.md
+  findings:
+  - statement: &#34;(1) Background: Hereditary fructose intolerance (HFI) is a rare autosomal recessive metabolic disorder resulting from aldolase B deficiency, requiring a fructose, sorbitol and sucrose (FSS)-free diet.&#34;
+    supporting_text: &#34;(1) Background: Hereditary fructose intolerance (HFI) is a rare autosomal recessive metabolic disorder resulting from aldolase B deficiency, requiring a fructose, sorbitol and sucrose (FSS)-free diet.&#34;
+    evidence:
+    - reference: DOI:10.3390/healthcare12050573
+      reference_title: Descriptive Analysis of Carrier and Affected Hereditary Fructose Intolerance in Women during Pregnancy
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;(1) Background: Hereditary fructose intolerance (HFI) is a rare autosomal recessive metabolic disorder resulting from aldolase B deficiency, requiring a fructose, sorbitol and sucrose (FSS)-free diet.&#34;
+      explanation: Deep research cited this publication as relevant literature for Hereditary Fructose Intolerance.
+- reference: DOI:10.3390/jcm13123394
+  title: A Case Study of a Rare Disease (Fructosemia) Diagnosed in a Patient with Abdominal Pain
+  found_in:
+  - Hereditary_Fructose_Intolerance-deep-research-falcon.md
+  findings:
+  - statement: Hereditary fructose intolerance is a rare genetic disorder that is inherited in an autosomal recessive manner, with mutations sometimes occurring spontaneously.
+    supporting_text: Hereditary fructose intolerance is a rare genetic disorder that is inherited in an autosomal recessive manner, with mutations sometimes occurring spontaneously.
+    evidence:
+    - reference: DOI:10.3390/jcm13123394
+      reference_title: A Case Study of a Rare Disease (Fructosemia) Diagnosed in a Patient with Abdominal Pain
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Hereditary fructose intolerance is a rare genetic disorder that is inherited in an autosomal recessive manner, with mutations sometimes occurring spontaneously.
+      explanation: Deep research cited this publication as relevant literature for Hereditary Fructose Intolerance.
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
+        
+        <div class="card reference-card" id="references-deep-research">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+            
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">6</span>
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s40200-024-01527-y" target="_blank">DOI:10.1007/s40200-024-01527-y</a>
+                            </div>
+                            
+                            <div class="reference-title">The role of the analysis of sialotransferrin isoforms in the management of hereditary fructose intolerance: a systematic review</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The role of the analysis of sialotransferrin isoforms in the management of hereditary fructose intolerance: a systematic review</div>
+            
+            
+            <div class="reference-finding-supporting">"The role of the analysis of sialotransferrin isoforms in the management of hereditary fructose intolerance: a systematic review"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1038/s42003-024-06539-1" target="_blank">DOI:10.1038/s42003-024-06539-1</a>
+                            </div>
+                            
+                            <div class="reference-title">Activation of AMPD2 drives metabolic dysregulation and liver disease in mice with hereditary fructose intolerance</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Hereditary fructose intolerance (HFI) is a painful and potentially lethal genetic disease caused by a mutation in aldolase B resulting in accumulation of fructose-1-phosphate (F1P).</div>
+            
+            
+            <div class="reference-finding-supporting">"Hereditary fructose intolerance (HFI) is a painful and potentially lethal genetic disease caused by a mutation in aldolase B resulting in accumulation of fructose-1-phosphate (F1P)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s42003-024-06539-1" target="_blank">DOI:10.1038/s42003-024-06539-1</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Hereditary fructose intolerance (HFI) is a painful and potentially lethal genetic disease caused by a mutation in aldolase B resulting in accumulation of fructose-1-phosphate (F1P)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Hereditary Fructose Intolerance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1172/jci187376" target="_blank">DOI:10.1172/jci187376</a>
+                            </div>
+                            
+                            <div class="reference-title">Safety and efficacy of pharmacological inhibition of ketohexokinase in hereditary fructose intolerance</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Safety and efficacy of pharmacological inhibition of ketohexokinase in hereditary fructose intolerance</div>
+            
+            
+            <div class="reference-finding-supporting">"Safety and efficacy of pharmacological inhibition of ketohexokinase in hereditary fructose intolerance"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/diseases12030044" target="_blank">DOI:10.3390/diseases12030044</a>
+                            </div>
+                            
+                            <div class="reference-title">Clinical Practice Guidelines for the Diagnosis and Management of Hereditary Fructose Intolerance</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Hereditary fructose intolerance or hereditary fructosemia is an autosomal recessive metabolic disorder caused by a loss of function in the aldolase B gene.</div>
+            
+            
+            <div class="reference-finding-supporting">"Hereditary fructose intolerance or hereditary fructosemia is an autosomal recessive metabolic disorder caused by a loss of function in the aldolase B gene."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/diseases12030044" target="_blank">DOI:10.3390/diseases12030044</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Hereditary fructose intolerance or hereditary fructosemia is an autosomal recessive metabolic disorder caused by a loss of function in the aldolase B gene."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Hereditary Fructose Intolerance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/healthcare12050573" target="_blank">DOI:10.3390/healthcare12050573</a>
+                            </div>
+                            
+                            <div class="reference-title">Descriptive Analysis of Carrier and Affected Hereditary Fructose Intolerance in Women during Pregnancy</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">(1) Background: Hereditary fructose intolerance (HFI) is a rare autosomal recessive metabolic disorder resulting from aldolase B deficiency, requiring a fructose, sorbitol and sucrose (FSS)-free diet.</div>
+            
+            
+            <div class="reference-finding-supporting">"(1) Background: Hereditary fructose intolerance (HFI) is a rare autosomal recessive metabolic disorder resulting from aldolase B deficiency, requiring a fructose, sorbitol and sucrose (FSS)-free diet."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/healthcare12050573" target="_blank">DOI:10.3390/healthcare12050573</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"(1) Background: Hereditary fructose intolerance (HFI) is a rare autosomal recessive metabolic disorder resulting from aldolase B deficiency, requiring a fructose, sorbitol and sucrose (FSS)-free diet."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Hereditary Fructose Intolerance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/jcm13123394" target="_blank">DOI:10.3390/jcm13123394</a>
+                            </div>
+                            
+                            <div class="reference-title">A Case Study of a Rare Disease (Fructosemia) Diagnosed in a Patient with Abdominal Pain</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Hereditary fructose intolerance is a rare genetic disorder that is inherited in an autosomal recessive manner, with mutations sometimes occurring spontaneously.</div>
+            
+            
+            <div class="reference-finding-supporting">"Hereditary fructose intolerance is a rare genetic disorder that is inherited in an autosomal recessive manner, with mutations sometimes occurring spontaneously."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/jcm13123394" target="_blank">DOI:10.3390/jcm13123394</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Hereditary fructose intolerance is a rare genetic disorder that is inherited in an autosomal recessive manner, with mutations sometimes occurring spontaneously."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Hereditary Fructose Intolerance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">Disease Characteristics Research Template</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">30 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-08T19:53:14.549307</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
+<p>Provide detailed information focusing on:
+1. Key concepts and definitions with current understanding
+2. Recent developments and latest research (prioritize 2023-2024 sources)
+3. Current applications and real-world implementations
+4. Expert opinions and analysis from authoritative sources
+5. Relevant statistics and data from recent studies</p>
+<p>Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
+Always prioritize recent, authoritative sources and provide specific citations for all major claims.</p>
+<h1>Disease Characteristics Research Template</h1>
+<h2>Target Disease</h2>
+<ul>
+<li><strong>Disease Name:</strong> Hereditary Fructose Intolerance</li>
+<li><strong>MONDO ID:</strong>  (if available)</li>
+<li><strong>Category:</strong> Genetic</li>
+</ul>
+<h2>Research Objectives</h2>
+<p>Please provide a comprehensive research report on <strong>Hereditary Fructose Intolerance</strong> covering all of the
+disease characteristics listed below. This report will be used to populate a disease knowledge
+base entry. Be thorough and cite primary literature (PMID preferred) for all claims.</p>
+<p>For each section, <strong>suggested databases/resources</strong> are listed. These are the first places
+you should search for information on each topic.</p>
+<hr />
+<h3>1. Disease Information</h3>
+<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, ICD-10/ICD-11, MeSH, PubMed</p>
+</blockquote>
+<ul>
+<li>What is the disease? Provide a concise overview.</li>
+<li>What are the key identifiers? (OMIM, Orphanet, ICD-10/ICD-11, MeSH, Mondo)</li>
+<li>What are the common synonyms and alternative names?</li>
+<li>Is the information derived from individual patients (e.g., EHR) or aggregated disease-level resources?</li>
+</ul>
+<h3>2. Etiology</h3>
+<ul>
+<li><strong>Disease Causal Factors</strong>: What are the primary causes? (genetic, environmental, infectious, mechanistic)</li>
+<li><strong>Risk Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, UpToDate, clinical guidelines, ClinVar, ClinGen, GWAS Catalog, PheGenI, CTD, CDC, WHO, epidemiological databases</p>
+</blockquote>
+</li>
+<li>Genetic risk factors (causal variants, susceptibility loci, modifier genes)</li>
+<li>Environmental risk factors (toxins, lifestyle, occupational exposures, age, sex, family history)</li>
+<li><strong>Protective Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, clinical trial databases, GWAS Catalog, gnomAD, WHO, CDC, nutrition databases</p>
+</blockquote>
+</li>
+<li>Genetic protective factors (protective variants, modifier alleles)</li>
+<li>Environmental protective factors (diet, lifestyle, exposures that reduce risk)</li>
+<li><strong>Gene-Environment Interactions</strong>: How do genetic and environmental factors interact to influence disease?<blockquote>
+<p><strong>Search first:</strong> CTD, PubMed, PheGenI, GxE databases</p>
+</blockquote>
+</li>
+</ul>
+<h3>3. Phenotypes</h3>
+<blockquote>
+<p><strong>Search first:</strong> HPO (Human Phenotype Ontology), OMIM, Orphanet, PubMed, clinicaltrials.gov, MedDRA, SNOMED CT, DECIPHER, LOINC</p>
+</blockquote>
+<p>For each phenotype, provide:
+- <strong>Phenotype type</strong>: symptoms, clinical signs, physical manifestations, behavioral changes, or laboratory abnormalities</p>
+<blockquote>
+<p>For symptoms/signs: HPO, OMIM, Orphanet, PubMed
+For behavioral changes: HPO, DSM, RDoC (Research Domain Criteria), PubMed
+For laboratory abnormalities: LOINC, SNOMED CT, LabTests Online, PubMed
+- <strong>Phenotype characteristics</strong>:
+<strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed
+  - Age of symptom onset (neonatal, childhood, adult-onset, late-onset)
+  - Symptom severity (mild, moderate, severe, variable)
+  - Symptom progression (stable, progressive, episodic, fluctuating)
+  - Frequency among affected individuals (percentage or qualitative)
+- <strong>Quality of life impact</strong>: Effects on daily functioning and well-being (per-phenotype when possible)
+<strong>Search first:</strong> EQ-5D database, SF-36, WHO QOL databases, PubMed
+- Suggest HPO (Human Phenotype Ontology) terms for each phenotype</p>
+</blockquote>
+<h3>4. Genetic/Molecular Information</h3>
+<ul>
+<li><strong>Causal Genes</strong>: Gene mutations or chromosomal abnormalities responsible for disease (gene symbols, OMIM IDs)<blockquote>
+<p><strong>Search first:</strong> OMIM, ClinVar, HGMD, Ensembl, NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Pathogenic Variants</strong>:</li>
+<li>Affected genes (gene symbols, HGNC IDs)
+    &gt; <strong>Search first:</strong> OMIM, NCBI Gene, Ensembl, HGNC, UniProt, GeneCards</li>
+<li>Variant classification (pathogenic, likely pathogenic, VUS per ACMG/AMP guidelines)
+    &gt; <strong>Search first:</strong> ClinVar, ClinGen, ACMG/AMP guidelines, VarSome</li>
+<li>Variant type/class (missense, frameshift, nonsense, splice-site, structural)</li>
+<li>Allele frequency in population databases
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, ExAC, TOPMed, dbSNP</li>
+<li>Somatic vs germline origin
+    &gt; <strong>Search first:</strong> COSMIC (somatic), ClinVar, ICGC, TCGA</li>
+<li>Functional consequences (loss of function, gain of function, dominant negative)</li>
+<li><strong>Modifier Genes</strong>: Genes that modify disease severity or expression</li>
+<li><strong>Epigenetic Information</strong>: DNA methylation, histone modifications, chromatin changes affecting disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Chromosomal Abnormalities</strong>: Large-scale genetic changes (aneuploidy, translocations, inversions)<blockquote>
+<p><strong>Search first:</strong> DECIPHER, ClinVar, ECARUCA, UCSC Genome Browser</p>
+</blockquote>
+</li>
+</ul>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Environmental Factors</strong>: Non-genetic contributing factors (toxins, radiation, pollution, occupational exposure)<blockquote>
+<p><strong>Search first:</strong> CTD (Comparative Toxicogenomics Database), TOXNET, PubMed, EPA databases</p>
+</blockquote>
+</li>
+<li><strong>Lifestyle Factors</strong>: Behavioral factors (smoking, diet, exercise, alcohol consumption)<blockquote>
+<p><strong>Search first:</strong> CDC databases, WHO, PubMed, NHANES</p>
+</blockquote>
+</li>
+<li><strong>Infectious Agents</strong>: If applicable, pathogens causing or triggering disease (bacteria, viruses, fungi, parasites)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON</p>
+</blockquote>
+</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<ul>
+<li><strong>Molecular Pathways</strong>: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)<blockquote>
+<p><strong>Search first:</strong> KEGG, Reactome, WikiPathways, PathBank, BioCyc</p>
+</blockquote>
+</li>
+<li><strong>Cellular Processes</strong>: Cell-level mechanisms (apoptosis, autophagy, cell cycle dysregulation, inflammation, etc.)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (GO), Reactome, KEGG, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Protein Dysfunction</strong>: How protein structure or function is altered (misfolding, aggregation, loss of function, gain of function)<blockquote>
+<p><strong>Search first:</strong> UniProt, PDB (Protein Data Bank), InterPro, Pfam, AlphaFold</p>
+</blockquote>
+</li>
+<li><strong>Metabolic Changes</strong>: Alterations in metabolic processes (energy metabolism, lipid metabolism, amino acid metabolism)<blockquote>
+<p><strong>Search first:</strong> KEGG, BioCyc, HMDB (Human Metabolome Database), BRENDA</p>
+</blockquote>
+</li>
+<li><strong>Immune System Involvement</strong>: Role of immune response (autoimmunity, immunodeficiency, chronic inflammation)<blockquote>
+<p><strong>Search first:</strong> ImmPort, Immunome Database, IEDB, Gene Ontology</p>
+</blockquote>
+</li>
+<li><strong>Tissue Damage Mechanisms</strong>: How tissues/ are injured (oxidative stress, ischemia, fibrosis, necrosis)<blockquote>
+<p><strong>Search first:</strong> PubMed, Gene Ontology, Reactome</p>
+</blockquote>
+</li>
+<li><strong>Biochemical Abnormalities</strong>: Specific molecular defects (enzyme deficiencies, receptor dysfunction, ion channel defects)<blockquote>
+<p><strong>Search first:</strong> BRENDA, UniProt, KEGG, OMIM, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Epigenetic Changes</strong>: DNA methylation, histone modifications affecting gene expression in disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Molecular Profiling</strong> (if available):</li>
+<li>Transcriptomics/gene expression changes
+    &gt; <strong>Search first:</strong> GEO (Gene Expression Omnibus), ArrayExpress, GTEx, Human Cell Atlas, SRA</li>
+<li>Proteomics findings
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, Human Protein Atlas, STRING, BioGRID</li>
+<li>Metabolomics signatures
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB, METLIN</li>
+<li>Lipidomics alterations
+    &gt; <strong>Search first:</strong> LIPID MAPS, SwissLipids, LipidHome, Metabolomics Workbench</li>
+<li>Genomic structural features
+    &gt; <strong>Search first:</strong> UCSC Genome Browser, Ensembl, NCBI, dbVar, DGV</li>
+<li><strong>Advanced Technologies</strong> (if applicable):</li>
+<li>Single-cell analysis findings (cell-type specific mechanisms, cellular heterogeneity)
+    &gt; <strong>Search first:</strong> Human Cell Atlas, Single Cell Portal, GEO, CELLxGENE</li>
+<li>Spatial transcriptomics findings
+    &gt; <strong>Search first:</strong> GEO, Spatial Research, Vizgen, 10x Genomics data</li>
+<li>Multi-omics integration results
+    &gt; <strong>Search first:</strong> TCGA, ICGC, cBioPortal, LinkedOmics, PubMed</li>
+<li>Functional genomics screens (CRISPR, RNAi)
+    &gt; <strong>Search first:</strong> DepMap, GenomeRNAi, PubMed, BioGRID ORCS</li>
+</ul>
+<p>For each mechanism, describe:
+- The causal chain from initial trigger to clinical manifestation
+- Which mechanisms are upstream vs downstream
+- What cell types and biological processes are involved
+- Suggest GO terms for biological processes and CL terms for cell types</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ Level</strong>:</li>
+<li>Primary organs directly affected</li>
+<li>Secondary organ involvement (complications, secondary effects)</li>
+<li>Body systems involved (cardiovascular, nervous, digestive, respiratory, endocrine, etc.)<blockquote>
+<p><strong>Search first:</strong> Uberon, FMA (Foundational Model of Anatomy), OMIM, HPO, ICD-11, MeSH, SNOMED CT</p>
+</blockquote>
+</li>
+<li><strong>Tissue and Cell Level</strong>:</li>
+<li>Specific tissue types affected (epithelial, connective, muscle, nervous)</li>
+<li>Specific cell populations targeted (with Cell Ontology terms)<blockquote>
+<p><strong>Search first:</strong> Uberon, Human Protein Atlas, Cell Ontology, Human Cell Atlas, CellMarker, PanglaoDB</p>
+</blockquote>
+</li>
+<li><strong>Subcellular Level</strong>:</li>
+<li>Cellular compartments involved (mitochondria, nucleus, ER, lysosomes) (with GO Cellular Component terms)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (Cellular Component), UniProt, Human Protein Atlas</p>
+</blockquote>
+</li>
+<li><strong>Localization</strong>:</li>
+<li>Specific anatomical sites (with UBERON terms)
+    &gt; <strong>Search first:</strong> FMA, Uberon, NeuroNames (for brain), SNOMED CT</li>
+<li>Lateralization (unilateral, bilateral, asymmetric)
+    &gt; <strong>Search first:</strong> HPO, clinical literature, imaging databases</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset</strong>:</li>
+<li>Typical age of onset (congenital, pediatric, adult, geriatric)</li>
+<li>Onset pattern (acute, subacute, chronic, insidious)<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Progression</strong>:</li>
+<li>Disease stages (early, intermediate, advanced, end-stage)
+    &gt; <strong>Search first:</strong> Cancer Staging Manual (AJCC), WHO classifications, PubMed</li>
+<li>Progression rate (rapid, slow, variable)</li>
+<li>Disease course pattern (episodic, relapsing-remitting, progressive, stable)</li>
+<li>Disease duration (self-limited, chronic lifelong)<blockquote>
+<p><strong>Search first:</strong> Disease registries, longitudinal cohort databases, natural history studies, PubMed, Orphanet, OMIM</p>
+</blockquote>
+</li>
+<li><strong>Patterns</strong>:</li>
+<li>Remission patterns (spontaneous, treatment-induced)
+    &gt; <strong>Search first:</strong> Clinical trial databases, disease registries, PubMed</li>
+<li>Critical periods (time windows of vulnerability or opportunity for intervention)
+    &gt; <strong>Search first:</strong> PubMed, developmental biology databases, clinical guidelines</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology</strong>:</li>
+<li>Prevalence (cases per 100,000 at given time)</li>
+<li>Incidence (new cases per 100,000 per year)<blockquote>
+<p><strong>Search first:</strong> Orphanet, CDC, WHO, GBD (Global Burden of Disease), national registries, SEER, disease registries</p>
+</blockquote>
+</li>
+<li><strong>For Genetic Etiology</strong>:</li>
+<li>Inheritance pattern (AD, AR, X-linked, mitochondrial, multifactorial, polygenic)
+    &gt; <strong>Search first:</strong> OMIM, Orphanet, ClinVar, GTR (Genetic Testing Registry)</li>
+<li>Penetrance (complete, incomplete, age-dependent)
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, PubMed, ClinGen</li>
+<li>Expressivity (variable, consistent)
+    &gt; <strong>Search first:</strong> OMIM, ClinVar, PubMed</li>
+<li>Genetic anticipation (increasing severity in successive generations)
+    &gt; <strong>Search first:</strong> OMIM, PubMed (especially for repeat expansion disorders)</li>
+<li>Germline mosaicism
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, genetic counseling literature, PubMed</li>
+<li>Founder effects (population-specific mutations)
+    &gt; <strong>Search first:</strong> gnomAD, population genetics databases, PubMed</li>
+<li>Consanguinity role
+    &gt; <strong>Search first:</strong> OMIM, population studies, genetic counseling resources</li>
+<li>Carrier frequency
+    &gt; <strong>Search first:</strong> gnomAD, carrier screening databases, GeneReviews, GTR</li>
+<li><strong>Population Demographics</strong>:</li>
+<li>Affected populations (ethnic or demographic groups with higher prevalence)
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, PAGE Study, PubMed, population registries</li>
+<li>Geographic distribution (endemic areas, regional variation)
+    &gt; <strong>Search first:</strong> WHO, CDC, GBD, Orphanet, geographic epidemiology databases</li>
+<li>Geographic distribution of specific variants</li>
+<li>Sex ratio (male:female)
+    &gt; <strong>Search first:</strong> Disease registries, OMIM, PubMed, epidemiological databases</li>
+<li>Age distribution of affected individuals
+    &gt; <strong>Search first:</strong> CDC, disease registries, SEER, Orphanet</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Clinical Tests</strong>:</li>
+<li>Laboratory tests (blood, urine, tissue chemistry, specific enzyme assays)
+    &gt; <strong>Search first:</strong> LOINC, LabTests Online, PubMed</li>
+<li>Biomarkers (proteins, metabolites, genetic markers, circulating biomarkers)
+    &gt; <strong>Search first:</strong> FDA Biomarker List, BEST (Biomarkers, EndpointS, and other Tools), PubMed</li>
+<li>Imaging studies (X-ray, CT, MRI, PET, ultrasound)
+    &gt; <strong>Search first:</strong> RadLex, DICOM, Radiopaedia, imaging databases</li>
+<li>Functional tests (pulmonary function, cardiac stress tests)
+    &gt; <strong>Search first:</strong> LOINC, clinical guidelines, PubMed</li>
+<li>Electrophysiology (EEG, EMG, ECG, nerve conduction studies)
+    &gt; <strong>Search first:</strong> LOINC, clinical neurophysiology databases, PubMed</li>
+<li>Biopsy findings (histopathology, immunohistochemistry)
+    &gt; <strong>Search first:</strong> SNOMED CT, College of American Pathologists resources, PubMed</li>
+<li>Pathology findings (microscopic examination)
+    &gt; <strong>Search first:</strong> SNOMED CT, Digital Pathology databases, PubMed</li>
+<li><strong>Genetic Testing</strong>:<blockquote>
+<p><strong>Search first:</strong> GTR (Genetic Testing Registry), GeneReviews, ClinGen</p>
+</blockquote>
+</li>
+<li>Overview of recommended genetic testing approach</li>
+<li>Whole genome sequencing (WGS) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, GEL (Genomics England), gnomAD</li>
+<li>Whole exome sequencing (WES) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneMatcher</li>
+<li>Gene panels (which panels, which genes)
+    &gt; <strong>Search first:</strong> GTR, ClinVar, laboratory-specific databases</li>
+<li>Single gene testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneReviews</li>
+<li>Chromosomal microarray (CMA)
+    &gt; <strong>Search first:</strong> DECIPHER, ClinVar, dbVar, ECARUCA</li>
+<li>Karyotyping
+    &gt; <strong>Search first:</strong> Chromosome Abnormality Database, ClinVar, cytogenetics resources</li>
+<li>FISH
+    &gt; <strong>Search first:</strong> ClinVar, cytogenetics databases, PubMed</li>
+<li>Mitochondrial DNA testing
+    &gt; <strong>Search first:</strong> MITOMAP, MSeqDR, ClinVar, GTR</li>
+<li>Repeat expansion testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, repeat expansion databases, PubMed</li>
+<li><strong>Omics-Based Diagnostics</strong> (if applicable):</li>
+<li>RNA sequencing / transcriptomics
+    &gt; <strong>Search first:</strong> GEO, ArrayExpress, GTEx, RNA-seq databases</li>
+<li>Proteomics
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, FDA Biomarker database</li>
+<li>Metabolomics
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB</li>
+<li>Epigenomics
+    &gt; <strong>Search first:</strong> GEO, ENCODE, Roadmap Epigenomics, MethBase</li>
+<li>Liquid biopsy
+    &gt; <strong>Search first:</strong> COSMIC, ClinVar, liquid biopsy databases, PubMed</li>
+<li><strong>Clinical Criteria</strong>:</li>
+<li>Standardized diagnostic criteria (DSM, ICD, society guidelines)
+    &gt; <strong>Search first:</strong> DSM-5, ICD-11, clinical society guidelines, UpToDate</li>
+<li>Differential diagnosis (other conditions to rule out, with distinguishing features)
+    &gt; <strong>Search first:</strong> DynaMed, UpToDate, clinical decision support systems</li>
+<li><strong>Screening</strong>:</li>
+<li>Screening methods for asymptomatic individuals (newborn screening, carrier screening, cascade screening)
+    &gt; <strong>Search first:</strong> ACMG recommendations, CDC newborn screening, GTR</li>
+</ul>
+<h3>11. Outcome/Prognosis</h3>
+<ul>
+<li><strong>Survival and Mortality</strong>:</li>
+<li>Survival rate (5-year, 10-year, overall)
+    &gt; <strong>Search first:</strong> SEER, cancer registries, disease-specific registries, PubMed</li>
+<li>Life expectancy (with and without treatment if applicable)
+    &gt; <strong>Search first:</strong> Orphanet, disease registries, actuarial databases, PubMed</li>
+<li>Mortality rate
+    &gt; <strong>Search first:</strong> CDC, WHO, GBD, national mortality databases</li>
+<li>Disease-specific mortality (deaths directly attributable to disease)
+    &gt; <strong>Search first:</strong> Disease registries, CDC Wonder, GBD, PubMed</li>
+<li><strong>Morbidity and Function</strong>:</li>
+<li>Morbidity (disease-related disability and health impacts)
+    &gt; <strong>Search first:</strong> GBD, WHO, disability databases, PubMed</li>
+<li>Disability outcomes (long-term functional impairments)
+    &gt; <strong>Search first:</strong> ICF (International Classification of Functioning), disability registries</li>
+<li>Quality of life measures (EQ-5D, SF-36, PROMIS, disease-specific tools)
+    &gt; <strong>Search first:</strong> EQ-5D database, SF-36, PROMIS, PubMed</li>
+<li><strong>Disease Course</strong>:</li>
+<li>Complications (secondary problems: infections, organ failure, etc.)
+    &gt; <strong>Search first:</strong> ICD codes, disease registries, clinical databases, PubMed</li>
+<li>Recovery potential (likelihood and extent of recovery, with vs without treatment)
+    &gt; <strong>Search first:</strong> Natural history studies, rehabilitation databases, PubMed</li>
+<li><strong>Prediction</strong>:</li>
+<li>Prognostic factors (age, disease severity, biomarkers, treatment response)
+    &gt; <strong>Search first:</strong> Prognostic models databases, clinical calculators, PubMed</li>
+<li>Prognostic biomarkers (molecular markers predicting disease course)
+    &gt; <strong>Search first:</strong> FDA Biomarker database, PubMed, cancer prognostic databases</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Pharmacotherapy</strong>:</li>
+<li>Pharmacological treatments (drug names, drug classes, mechanisms of action)
+    &gt; <strong>Search first:</strong> DrugBank, RxNorm, ATC classification, DailyMed, FDA databases</li>
+<li>Pharmacogenomics (how genetic variants affect drug metabolism, efficacy, toxicity)
+    &gt; <strong>Search first:</strong> PharmGKB, CPIC (Clinical Pharmacogenetics), FDA Table of PGx Biomarkers</li>
+<li><strong>Advanced Therapeutics</strong>:</li>
+<li>Gene therapy (viral vectors, CRISPR, gene replacement, gene editing)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA gene therapy database, ASGCT resources</li>
+<li>Cell therapy (stem cell transplant, CAR-T, cellular therapeutics)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA cell therapy database, FACT standards</li>
+<li>RNA-based therapies (ASOs, siRNA, mRNA therapies)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA approvals, PubMed</li>
+<li>Targeted therapies (treatments directed at specific molecular targets)
+    &gt; <strong>Search first:</strong> My Cancer Genome, OncoKB, ClinicalTrials.gov, FDA approvals</li>
+<li>Immunotherapies (checkpoint inhibitors, monoclonal antibodies)
+    &gt; <strong>Search first:</strong> Cancer Immunotherapy Database, FDA approvals, ClinicalTrials.gov</li>
+<li><strong>Surgical and Interventional</strong>:</li>
+<li>Surgical interventions (types of surgery, timing, outcomes)
+    &gt; <strong>Search first:</strong> CPT codes, surgical registries, clinical guidelines, PubMed</li>
+<li><strong>Supportive and Rehabilitative</strong>:</li>
+<li>Supportive care (symptom management, pain control, nutrition)
+    &gt; <strong>Search first:</strong> Clinical guidelines, Cochrane Library, PubMed</li>
+<li>Rehabilitation (physical therapy, occupational therapy, speech therapy)
+    &gt; <strong>Search first:</strong> Rehabilitation medicine databases, clinical guidelines, PubMed</li>
+<li><strong>Experimental</strong>:</li>
+<li>Experimental treatments in clinical trials (with NCT identifiers if available)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, EU Clinical Trials Register, WHO ICTRP</li>
+<li><strong>Treatment Outcomes</strong>:</li>
+<li>Treatment response rates
+    &gt; <strong>Search first:</strong> Clinical trial databases, FDA reviews, systematic reviews, PubMed</li>
+<li>Side effects and adverse events
+    &gt; <strong>Search first:</strong> FDA Adverse Event Reporting System (FAERS), MedWatch, PubMed</li>
+<li><strong>Treatment Strategy</strong>:</li>
+<li>Treatment algorithms (clinical pathways, decision trees)
+    &gt; <strong>Search first:</strong> Clinical practice guidelines, NCCN Guidelines, UpToDate</li>
+<li>Combination therapies
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, treatment guidelines, PubMed</li>
+<li>Personalized medicine approaches (genotype-guided treatment)
+    &gt; <strong>Search first:</strong> My Cancer Genome, CIViC, PharmGKB, precision medicine databases</li>
+</ul>
+<p>For each treatment, suggest MAXO (Medical Action Ontology) terms where applicable.</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Prevention Levels</strong>:</li>
+<li>Primary prevention (preventing disease occurrence: vaccination, risk factor modification)
+    &gt; <strong>Search first:</strong> CDC, WHO, USPSTF recommendations, Cochrane Library</li>
+<li>Secondary prevention (early detection and treatment: screening programs, early intervention)
+    &gt; <strong>Search first:</strong> USPSTF, CDC screening guidelines, WHO</li>
+<li>Tertiary prevention (preventing complications in those with disease)
+    &gt; <strong>Search first:</strong> Clinical guidelines, disease management protocols, PubMed</li>
+<li><strong>Immunization</strong>: Vaccine strategies (if applicable)<blockquote>
+<p><strong>Search first:</strong> CDC vaccine schedules, WHO immunization, FDA vaccine database</p>
+</blockquote>
+</li>
+<li><strong>Screening and Early Detection</strong>:</li>
+<li>Screening programs (population-based: newborn screening, cancer screening)
+    &gt; <strong>Search first:</strong> CDC screening programs, USPSTF, cancer screening databases</li>
+<li>Genetic screening (carrier screening, preimplantation genetic diagnosis, prenatal testing)
+    &gt; <strong>Search first:</strong> ACMG recommendations, ACOG guidelines, GTR</li>
+<li>Risk stratification (identifying high-risk individuals for targeted prevention)
+    &gt; <strong>Search first:</strong> Risk prediction models, clinical calculators, PubMed</li>
+<li><strong>Behavioral Interventions</strong>: Lifestyle modifications to reduce risk<blockquote>
+<p><strong>Search first:</strong> CDC, WHO, behavioral intervention databases, Cochrane Library</p>
+</blockquote>
+</li>
+<li><strong>Counseling</strong>: Genetic counseling (risk assessment, family planning guidance)<blockquote>
+<p><strong>Search first:</strong> NSGC resources, ACMG guidelines, GeneReviews</p>
+</blockquote>
+</li>
+<li><strong>Public Health</strong>:</li>
+<li>Public health interventions (sanitation, vector control, health education)
+    &gt; <strong>Search first:</strong> CDC, WHO, public health databases, PubMed</li>
+<li>Environmental interventions (reducing environmental risk factors)
+    &gt; <strong>Search first:</strong> EPA databases, WHO environmental health, PubMed</li>
+<li><strong>Prophylaxis</strong>: Preventive medications or procedures<blockquote>
+<p><strong>Search first:</strong> Clinical guidelines, FDA approvals, PubMed</p>
+</blockquote>
+</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy</strong>: Species affected (with NCBI Taxon identifiers)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy</p>
+</blockquote>
+</li>
+<li><strong>Breed</strong>: Specific breeds affected (with VBO identifiers if applicable)<blockquote>
+<p><strong>Search first:</strong> VBO (Vertebrate Breed Ontology)</p>
+</blockquote>
+</li>
+<li><strong>Gene</strong>: Orthologous genes in other species (with NCBI Gene IDs)<blockquote>
+<p><strong>Search first:</strong> NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Natural Disease</strong>:</li>
+<li>Naturally occurring disease in other species (companion animals, wildlife)
+    &gt; <strong>Search first:</strong> OMIA (Online Mendelian Inheritance in Animals), VetCompass, PubMed</li>
+<li>Veterinary relevance and importance in animal health
+    &gt; <strong>Search first:</strong> OMIA, veterinary databases, PubMed</li>
+<li><strong>Comparative Biology</strong>:</li>
+<li>Comparative pathology (similarities and differences across species)
+    &gt; <strong>Search first:</strong> OMIA, comparative pathology databases, PubMed</li>
+<li>Evolutionary conservation of disease mechanisms
+    &gt; <strong>Search first:</strong> HomoloGene, OrthoMCL, Alliance of Genome Resources</li>
+<li><strong>Transmission</strong> (if applicable):</li>
+<li>Zoonotic potential
+    &gt; <strong>Search first:</strong> CDC zoonotic diseases, WHO zoonoses, GIDEON</li>
+<li>Cross-species susceptibility
+    &gt; <strong>Search first:</strong> NCBI Taxonomy, veterinary databases, PubMed</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Model Types</strong>:</li>
+<li>Model organism type (mammalian, invertebrate, cellular, in vitro)
+    &gt; <strong>Search first:</strong> Alliance of Genome Resources, model organism databases</li>
+<li>Specific model systems (mouse, rat, zebrafish, Drosophila, C. elegans, yeast, cell lines, organoids, iPSCs)
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, SGD, ATCC, Cellosaurus</li>
+<li>Induced models (drug treatment, surgical intervention, environmental manipulation)
+    &gt; <strong>Search first:</strong> MGI, model organism databases, PubMed</li>
+<li><strong>Genetic Models</strong>:</li>
+<li>Types available (knockout, knock-in, transgenic, conditional, humanized)
+    &gt; <strong>Search first:</strong> MGI, IMPC, KOMP, EuMMCR, IMSR</li>
+<li><strong>Model Characteristics</strong>:</li>
+<li>Phenotype recapitulation (how well model reproduces human disease features)
+    &gt; <strong>Search first:</strong> Model organism databases, comparative studies, PubMed</li>
+<li>Model limitations (aspects of human disease not captured)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed, review articles</li>
+<li><strong>Applications</strong>:</li>
+<li>Research applications (what aspects of disease can be studied)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed</li>
+<li><strong>Resources</strong>:</li>
+<li>Model databases
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, IMSR, EMMA, MMRRC</li>
+</ul>
+<hr />
+<h2>Citation Requirements</h2>
+<ul>
+<li>Cite primary literature (PMID preferred) for all mechanistic and clinical claims</li>
+<li>Prioritize recent reviews and landmark papers</li>
+<li>Include direct quotes from abstracts where possible to support key statements</li>
+<li>Distinguish evidence source types: human clinical, model organism, in vitro, computational</li>
+</ul>
+<h2>Output Format</h2>
+<p>Structure your response as a comprehensive narrative organized by the sections above.
+For each section, provide:
+- Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
+- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, MAXO, MONDO) where applicable
+- Evidence citations with PMIDs
+- Direct quotes from abstracts to support key claims
+- Clear indication when information is not available or not applicable for this disease</p>
+<p>This report will be used to populate a disease knowledge base entry with:
+- Pathophysiology descriptions with causal chains
+- Gene/protein annotations (HGNC, GO terms)
+- Phenotype associations (HP terms) with frequencies
+- Cell type involvement (CL terms)
+- Anatomical locations (UBERON terms)
+- Chemical entities (CHEBI terms)
+- Treatment annotations (MAXO terms)
+- Evidence items with PMIDs and exact abstract quotes
+- Epidemiology, prognosis, diagnostic, and prevention information
+- Animal model descriptions with phenotype recapitulation details</p>
+<h2>Hereditary Fructose Intolerance (HFI): comprehensive disease characteristics report (2023–2024 prioritized)</h2>
+<h3>Executive summary</h3>
+<p>Hereditary fructose intolerance (HFI) is a rare <strong>autosomal recessive</strong> inborn error of fructose metabolism caused by <strong>biallelic loss-of-function variants in ALDOB (aldolase B)</strong>, leading to <strong>fructose-1-phosphate (F1P) accumulation</strong> (“phosphate trap”), ATP depletion, and inhibition of glycogenolysis and gluconeogenesis. Clinically, it presents after introduction of fructose/sucrose/sorbitol with <strong>vomiting, abdominal pain/distension, and postprandial hypoglycemia</strong>, and can progress to chronic <strong>hepatic steatosis and renal proximal tubular dysfunction (Fanconi syndrome)</strong> even with treatment. Current standard of care is a <strong>lifelong fructose/sucrose/sorbitol (FSS)-free diet</strong> and avoidance of offending excipients in medicines. Recent mechanistic work (2023–2024) implicates <strong>endogenous fructose generation via the polyol pathway</strong> and a newly highlighted <strong>AMPD2-driven purine degradation axis</strong> as contributors to ongoing liver disease in aldolase B deficiency, while early-phase translational work suggests <strong>ketohexokinase (KHK) inhibition (PF‑06835919)</strong> may increase fructose tolerance and reduce acute toxicity risk. (andreshernando2024activationofampd2 pages 1-2, ubeda2024clinicalpracticeguidelines pages 1-2, ubeda2024clinicalpracticeguidelines pages 2-4, garbowski2024acasestudy pages 9-10, ubeda2024clinicalpracticeguidelines pages 4-5, NCT06089265 chunk 1)</p>
+<hr />
+<h2>1. Disease information</h2>
+<h3>1.1 Definition and overview</h3>
+<p>HFI (also called <strong>hereditary fructosemia</strong> and sometimes “<strong>fructosemia</strong>”) is an <strong>autosomal recessive metabolic disorder</strong> due to <strong>aldolase B (ALDOB) deficiency</strong>, with clinical manifestations triggered by exposure to fructose, sucrose, and sorbitol. (ubeda2024clinicalpracticeguidelines pages 1-2, biancalana2024hereditaryfructoseintolerancea pages 36-38, garbowski2024acasestudy pages 5-6)</p>
+<h3>1.2 Key identifiers (with availability in retrieved sources)</h3>
+<ul>
+<li><strong>OMIM:</strong> <strong>229600</strong> (explicitly stated in multiple 2024 sources). (biancalana2024hereditaryfructoseintolerancea pages 36-38, zuriaga2024descriptiveanalysisof pages 1-2)</li>
+<li><strong>MONDO / Orphanet / ICD-10/ICD-11 / MeSH:</strong> not explicitly stated in the retrieved full-text snippets; therefore not asserted here.</li>
+</ul>
+<h3>1.3 Synonyms and alternative names</h3>
+<ul>
+<li>Hereditary fructose intolerance (HFI)</li>
+<li>Hereditary fructosemia</li>
+<li>Fructosemia (used in clinical case-report context) (ubeda2024clinicalpracticeguidelines pages 1-2, biancalana2024hereditaryfructoseintolerancea pages 36-38, garbowski2024acasestudy pages 5-6)</li>
+</ul>
+<h3>1.4 Evidence sources and aggregation level</h3>
+<p>The information summarized below is derived from: (i) disease-level resources (clinical practice guideline and systematic reviews), (ii) aggregated cohort/case series summaries, and (iii) individual case reports and mechanistic mouse-model studies. (ubeda2024clinicalpracticeguidelines pages 1-2, maines2024theroleof pages 1-2, garbowski2024acasestudy pages 5-6, andreshernando2024activationofampd2 pages 1-2)</p>
+<p><strong>Structured identifiers &amp; epidemiology summary table:</strong>
+| Item | Summary | Publication year/source |
+|---|---|---|
+| Disease name / synonyms | Hereditary fructose intolerance (HFI); also called hereditary fructosemia or fructosemia (ubeda2024clinicalpracticeguidelines pages 1-2, biancalana2024hereditaryfructoseintolerancea pages 36-38, garbowski2024acasestudy pages 5-6) | 2024 — <em>Diseases</em> guideline; 2024 adult-management report; 2024 <em>Journal of Clinical Medicine</em> case study |
+| OMIM | OMIM: 229600 (biancalana2024hereditaryfructoseintolerancea pages 36-38, zuriaga2024descriptiveanalysisof pages 1-2) | 2024 adult-management report; 2024 <em>Healthcare</em> pregnancy study |
+| Gene | <strong>ALDOB</strong> (aldolase B; NM_000035.3 reported in adult-management report); located on chromosome 9q22.3/9q22.3 region in reviewed sources (ubeda2024clinicalpracticeguidelines pages 1-2, biancalana2024hereditaryfructoseintolerancea pages 36-38, garbowski2024acasestudy pages 5-6) | 2024 — <em>Diseases</em> guideline; 2024 adult-management report; 2024 <em>Journal of Clinical Medicine</em> case study |
+| Inheritance | Autosomal recessive inborn error of metabolism / metabolic disorder (ubeda2024clinicalpracticeguidelines pages 1-2, biancalana2024hereditaryfructoseintolerancea pages 36-38, zuriaga2024descriptiveanalysisof pages 1-2) | 2024 — <em>Diseases</em> guideline; 2024 adult-management report; 2024 <em>Healthcare</em> pregnancy study |
+| Prevalence | Reported estimates vary: ~1 in 10,000 worldwide; ~1 in 20,000 people; around 1 in 26,000 live births in Europe and 1 in 20,000 births in the US (ubeda2024clinicalpracticeguidelines pages 1-2, biancalana2024hereditaryfructoseintolerancea pages 36-38, maines2024theroleof pages 1-2, zuriaga2024descriptiveanalysisof pages 1-2) | 2024 — <em>Diseases</em> guideline; 2024 adult-management report; 2024 <em>Journal of Diabetes &amp; Metabolic Disorders</em> systematic review; 2024 <em>Healthcare</em> pregnancy study |
+| Carrier frequency | Predicted heterozygous carrier frequency ranges from 1:55 to 1:122 in the general population (zuriaga2024descriptiveanalysisof pages 1-2) | 2024 — <em>Healthcare</em> pregnancy study |
+| Common variants | Frequently reported ALDOB variants include p.Ala150Pro / c.448G&gt;C and p.Ala175Asp / c.524C&gt;A; broader review also lists c.178C&gt;T p.Arg60Ter, c.360_363del p.Asn120LysfsTer32, and c.1005C&gt;G p.Asn335Lys. p.Ala150Pro and p.Ala175Asp together account for ~68% of alleles, with p.Ala150Pro alone ~53% worldwide in one summarized review (ubeda2024clinicalpracticeguidelines pages 1-2, biancalana2024hereditaryfructoseintolerancea pages 36-38, garbowski2024acasestudy pages 5-6) | 2024 — <em>Diseases</em> guideline; 2024 adult-management report; 2024 <em>Journal of Clinical Medicine</em> case study |
+| Key tissues affected | Liver, kidney/renal proximal tubules, and small intestine are key tissues expressing aldolase B and affected in HFI; pregnancy study also notes primary effects in liver and renal tubules (ubeda2024clinicalpracticeguidelines pages 1-2, zuriaga2024descriptiveanalysisof pages 1-2) | 2024 — <em>Diseases</em> guideline; 2024 <em>Healthcare</em> pregnancy study |</p>
+<p><em>Table: This table summarizes standardized nomenclature, core genetic facts, inheritance, prevalence, carrier frequency, common ALDOB variants, and major affected tissues for hereditary fructose intolerance. It is restricted to details explicitly supported by the cited 2024 sources requested by the user.</em></p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>2.1 Disease causal factors</h3>
+<p><strong>Primary cause:</strong> germline <strong>biallelic pathogenic ALDOB variants</strong> causing deficiency of aldolase B activity. (ubeda2024clinicalpracticeguidelines pages 1-2, ubeda2024clinicalpracticeguidelines pages 2-4)</p>
+<p><strong>Immediate biochemical trigger:</strong> ingestion of <strong>fructose</strong> and fructose-generating sugars/sugar alcohols (<strong>sucrose, sorbitol</strong>) leading to F1P accumulation. (ubeda2024clinicalpracticeguidelines pages 2-4, garbowski2024acasestudy pages 9-10)</p>
+<h3>2.2 Risk factors</h3>
+<ul>
+<li><strong>Genetic:</strong> autosomal recessive inheritance; risk increases with parental carrier status. (zuriaga2024descriptiveanalysisof pages 1-2)</li>
+<li><strong>Environmental/dietary:</strong> exposure to fructose/sucrose/sorbitol (including hidden sources in formulas and medications) triggers acute toxicity and chronic injury. (ubeda2024clinicalpracticeguidelines pages 4-5, ubeda2024clinicalpracticeguidelines pages 2-4)</li>
+</ul>
+<h3>2.3 Protective factors</h3>
+<ul>
+<li><strong>Dietary avoidance</strong> of fructose/sucrose/sorbitol is protective against acute crises and prevents many complications. (ubeda2024clinicalpracticeguidelines pages 4-5, ubeda2024clinicalpracticeguidelines pages 2-4)</li>
+<li><strong>Experimental genetic protection in models:</strong> aldolase B knockout mice are protected from toxic fructose effects when fructokinase/KHK is absent (mechanistic rationale supporting KHK inhibition strategy). (koene2025safetyandefficacy pages 1-3)</li>
+</ul>
+<h3>2.4 Gene–environment interactions</h3>
+<p>HFI is a prototypical gene–diet interaction: ALDOB deficiency is necessary but clinical toxicity depends on dietary exposure to fructose-containing compounds; however, newer evidence suggests <strong>endogenous fructose generation</strong> can also drive disease. (andreshernando2024activationofampd2 pages 1-2)</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>3.1 Core phenotype spectrum (acute and chronic)</h3>
+<p>Acute manifestations typically appear after introduction of fructose-containing foods (often around weaning) and include <strong>vomiting</strong>, <strong>abdominal pain/distension</strong>, and <strong>postprandial hypoglycemia</strong>, with biochemical abnormalities including <strong>lactic/metabolic acidosis</strong>, <strong>hypophosphatemia</strong>, and <strong>hyperuricemia</strong>. (ubeda2024clinicalpracticeguidelines pages 2-4, ubeda2024clinicalpracticeguidelines pages 5-8, garbowski2024acasestudy pages 9-10)</p>
+<p>Chronic manifestations can include <strong>hepatic steatosis (fatty liver)</strong>, persistent <strong>transaminase elevation</strong>, <strong>growth deficiency/failure to thrive</strong>, and <strong>renal proximal tubular dysfunction/Fanconi syndrome</strong> with potential progression to chronic kidney disease. (ubeda2024clinicalpracticeguidelines pages 1-2, garbowski2024acasestudy pages 9-10, ubeda2024clinicalpracticeguidelines pages 5-8)</p>
+<h3>3.2 Age of onset and temporal development</h3>
+<ul>
+<li>Typical onset is <strong>~6 months</strong> with the introduction of fructose-containing foods. (ubeda2024clinicalpracticeguidelines pages 2-4)</li>
+<li>Disease course is lifelong; prognosis is generally favorable with dietary treatment, but chronic complications may persist. (ubeda2024clinicalpracticeguidelines pages 1-2, ubeda2024clinicalpracticeguidelines pages 2-4)</li>
+</ul>
+<h3>3.3 Phenotype frequencies / statistics from recent literature</h3>
+<ul>
+<li><strong>Hepatic steatosis persistence:</strong> one long-term cohort summary reported steatosis persisted in <strong>93.8%</strong> of patients on a fructose-restricted diet (&lt;1.5 g/day), and <strong>37.5%</strong> had elevated transaminases despite adherence—supporting ongoing morbidity risk. (garbowski2024acasestudy pages 9-10)</li>
+<li><strong>Adult cohort symptoms:</strong> in one adult cohort, gastrointestinal symptoms occurred in <strong>9/14</strong> and symptomatic hypoglycemia in <strong>7/14</strong>, with universal lifelong aversion to sweets/fruit. (biancalana2024hereditaryfructoseintolerance pages 38-40, biancalana2024hereditaryfructoseintolerancea pages 38-40)</li>
+</ul>
+<h3>3.4 Quality of life impact</h3>
+<p>While validated QoL instruments are not reported in the retrieved snippets, chronic food avoidance burden, persistent liver disease (steatosis), and renal tubular complications imply significant long-term management impact and need for multidisciplinary follow-up. (garbowski2024acasestudy pages 9-10, ubeda2024clinicalpracticeguidelines pages 2-4)</p>
+<h3>3.5 Suggested HPO terms (selected)</h3>
+<p>A phenotype-to-HPO mapping table (restricted to explicitly evidenced features) is provided below.</p>
+<table>
+<thead>
+<tr>
+<th>Phenotype category</th>
+<th>Clinical feature</th>
+<th>Trigger/onset</th>
+<th>Frequency/statistic (if stated)</th>
+<th>Suggested HPO terms</th>
+<th>Key sources</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Acute metabolic / gastrointestinal</td>
+<td>Postprandial hypoglycemia</td>
+<td>Typically after fructose-containing foods are introduced, often around weaning (~6 months); triggered by fructose/sucrose/sorbitol ingestion</td>
+<td>Hypoglycemia threshold cited as blood glucose &lt;0.50 g/L (&lt;2.75 mmol/L); neonatal threshold may be ~0.40 g/L</td>
+<td>HP:0001943 Hypoglycemia</td>
+<td>(ubeda2024clinicalpracticeguidelines pages 2-4, ubeda2024clinicalpracticeguidelines pages 5-8, garbowski2024acasestudy pages 9-10)</td>
+</tr>
+<tr>
+<td>Acute gastrointestinal</td>
+<td>Vomiting / nausea after fructose exposure</td>
+<td>After intake of fructose or related sugars; commonly at weaning/after introduction of complementary foods</td>
+<td>Not quantified</td>
+<td>HP:0002013 Vomiting; HP:0002018 Nausea</td>
+<td>(ubeda2024clinicalpracticeguidelines pages 1-2, maines2024theroleof pages 1-2, ubeda2024clinicalpracticeguidelines pages 2-4)</td>
+</tr>
+<tr>
+<td>Acute gastrointestinal</td>
+<td>Abdominal distension / abdominal pain</td>
+<td>Postprandial after fructose ingestion; may present in infancy or later with food-triggered symptoms</td>
+<td>Not quantified</td>
+<td>HP:0003270 Abdominal distension; HP:0002027 Abdominal pain</td>
+<td>(ubeda2024clinicalpracticeguidelines pages 1-2, ubeda2024clinicalpracticeguidelines pages 2-4)</td>
+</tr>
+<tr>
+<td>Acute metabolic</td>
+<td>Lactic/metabolic acidosis</td>
+<td>Consequence of fructose-1-phosphate accumulation with impaired gluconeogenesis/glycogenolysis after fructose exposure</td>
+<td>Not quantified</td>
+<td>HP:0001942 Metabolic acidosis; HP:0002151 Increased lactate level</td>
+<td>(ubeda2024clinicalpracticeguidelines pages 2-4, biancalana2024hereditaryfructoseintolerancea pages 36-38, garbowski2024acasestudy pages 9-10)</td>
+</tr>
+<tr>
+<td>Acute biochemical</td>
+<td>Hypophosphatemia / phosphate depletion</td>
+<td>After fructose ingestion due to intracellular phosphate trapping and ongoing phosphorylation of fructose</td>
+<td>Not quantified</td>
+<td>HP:0002148 Hypophosphatemia</td>
+<td>(ubeda2024clinicalpracticeguidelines pages 2-4, biancalana2024hereditaryfructoseintolerancea pages 36-38, garbowski2024acasestudy pages 9-10, koene2025safetyandefficacy pages 1-3)</td>
+</tr>
+<tr>
+<td>Acute biochemical</td>
+<td>Hyperuricemia</td>
+<td>Secondary to ATP depletion and increased AMP degradation after fructose exposure</td>
+<td>Not quantified</td>
+<td>HP:0003251 Hyperuricemia</td>
+<td>(ubeda2024clinicalpracticeguidelines pages 2-4, garbowski2024acasestudy pages 9-10)</td>
+</tr>
+<tr>
+<td>Renal acute/chronic</td>
+<td>Proximal renal tubular dysfunction / Fanconi-type syndrome / renal tubular acidosis</td>
+<td>May accompany ongoing fructose exposure; due to aldolase B deficiency in proximal tubules</td>
+<td>Tubular bicarbonate reabsorption reduction 15–30% reported</td>
+<td>HP:0000114 Renal tubular dysfunction; HP:0001992 Fanconi syndrome; HP:0001941 Renal tubular acidosis</td>
+<td>(ubeda2024clinicalpracticeguidelines pages 2-4, ubeda2024clinicalpracticeguidelines pages 5-8)</td>
+</tr>
+<tr>
+<td>Hepatic acute/chronic</td>
+<td>Hepatomegaly / liver dysfunction</td>
+<td>Often recognized after introduction of fructose-containing foods; may persist chronically</td>
+<td>Not quantified</td>
+<td>HP:0002240 Hepatomegaly; HP:0002910 Elevated hepatic transaminases</td>
+<td>(ubeda2024clinicalpracticeguidelines pages 1-2, garbowski2024acasestudy pages 9-10, garbowski2024acasestudy pages 7-9)</td>
+</tr>
+<tr>
+<td>Hepatic chronic</td>
+<td>Hepatic steatosis / fatty liver</td>
+<td>Chronic complication despite treatment in some patients; can persist on fructose-restricted diets</td>
+<td>Hepatic steatosis persisted in 93.8% in one long-term cohort on fructose-restricted diet</td>
+<td>HP:0001397 Hepatic steatosis</td>
+<td>(ubeda2024clinicalpracticeguidelines pages 1-2, garbowski2024acasestudy pages 9-10, ubeda2024clinicalpracticeguidelines pages 2-4)</td>
+</tr>
+<tr>
+<td>Hepatic chronic</td>
+<td>Elevated transaminases</td>
+<td>Chronic residual liver dysfunction despite diet in some patients</td>
+<td>Elevated transaminases in 37.5% in one long-term cohort</td>
+<td>HP:0002910 Elevated hepatic transaminases</td>
+<td>(garbowski2024acasestudy pages 9-10)</td>
+</tr>
+<tr>
+<td>Growth/nutrition</td>
+<td>Failure to thrive / growth retardation</td>
+<td>Chronic ingestion after weaning in untreated or incompletely controlled disease</td>
+<td>Not quantified</td>
+<td>HP:0001508 Failure to thrive; HP:0001510 Growth delay</td>
+<td>(maines2024theroleof pages 1-2, ubeda2024clinicalpracticeguidelines pages 1-2, ubeda2024clinicalpracticeguidelines pages 5-8)</td>
+</tr>
+<tr>
+<td>Behavioral/feeding</td>
+<td>Aversion to sweets / fructose-containing foods</td>
+<td>Often longstanding from infancy/childhood; key historical clue for diagnosis</td>
+<td>In adult cohort, all patients had lifelong aversion to sweet foods/fruit</td>
+<td>HP:0033813 Food aversion</td>
+<td>(biancalana2024hereditaryfructoseintolerance pages 36-38, biancalana2024hereditaryfructoseintolerance pages 38-40, garbowski2024acasestudy pages 9-10)</td>
+</tr>
+<tr>
+<td>Chronic multisystem</td>
+<td>Kidney damage / chronic kidney disease</td>
+<td>Longer-term complication with continued exposure or incomplete control</td>
+<td>Not quantified</td>
+<td>HP:0000083 Renal insufficiency; HP:0012622 Chronic kidney disease</td>
+<td>(andreshernando2024activationofampd2 pages 1-2, maines2024theroleof pages 1-2, garbowski2024acasestudy pages 9-10)</td>
+</tr>
+<tr>
+<td>Severe acute / neurologic</td>
+<td>Seizures, coma, life-threatening decompensation</td>
+<td>Severe untreated exposure with profound hypoglycemia/metabolic derangement</td>
+<td>Not quantified</td>
+<td>HP:0001250 Seizure; HP:0001259 Coma</td>
+<td>(biancalana2024hereditaryfructoseintolerancea pages 36-38, andreshernando2024activationofampd2 pages 1-2)</td>
+</tr>
+<tr>
+<td>Chronic gastrointestinal</td>
+<td>Irritable bowel syndrome–like symptoms / chronic abdominal complaints</td>
+<td>Reported as chronic complication despite treatment in some patients</td>
+<td>Not quantified</td>
+<td>HP:0002027 Abdominal pain; HP:0002014 Diarrhea; HP:0012531 Chronic gastrointestinal discomfort</td>
+<td>(ubeda2024clinicalpracticeguidelines pages 1-2, ubeda2024clinicalpracticeguidelines pages 11-12)</td>
+</tr>
+<tr>
+<td>Biomarker / glycosylation</td>
+<td>Abnormal carbohydrate-deficient transferrin (CDT) / abnormal sialotransferrin isoforms</td>
+<td>Untreated patients; proposed for monitoring dietary fructose/sucrose/sorbitol exposure and individual tolerance</td>
+<td>Not quantified in excerpt; described as abnormal Tf glycosylation suggestive of N-hypoglycosylation</td>
+<td>HP:0012125 Abnormal transferrin glycosylation</td>
+<td>(maines2024theroleof pages 1-2, ubeda2024clinicalpracticeguidelines pages 4-5, garbowski2024acasestudy pages 9-10)</td>
+</tr>
+<tr>
+<td>Pregnancy-associated observations</td>
+<td>Lower infant birth weight in affected mothers; persistent maternal hepatic steatosis/adenomas/hemangiomas after pregnancy</td>
+<td>In women with HFI during/after pregnancy</td>
+<td>Babies of affected mothers had lower weights than babies of carrier mothers; cohort included 30 women and 45 pregnancies</td>
+<td>HP:0001518 Small for gestational age; HP:0001402 Hepatic fibrosis/structural liver abnormality (approximate liver phenotype mapping)</td>
+<td>(zuriaga2024descriptiveanalysisof pages 1-2, zuriaga2024descriptiveanalysisof pages 5-7)</td>
+</tr>
+<tr>
+<td>Emerging complication spectrum / mechanistic model</td>
+<td>NASH, cirrhosis, liver inflammation/fibrosis in model systems and reported chronic human complication spectrum</td>
+<td>Chronic disease/continued metabolic stress; mechanistic evidence from aldob-deficient mice</td>
+<td>Not quantified in excerpt</td>
+<td>HP:0001394 Cirrhosis; HP:0012844 Liver fibrosis; HP:0001399 Hepatic failure</td>
+<td>(andreshernando2024activationofampd2 pages 1-2)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes the major acute and chronic phenotypes of hereditary fructose intolerance, their typical triggers or age of onset, key laboratory/biomarker findings, and suggested HPO mappings. It is restricted to points explicitly supported in the cited 2024-focused evidence base and includes quantitative findings where reported.</em></p>
+<hr />
+<h2>4. Genetic / molecular information</h2>
+<h3>4.1 Causal gene</h3>
+<ul>
+<li><strong>Gene:</strong> <strong>ALDOB</strong> (aldolase B), located on <strong>chromosome 9q22.3</strong> in retrieved sources. (ubeda2024clinicalpracticeguidelines pages 1-2, garbowski2024acasestudy pages 5-6)</li>
+</ul>
+<h3>4.2 Pathogenic variants (examples supported by evidence)</h3>
+<p>A systematic review summarized in a 2024 case report analyzed <strong>1,426 alleles</strong> across <strong>29 countries</strong> and identified <strong>68 distinct ALDOB variants</strong> in <strong>85 genotypic combinations</strong>. Widely distributed pathogenic variants include:
+- c.178C&gt;T p.(Arg60Ter)
+- c.360_363del p.(Asn120LysfsTer32)
+- c.448G&gt;C p.(Ala150Pro)
+- c.524C&gt;A p.(Ala175Asp)
+- c.1005C&gt;G p.(Asn335Lys)
+It further reported that <strong>p.(Ala150Pro) and p.(Ala175Asp) together account for ~68% of alleles</strong>, with <strong>p.(Ala150Pro) alone ~53% worldwide</strong>. (garbowski2024acasestudy pages 5-6)</p>
+<p>In a 2024 adult cohort, the most frequent variants were again <strong>p.Ala150Pro</strong> and <strong>p.Ala175Asp</strong>, with additional variants including splice variants, duplications, and large deletions. (biancalana2024hereditaryfructoseintolerance pages 38-40, biancalana2024hereditaryfructoseintolerancea pages 38-40)</p>
+<h3>4.3 Functional consequence</h3>
+<p>ALDOB deficiency results in inability to cleave F1P, driving accumulation of F1P and secondary metabolic toxicity (phosphate/ATP depletion and impaired gluconeogenesis/glycogenolysis). (ubeda2024clinicalpracticeguidelines pages 2-4, biancalana2024hereditaryfructoseintolerancea pages 36-38)</p>
+<h3>4.4 Modifier genes / epigenetics / chromosomal abnormalities</h3>
+<p>No modifier genes, epigenetic signatures, or recurrent chromosomal abnormalities were explicitly supported in the retrieved evidence snippets; these remain a knowledge gap in the current evidence set.</p>
+<hr />
+<h2>5. Environmental information</h2>
+<h3>5.1 Environmental/lifestyle contributors</h3>
+<p>For HFI, the key non-genetic contributor is <strong>dietary exposure</strong> to fructose-containing ingredients and sugar alcohols.
+- Hidden fructose/sorbitol sources in <strong>infant formulas and OTC medicines</strong> are specifically flagged as under-recognized exposure risks in guidelines. (ubeda2024clinicalpracticeguidelines pages 4-5)</p>
+<h3>5.2 Infectious agents</h3>
+<p>Not applicable; HFI is not infectious.</p>
+<hr />
+<h2>6. Mechanism / pathophysiology</h2>
+<h3>6.1 Canonical biochemical mechanism (current consensus)</h3>
+<p>Dietary fructose is phosphorylated by <strong>fructokinase (KHK)</strong> to <strong>fructose-1-phosphate (F1P)</strong>. In normal physiology, aldolase B cleaves F1P; in HFI, aldolase B deficiency causes <strong>F1P accumulation</strong>, which:
+- traps inorganic phosphate (Pi) and depletes ATP,
+- inhibits glycogenolysis and gluconeogenesis,
+- triggers hypoglycemia and metabolic derangements, and
+- contributes to liver and kidney toxicity, including proximal tubular dysfunction. (ubeda2024clinicalpracticeguidelines pages 2-4, biancalana2024hereditaryfructoseintolerancea pages 36-38, garbowski2024acasestudy pages 9-10)</p>
+<h3>6.2 Recent mechanistic developments (2023–2024)</h3>
+<p><strong>(i) Endogenous fructose hypothesis:</strong> A 2024 mechanistic study emphasizes that even with dietary restriction, symptoms may persist because <strong>fructose can be produced endogenously from glucose</strong> (polyol pathway), which can then feed into the toxic pathway in aldolase B deficiency. (andreshernando2024activationofampd2 pages 1-2)</p>
+<p><strong>(ii) AMPD2/purine degradation axis:</strong> A 2024 Communications Biology study identified <strong>AMPD2 activation</strong> and downstream <strong>purine degradation</strong> as a critical pathway activated by very low fructose exposure “via a phosphate trap,” contributing to metabolic dysregulation and liver disease. Hepatocyte-specific AMPD2 deletion improved hepatic fat/glycogen storage and reduced inflammation/fibrosis in aldob-deficient mice, without preventing F1P accumulation or hypoglycemia risk. (andreshernando2024activationofampd2 pages 1-2)</p>
+<p><strong>Key mechanistic figure (AMPD2 pathway):</strong> The figure below schematizes the phosphate-trap mechanism and the AMPD2-driven purine degradation pathway in aldolase B deficiency.
+(andreshernando2024activationofampd2 media 8a89ee1b)</p>
+<h3>6.3 Pathway and ontology suggestions</h3>
+<ul>
+<li><strong>GO (biological process) candidate terms (suggested based on mechanism described in sources):</strong> fructose metabolic process; gluconeogenesis; glycogen catabolic process; purine nucleotide catabolic process; regulation of cellular phosphate ion homeostasis. (ubeda2024clinicalpracticeguidelines pages 2-4, andreshernando2024activationofampd2 pages 1-2)</li>
+<li><strong>Cell types (Cell Ontology, suggested):</strong> hepatocyte; enterocyte; renal proximal tubule epithelial cell. (koene2025safetyandefficacy pages 1-3)</li>
+</ul>
+<hr />
+<h2>7. Anatomical structures affected</h2>
+<h3>7.1 Organ/tissue involvement</h3>
+<p>Key affected tissues are those expressing mutant aldolase B:
+- <strong>Liver</strong> (hepatocyte injury; steatosis; possible progression to NASH/cirrhosis)
+- <strong>Small intestine</strong> (enterocytes)
+- <strong>Kidney</strong> (proximal tubules; Fanconi-type dysfunction) (koene2025safetyandefficacy pages 1-3, ubeda2024clinicalpracticeguidelines pages 5-8)</p>
+<p><strong>Suggested UBERON terms (examples):</strong> liver; kidney; renal proximal tubule; small intestine. (koene2025safetyandefficacy pages 1-3)</p>
+<hr />
+<h2>8. Temporal development</h2>
+<ul>
+<li><strong>Onset:</strong> typically after <strong>weaning (~6 months)</strong> when fructose-containing foods are introduced; can be missed and diagnosed in adulthood due to dietary self-restriction and nonspecific chronic liver findings. (ubeda2024clinicalpracticeguidelines pages 2-4, biancalana2024hereditaryfructoseintolerance pages 38-40)</li>
+<li><strong>Course:</strong> can be episodic (triggered by accidental ingestion) and/or chronic (fatty liver, renal tubular dysfunction). Prognosis is generally favorable with strict diet, but chronic pathology can persist. (ubeda2024clinicalpracticeguidelines pages 1-2, garbowski2024acasestudy pages 9-10)</li>
+</ul>
+<hr />
+<h2>9. Inheritance and population</h2>
+<h3>9.1 Inheritance</h3>
+<ul>
+<li><strong>Autosomal recessive.</strong> (ubeda2024clinicalpracticeguidelines pages 1-2, zuriaga2024descriptiveanalysisof pages 1-2)</li>
+</ul>
+<h3>9.2 Epidemiology (recent summaries)</h3>
+<p>Prevalence estimates vary by source:
+- ~<strong>1/10,000</strong> worldwide (adult-management report). (biancalana2024hereditaryfructoseintolerancea pages 36-38)
+- ~<strong>1/20,000</strong> and also ~<strong>1/10,000</strong> reported in a 2024 guideline. (ubeda2024clinicalpracticeguidelines pages 1-2)
+- ~<strong>1/26,000 live births in Europe</strong> and <strong>1/20,000 births in the US</strong> reported in a 2024 systematic review. (maines2024theroleof pages 1-2)</p>
+<h3>9.3 Carrier frequency</h3>
+<p>A 2024 pregnancy-focused cohort paper reports predicted heterozygous carrier frequency ranging from <strong>1:55 to 1:122</strong>. (zuriaga2024descriptiveanalysisof pages 1-2)</p>
+<h3>9.4 Population/variant distribution</h3>
+<p>Common variants p.Ala150Pro and p.Ala175Asp are described as globally distributed with regional patterns in Europe, and a summarized allele study indicates these variants dominate worldwide allele counts. (ubeda2024clinicalpracticeguidelines pages 1-2, garbowski2024acasestudy pages 5-6)</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>10.1 Clinical suspicion</h3>
+<p>Key historical clue: lifelong or early childhood <strong>aversion to sweets and fruit</strong>, with symptom onset after fructose exposure; chronic presentations may be unexplained hepatomegaly, elevated aminotransferases, or fatty liver. (biancalana2024hereditaryfructoseintolerancea pages 36-38, garbowski2024acasestudy pages 7-9)</p>
+<h3>10.2 Laboratory abnormalities (supportive)</h3>
+<p>Supportive findings include:
+- hypoglycemia (threshold &lt;0.50 g/L),
+- lactic/metabolic acidosis,
+- hypophosphatemia,
+- hyperuricemia,
+- transaminase elevations,
+- Fanconi-type proximal tubular dysfunction (e.g., phosphaturia, aminoaciduria, bicarbonate wasting). (ubeda2024clinicalpracticeguidelines pages 5-8, garbowski2024acasestudy pages 9-10, biancalana2024hereditaryfructoseintolerancea pages 36-38)</p>
+<h3>10.3 Genetic testing strategy (recommended)</h3>
+<p>Clinical guidelines favor <strong>molecular diagnosis</strong>: ALDOB testing (PCR/sequencing on leukocyte DNA) to detect <strong>biallelic pathogenic variants</strong> as the preferred confirmatory test. (ubeda2024clinicalpracticeguidelines pages 2-4)</p>
+<h3>10.4 Historical/confirmatory tests and safety</h3>
+<ul>
+<li><strong>Liver biopsy with aldolase B activity</strong> is historically definitive but invasive; reserved for inconclusive genetic results or uncertain variants. (ubeda2024clinicalpracticeguidelines pages 2-4)</li>
+<li><strong>Fructose loading/tolerance testing</strong> is now rarely used / discouraged due to risk of severe reactions. (ubeda2024clinicalpracticeguidelines pages 2-4, souza2024intolerânciahereditáriaà pages 4-5)</li>
+</ul>
+<h3>10.5 Adjunct / monitoring biomarkers</h3>
+<ul>
+<li><strong>Urinary fructose by thin-layer chromatography (TLC)</strong> can be used to monitor adherence. (biancalana2024hereditaryfructoseintolerancea pages 36-38)</li>
+<li><strong>Carbohydrate-deficient transferrin (CDT) / sialotransferrin isoforms</strong>: untreated patients show abnormal transferrin glycosylation (N-hypoglycosylation pattern). Methods include <strong>Tf isoelectric focusing</strong> and <strong>high-resolution MS</strong>; CDT metrics may correlate with fructose intake and support monitoring/personalized tolerability targets. (maines2024theroleof pages 1-2, ubeda2024clinicalpracticeguidelines pages 4-5)</li>
+</ul>
+<h3>10.6 Screening</h3>
+<ul>
+<li><strong>Newborn screening:</strong> generally <strong>not performed</strong> because there is no reliable biomarker in dried blood spots without fructose exposure; normal newborn screens may occur in affected infants. (ubeda2024clinicalpracticeguidelines pages 2-4, garbowski2024acasestudy pages 9-10)</li>
+<li><strong>Cascade screening:</strong> recommended after proband identification; prenatal and preimplantation genetic testing are advised as options. (souza2024intolerânciahereditáriaà pages 4-5)</li>
+</ul>
+<hr />
+<h2>11. Outcome / prognosis</h2>
+<h3>11.1 Prognosis with treatment</h3>
+<p>Guidelines describe <strong>favorable prognosis</strong> with strict diet adherence, including normalization of weight and laboratory abnormalities in many patients; however, chronic complications (notably fatty liver) can persist. (ubeda2024clinicalpracticeguidelines pages 1-2, ubeda2024clinicalpracticeguidelines pages 2-4)</p>
+<h3>11.2 Morbidity (persistent complications)</h3>
+<p>Long-term cohort summaries indicate persistent <strong>hepatic steatosis</strong> (93.8%) and continued <strong>transaminase elevation</strong> (37.5%) despite stringent dietary restriction (&lt;1.5 g/day), suggesting ongoing liver morbidity risk. (garbowski2024acasestudy pages 9-10)</p>
+<h3>11.3 Pregnancy outcomes</h3>
+<p>In a 2024 cohort of Spanish women (30 women; 45 pregnancies), affected mothers had lower infant birth weights compared with carrier mothers and persistent hepatic issues (steatosis/adenomas/hemangiomas) were noted after pregnancy, supporting need for monitoring. (zuriaga2024descriptiveanalysisof pages 1-2)</p>
+<hr />
+<h2>12. Treatment</h2>
+<h3>12.1 Standard of care (real-world implementation)</h3>
+<p><strong>Dietary treatment</strong> is the only established effective therapy in current clinical guidance:
+- Lifelong <strong>FSS-free</strong> diet (avoid fructose, sucrose, sorbitol); glucose/maltose/starch are suitable substitutes. (ubeda2024clinicalpracticeguidelines pages 4-5, ubeda2024clinicalpracticeguidelines pages 2-4)
+- Avoid medications/products containing fructose or sorbitol excipients; hidden sources in infant formulas and OTC baby medicines are specifically highlighted. (ubeda2024clinicalpracticeguidelines pages 4-5)</p>
+<p><strong>Quantitative diet thresholds reported:</strong>
+- Restrict total fructose to <strong>&lt;40 mg/kg/day</strong> (reported in pregnancy cohort context). (zuriaga2024descriptiveanalysisof pages 1-2)
+- Advice not to exceed <strong>2 g/day fructose</strong> (adult cohort recommendation) and some adults may tolerate <strong>&lt;6 g/day</strong> (guideline). (biancalana2024hereditaryfructoseintolerancea pages 38-40, ubeda2024clinicalpracticeguidelines pages 2-4)</p>
+<h3>12.2 Acute decompensation management</h3>
+<p>After accidental ingestion and acute metabolic crisis, recommended management includes hospitalization (ICU if severe) with <strong>intravenous glucose (dextrose)</strong>, treatment of metabolic acidosis if present, and supportive care. (garbowski2024acasestudy pages 6-7)</p>
+<h3>12.3 Monitoring and supportive care</h3>
+<ul>
+<li>Periodic follow-up from childhood to adulthood is recommended; chronic liver fat can persist and warrants surveillance. (ubeda2024clinicalpracticeguidelines pages 11-12)</li>
+<li>Vitamin deficiency risk (e.g., vitamin C) is noted and supplementation may be needed. (ubeda2024clinicalpracticeguidelines pages 2-4)</li>
+</ul>
+<h3>12.4 Experimental / advanced therapeutics</h3>
+<p><strong>KHK inhibition</strong> (pharmacologic fructokinase inhibition) aims to block fructose phosphorylation and prevent F1P formation.
+- A clinical trial record describes an open-label pilot in HFI using <strong>PF‑06835919</strong> (300 mg daily × 9 days), with endpoints assessing intestinal symptoms, serum glucose/phosphate, urine markers, liver fat by 1H‑MRS, and glycosylated transferrin (ClinicalTrials.gov <strong>NCT06089265</strong>, registry year 2023). (NCT06089265 chunk 1)
+- A clinical study report (JCI, Feb 2025; doi:10.1172/jci187376) describes graded fructose challenges in 3 HFI patients after PF‑06835919, with reported short-term tolerability and absence of proximal tubular dysfunction during challenges. (koene2025safetyandefficacy pages 1-3)</p>
+<p><strong>Mechanism-guided targets (preclinical):</strong> AMPD2/purine degradation axis and phosphate homeostasis interventions are proposed based on mouse-model work. (andreshernando2024activationofampd2 pages 5-7, andreshernando2024activationofampd2 pages 1-2)</p>
+<h3>12.5 MAXO term suggestions (examples)</h3>
+<ul>
+<li>Dietary fructose restriction / dietary sucrose restriction / dietary sorbitol restriction (FSS-free diet)</li>
+<li>Intravenous dextrose administration (acute crisis)</li>
+<li>Genetic counseling / carrier testing / prenatal genetic testing</li>
+</ul>
+<p><em>(MAXO identifiers are not provided in the retrieved sources; the above are term suggestions for ontology mapping.)</em></p>
+<h3>12.6 CHEBI term suggestions (examples)</h3>
+<ul>
+<li>Fructose; sucrose; sorbitol; glucose; uric acid; fructose-1-phosphate</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<p>Primary prevention is largely genetic/dietary:
+- <strong>Avoidance of fructose/sucrose/sorbitol exposure</strong> in diagnosed individuals, including careful checking of drug excipients and infant formula composition. (ubeda2024clinicalpracticeguidelines pages 4-5)
+- <strong>Genetic counseling</strong> and cascade carrier testing for families after identification of an affected proband; prenatal and preimplantation genetic testing are suggested options. (souza2024intolerânciahereditáriaà pages 4-5)</p>
+<p>Secondary prevention:
+- Early diagnosis through recognition of weaning-associated symptoms and immediate withdrawal of fructose/sucrose with rapid improvement (2–3 days) supports early case finding. (ubeda2024clinicalpracticeguidelines pages 2-4)</p>
+<p>Tertiary prevention:
+- Long-term monitoring for liver steatosis and renal tubular complications even with dietary adherence. (garbowski2024acasestudy pages 9-10, ubeda2024clinicalpracticeguidelines pages 5-8)</p>
+<hr />
+<h2>14. Other species / natural disease</h2>
+<p>No naturally occurring non-human HFI cases were identified in the retrieved evidence set.</p>
+<hr />
+<h2>15. Model organisms</h2>
+<p>Mechanistic studies in <strong>aldolase B–deficient (aldob−/−) mice</strong> recapitulate key features of HFI and are used to investigate drivers of liver disease and metabolic dysregulation.
+- A 2024 study shows very low fructose activates AMPD2 via phosphate trapping, and hepatocyte-specific AMPD2 deletion reduces liver pathology in aldolase B deficiency. (andreshernando2024activationofampd2 pages 1-2)</p>
+<p><strong>Model utility:</strong> mechanistic dissection of hepatic fat/glycogen dysregulation and identification of drug targets (AMPD2 axis; phosphate homeostasis; fructose metabolism inhibition). (andreshernando2024activationofampd2 pages 1-2)</p>
+<hr />
+<h2>Direct abstract quotes supporting key claims (from retrieved abstracts)</h2>
+<ul>
+<li><strong>AMPD2 mechanism (2024):</strong> “Very low amounts of fructose are sufficient to activate AMPD2 in these mice via a phosphate trap.” (Communications Biology, Jul 2024; doi:10.1038/s42003-024-06539-1) (andreshernando2024activationofampd2 pages 1-2)</li>
+<li><strong>Sialotransferrin/CDT review (2024):</strong> “Subjects with HFI usually present at the time of weaning with episodes of hypoglycaemia and vomiting after the intake of fructose or related sugars,” and management is “fructose-, sucrose-, and sorbitol (FSS)-restrictive life-long diet.” (J Diabetes Metab Disord, online 2024-12-27; doi:10.1007/s40200-024-01527-y) (maines2024theroleof pages 1-2)</li>
+<li><strong>Guideline definition (2024):</strong> HFI is “an autosomal recessive metabolic disorder caused by a loss of function in the aldolase B gene.” (Diseases, published 2024-02-23; doi:10.3390/diseases12030044) (ubeda2024clinicalpracticeguidelines pages 1-2)</li>
+</ul>
+<hr />
+<h2>Notes on evidence gaps vs. requested template</h2>
+<ul>
+<li><strong>MONDO, Orphanet, ICD, and MeSH identifiers</strong> were not present in the retrieved text chunks; these should be pulled from dedicated ontologies/databases (e.g., MONDO/Orphanet/MeSH/ICD) in a subsequent retrieval pass.</li>
+<li><strong>PMIDs:</strong> Several 2024 MDPI articles and the adult-management report excerpts did not include PMIDs in the retrieved text snippets; DOIs/URLs and publication dates are provided where available.</li>
+<li><strong>Multi-omics (transcriptomics/proteomics/metabolomics) in humans:</strong> not covered in the retrieved excerpts.</li>
+</ul>
+<hr />
+<h2>Key recent sources (URLs and dates)</h2>
+<ul>
+<li>Úbeda F, et al. <em>Diseases</em> (published 2024-02-23). “Clinical Practice Guidelines for the Diagnosis and Management of Hereditary Fructose Intolerance.” https://doi.org/10.3390/diseases12030044 (ubeda2024clinicalpracticeguidelines pages 1-2)</li>
+<li>Andres-Hernando A, et al. <em>Communications Biology</em> (Jul 2024). “Activation of AMPD2 drives metabolic dysregulation and liver disease in mice with hereditary fructose intolerance.” https://doi.org/10.1038/s42003-024-06539-1 (andreshernando2024activationofampd2 pages 1-2)</li>
+<li>Maines E, et al. <em>J Diabetes Metab Disord</em> (online 2024-12-27). “The role of the analysis of sialotransferrin isoforms in the management of hereditary fructose intolerance: a systematic review.” https://doi.org/10.1007/s40200-024-01527-y (maines2024theroleof pages 1-2)</li>
+<li>Garbowski L, et al. <em>J Clin Med</em> (published 2024-06-10). “A Case Study of a Rare Disease (Fructosemia) Diagnosed in a Patient with Abdominal Pain.” https://doi.org/10.3390/jcm13123394 (garbowski2024acasestudy pages 1-2)</li>
+<li>Zuriaga E, et al. <em>Healthcare</em> (Feb 2024). “Descriptive Analysis of Carrier and Affected Hereditary Fructose Intolerance in Women during Pregnancy.” https://doi.org/10.3390/healthcare12050573 (zuriaga2024descriptiveanalysisof pages 1-2)</li>
+<li>ClinicalTrials.gov (registry record 2023). “Ketohexokinase Inhibition in Hereditary Fructose Intolerance.” NCT06089265. https://clinicaltrials.gov/study/NCT06089265 (NCT06089265 chunk 1)</li>
+</ul>
+<p>References</p>
+<ol>
+<li>
+<p>(andreshernando2024activationofampd2 pages 1-2): Ana Andres-Hernando, David J. Orlicky, Masanari Kuwabara, Mehdi A. Fini, Dean R. Tolan, Richard J. Johnson, and Miguel A. Lanaspa. Activation of ampd2 drives metabolic dysregulation and liver disease in mice with hereditary fructose intolerance. Communications Biology, Jul 2024. URL: https://doi.org/10.1038/s42003-024-06539-1, doi:10.1038/s42003-024-06539-1. This article has 2 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(ubeda2024clinicalpracticeguidelines pages 1-2): Félix Úbeda, Sonia Santander, and María José Luesma. Clinical practice guidelines for the diagnosis and management of hereditary fructose intolerance. Diseases, 12:44, Feb 2024. URL: https://doi.org/10.3390/diseases12030044, doi:10.3390/diseases12030044. This article has 11 citations.</p>
+</li>
+<li>
+<p>(ubeda2024clinicalpracticeguidelines pages 2-4): Félix Úbeda, Sonia Santander, and María José Luesma. Clinical practice guidelines for the diagnosis and management of hereditary fructose intolerance. Diseases, 12:44, Feb 2024. URL: https://doi.org/10.3390/diseases12030044, doi:10.3390/diseases12030044. This article has 11 citations.</p>
+</li>
+<li>
+<p>(garbowski2024acasestudy pages 9-10): Leszek Garbowski, Marzena Walasek, Rafał Firszt, Ewelina Chilińska-Kopko, Paulina Błażejewska-Gała, Daniel Popielnicki, and Zofia Dzięcioł-Anikiej. A case study of a rare disease (fructosemia) diagnosed in a patient with abdominal pain. Journal of Clinical Medicine, 13:3394, Jun 2024. URL: https://doi.org/10.3390/jcm13123394, doi:10.3390/jcm13123394. This article has 3 citations.</p>
+</li>
+<li>
+<p>(ubeda2024clinicalpracticeguidelines pages 4-5): Félix Úbeda, Sonia Santander, and María José Luesma. Clinical practice guidelines for the diagnosis and management of hereditary fructose intolerance. Diseases, 12:44, Feb 2024. URL: https://doi.org/10.3390/diseases12030044, doi:10.3390/diseases12030044. This article has 11 citations.</p>
+</li>
+<li>
+<p>(NCT06089265 chunk 1):  Ketohexokinase Inhibition in Hereditary Fructose Intolerance. Maastricht University Medical Center. 2023. ClinicalTrials.gov Identifier: NCT06089265</p>
+</li>
+<li>
+<p>(biancalana2024hereditaryfructoseintolerancea pages 36-38): E BIANCALANA and C PISTOLESI. Hereditary fructose intolerance in adults: from differential diagnosis to long-term management. a report from the …. Unknown journal, 2024.</p>
+</li>
+<li>
+<p>(garbowski2024acasestudy pages 5-6): Leszek Garbowski, Marzena Walasek, Rafał Firszt, Ewelina Chilińska-Kopko, Paulina Błażejewska-Gała, Daniel Popielnicki, and Zofia Dzięcioł-Anikiej. A case study of a rare disease (fructosemia) diagnosed in a patient with abdominal pain. Journal of Clinical Medicine, 13:3394, Jun 2024. URL: https://doi.org/10.3390/jcm13123394, doi:10.3390/jcm13123394. This article has 3 citations.</p>
+</li>
+<li>
+<p>(zuriaga2024descriptiveanalysisof pages 1-2): Estefanía Zuriaga, Sonia Santander, Laura Lomba, Elsa Izquierdo-García, and María José Luesma. Descriptive analysis of carrier and affected hereditary fructose intolerance in women during pregnancy. Healthcare, 12:573, Feb 2024. URL: https://doi.org/10.3390/healthcare12050573, doi:10.3390/healthcare12050573. This article has 1 citations.</p>
+</li>
+<li>
+<p>(maines2024theroleof pages 1-2): Evelina Maines, Giorgia Gugelmo, Arianna Maiorana, Diego Martinelli, Nicola Vitturi, Livia Lenzini, Giovanni Piccoli, Massimo Soffiati, and Roberto Franceschi. The role of the analysis of sialotransferrin isoforms in the management of hereditary fructose intolerance: a systematic review. Journal of diabetes and metabolic disorders, 24 1:27, Dec 2024. URL: https://doi.org/10.1007/s40200-024-01527-y, doi:10.1007/s40200-024-01527-y. This article has 0 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(koene2025safetyandefficacy pages 1-3): Evi J.C. Koene, Amée M. Buziau, David Cassiman, Timothy M. Cox, Judith Bons, Jean L. J. M. Scheijen, Casper G. Schalkwijk, Steven J.R. Meex, Aditi R. Saxena, William P. Esler, Vera B. Schrauwen-Hinderling, Patrick Schrauwen, and Martijn C.G.J. Brouwers. Safety and efficacy of pharmacological inhibition of ketohexokinase in hereditary fructose intolerance. The Journal of Clinical Investigation, Feb 2025. URL: https://doi.org/10.1172/jci187376, doi:10.1172/jci187376. This article has 7 citations.</p>
+</li>
+<li>
+<p>(ubeda2024clinicalpracticeguidelines pages 5-8): Félix Úbeda, Sonia Santander, and María José Luesma. Clinical practice guidelines for the diagnosis and management of hereditary fructose intolerance. Diseases, 12:44, Feb 2024. URL: https://doi.org/10.3390/diseases12030044, doi:10.3390/diseases12030044. This article has 11 citations.</p>
+</li>
+<li>
+<p>(biancalana2024hereditaryfructoseintolerance pages 38-40): E BIANCALANA and C PISTOLESI. Hereditary fructose intolerance in adults: from differential diagnosis to long-term management. a report from the …. Unknown journal, 2024.</p>
+</li>
+<li>
+<p>(biancalana2024hereditaryfructoseintolerancea pages 38-40): E BIANCALANA and C PISTOLESI. Hereditary fructose intolerance in adults: from differential diagnosis to long-term management. a report from the …. Unknown journal, 2024.</p>
+</li>
+<li>
+<p>(garbowski2024acasestudy pages 7-9): Leszek Garbowski, Marzena Walasek, Rafał Firszt, Ewelina Chilińska-Kopko, Paulina Błażejewska-Gała, Daniel Popielnicki, and Zofia Dzięcioł-Anikiej. A case study of a rare disease (fructosemia) diagnosed in a patient with abdominal pain. Journal of Clinical Medicine, 13:3394, Jun 2024. URL: https://doi.org/10.3390/jcm13123394, doi:10.3390/jcm13123394. This article has 3 citations.</p>
+</li>
+<li>
+<p>(biancalana2024hereditaryfructoseintolerance pages 36-38): E BIANCALANA and C PISTOLESI. Hereditary fructose intolerance in adults: from differential diagnosis to long-term management. a report from the …. Unknown journal, 2024.</p>
+</li>
+<li>
+<p>(ubeda2024clinicalpracticeguidelines pages 11-12): Félix Úbeda, Sonia Santander, and María José Luesma. Clinical practice guidelines for the diagnosis and management of hereditary fructose intolerance. Diseases, 12:44, Feb 2024. URL: https://doi.org/10.3390/diseases12030044, doi:10.3390/diseases12030044. This article has 11 citations.</p>
+</li>
+<li>
+<p>(zuriaga2024descriptiveanalysisof pages 5-7): Estefanía Zuriaga, Sonia Santander, Laura Lomba, Elsa Izquierdo-García, and María José Luesma. Descriptive analysis of carrier and affected hereditary fructose intolerance in women during pregnancy. Healthcare, 12:573, Feb 2024. URL: https://doi.org/10.3390/healthcare12050573, doi:10.3390/healthcare12050573. This article has 1 citations.</p>
+</li>
+<li>
+<p>(andreshernando2024activationofampd2 media 8a89ee1b): Ana Andres-Hernando, David J. Orlicky, Masanari Kuwabara, Mehdi A. Fini, Dean R. Tolan, Richard J. Johnson, and Miguel A. Lanaspa. Activation of ampd2 drives metabolic dysregulation and liver disease in mice with hereditary fructose intolerance. Communications Biology, Jul 2024. URL: https://doi.org/10.1038/s42003-024-06539-1, doi:10.1038/s42003-024-06539-1. This article has 2 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(souza2024intolerânciahereditáriaà pages 4-5): RF de Souza, RP Erdmann, and NB Ferreira. Intolerância hereditária à frutose: etiologia e principais características clínicas. Unknown journal, 2024.</p>
+</li>
+<li>
+<p>(garbowski2024acasestudy pages 6-7): Leszek Garbowski, Marzena Walasek, Rafał Firszt, Ewelina Chilińska-Kopko, Paulina Błażejewska-Gała, Daniel Popielnicki, and Zofia Dzięcioł-Anikiej. A case study of a rare disease (fructosemia) diagnosed in a patient with abdominal pain. Journal of Clinical Medicine, 13:3394, Jun 2024. URL: https://doi.org/10.3390/jcm13123394, doi:10.3390/jcm13123394. This article has 3 citations.</p>
+</li>
+<li>
+<p>(andreshernando2024activationofampd2 pages 5-7): Ana Andres-Hernando, David J. Orlicky, Masanari Kuwabara, Mehdi A. Fini, Dean R. Tolan, Richard J. Johnson, and Miguel A. Lanaspa. Activation of ampd2 drives metabolic dysregulation and liver disease in mice with hereditary fructose intolerance. Communications Biology, Jul 2024. URL: https://doi.org/10.1038/s42003-024-06539-1, doi:10.1038/s42003-024-06539-1. This article has 2 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(garbowski2024acasestudy pages 1-2): Leszek Garbowski, Marzena Walasek, Rafał Firszt, Ewelina Chilińska-Kopko, Paulina Błażejewska-Gała, Daniel Popielnicki, and Zofia Dzięcioł-Anikiej. A case study of a rare disease (fructosemia) diagnosed in a patient with abdominal pain. Journal of Clinical Medicine, 13:3394, Jun 2024. URL: https://doi.org/10.3390/jcm13123394, doi:10.3390/jcm13123394. This article has 3 citations.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </div>
         
 
         <footer class="page-footer">
@@ -4292,7 +6119,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hereditary Fructose Intolerance", "mondoId": "MONDO:0009249", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hereditary_Fructose_Intolerance", "yamlRevision": "4b9d1002a534"};
+        const OS_CONFIG = {"diseaseName": "Hereditary Fructose Intolerance", "mondoId": "MONDO:0009249", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hereditary_Fructose_Intolerance", "yamlRevision": "6477e834cb12"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

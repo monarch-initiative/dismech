@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2416,6 +2569,8 @@
                     </a>
                 </span>
                 
+                
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 3</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Sclerosing Bone Dysplasias</span>
@@ -2573,15 +2728,17 @@
             </a>
             
             
+            <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Pathograph</div>
             </div>
+            </a>
             
             
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
@@ -2626,6 +2783,20 @@
             
             
             
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-value">4</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -2752,6 +2923,20 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Impaired Resorption Lacuna Acidification</span>
+	                            
+	                            <span class="crosslink-desc">Dominant-negative CLCN7 channel dysfunction impairs osteoclast resorption lacuna acidification.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
@@ -2824,7 +3009,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-resorption-lacuna-acidification">
                 <div class="item-name">Impaired Resorption Lacuna Acidification</div>
                 
-                <div class="item-desc">Dysfunctional CLCN7 chloride channels reduce the ability of osteoclasts to acidify the resorption lacuna, decreasing bone resorption capacity. Incomplete penetrance (66%) and variable expressivity reflect the stochastic impact of dominant negative subunit incorporation on overall channel function.
+                <div class="item-desc">Dysfunctional CLCN7 chloride channels reduce the ability of osteoclasts to acidify the resorption lacuna, decreasing bone resorption capacity.
 </div>
                 
                 
@@ -2861,31 +3046,27 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Progressive Skeletal Sclerosis</span>
+	                            
+	                            <span class="crosslink-desc">Reduced osteoclast acidification decreases bone resorption and drives progressive skeletal sclerosis.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12929941" target="_blank">PMID:12929941</a>
-                    </span>
-                    
-                    <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
-                    
-                    
-                </div>
-                
-                <div class="evidence-snippet">"disease penetrance was 66% (62 clinically affected individuals/94 subjects with the gene mutation)"</div>
-                
-                
-                <div class="evidence-explanation">Incomplete penetrance reflects variable impact of dominant negative mechanism on osteoclast function.</div>
-                
-            </div>
             
             <div class="evidence-item">
                 <div class="evidence-header">
@@ -2992,6 +3173,29 @@
         
 
         <!-- Causal Graph (Pathograph) -->
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
+                <h2 class="card-title">Pathograph</h2>
+            </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
+            
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for Autosomal Dominant Osteopetrosis Type II</title>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
+            </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"CLCN7 Dominant Negative Chloride Channel Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CLCN7 encodes a chloride channel that functions as a homodimer. Heterozygous missense mutations exert a dominant negative effect by incorporating mutant subunits into the dimer, impairing chloride transport. Loss-of-function (null) mutations in heterozygous state do not cause disease, confirming that the pathogenic mechanism is dominant negative rather than haploinsufficiency.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Osteoclast\"]}}, {\"id\": \"Impaired Resorption Lacuna Acidification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysfunctional CLCN7 chloride channels reduce the ability of osteoclasts to acidify the resorption lacuna, decreasing bone resorption capacity.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Bone Resorption\"]}}, {\"id\": \"Progressive Skeletal Sclerosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive accumulation of unresorbed bone leads to generalized skeletal sclerosis with paradoxically brittle bones due to disrupted microarchitecture from impaired remodeling.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Bone Remodeling\"]}}], \"edges\": [{\"source\": \"CLCN7 Dominant Negative Chloride Channel Dysfunction\", \"target\": \"Impaired Resorption Lacuna Acidification\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Resorption Lacuna Acidification\", \"target\": \"Progressive Skeletal Sclerosis\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
+        </div>
         
 
         <!-- Phenotypes -->
@@ -3844,7 +4048,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">1</span>
+                <span class="card-count">2</span>
             </div>
             
             <div class="item-box genetic-box">
@@ -3896,6 +4100,49 @@
                 
                 
                 <div class="evidence-explanation">CLCN7 mutations cause both dominant and recessive osteopetrosis depending on zygosity.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    CLCN7
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_23840c1f-9d30-4ccf-9fc0-604a0cb12eb4-2023-12-04T170000.000Z" target="_blank">CGGV:assertion_23840c1f-9d30-4ccf-9fc0-604a0cb12eb4-2023-12-04T170000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"CLCN7 | HGNC:2025 | autosomal dominant osteopetrosis 2 | MONDO:0008156 | AD | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the CLCN7-autosomal dominant osteopetrosis 2 gene-disease relationship as definitive with autosomal dominant inheritance.</div>
                 
             </div>
             
@@ -4051,7 +4298,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Autosomal Dominant Osteopetrosis Type II
 creation_date: &#39;2026-02-13T00:31:42Z&#39;
-updated_date: &#39;2026-04-19T15:07:22Z&#39;
+updated_date: &#39;2026-05-08T16:21:17Z&#39;
 category: Mendelian
 description: &gt;
   Autosomal dominant osteopetrosis type II (ADO2), also known as Albers-Schonberg
@@ -4128,29 +4375,35 @@ pathophysiology:
     supports: SUPPORT
     snippet: &#34;Based on the preponderance of missense mutations and the knowledge that chloride channels probably function as dimers, it seems that heterozygous ClCN7 gene mutations may cause ADO2 through a dominant negative mechanism&#34;
     explanation: &#34;Proposes that dimeric channel structure enables dominant negative pathogenesis.&#34;
+  downstream:
+  - target: Impaired Resorption Lacuna Acidification
+    description: &gt;-
+      Dominant-negative CLCN7 channel dysfunction impairs osteoclast resorption
+      lacuna acidification.
 - name: Impaired Resorption Lacuna Acidification
   description: &gt;
     Dysfunctional CLCN7 chloride channels reduce the ability of osteoclasts
     to acidify the resorption lacuna, decreasing bone resorption capacity.
-    Incomplete penetrance (66%) and variable expressivity reflect the
-    stochastic impact of dominant negative subunit incorporation on overall
-    channel function.
+  notes: &gt;-
+    ADO2 shows incomplete penetrance and variable expressivity, but penetrance
+    data are epidemiologic context rather than direct evidence for lacuna
+    acidification.
   biological_processes:
   - preferred_term: Bone Resorption
     term:
       id: GO:0045453
       label: bone resorption
   evidence:
-  - reference: PMID:12929941
-    reference_title: &#34;Chloride channel 7 (ClCN7) gene mutations and autosomal dominant osteopetrosis, type II.&#34;
-    supports: NO_EVIDENCE
-    snippet: &#34;disease penetrance was 66% (62 clinically affected individuals/94 subjects with the gene mutation)&#34;
-    explanation: &#34;Incomplete penetrance reflects variable impact of dominant negative mechanism on osteoclast function.&#34;
   - reference: PMID:11741829
     reference_title: &#34;Albers-Schönberg disease (autosomal dominant osteopetrosis, type II) results from mutations in the ClCN7 chloride channel gene.&#34;
     supports: SUPPORT
     snippet: &#34;the most common form of osteopetrosis, a group of conditions characterized by an increased skeletal mass due to impaired bone and cartilage resorption&#34;
     explanation: &#34;Impaired bone resorption leads to the characteristic increased skeletal mass.&#34;
+  downstream:
+  - target: Progressive Skeletal Sclerosis
+    description: &gt;-
+      Reduced osteoclast acidification decreases bone resorption and drives
+      progressive skeletal sclerosis.
 - name: Progressive Skeletal Sclerosis
   description: &gt;
     Progressive accumulation of unresorbed bone leads to generalized
@@ -4390,6 +4643,20 @@ genetic:
     supports: SUPPORT
     snippet: &#34;ADO II is allelic with a subset of ARO cases&#34;
     explanation: &#34;CLCN7 mutations cause both dominant and recessive osteopetrosis depending on zygosity.&#34;
+- name: CLCN7
+  gene_term:
+    preferred_term: CLCN7
+    term:
+      id: hgnc:2025
+      label: CLCN7
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_23840c1f-9d30-4ccf-9fc0-604a0cb12eb4-2023-12-04T170000.000Z
+    reference_title: &#34;CLCN7 / autosomal dominant osteopetrosis 2 (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;CLCN7 | HGNC:2025 | autosomal dominant osteopetrosis 2 | MONDO:0008156 | AD | Definitive&#34;
+    explanation: ClinGen classifies the CLCN7-autosomal dominant osteopetrosis 2 gene-disease relationship as definitive with autosomal dominant inheritance.
 treatments:
 - name: Supportive Care
   description: &gt;
@@ -4409,11 +4676,942 @@ treatments:
     term:
       id: MAXO:0000079
       label: genetic counseling
+references:
+- reference: DOI:10.1093/jbmr/zjaf123
+  title: Fractures are highly correlated with bone density and inversely correlated with bone turnover markers in autosomal dominant osteopetrosis
+  found_in:
+  - Autosomal_Dominant_Osteopetrosis_Type_II-deep-research-falcon.md
+  findings:
+  - statement: Autosomal dominant osteopetrosis (ADO) is a rare osteosclerotic disorder usually caused by missense variants in the CLCN7 gene, which results in impaired osteoclastic bone resorption.
+    supporting_text: Autosomal dominant osteopetrosis (ADO) is a rare osteosclerotic disorder usually caused by missense variants in the CLCN7 gene, which results in impaired osteoclastic bone resorption.
+    evidence:
+    - reference: DOI:10.1093/jbmr/zjaf123
+      reference_title: Fractures are highly correlated with bone density and inversely correlated with bone turnover markers in autosomal dominant osteopetrosis
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Autosomal dominant osteopetrosis (ADO) is a rare osteosclerotic disorder usually caused by missense variants in the CLCN7 gene, which results in impaired osteoclastic bone resorption.
+      explanation: Deep research cited this publication as relevant literature for Autosomal Dominant Osteopetrosis Type II.
+- reference: DOI:10.18699/vjgb-23-46
+  title: Clinical, genetic aspects and molecular pathogenesis of osteopetrosis
+  found_in:
+  - Autosomal_Dominant_Osteopetrosis_Type_II-deep-research-falcon.md
+  findings:
+  - statement: Osteopetrosis (“marble bone”, ICD-10-78.2) includes a group of hereditary bone disorders distinguished by clinical variability and genetic heterogeneity.
+    supporting_text: Osteopetrosis (“marble bone”, ICD-10-78.2) includes a group of hereditary bone disorders distinguished by clinical variability and genetic heterogeneity.
+    evidence:
+    - reference: DOI:10.18699/vjgb-23-46
+      reference_title: Clinical, genetic aspects and molecular pathogenesis of osteopetrosis
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Osteopetrosis (“marble bone”, ICD-10-78.2) includes a group of hereditary bone disorders distinguished by clinical variability and genetic heterogeneity.
+      explanation: Deep research cited this publication as relevant literature for Autosomal Dominant Osteopetrosis Type II.
+- reference: DOI:10.3389/fendo.2022.819641
+  title: &#39;Natural History of Type II Autosomal Dominant Osteopetrosis: A Single Center Retrospective Study&#39;
+  found_in:
+  - Autosomal_Dominant_Osteopetrosis_Type_II-deep-research-falcon.md
+  findings:
+  - statement: Autosomal dominant osteopetrosis II (ADO II, MIM166600) is a sclerosing bone disorder caused by CLCN7 mutation.
+    supporting_text: Autosomal dominant osteopetrosis II (ADO II, MIM166600) is a sclerosing bone disorder caused by CLCN7 mutation.
+    evidence:
+    - reference: DOI:10.3389/fendo.2022.819641
+      reference_title: &#39;Natural History of Type II Autosomal Dominant Osteopetrosis: A Single Center Retrospective Study&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Autosomal dominant osteopetrosis II (ADO II, MIM166600) is a sclerosing bone disorder caused by CLCN7 mutation.
+      explanation: Deep research cited this publication as relevant literature for Autosomal Dominant Osteopetrosis Type II.
+- reference: DOI:10.3390/ijms241210412
+  title: Molecular Mechanisms of Craniofacial and Dental Abnormalities in Osteopetrosis
+  found_in:
+  - Autosomal_Dominant_Osteopetrosis_Type_II-deep-research-falcon.md
+  findings:
+  - statement: Osteopetrosis is a group of genetic bone disorders characterized by increased bone density and defective bone resorption.
+    supporting_text: Osteopetrosis is a group of genetic bone disorders characterized by increased bone density and defective bone resorption.
+    evidence:
+    - reference: DOI:10.3390/ijms241210412
+      reference_title: Molecular Mechanisms of Craniofacial and Dental Abnormalities in Osteopetrosis
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Osteopetrosis is a group of genetic bone disorders characterized by increased bone density and defective bone resorption.
+      explanation: Deep research cited this publication as relevant literature for Autosomal Dominant Osteopetrosis Type II.
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
+        
+        <div class="card reference-card" id="references-deep-research">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+            
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">4</span>
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1093/jbmr/zjaf123" target="_blank">DOI:10.1093/jbmr/zjaf123</a>
+                            </div>
+                            
+                            <div class="reference-title">Fractures are highly correlated with bone density and inversely correlated with bone turnover markers in autosomal dominant osteopetrosis</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Autosomal dominant osteopetrosis (ADO) is a rare osteosclerotic disorder usually caused by missense variants in the CLCN7 gene, which results in impaired osteoclastic bone resorption.</div>
+            
+            
+            <div class="reference-finding-supporting">"Autosomal dominant osteopetrosis (ADO) is a rare osteosclerotic disorder usually caused by missense variants in the CLCN7 gene, which results in impaired osteoclastic bone resorption."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/jbmr/zjaf123" target="_blank">DOI:10.1093/jbmr/zjaf123</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Autosomal dominant osteopetrosis (ADO) is a rare osteosclerotic disorder usually caused by missense variants in the CLCN7 gene, which results in impaired osteoclastic bone resorption."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Autosomal Dominant Osteopetrosis Type II.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.18699/vjgb-23-46" target="_blank">DOI:10.18699/vjgb-23-46</a>
+                            </div>
+                            
+                            <div class="reference-title">Clinical, genetic aspects and molecular pathogenesis of osteopetrosis</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Osteopetrosis (“marble bone”, ICD-10-78.2) includes a group of hereditary bone disorders distinguished by clinical variability and genetic heterogeneity.</div>
+            
+            
+            <div class="reference-finding-supporting">"Osteopetrosis (“marble bone”, ICD-10-78.2) includes a group of hereditary bone disorders distinguished by clinical variability and genetic heterogeneity."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.18699/vjgb-23-46" target="_blank">DOI:10.18699/vjgb-23-46</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Osteopetrosis (“marble bone”, ICD-10-78.2) includes a group of hereditary bone disorders distinguished by clinical variability and genetic heterogeneity."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Autosomal Dominant Osteopetrosis Type II.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3389/fendo.2022.819641" target="_blank">DOI:10.3389/fendo.2022.819641</a>
+                            </div>
+                            
+                            <div class="reference-title">Natural History of Type II Autosomal Dominant Osteopetrosis: A Single Center Retrospective Study</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Autosomal dominant osteopetrosis II (ADO II, MIM166600) is a sclerosing bone disorder caused by CLCN7 mutation.</div>
+            
+            
+            <div class="reference-finding-supporting">"Autosomal dominant osteopetrosis II (ADO II, MIM166600) is a sclerosing bone disorder caused by CLCN7 mutation."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fendo.2022.819641" target="_blank">DOI:10.3389/fendo.2022.819641</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Autosomal dominant osteopetrosis II (ADO II, MIM166600) is a sclerosing bone disorder caused by CLCN7 mutation."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Autosomal Dominant Osteopetrosis Type II.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/ijms241210412" target="_blank">DOI:10.3390/ijms241210412</a>
+                            </div>
+                            
+                            <div class="reference-title">Molecular Mechanisms of Craniofacial and Dental Abnormalities in Osteopetrosis</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Osteopetrosis is a group of genetic bone disorders characterized by increased bone density and defective bone resorption.</div>
+            
+            
+            <div class="reference-finding-supporting">"Osteopetrosis is a group of genetic bone disorders characterized by increased bone density and defective bone resorption."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/ijms241210412" target="_blank">DOI:10.3390/ijms241210412</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Osteopetrosis is a group of genetic bone disorders characterized by increased bone density and defective bone resorption."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Autosomal Dominant Osteopetrosis Type II.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">Autosomal Dominant Osteopetrosis Type II (ADO2) — Comprehensive Disease Characteristics Report</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">24 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-08T08:09:04.551073</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <h1>Autosomal Dominant Osteopetrosis Type II (ADO2) — Comprehensive Disease Characteristics Report</h1>
+<h2>Target Disease</h2>
+<ul>
+<li><strong>Disease name:</strong> Autosomal Dominant Osteopetrosis Type II (ADO2)</li>
+<li><strong>Category:</strong> Mendelian (autosomal dominant)</li>
+<li><strong>MONDO ID:</strong> <strong>MONDO:0008156</strong> (“autosomal dominant osteopetrosis 2”) (OpenTargets Search: autosomal dominant osteopetrosis type II,Albers-Schönberg disease-CLCN7)</li>
+</ul>
+<hr />
+<h2>1. Disease Information</h2>
+<h3>1.1 Definition / overview</h3>
+<p>Autosomal dominant osteopetrosis type II (ADO2) is a rare high–bone-mass skeletal disorder caused by impaired osteoclast-mediated bone resorption, leading to radiographically dense but mechanically fragile bone with frequent fractures and characteristic imaging findings (e.g., “sandwich vertebrae” and “bone-in-bone”). It is also referred to as <strong>Albers–Schönberg disease</strong> and is described as the <strong>commonest adult form</strong> of osteopetrosis (funckbrentanoUnknownyearppelmandikstranm pages 1-3, funckbrentanoUnknownyearppelmandikstranm pages 3-4, kang2019acaseof pages 1-3).</p>
+<p><strong>Current understanding (key concept):</strong> Osteopetrosis represents a group of disorders in which osteoclast formation/function is impaired, resulting in increased bone mass but compromised bone quality, with downstream complications including fractures, cranial nerve compression, and (less commonly in ADO2) marrow compromise (funckbrentanoUnknownyearppelmandikstranm pages 1-3, nadyrshina2023clinicalgeneticaspects pages 2-3).</p>
+<h3>1.2 Key identifiers</h3>
+<ul>
+<li><strong>OMIM/MIM:</strong> <strong>MIM 166600</strong> (ADO2) (wang2022naturalhistoryof pages 1-2)</li>
+<li><strong>MONDO:</strong> <strong>MONDO:0008156</strong> (OpenTargets Search: autosomal dominant osteopetrosis type II,Albers-Schönberg disease-CLCN7)</li>
+<li><strong>ICD-10:</strong> Osteopetrosis is listed as <strong>ICD-10-78.2</strong> in a 2023 review (note: this is for osteopetrosis as a category; ADO2-specific ICD granularity was not captured in retrieved evidence) (nadyrshina2023clinicalgeneticaspects pages 1-2)</li>
+<li><strong>Orphanet / MeSH / ICD-11:</strong> Not available in the retrieved full-text evidence set; should be filled from Orphanet/MeSH/ICD-11 directly.</li>
+</ul>
+<h3>1.3 Common synonyms / alternative names</h3>
+<ul>
+<li>Autosomal dominant osteopetrosis type II</li>
+<li>ADO II / ADO2</li>
+<li>Albers–Schönberg disease (funckbrentanoUnknownyearppelmandikstranm pages 1-3, kang2019acaseof pages 1-3)</li>
+</ul>
+<h3>1.4 Source type of information</h3>
+<p>This report integrates:
+- <strong>Aggregated resources and expert reviews</strong> (2023–2024) (funckbrentanoUnknownyearppelmandikstranm pages 1-3, nadyrshina2023clinicalgeneticaspects pages 1-2, ma2023molecularmechanismsof pages 2-4)
+- <strong>Human cohort / natural history studies</strong> (2022; plus a later natural-history biomarker report) (wang2022naturalhistoryof pages 1-2, wang2022naturalhistoryof pages 8-9, econs2026fracturesarehighly pages 1-3)
+- <strong>Case reports</strong> (illustrating variable expressivity and reduced penetrance) (kang2019acaseof pages 1-3)
+- <strong>Model organism and mechanistic synthesis</strong> (mouse models; craniofacial/dental mechanisms) (ma2023molecularmechanismsof pages 2-4, ma2023molecularmechanismsof pages 8-10)</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>2.1 Disease causal factors</h3>
+<p><strong>Primary cause:</strong> germline <strong>heterozygous pathogenic variants in CLCN7</strong> (Cl−/H+ antiporter 7; historically described as a “chloride channel”), causing osteoclast dysfunction with impaired resorption lacuna acidification (wang2022naturalhistoryof pages 1-2, funckbrentanoUnknownyearppelmandikstranm pages 1-3, funckbrentanoUnknownyearppelmandikstranm pages 3-4). A 2024 adult osteopetrosis review notes that <strong>“more than 34 CLCN7 mutations have been reported”</strong> in ADO (funckbrentanoUnknownyearppelmandikstranm pages 1-3).</p>
+<p><strong>Key mechanistic etiologic statement (quoted):</strong> “<strong>Mutation in CLCN7 may disrupt acidiﬁcation of the osteoclast resorption lacunae, resulting in impaired bone degradation</strong>” (ADO II, MIM166600) (wang2022naturalhistoryof pages 1-2).</p>
+<p><strong>Additional required component:</strong> The <strong>OSTM1</strong> subunit is described as required for ClC-7/CLCN7 trafficking to the osteoclast ruffled border (funckbrentanoUnknownyearppelmandikstranm pages 1-3, funckbrentanoUnknownyearppelmandikstranm pages 3-4).</p>
+<h3>2.2 Risk factors</h3>
+<ul>
+<li><strong>Genetic:</strong> carrying a pathogenic <strong>CLCN7</strong> variant is the principal risk factor (Mendelian causal). Penetrance is incomplete and expressivity is variable (funckbrentanoUnknownyearppelmandikstranm pages 3-4, econs2026fracturesarehighly pages 1-3).</li>
+<li><strong>Non-genetic/environmental:</strong> The retrieved evidence did not identify consistent environmental risk factors for ADO2 onset; clinical risk is dominated by genotype.</li>
+</ul>
+<h3>2.3 Protective factors</h3>
+<p>No genetic or environmental protective factors were identified in the retrieved evidence.</p>
+<h3>2.4 Gene–environment interactions</h3>
+<p>No specific gene–environment interactions were identified in the retrieved evidence.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>3.1 Core clinical phenotypes (with characteristics)</h3>
+<p><strong>Skeletal fragility/fracture (symptom/sign):</strong>
+- Fracture is a defining complication despite very high BMD (funckbrentanoUnknownyearppelmandikstranm pages 3-4, wang2022naturalhistoryof pages 8-9).
+- In a Chinese cohort (n=36), fracture frequency was <strong>55.6% (20/36)</strong> (wang2022naturalhistoryof pages 8-9).
+- A 2024 review summarizes fractures in <strong>~46%</strong> of patients and notes delayed healing (funckbrentanoUnknownyearppelmandikstranm pages 3-4).
+- Fracture risk is not reliably predicted by BMD in at least one follow-up subset: BMD stable over ~6 years, yet <strong>5/15</strong> sustained new fractures (funckbrentanoUnknownyearppelmandikstranm pages 3-4, wang2022naturalhistoryof pages 5-6).</p>
+<p><strong>Delayed fracture healing (clinical course):</strong>
+- Fractures may show delayed consolidation, sometimes “months to years” per adult osteopetrosis review (funckbrentanoUnknownyearppelmandikstranm pages 3-4).</p>
+<p><strong>Osteomyelitis (especially mandibular) / dental infection:</strong>
+- Mandibular osteomyelitis is highlighted as a difficult complication requiring prolonged treatment (funckbrentanoUnknownyearppelmandikstranma pages 4-5).</p>
+<p><strong>Cranial nerve compression / skull-base complications:</strong>
+- Vision loss, hearing loss, and facial palsy can occur from skull base sclerosis and foraminal narrowing (wang2022naturalhistoryof pages 8-9, funckbrentanoUnknownyearppelmandikstranma pages 4-5, nadyrshina2023clinicalgeneticaspects pages 2-3).
+- In the Chinese cohort, visual loss was <strong>1/36</strong> and bone marrow failure <strong>2/36</strong> (wang2022naturalhistoryof pages 1-2).</p>
+<p><strong>Degenerative joint disease / hip osteoarthritis:</strong>
+- Hip osteoarthritis and joint discomfort are reported clinical characteristics (wang2022naturalhistoryof pages 1-2, wang2022naturalhistoryof pages 5-6).</p>
+<p><strong>Hematologic features (less common in ADO2):</strong>
+- Reduced marrow space can contribute to anemia/hepatosplenomegaly in osteopetrosis broadly; adult ADO2 marrow failure is noted as uncommon but possible (funckbrentanoUnknownyearppelmandikstranm pages 3-4, nadyrshina2023clinicalgeneticaspects pages 2-3).</p>
+<h3>3.2 Craniofacial and dental phenotypes (2023 synthesis)</h3>
+<p>A 2023 craniofacial/dental review explicitly catalogs craniofacial and dental abnormalities across osteopetrosis subtypes and includes ADO2/OPTA2 (OMIM #166600). It emphasizes that ion channels/transporters including <strong>TCIRG1, CLCN7, OSTM1, SLC4A2</strong> “<strong>may control osteoclastic acidification</strong>” (ma2023molecularmechanismsof pages 1-2). It also recommends dental attention to prevent missed diagnoses: “<strong>It is recommended that dentists pay attention to the craniofacial condition of osteopetrosis patients to reduce missed diagnoses</strong>” (ma2023molecularmechanismsof pages 12-13).</p>
+<h3>3.3 Suggested HPO terms (non-exhaustive)</h3>
+<p>(IDs should be verified against current HPO release during KB ingestion.)
+- <strong>Increased bone mineral density / osteosclerosis</strong> (e.g., Osteosclerosis)
+- <strong>Pathologic fracture / recurrent fractures</strong>
+- <strong>Delayed fracture healing</strong>
+- <strong>Osteomyelitis of the jaw / mandibular osteomyelitis</strong>
+- <strong>Visual impairment / optic atrophy</strong> (optic canal narrowing mechanism noted) (wang2022naturalhistoryof pages 8-9)
+- <strong>Hearing impairment</strong>
+- <strong>Facial palsy</strong>
+- <strong>Dental anomalies:</strong> delayed tooth eruption, hypodontia/dental agenesis, caries, malocclusion (funckbrentanoUnknownyearppelmandikstranma pages 4-5, ma2023molecularmechanismsof pages 8-10)</p>
+<h3>3.4 Quality of life impacts</h3>
+<p>Direct QoL instrument data (e.g., SF-36, PROMIS) were not present in the retrieved evidence set; however, fracture burden, chronic osteomyelitis, and sensory impairment are expected to be major drivers of disability (funckbrentanoUnknownyearppelmandikstranm pages 1-3, funckbrentanoUnknownyearppelmandikstranm pages 3-4).</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<h3>4.1 Causal gene(s)</h3>
+<ul>
+<li><strong>CLCN7</strong> (Cl−/H+ antiporter 7) is the principal ADO2 gene (funckbrentanoUnknownyearppelmandikstranm pages 1-3, wang2022naturalhistoryof pages 1-2, OpenTargets Search: autosomal dominant osteopetrosis type II,Albers-Schönberg disease-CLCN7).</li>
+</ul>
+<h3>4.2 Pathogenic variants and genotype–phenotype</h3>
+<p><strong>Variant spectrum and frequencies (cohort-level):</strong> In a single-center Chinese cohort (n=36), <strong>21 disease-causing CLCN7 mutations</strong> were detected (wang2022naturalhistoryof pages 5-6).
+- c.2299C&gt;T (p.Arg767Trp): <strong>16.2%</strong>
+- c.296A&gt;G (p.Tyr99Cys): <strong>10.8%</strong>
+- c.857G&gt;A (p.Arg286Gln): <strong>10.8%</strong>
+- c.937G&gt;A (p.Glu313Lys): <strong>8.1%</strong> (wang2022naturalhistoryof pages 5-6, wang2022naturalhistoryof pages 8-9)</p>
+<p><strong>Reported genotype–phenotype link (example):</strong> c.937G&gt;A (p.Glu313Lys) was associated with “severe fractures, haematological defects and cranial palsy” in this cohort (wang2022naturalhistoryof pages 1-2).</p>
+<p><strong>Penetrance / expressivity:</strong>
+- Incomplete penetrance (~66% symptomatic carriers) (funckbrentanoUnknownyearppelmandikstranm pages 3-4, funckbrentanoUnknownyearppelmandikstranm pages 1-3)
+- Penetrance estimate 69.23% in one cohort (wang2022naturalhistoryof pages 2-3)
+- Familial penetrance reported range <strong>60–90%</strong> in a case report review (kang2019acaseof pages 1-3)</p>
+<p><strong>Expert interpretation:</strong> A later natural-history biomarker study emphasizes marked intrafamilial variability and reports no significant phenotype differences between the most common variant in that cohort (G215R) vs other variants across fracture/BMD/biochemical markers (econs2026fracturesarehighly pages 1-3).</p>
+<h3>4.3 Modifier genes / protective variants</h3>
+<p>No validated modifier genes or protective variants specific to ADO2 were identified in the retrieved evidence.</p>
+<h3>4.4 Epigenetics / chromosomal abnormalities</h3>
+<p>Not identified for ADO2 in the retrieved evidence.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>No disease-specific environmental, lifestyle, or infectious triggers were identified in the retrieved evidence set. Clinical risks in ADO2 are primarily genetically determined.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>6.1 Causal chain (genotype → cellular defect → clinical manifestations)</h3>
+<ol>
+<li><strong>Trigger:</strong> Germline heterozygous <strong>CLCN7</strong> pathogenic variant (wang2022naturalhistoryof pages 1-2).</li>
+<li><strong>Upstream cellular mechanism:</strong> Disruption of osteoclast acidification/resorption lacuna function; impaired ruffled border function/trafficking (including requirement for OSTM1) (funckbrentanoUnknownyearppelmandikstranm pages 3-4, funckbrentanoUnknownyearppelmandikstranm pages 1-3).</li>
+<li><strong>Tissue-level consequences:</strong> Failure to resorb mineralized bone and calcified cartilage → osteosclerosis/high bone mass with abnormal microarchitecture (“bone islets”; persistent calcified cartilage as a hallmark of osteoclast failure) (funckbrentanoUnknownyearppelmandikstranm pages 4-5, funckbrentanoUnknownyearppelmandikstranma pages 4-5).</li>
+<li><strong>Clinical phenotype:</strong> Dense but brittle bone with frequent fractures and delayed repair; skull base sclerosis with foraminal narrowing and cranial neuropathies; mandibular/dental complications; occasional marrow space compromise (funckbrentanoUnknownyearppelmandikstranm pages 3-4, funckbrentanoUnknownyearppelmandikstranma pages 4-5, nadyrshina2023clinicalgeneticaspects pages 2-3).</li>
+</ol>
+<h3>6.2 Pathways and molecular components</h3>
+<p>A 2023 craniofacial/dental mechanisms review describes core acidification machinery: CA2 generates H+; V-ATPase pumps H+; CLCN7/OSTM1 functions as a <strong>2Cl−/H+ antiporter</strong> contributing to acidification and resorption processes; SLC4A2 supports Cl− flux and downstream protease activation and cytoskeletal/podosome dynamics (ma2023molecularmechanismsof pages 8-10).</p>
+<h3>6.3 Biomarkers / biochemical abnormalities</h3>
+<ul>
+<li><strong>TRAP5b:</strong> A 2024 review states “<strong>TRAP5b levels are always above the normal range in ADO</strong>” and recommends monitoring (funckbrentanoUnknownyearppelmandikstranma pages 4-5).</li>
+<li>A natural history biomarker study (n=54) found correlations with fracture burden: TRAP correlated positively with fractures (r=0.52), while resorption markers CTX and NTx/Cr correlated inversely (econs2026fracturesarehighly pages 1-3).</li>
+</ul>
+<h3>6.4 Cell types (Cell Ontology suggestions)</h3>
+<ul>
+<li><strong>Osteoclast</strong> (primary effector cell; CL term: osteoclast)</li>
+<li>Osteoblast/osteocyte (secondary remodeling context)</li>
+</ul>
+<h3>6.5 GO term suggestions (verify IDs during curation)</h3>
+<ul>
+<li>Bone resorption</li>
+<li>Osteoclast differentiation</li>
+<li>Proton transmembrane transport / lysosomal acidification</li>
+<li>Chloride transmembrane transport</li>
+</ul>
+<h3>6.6 -omics / advanced technologies</h3>
+<ul>
+<li>Human iPSC disease modeling exists for ADO2 and includes proteomic profiling of patient-derived iPSCs (Ou et al., 2019; not a 2023–2024 development but a relevant real-world model platform) (ou2019genotypinggenerationand…; see retrieved corpus).</li>
+</ul>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<h3>7.1 Organ/system level</h3>
+<ul>
+<li><strong>Skeletal system</strong> (primary): spine, pelvis, long bones, skull base (funckbrentanoUnknownyearppelmandikstranm pages 3-4, wang2022naturalhistoryof pages 8-9)</li>
+<li><strong>Cranial nerve pathways</strong> (secondary): optic canal narrowing with optic atrophy; auditory/facial nerve impingement (wang2022naturalhistoryof pages 8-9, funckbrentanoUnknownyearppelmandikstranma pages 4-5)</li>
+<li><strong>Orofacial/dental</strong>: mandible and dentition (osteomyelitis, dental anomalies) (funckbrentanoUnknownyearppelmandikstranma pages 4-5, ma2023molecularmechanismsof pages 8-10)</li>
+<li><strong>Hematopoietic system</strong> (variable/less common in ADO2 adults): marrow space compromise and cytopenias in more severe cases (funckbrentanoUnknownyearppelmandikstranm pages 3-4, wang2022naturalhistoryof pages 1-2)</li>
+</ul>
+<h3>7.2 UBERON suggestions (verify IDs)</h3>
+<ul>
+<li>Bone of vertebral column; lumbar vertebra</li>
+<li>Pelvic bone</li>
+<li>Skull base</li>
+<li>Mandible</li>
+<li>Bone marrow</li>
+</ul>
+<hr />
+<h2>8. Temporal Development (Natural History)</h2>
+<ul>
+<li><strong>Typical onset:</strong> late childhood/adolescence to adulthood (ADO described as milder/benign adult form) (nadyrshina2023clinicalgeneticaspects pages 1-2, ma2023molecularmechanismsof pages 2-4).</li>
+<li><strong>Course:</strong> Often described as relatively stable; however, fractures can occur repeatedly, and fracture healing may be prolonged (funckbrentanoUnknownyearppelmandikstranm pages 3-4, wang2022naturalhistoryof pages 1-2).</li>
+<li>In a retrospective cohort with follow-up (mean ~6.3 years), incident fractures occurred despite stable BMD (funckbrentanoUnknownyearppelmandikstranm pages 3-4, wang2022naturalhistoryof pages 5-6).</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>9.1 Inheritance</h3>
+<ul>
+<li><strong>Autosomal dominant</strong> with <strong>incomplete penetrance</strong> and variable expressivity (funckbrentanoUnknownyearppelmandikstranm pages 3-4, kang2019acaseof pages 1-3).</li>
+</ul>
+<h3>9.2 Epidemiology</h3>
+<ul>
+<li><strong>Incidence estimate:</strong> ~<strong>1 in 20,000 births</strong> reported for ADO in multiple reviews/studies (funckbrentanoUnknownyearppelmandikstranm pages 1-3, nadyrshina2023clinicalgeneticaspects pages 1-2, econs2026fracturesarehighly pages 1-3).</li>
+<li>A 2023 craniofacial/dental review cites a <strong>frequency ~5.5 per 100,000</strong> for OPTA2/ADO2 (ma2023molecularmechanismsof pages 2-4).</li>
+</ul>
+<p><strong>Demographics:</strong> A Chinese cohort reports fractures often occurring at ≤18 years among those who fracture (age distribution for fractures presented as “≤18/&gt;18: 37/7”) (wang2022naturalhistoryof pages 8-9). Sex ratio and geographic/ancestry enrichment were not available in the retrieved evidence.</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>10.1 Clinical criteria and imaging</h3>
+<p><strong>Radiographic hallmarks</strong> (diagnostic cornerstone):
+- “Sandwich vertebrae”/vertebral endplate sclerosis; “bone-in-bone” appearances; skull base densification; Erlenmeyer-flask changes (funckbrentanoUnknownyearppelmandikstranm pages 3-4, funckbrentanoUnknownyearppelmandikstranma pages 4-5).</p>
+<p><strong>Imaging for complications:</strong> MRI/CT/tomodensitometry to monitor optic foramina and cranial nerve compression (funckbrentanoUnknownyearppelmandikstranm pages 3-4).</p>
+<h3>10.2 DXA and bone density</h3>
+<p>DXA typically shows markedly increased BMD (e.g., Z-score &gt; +2), but BMD may not reliably predict fracture risk and routine serial BMD is not recommended for fracture-risk monitoring by one expert review (funckbrentanoUnknownyearppelmandikstranm pages 3-4).</p>
+<h3>10.3 Laboratory evaluation / biomarkers</h3>
+<ul>
+<li>Suggested monitoring includes <strong>blood count</strong> and <strong>PTH</strong> (funckbrentanoUnknownyearppelmandikstranma pages 4-5).</li>
+<li><strong>TRAP5b</strong> may be elevated and is suggested as a useful marker of osteoclast number in ADO (funckbrentanoUnknownyearppelmandikstranma pages 4-5).</li>
+</ul>
+<h3>10.4 Genetic testing</h3>
+<p>A cohort states: “<strong>The diagnosis of ADOII depends on clinical manifestations, typical imaging examinations and CLCN7 gene mutation</strong>” (wang2022naturalhistoryof pages 2-3). Practical approach: targeted CLCN7 testing or broader skeletal dysplasia/osteoclast disorder panels or exome sequencing depending on context.</p>
+<h3>10.5 Differential diagnosis</h3>
+<p>Not comprehensively captured in retrieved evidence; key clinical differentials include other osteosclerotic disorders and other osteopetrosis genetic subtypes (e.g., LRP5-driven OPTA1; recessive TCIRG1/OSTM1 forms), which differ in severity, hematologic involvement, and transplant responsiveness (nadyrshina2023clinicalgeneticaspects pages 2-3, ma2023molecularmechanismsof pages 12-13).</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li>ADO2 is generally considered <strong>milder</strong> than infantile recessive osteopetrosis, but morbidity can be substantial due to fracture burden and cranial/dental complications (nadyrshina2023clinicalgeneticaspects pages 1-2, funckbrentanoUnknownyearppelmandikstranm pages 1-3).</li>
+<li>In one cohort, severe outcomes (visual loss 1/36; marrow failure 2/36) were uncommon but present (wang2022naturalhistoryof pages 1-2).</li>
+</ul>
+<p>Quantitative survival/life expectancy statistics specific to ADO2 were not available in the retrieved evidence set.</p>
+<hr />
+<h2>12. Treatment</h2>
+<h3>12.1 Current applications and real-world implementations (adult ADO2)</h3>
+<p><strong>Consensus from adult osteopetrosis expert review:</strong> Adult ADO2 care is largely <strong>supportive and multidisciplinary</strong>, ideally in specialized centers, focusing on monitoring and managing fractures, dental/mandibular infections, and cranial nerve complications (funckbrentanoUnknownyearppelmandikstranm pages 1-3, funckbrentanoUnknownyearppelmandikstranma pages 4-5).</p>
+<p><strong>Examples of real-world management needs:</strong>
+- Mandibular osteomyelitis may require “long-term antibiotic therapy and surgical debridement” (funckbrentanoUnknownyearppelmandikstranma pages 4-5).
+- Skull base/cranial foramina involvement may require specialized ophthalmologic/ENT monitoring and, in some cases, surgical decompression or neurosurgical intervention (funckbrentanoUnknownyearppelmandikstranma pages 4-5).</p>
+<h3>12.2 HSCT (contextual, not typical for adult ADO2)</h3>
+<p>A 2023 review notes HSCT “<strong>is recognized as the most effective treatment, which allows restoration of bone resorption by cells of donor origin</strong>,” but also emphasizes genotype-specific contraindications (e.g., severe neurological disorders in TNFSF11/OSTM1) (nadyrshina2023clinicalgeneticaspects pages 2-3). Adult ADO2 (CLCN7) is generally managed conservatively rather than transplanted in the reviewed expert summary (funckbrentanoUnknownyearppelmandikstranm pages 1-3).</p>
+<h3>12.3 Experimental / emerging (research directions)</h3>
+<p>Expert reviews emphasize knowledge gaps and the need for therapies that restore osteoclast resorptive capacity and for better natural history/endpoint development (funckbrentanoUnknownyearppelmandikstranm pages 1-3, econs2026fracturesarehighly pages 1-3).</p>
+<h3>12.4 MAXO term suggestions (verify IDs)</h3>
+<ul>
+<li>Orthopedic fracture management</li>
+<li>Surgical debridement (mandibular osteomyelitis)</li>
+<li>Long-term antibiotic therapy</li>
+<li>Ophthalmologic monitoring; ENT monitoring</li>
+<li>Genetic counseling</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<p>No primary prevention exists for a Mendelian causal disorder; practical prevention is <strong>tertiary prevention</strong> of complications via surveillance and prompt management:
+- Prevent/manage dental infection and avoid high-risk dental trauma when possible; early referral for mandibular infection (funckbrentanoUnknownyearppelmandikstranma pages 4-5, ma2023molecularmechanismsof pages 12-13)
+- Monitor for cranial nerve compromise (vision/hearing) (funckbrentanoUnknownyearppelmandikstranma pages 4-5)
+- Genetic counseling for affected families due to AD inheritance and incomplete penetrance (kang2019acaseof pages 1-3)</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p>No naturally occurring veterinary ADO2 analogs were identified in the retrieved evidence set.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>Mouse (Clcn7-deficient models):</strong> described as recapitulating high bone density and multisystem phenotypes including neurodegeneration and dental/retinal abnormalities, supporting mechanistic relevance for CLCN7-dependent osteopetrosis (ma2023molecularmechanismsof pages 2-4).</li>
+<li><strong>Myeloid cell-specific Clcn7 mutant mouse (e.g., Clcn7G763R):</strong> used to validate pathway-level findings in CLCN7-mutant osteopetrosis research (basit2026geneticsofosteopetrosis pages 8-9).</li>
+<li><strong>Human iPSC models:</strong> ADO2-specific iPSCs with proteomic profiling exist, enabling disease modeling and therapeutic screening (Ou et al., 2019; see retrieved corpus).</li>
+</ul>
+<hr />
+<h2>Key quantitative evidence summary (for KB ingestion)</h2>
+<p>The following table consolidates incidence, penetrance, fracture burden, and recurrent CLCN7 variant frequencies and phenotype notes.</p>
+<table>
+<thead>
+<tr>
+<th>Finding</th>
+<th style="text-align: right;">Value</th>
+<th>Population/Study</th>
+<th style="text-align: right;">Year</th>
+<th>PMID/DOI/URL</th>
+<th>Evidence ID</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Estimated incidence of ADO/ADO2</td>
+<td style="text-align: right;">~1 in 20,000 births</td>
+<td>Adult osteopetrosis review; ADO2/Albers–Schönberg disease described as the common adult form</td>
+<td style="text-align: right;">2024</td>
+<td>Eur J Med Genet review URL not fully available in context; OpenTargets disease mapping available: https://platform.opentargets.org/disease/MONDO_0008156</td>
+<td>(funckbrentanoUnknownyearppelmandikstranm pages 1-3, OpenTargets Search: autosomal dominant osteopetrosis type II,Albers-Schönberg disease-CLCN7)</td>
+</tr>
+<tr>
+<td>Penetrance of CLCN7-associated ADO2</td>
+<td style="text-align: right;">~66% symptomatic carriers</td>
+<td>Review summary of mutation carriers with incomplete penetrance</td>
+<td style="text-align: right;">2024</td>
+<td>Review URL not fully available in context</td>
+<td>(funckbrentanoUnknownyearppelmandikstranm pages 3-4, funckbrentanoUnknownyearppelmandikstranm pages 1-3)</td>
+</tr>
+<tr>
+<td>Penetrance in single-center Chinese cohort</td>
+<td style="text-align: right;">69.23%</td>
+<td>36 patients from 28 unrelated families with ADOII</td>
+<td style="text-align: right;">2022</td>
+<td>DOI: 10.3389/fendo.2022.819641; https://doi.org/10.3389/fendo.2022.819641</td>
+<td>(wang2022naturalhistoryof pages 2-3)</td>
+</tr>
+<tr>
+<td>Penetrance range reported in families</td>
+<td style="text-align: right;">60–90%</td>
+<td>Family/case-based literature summarized in Korean case report</td>
+<td style="text-align: right;">2019</td>
+<td>DOI: 10.4274/jcrpe.galenos.2019.2018.0229; https://doi.org/10.4274/jcrpe.galenos.2019.2018.0229</td>
+<td>(kang2019acaseof pages 1-3)</td>
+</tr>
+<tr>
+<td>Overall fracture frequency in ADO2</td>
+<td style="text-align: right;">~46%</td>
+<td>Review summary of ADO2 patients</td>
+<td style="text-align: right;">2024</td>
+<td>Review URL not fully available in context</td>
+<td>(funckbrentanoUnknownyearppelmandikstranm pages 3-4, funckbrentanoUnknownyearppelmandikstranma pages 3-4)</td>
+</tr>
+<tr>
+<td>Fracture frequency in Chinese ADO2 cohort</td>
+<td style="text-align: right;">55.6% (20/36)</td>
+<td>36 Chinese patients with ADO II</td>
+<td style="text-align: right;">2022</td>
+<td>DOI: 10.3389/fendo.2022.819641; https://doi.org/10.3389/fendo.2022.819641</td>
+<td>(wang2022naturalhistoryof pages 8-9)</td>
+</tr>
+<tr>
+<td>Fracture frequency by age group in prior series</td>
+<td style="text-align: right;">53% affected children; 98% affected adults</td>
+<td>Prior ADO cohort summarized in natural-history/biomarker study</td>
+<td style="text-align: right;">2026</td>
+<td>DOI: 10.1093/jbmr/zjaf123; https://doi.org/10.1093/jbmr/zjaf123</td>
+<td>(econs2026fracturesarehighly pages 8-10)</td>
+</tr>
+<tr>
+<td>Severe fractures by age group in prior series</td>
+<td style="text-align: right;">16% children; 49% adults</td>
+<td>Prior ADO cohort summarized in natural-history/biomarker study</td>
+<td style="text-align: right;">2026</td>
+<td>DOI: 10.1093/jbmr/zjaf123; https://doi.org/10.1093/jbmr/zjaf123</td>
+<td>(econs2026fracturesarehighly pages 8-10)</td>
+</tr>
+<tr>
+<td>Fracture frequency in Benichou series</td>
+<td style="text-align: right;">78%</td>
+<td>42 ADO patients summarized in biomarker study</td>
+<td style="text-align: right;">2026</td>
+<td>DOI: 10.1093/jbmr/zjaf123; https://doi.org/10.1093/jbmr/zjaf123</td>
+<td>(econs2026fracturesarehighly pages 8-10)</td>
+</tr>
+<tr>
+<td>Visual loss frequency in Chinese ADO2 cohort</td>
+<td style="text-align: right;">1/36 (2.8%)</td>
+<td>36 Chinese patients with ADO II</td>
+<td style="text-align: right;">2022</td>
+<td>DOI: 10.3389/fendo.2022.819641; https://doi.org/10.3389/fendo.2022.819641</td>
+<td>(wang2022naturalhistoryof pages 1-2)</td>
+</tr>
+<tr>
+<td>Bone marrow failure frequency in Chinese ADO2 cohort</td>
+<td style="text-align: right;">2/36 (5.6%)</td>
+<td>36 Chinese patients with ADO II</td>
+<td style="text-align: right;">2022</td>
+<td>DOI: 10.3389/fendo.2022.819641; https://doi.org/10.3389/fendo.2022.819641</td>
+<td>(wang2022naturalhistoryof pages 1-2)</td>
+</tr>
+<tr>
+<td>Key retrospective cohort size</td>
+<td style="text-align: right;">36 patients; 28 unrelated families</td>
+<td>Single-center ADO II natural history study</td>
+<td style="text-align: right;">2022</td>
+<td>DOI: 10.3389/fendo.2022.819641; https://doi.org/10.3389/fendo.2022.819641</td>
+<td>(wang2022naturalhistoryof pages 2-3)</td>
+</tr>
+<tr>
+<td>Longitudinal follow-up subset</td>
+<td style="text-align: right;">15 patients; mean follow-up 6.3 years (range 1–14 years)</td>
+<td>Subset of the Chinese ADO II cohort</td>
+<td style="text-align: right;">2022</td>
+<td>DOI: 10.3389/fendo.2022.819641; https://doi.org/10.3389/fendo.2022.819641</td>
+<td>(wang2022naturalhistoryof pages 1-2, wang2022naturalhistoryof pages 5-6)</td>
+</tr>
+<tr>
+<td>New fractures during follow-up</td>
+<td style="text-align: right;">5/15</td>
+<td>Followed patients in Chinese ADO II cohort</td>
+<td style="text-align: right;">2022</td>
+<td>DOI: 10.3389/fendo.2022.819641; https://doi.org/10.3389/fendo.2022.819641</td>
+<td>(wang2022naturalhistoryof pages 5-6)</td>
+</tr>
+<tr>
+<td>Baseline natural-history/biomarker cohort size</td>
+<td style="text-align: right;">54 total (42 adults, 12 children); 37 adults with disease-causing CLCN7 variants</td>
+<td>Cross-sectional baseline analysis in ADO natural history study</td>
+<td style="text-align: right;">2026</td>
+<td>DOI: 10.1093/jbmr/zjaf123; https://doi.org/10.1093/jbmr/zjaf123</td>
+<td>(econs2026fracturesarehighly pages 1-3)</td>
+</tr>
+<tr>
+<td>Number of disease-causing CLCN7 mutations identified</td>
+<td style="text-align: right;">21 mutations</td>
+<td>36 Chinese ADO II patients</td>
+<td style="text-align: right;">2022</td>
+<td>DOI: 10.3389/fendo.2022.819641; https://doi.org/10.3389/fendo.2022.819641</td>
+<td>(wang2022naturalhistoryof pages 5-6, wang2022naturalhistoryof pages 1-2)</td>
+</tr>
+<tr>
+<td>Reported number of CLCN7 mutations in ADO overall</td>
+<td style="text-align: right;">&gt;34 mutations reported</td>
+<td>Review summary</td>
+<td style="text-align: right;">2024</td>
+<td>Review URL not fully available in context</td>
+<td>(funckbrentanoUnknownyearppelmandikstranm pages 1-3)</td>
+</tr>
+<tr>
+<td>Most frequent CLCN7 variant</td>
+<td style="text-align: right;">c.2299C&gt;T (p.Arg767Trp), 16.2% (6 cases)</td>
+<td>Chinese ADO II cohort</td>
+<td style="text-align: right;">2022</td>
+<td>DOI: 10.3389/fendo.2022.819641; https://doi.org/10.3389/fendo.2022.819641</td>
+<td>(wang2022naturalhistoryof pages 5-6, wang2022naturalhistoryof pages 8-9, wang2022naturalhistoryof pages 1-2)</td>
+</tr>
+<tr>
+<td>Phenotype of c.2299C&gt;T (p.Arg767Trp)</td>
+<td style="text-align: right;">Joint discomfort/osteoarthritis common; 4/6 fractured, including 1 multiple fractures</td>
+<td>Chinese ADO II cohort</td>
+<td style="text-align: right;">2022</td>
+<td>DOI: 10.3389/fendo.2022.819641; https://doi.org/10.3389/fendo.2022.819641</td>
+<td>(wang2022naturalhistoryof pages 5-6)</td>
+</tr>
+<tr>
+<td>Second recurrent CLCN7 variant</td>
+<td style="text-align: right;">c.296A&gt;G (p.Tyr99Cys), 10.8% (4 cases)</td>
+<td>Chinese ADO II cohort</td>
+<td style="text-align: right;">2022</td>
+<td>DOI: 10.3389/fendo.2022.819641; https://doi.org/10.3389/fendo.2022.819641</td>
+<td>(wang2022naturalhistoryof pages 5-6, wang2022naturalhistoryof pages 8-9)</td>
+</tr>
+<tr>
+<td>Phenotype of c.296A&gt;G (p.Tyr99Cys)</td>
+<td style="text-align: right;">Fractures in 2 patients</td>
+<td>Chinese ADO II cohort</td>
+<td style="text-align: right;">2022</td>
+<td>DOI: 10.3389/fendo.2022.819641; https://doi.org/10.3389/fendo.2022.819641</td>
+<td>(wang2022naturalhistoryof pages 5-6)</td>
+</tr>
+<tr>
+<td>Third recurrent CLCN7 variant</td>
+<td style="text-align: right;">c.857G&gt;A (p.Arg286Gln), 10.8% (4 cases)</td>
+<td>Chinese ADO II cohort</td>
+<td style="text-align: right;">2022</td>
+<td>DOI: 10.3389/fendo.2022.819641; https://doi.org/10.3389/fendo.2022.819641</td>
+<td>(wang2022naturalhistoryof pages 5-6, wang2022naturalhistoryof pages 8-9)</td>
+</tr>
+<tr>
+<td>Phenotype of c.857G&gt;A (p.Arg286Gln)</td>
+<td style="text-align: right;">Mild symptoms; fewer fractures and lower FN/TH BMD Z-scores than p.Arg767Trp group</td>
+<td>Chinese ADO II cohort</td>
+<td style="text-align: right;">2022</td>
+<td>DOI: 10.3389/fendo.2022.819641; https://doi.org/10.3389/fendo.2022.819641</td>
+<td>(wang2022naturalhistoryof pages 5-6, wang2022naturalhistoryof pages 8-9)</td>
+</tr>
+<tr>
+<td>Fourth recurrent CLCN7 variant</td>
+<td style="text-align: right;">c.937G&gt;A (p.Glu313Lys), 8.1% (3 cases)</td>
+<td>Chinese ADO II cohort</td>
+<td style="text-align: right;">2022</td>
+<td>DOI: 10.3389/fendo.2022.819641; https://doi.org/10.3389/fendo.2022.819641</td>
+<td>(wang2022naturalhistoryof pages 5-6, wang2022naturalhistoryof pages 8-9, wang2022naturalhistoryof pages 1-2)</td>
+</tr>
+<tr>
+<td>Phenotype of c.937G&gt;A (p.Glu313Lys)</td>
+<td style="text-align: right;">Severe phenotype: severe fractures, visual loss, hematological defects, cranial palsy</td>
+<td>Chinese ADO II cohort</td>
+<td style="text-align: right;">2022</td>
+<td>DOI: 10.3389/fendo.2022.819641; https://doi.org/10.3389/fendo.2022.819641</td>
+<td>(wang2022naturalhistoryof pages 5-6, wang2022naturalhistoryof pages 1-2)</td>
+</tr>
+<tr>
+<td>Common variant in 2026 registry/natural-history cohort</td>
+<td style="text-align: right;">G215R most common (N=14 among CLCN7 variant carriers analyzed)</td>
+<td>Adult ADO natural-history/biomarker cohort</td>
+<td style="text-align: right;">2026</td>
+<td>DOI: 10.1093/jbmr/zjaf123; https://doi.org/10.1093/jbmr/zjaf123</td>
+<td>(econs2026fracturesarehighly pages 8-10, econs2026fracturesarehighly pages 1-3)</td>
+</tr>
+<tr>
+<td>Genotype–phenotype conclusion for G215R</td>
+<td style="text-align: right;">No significant difference vs other CLCN7 variants for fracture, BMD, or bone turnover markers</td>
+<td>Adult ADO natural-history/biomarker cohort</td>
+<td style="text-align: right;">2026</td>
+<td>DOI: 10.1093/jbmr/zjaf123; https://doi.org/10.1093/jbmr/zjaf123</td>
+<td>(econs2026fracturesarehighly pages 1-3)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table compiles key quantitative data for autosomal dominant osteopetrosis type II, including incidence, penetrance, fracture burden, cohort sizes, and recurrent CLCN7 variants with associated phenotypes. It is useful as a quick evidence map for disease characterization and genotype-phenotype interpretation.</em></p>
+<hr />
+<h2>Visual evidence (radiographic and variant tables)</h2>
+<p>The ADO2 natural history cohort paper includes radiographic examples (sandwich vertebrae; bone-in-bone) and tables summarizing CLCN7 variants and their associated clinical/biochemical features (wang2022naturalhistoryof media 01f471f9, wang2022naturalhistoryof media 1e172433, wang2022naturalhistoryof media 154a27d0).</p>
+<hr />
+<h2>Recent developments and expert perspectives (2023–2024 emphasis)</h2>
+<ul>
+<li><strong>2024 adult osteopetrosis review (European expert perspective):</strong> emphasizes ADO2 as the common adult osteopetrosis subtype; highlights incomplete penetrance, high fracture burden with delayed repair, cranial nerve/dental complications, and recommends multidisciplinary specialized follow-up; also underscores evidence gaps in natural history and need for improved clinical studies/endpoints (funckbrentanoUnknownyearppelmandikstranm pages 1-3, funckbrentanoUnknownyearppelmandikstranm pages 3-4).</li>
+<li><strong>2023 craniofacial/dental mechanisms review:</strong> reframes osteopetrosis diagnosis through “telltale” craniofacial/dental abnormalities and mechanistically groups causal genes (including CLCN7/TCIRG1/OSTM1) as controllers of osteoclastic acidification; recommends dental vigilance to reduce missed diagnoses (ma2023molecularmechanismsof pages 1-2, ma2023molecularmechanismsof pages 12-13).</li>
+<li><strong>2023 genetics/pathogenesis review:</strong> stresses genotype-guided care, noting HSCT efficacy and contraindications depend on genetic subtype and neurologic involvement (nadyrshina2023clinicalgeneticaspects pages 2-3).</li>
+</ul>
+<hr />
+<h2>Evidence limitations (explicit)</h2>
+<ul>
+<li>Formal identifiers beyond <strong>MIM 166600</strong>, <strong>MONDO:0008156</strong>, and an osteopetrosis-category <strong>ICD-10-78.2</strong> were not present in retrieved texts.</li>
+<li>Recent (2023–2024) ADO2-specific prospective interventional trials were not retrieved; management evidence is predominantly expert review and cohort/case literature.</li>
+<li>QoL instruments and population-level prevalence/incidence beyond estimates (1:20,000 births; 5.5/100,000 frequency cited) were not captured in the retrieved evidence set.</li>
+</ul>
+<p>References</p>
+<ol>
+<li>
+<p>(OpenTargets Search: autosomal dominant osteopetrosis type II,Albers-Schönberg disease-CLCN7): Open Targets Query (autosomal dominant osteopetrosis type II,Albers-Schönberg disease-CLCN7, 6 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.</p>
+</li>
+<li>
+<p>(funckbrentanoUnknownyearppelmandikstranm pages 1-3): T Funck-Brentano and MC Zillikens. Ppelman-di kstra, nm, &amp; cohen-solal, m.(2024). Unknown journal, Unknown year.</p>
+</li>
+<li>
+<p>(funckbrentanoUnknownyearppelmandikstranm pages 3-4): T Funck-Brentano and MC Zillikens. Ppelman-di kstra, nm, &amp; cohen-solal, m.(2024). Unknown journal, Unknown year.</p>
+</li>
+<li>
+<p>(kang2019acaseof pages 1-3): Sol Kang, Young Kyung Kang, Jun Ah Lee, Dong Ho Kim, and Jung Sub Lim. A case of autosomal dominant osteopetrosis type 2 with a &lt;i&gt;clcn7&lt;/i&gt; gene mutation. Journal of Clinical Research in Pediatric Endocrinology, 11:439-443, Dec 2019. URL: https://doi.org/10.4274/jcrpe.galenos.2019.2018.0229, doi:10.4274/jcrpe.galenos.2019.2018.0229. This article has 8 citations.</p>
+</li>
+<li>
+<p>(nadyrshina2023clinicalgeneticaspects pages 2-3): D. D. Nadyrshina and R. I. Khusainova. Clinical, genetic aspects and molecular pathogenesis of osteopetrosis. Vavilov Journal of Genetics and Breeding, 27:383-392, Jul 2023. URL: https://doi.org/10.18699/vjgb-23-46, doi:10.18699/vjgb-23-46. This article has 13 citations.</p>
+</li>
+<li>
+<p>(wang2022naturalhistoryof pages 1-2): Ziyuan Wang, Xiang Li, Ya Wang, Wenzhen Fu, Yujuan Liu, Zhenlin Zhang, and Chun Wang. Natural history of type ii autosomal dominant osteopetrosis: a single center retrospective study. Frontiers in Endocrinology, Mar 2022. URL: https://doi.org/10.3389/fendo.2022.819641, doi:10.3389/fendo.2022.819641. This article has 13 citations.</p>
+</li>
+<li>
+<p>(nadyrshina2023clinicalgeneticaspects pages 1-2): D. D. Nadyrshina and R. I. Khusainova. Clinical, genetic aspects and molecular pathogenesis of osteopetrosis. Vavilov Journal of Genetics and Breeding, 27:383-392, Jul 2023. URL: https://doi.org/10.18699/vjgb-23-46, doi:10.18699/vjgb-23-46. This article has 13 citations.</p>
+</li>
+<li>
+<p>(ma2023molecularmechanismsof pages 2-4): Yu Ma, Yali Xu, Yanli Zhang, and Xiaohong Duan. Molecular mechanisms of craniofacial and dental abnormalities in osteopetrosis. International Journal of Molecular Sciences, 24:10412, Jun 2023. URL: https://doi.org/10.3390/ijms241210412, doi:10.3390/ijms241210412. This article has 21 citations.</p>
+</li>
+<li>
+<p>(wang2022naturalhistoryof pages 8-9): Ziyuan Wang, Xiang Li, Ya Wang, Wenzhen Fu, Yujuan Liu, Zhenlin Zhang, and Chun Wang. Natural history of type ii autosomal dominant osteopetrosis: a single center retrospective study. Frontiers in Endocrinology, Mar 2022. URL: https://doi.org/10.3389/fendo.2022.819641, doi:10.3389/fendo.2022.819641. This article has 13 citations.</p>
+</li>
+<li>
+<p>(econs2026fracturesarehighly pages 1-3): Michael J Econs, Stuart J Warden, Ziyue Liu, Paul J Niziolek, Corinne Parks-Schenck, Netsanet Gebregziabher, Rita L Gerard-O'Riley, Marian Hart, Lynda E Polgreen, and Erik A Imel. Fractures are highly correlated with bone density and inversely correlated with bone turnover markers in autosomal dominant osteopetrosis. Journal of Bone and Mineral Research, 41:150-157, Sep 2026. URL: https://doi.org/10.1093/jbmr/zjaf123, doi:10.1093/jbmr/zjaf123. This article has 0 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(ma2023molecularmechanismsof pages 8-10): Yu Ma, Yali Xu, Yanli Zhang, and Xiaohong Duan. Molecular mechanisms of craniofacial and dental abnormalities in osteopetrosis. International Journal of Molecular Sciences, 24:10412, Jun 2023. URL: https://doi.org/10.3390/ijms241210412, doi:10.3390/ijms241210412. This article has 21 citations.</p>
+</li>
+<li>
+<p>(wang2022naturalhistoryof pages 5-6): Ziyuan Wang, Xiang Li, Ya Wang, Wenzhen Fu, Yujuan Liu, Zhenlin Zhang, and Chun Wang. Natural history of type ii autosomal dominant osteopetrosis: a single center retrospective study. Frontiers in Endocrinology, Mar 2022. URL: https://doi.org/10.3389/fendo.2022.819641, doi:10.3389/fendo.2022.819641. This article has 13 citations.</p>
+</li>
+<li>
+<p>(funckbrentanoUnknownyearppelmandikstranma pages 4-5): T Funck-Brentano and MC Zillikens. Ppelman-di kstra, nm, &amp; cohen-solal, m.(2024). Unknown journal, Unknown year.</p>
+</li>
+<li>
+<p>(ma2023molecularmechanismsof pages 1-2): Yu Ma, Yali Xu, Yanli Zhang, and Xiaohong Duan. Molecular mechanisms of craniofacial and dental abnormalities in osteopetrosis. International Journal of Molecular Sciences, 24:10412, Jun 2023. URL: https://doi.org/10.3390/ijms241210412, doi:10.3390/ijms241210412. This article has 21 citations.</p>
+</li>
+<li>
+<p>(ma2023molecularmechanismsof pages 12-13): Yu Ma, Yali Xu, Yanli Zhang, and Xiaohong Duan. Molecular mechanisms of craniofacial and dental abnormalities in osteopetrosis. International Journal of Molecular Sciences, 24:10412, Jun 2023. URL: https://doi.org/10.3390/ijms241210412, doi:10.3390/ijms241210412. This article has 21 citations.</p>
+</li>
+<li>
+<p>(wang2022naturalhistoryof pages 2-3): Ziyuan Wang, Xiang Li, Ya Wang, Wenzhen Fu, Yujuan Liu, Zhenlin Zhang, and Chun Wang. Natural history of type ii autosomal dominant osteopetrosis: a single center retrospective study. Frontiers in Endocrinology, Mar 2022. URL: https://doi.org/10.3389/fendo.2022.819641, doi:10.3389/fendo.2022.819641. This article has 13 citations.</p>
+</li>
+<li>
+<p>(funckbrentanoUnknownyearppelmandikstranm pages 4-5): T Funck-Brentano and MC Zillikens. Ppelman-di kstra, nm, &amp; cohen-solal, m.(2024). Unknown journal, Unknown year.</p>
+</li>
+<li>
+<p>(basit2026geneticsofosteopetrosis pages 8-9): Sulman Basit and Khalid I. Khoshhal. Genetics of osteopetrosis: molecular insights and clinical implications. Journal of Musculoskeletal Surgery and Research, 10:40-50, Nov 2026. URL: https://doi.org/10.25259/jmsr_357_2025, doi:10.25259/jmsr_357_2025. This article has 0 citations.</p>
+</li>
+<li>
+<p>(funckbrentanoUnknownyearppelmandikstranma pages 3-4): T Funck-Brentano and MC Zillikens. Ppelman-di kstra, nm, &amp; cohen-solal, m.(2024). Unknown journal, Unknown year.</p>
+</li>
+<li>
+<p>(econs2026fracturesarehighly pages 8-10): Michael J Econs, Stuart J Warden, Ziyue Liu, Paul J Niziolek, Corinne Parks-Schenck, Netsanet Gebregziabher, Rita L Gerard-O'Riley, Marian Hart, Lynda E Polgreen, and Erik A Imel. Fractures are highly correlated with bone density and inversely correlated with bone turnover markers in autosomal dominant osteopetrosis. Journal of Bone and Mineral Research, 41:150-157, Sep 2026. URL: https://doi.org/10.1093/jbmr/zjaf123, doi:10.1093/jbmr/zjaf123. This article has 0 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(wang2022naturalhistoryof media 01f471f9): Ziyuan Wang, Xiang Li, Ya Wang, Wenzhen Fu, Yujuan Liu, Zhenlin Zhang, and Chun Wang. Natural history of type ii autosomal dominant osteopetrosis: a single center retrospective study. Frontiers in Endocrinology, Mar 2022. URL: https://doi.org/10.3389/fendo.2022.819641, doi:10.3389/fendo.2022.819641. This article has 13 citations.</p>
+</li>
+<li>
+<p>(wang2022naturalhistoryof media 1e172433): Ziyuan Wang, Xiang Li, Ya Wang, Wenzhen Fu, Yujuan Liu, Zhenlin Zhang, and Chun Wang. Natural history of type ii autosomal dominant osteopetrosis: a single center retrospective study. Frontiers in Endocrinology, Mar 2022. URL: https://doi.org/10.3389/fendo.2022.819641, doi:10.3389/fendo.2022.819641. This article has 13 citations.</p>
+</li>
+<li>
+<p>(wang2022naturalhistoryof media 154a27d0): Ziyuan Wang, Xiang Li, Ya Wang, Wenzhen Fu, Yujuan Liu, Zhenlin Zhang, and Chun Wang. Natural history of type ii autosomal dominant osteopetrosis: a single center retrospective study. Frontiers in Endocrinology, Mar 2022. URL: https://doi.org/10.3389/fendo.2022.819641, doi:10.3389/fendo.2022.819641. This article has 13 citations.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </div>
         
 
         <footer class="page-footer">
@@ -4464,7 +5662,7 @@ treatments:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Autosomal Dominant Osteopetrosis Type II", "mondoId": "MONDO:0008156", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autosomal_Dominant_Osteopetrosis_Type_II", "yamlRevision": "de861033ec84"};
+        const OS_CONFIG = {"diseaseName": "Autosomal Dominant Osteopetrosis Type II", "mondoId": "MONDO:0008156", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autosomal_Dominant_Osteopetrosis_Type_II", "yamlRevision": "ed77adae3801"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

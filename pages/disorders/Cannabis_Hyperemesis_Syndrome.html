@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2628,6 +2781,20 @@
             
             
             
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-value">6</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -3056,7 +3223,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"A large reservoir of stored THC in fat tissue may produce a &#34;reintoxication effect&#34; secondary to increased lipolysis during times of increased stress or food deprivation"</div>
+                <div class="evidence-snippet">"THC accumulates largely within body fat which serves as a long-term storage site for the drug [20,22]."</div>
                 
                 
                 <div class="evidence-explanation">Explains the mechanism by which THC mobilization from adipose stores creates a positive feedback loop during stress.</div>
@@ -4651,7 +4818,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Cannabis Hyperemesis Syndrome
 creation_date: &#39;2026-03-03T22:51:00Z&#39;
-updated_date: &#39;2026-04-03T00:00:00Z&#39;
+updated_date: &#39;2026-05-08T18:54:20Z&#39;
 description: &gt;
   Cannabis Hyperemesis Syndrome (CHS) is a clinical disorder characterized by
   cyclic episodes of severe nausea and intractable vomiting in the setting of
@@ -4798,7 +4965,7 @@ pathophysiology:
     reference_title: &#34;Cannabinoid hyperemesis syndrome.&#34;
     supports: SUPPORT
     evidence_source: OTHER
-    snippet: A large reservoir of stored THC in fat tissue may produce a &#34;reintoxication effect&#34; secondary to increased lipolysis during times of increased stress or food deprivation
+    snippet: THC accumulates largely within body fat which serves as a long-term storage site for the drug [20,22].
     explanation: Explains the mechanism by which THC mobilization from adipose stores creates a positive feedback loop during stress.
 
 - name: TRPV1 Receptor Dysregulation
@@ -5071,6 +5238,39 @@ environmental:
       id: ECTO:0100005
       label: exposure to cannabis
 
+diagnosis:
+- name: Clinical diagnosis by cannabis exposure and cyclic vomiting pattern
+  description: &gt;-
+    CHS diagnosis is clinical, based on chronic cannabis exposure, cyclic
+    nausea and vomiting, hot bathing behavior, and symptom resolution after
+    cannabis cessation.
+  diagnosis_term:
+    preferred_term: clinical assessment
+    term:
+      id: MAXO:0000487
+      label: clinical assessment
+  results: Chronic cannabis use with cyclic vomiting, hot bathing relief, and resolution after cessation.
+  evidence:
+  - reference: PMID:28000146
+    reference_title: &#34;Cannabinoid Hyperemesis Syndrome: Diagnosis, Pathophysiology, and Treatment-a Systematic Review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Fourteen diagnostic characteristics were identified, and the frequency
+      of major characteristics was as follows: history of regular cannabis
+      for any duration of time (100%), cyclic nausea and vomiting (100%),
+      resolution of symptoms after stopping cannabis (96.8%), compulsive
+      hot baths with symptom relief (92.3%)
+    explanation: The systematic review identifies the major clinical diagnostic characteristics and their frequencies.
+  - reference: PMID:28000146
+    reference_title: &#34;Cannabinoid Hyperemesis Syndrome: Diagnosis, Pathophysiology, and Treatment-a Systematic Review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      CHS is a cyclic vomiting syndrome, preceded by daily to weekly
+      cannabis use, usually accompanied by symptom improvement with hot
+      bathing, and resolution with cessation of cannabis.
+    explanation: This summarizes the practical clinical diagnostic pattern.
 treatments:
 - name: Cannabis Cessation
   description: &gt;
@@ -5228,11 +5428,823 @@ notes: &gt;
   emesis. Three cannabinoids in the cannabis plant (THC, cannabidiol, and
   cannabigerol) have opposing effects on the emesis response, which may
   contribute to the syndrome.
+references:
+- reference: DOI:10.1159/000520417
+  title: A Systematic Review on Cannabis Hyperemesis Syndrome and Its Management Options
+  found_in:
+  - Cannabis_Hyperemesis_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: Several forms of cannabinoids are currently being used to manage nausea and vomiting (N/V).
+    supporting_text: Several forms of cannabinoids are currently being used to manage nausea and vomiting (N/V).
+    evidence:
+    - reference: DOI:10.1159/000520417
+      reference_title: A Systematic Review on Cannabis Hyperemesis Syndrome and Its Management Options
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Several forms of cannabinoids are currently being used to manage nausea and vomiting (N/V).
+      explanation: Deep research cited this publication as relevant literature for Cannabis Hyperemesis Syndrome.
+- reference: DOI:10.1177/0897190020934289
+  title: &#39;Management of Cannabinoid Hyperemesis Syndrome: Focus on Capsaicin&#39;
+  found_in:
+  - Cannabis_Hyperemesis_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: Cannabinoid hyperemesis syndrome is a condition characterized by cyclic severe nausea, vomiting, and abdominal pain associated with frequent, long-term marijuana use.
+    supporting_text: Cannabinoid hyperemesis syndrome is a condition characterized by cyclic severe nausea, vomiting, and abdominal pain associated with frequent, long-term marijuana use.
+    evidence:
+    - reference: DOI:10.1177/0897190020934289
+      reference_title: &#39;Management of Cannabinoid Hyperemesis Syndrome: Focus on Capsaicin&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Cannabinoid hyperemesis syndrome is a condition characterized by cyclic severe nausea, vomiting, and abdominal pain associated with frequent, long-term marijuana use.
+      explanation: Deep research cited this publication as relevant literature for Cannabis Hyperemesis Syndrome.
+- reference: DOI:10.1371/journal.pone.0303205
+  title: &#39;Trends of emergency department visits for cannabinoid hyperemesis syndrome in Nevada: An interrupted time series analysis&#39;
+  found_in:
+  - Cannabis_Hyperemesis_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: Cannabis-related emergency department visits have increased after legalization of cannabis for medical and recreational use.
+    supporting_text: Cannabis-related emergency department visits have increased after legalization of cannabis for medical and recreational use.
+    evidence:
+    - reference: DOI:10.1371/journal.pone.0303205
+      reference_title: &#39;Trends of emergency department visits for cannabinoid hyperemesis syndrome in Nevada: An interrupted time series analysis&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Cannabis-related emergency department visits have increased after legalization of cannabis for medical and recreational use.
+      explanation: Deep research cited this publication as relevant literature for Cannabis Hyperemesis Syndrome.
+- reference: DOI:10.3389/ftox.2024.1465728
+  title: &#39;Cannabinoid hyperemesis syndrome: genetic susceptibility to toxic exposure&#39;
+  found_in:
+  - Cannabis_Hyperemesis_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: Cannabinoid hyperemesis syndrome presents as a complex of symptoms and signs encompassing nausea, vomiting, abdominal pain, and hot water bathing behavior, most typically in a heavy cannabis user.
+    supporting_text: Cannabinoid hyperemesis syndrome presents as a complex of symptoms and signs encompassing nausea, vomiting, abdominal pain, and hot water bathing behavior, most typically in a heavy cannabis user.
+    evidence:
+    - reference: DOI:10.3389/ftox.2024.1465728
+      reference_title: &#39;Cannabinoid hyperemesis syndrome: genetic susceptibility to toxic exposure&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Cannabinoid hyperemesis syndrome presents as a complex of symptoms and signs encompassing nausea, vomiting, abdominal pain, and hot water bathing behavior, most typically in a heavy cannabis user.
+      explanation: Deep research cited this publication as relevant literature for Cannabis Hyperemesis Syndrome.
+- reference: DOI:10.3390/jcm14010163
+  title: Mitigating the Risk of QTc Prolongation When Using Haloperidol for Acute Treatment of Cannabinoid Hyperemesis Syndrome in Adolescents and Young Adults
+  found_in:
+  - Cannabis_Hyperemesis_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: Cannabinoid Hyperemesis Syndrome (CHS), associated with long-term cannabinoid use, has been increasingly observed in emergency room visits as more states in the U.S. have legislatively permitted medical and recreational marijuana use.
+    supporting_text: Cannabinoid Hyperemesis Syndrome (CHS), associated with long-term cannabinoid use, has been increasingly observed in emergency room visits as more states in the U.S. have legislatively permitted medical and recreational marijuana use.
+    evidence:
+    - reference: DOI:10.3390/jcm14010163
+      reference_title: Mitigating the Risk of QTc Prolongation When Using Haloperidol for Acute Treatment of Cannabinoid Hyperemesis Syndrome in Adolescents and Young Adults
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Cannabinoid Hyperemesis Syndrome (CHS), associated with long-term cannabinoid use, has been increasingly observed in emergency room visits as more states in the U.S. have legislatively permitted medical and recreational marijuana use.
+      explanation: Deep research cited this publication as relevant literature for Cannabis Hyperemesis Syndrome.
+- reference: DOI:10.3390/ph17111549
+  title: A Comprehensive Review and Update on Cannabis Hyperemesis Syndrome
+  found_in:
+  - Cannabis_Hyperemesis_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: Cannabis, derived from Cannabis sativa plants, is a prevalent illicit substance in the United States, containing over 400 chemicals, including 100 cannabinoids, each affecting the body’s organs differently upon ingestion.
+    supporting_text: Cannabis, derived from Cannabis sativa plants, is a prevalent illicit substance in the United States, containing over 400 chemicals, including 100 cannabinoids, each affecting the body’s organs differently upon ingestion.
+    evidence:
+    - reference: DOI:10.3390/ph17111549
+      reference_title: A Comprehensive Review and Update on Cannabis Hyperemesis Syndrome
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Cannabis, derived from Cannabis sativa plants, is a prevalent illicit substance in the United States, containing over 400 chemicals, including 100 cannabinoids, each affecting the body’s organs differently upon ingestion.
+      explanation: Deep research cited this publication as relevant literature for Cannabis Hyperemesis Syndrome.
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
+        
+        <div class="card reference-card" id="references-deep-research">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+            
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">6</span>
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1159/000520417" target="_blank">DOI:10.1159/000520417</a>
+                            </div>
+                            
+                            <div class="reference-title">A Systematic Review on Cannabis Hyperemesis Syndrome and Its Management Options</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Several forms of cannabinoids are currently being used to manage nausea and vomiting (N/V).</div>
+            
+            
+            <div class="reference-finding-supporting">"Several forms of cannabinoids are currently being used to manage nausea and vomiting (N/V)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1159/000520417" target="_blank">DOI:10.1159/000520417</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Several forms of cannabinoids are currently being used to manage nausea and vomiting (N/V)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Cannabis Hyperemesis Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1177/0897190020934289" target="_blank">DOI:10.1177/0897190020934289</a>
+                            </div>
+                            
+                            <div class="reference-title">Management of Cannabinoid Hyperemesis Syndrome: Focus on Capsaicin</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Cannabinoid hyperemesis syndrome is a condition characterized by cyclic severe nausea, vomiting, and abdominal pain associated with frequent, long-term marijuana use.</div>
+            
+            
+            <div class="reference-finding-supporting">"Cannabinoid hyperemesis syndrome is a condition characterized by cyclic severe nausea, vomiting, and abdominal pain associated with frequent, long-term marijuana use."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1177/0897190020934289" target="_blank">DOI:10.1177/0897190020934289</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Cannabinoid hyperemesis syndrome is a condition characterized by cyclic severe nausea, vomiting, and abdominal pain associated with frequent, long-term marijuana use."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Cannabis Hyperemesis Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1371/journal.pone.0303205" target="_blank">DOI:10.1371/journal.pone.0303205</a>
+                            </div>
+                            
+                            <div class="reference-title">Trends of emergency department visits for cannabinoid hyperemesis syndrome in Nevada: An interrupted time series analysis</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Cannabis-related emergency department visits have increased after legalization of cannabis for medical and recreational use.</div>
+            
+            
+            <div class="reference-finding-supporting">"Cannabis-related emergency department visits have increased after legalization of cannabis for medical and recreational use."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pone.0303205" target="_blank">DOI:10.1371/journal.pone.0303205</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Cannabis-related emergency department visits have increased after legalization of cannabis for medical and recreational use."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Cannabis Hyperemesis Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3389/ftox.2024.1465728" target="_blank">DOI:10.3389/ftox.2024.1465728</a>
+                            </div>
+                            
+                            <div class="reference-title">Cannabinoid hyperemesis syndrome: genetic susceptibility to toxic exposure</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Cannabinoid hyperemesis syndrome presents as a complex of symptoms and signs encompassing nausea, vomiting, abdominal pain, and hot water bathing behavior, most typically in a heavy cannabis user.</div>
+            
+            
+            <div class="reference-finding-supporting">"Cannabinoid hyperemesis syndrome presents as a complex of symptoms and signs encompassing nausea, vomiting, abdominal pain, and hot water bathing behavior, most typically in a heavy cannabis user."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/ftox.2024.1465728" target="_blank">DOI:10.3389/ftox.2024.1465728</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Cannabinoid hyperemesis syndrome presents as a complex of symptoms and signs encompassing nausea, vomiting, abdominal pain, and hot water bathing behavior, most typically in a heavy cannabis user."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Cannabis Hyperemesis Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/jcm14010163" target="_blank">DOI:10.3390/jcm14010163</a>
+                            </div>
+                            
+                            <div class="reference-title">Mitigating the Risk of QTc Prolongation When Using Haloperidol for Acute Treatment of Cannabinoid Hyperemesis Syndrome in Adolescents and Young Adults</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Cannabinoid Hyperemesis Syndrome (CHS), associated with long-term cannabinoid use, has been increasingly observed in emergency room visits as more states in the U.S. have legislatively permitted medical and recreational marijuana use.</div>
+            
+            
+            <div class="reference-finding-supporting">"Cannabinoid Hyperemesis Syndrome (CHS), associated with long-term cannabinoid use, has been increasingly observed in emergency room visits as more states in the U.S. have legislatively permitted medical and recreational marijuana use."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/jcm14010163" target="_blank">DOI:10.3390/jcm14010163</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Cannabinoid Hyperemesis Syndrome (CHS), associated with long-term cannabinoid use, has been increasingly observed in emergency room visits as more states in the U.S. have legislatively permitted medical and recreational marijuana use."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Cannabis Hyperemesis Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/ph17111549" target="_blank">DOI:10.3390/ph17111549</a>
+                            </div>
+                            
+                            <div class="reference-title">A Comprehensive Review and Update on Cannabis Hyperemesis Syndrome</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Cannabis, derived from Cannabis sativa plants, is a prevalent illicit substance in the United States, containing over 400 chemicals, including 100 cannabinoids, each affecting the body’s organs differently upon ingestion.</div>
+            
+            
+            <div class="reference-finding-supporting">"Cannabis, derived from Cannabis sativa plants, is a prevalent illicit substance in the United States, containing over 400 chemicals, including 100 cannabinoids, each affecting the body’s organs differently upon ingestion."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/ph17111549" target="_blank">DOI:10.3390/ph17111549</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Cannabis, derived from Cannabis sativa plants, is a prevalent illicit substance in the United States, containing over 400 chemicals, including 100 cannabinoids, each affecting the body’s organs differently upon ingestion."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Cannabis Hyperemesis Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">1. Disease Information</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">37 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-08T11:03:01.784709</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <h2>1. Disease Information</h2>
+<h3>1.1 Concise overview</h3>
+<p>Cannabis hyperemesis syndrome (CHS) is characterized by stereotyped/cyclic episodes of severe nausea and vomiting (often with abdominal pain) occurring in the setting of chronic cannabis exposure and typically improving with cannabis cessation; a prominent supportive feature is symptomatic relief with compulsive hot bathing/showering. (sorensen2017cannabinoidhyperemesissyndrome pages 1-2, perisetti2020cannabishyperemesissyndrome pages 5-6)</p>
+<p><strong>Direct abstract quotes supporting definition</strong>
+- Sorensen et al. (2017) characterize CHS as “a syndrome of cyclic vomiting associated with cannabis use” (systematic review). (sorensen2017cannabinoidhyperemesissyndrome pages 1-2)
+- Perisetti et al. (2020) describe CHS as “a form of functional gut-brain axis disorder characterized by bouts of episodic nausea and vomiting worsened by cannabis intake” (narrative review). (perisetti2020cannabishyperemesissyndrome pages 5-6)</p>
+<h3>1.2 Key identifiers (ontology/coding)</h3>
+<ul>
+<li><strong>Rome IV classification:</strong> CHS is included within Rome IV disorders of gut–brain interaction / functional gastroduodenal disorders in review literature. (loganathan2024acomprehensivereview pages 1-2, perisetti2020cannabishyperemesissyndrome pages 5-6)</li>
+<li><strong>MONDO / MeSH / ICD-10 / ICD-11 / Orphanet / OMIM:</strong> Not confirmed from the retrieved full-text evidence in this run; therefore not asserted here to avoid introducing uncited identifiers. (soh2024trendsofemergency pages 5-7, soh2024trendsofemergency pages 2-4)</li>
+</ul>
+<h3>1.3 Synonyms and alternative names</h3>
+<ul>
+<li>Cannabis hyperemesis syndrome; cannabinoid hyperemesis syndrome; hyperemesis due to cannabis (common phrasing in ED trials). (sorensen2017cannabinoidhyperemesissyndrome pages 1-2, merino2024mitigatingtherisk pages 4-5)</li>
+</ul>
+<h3>1.4 Source type (individual vs aggregated)</h3>
+<p>The evidence base is largely a combination of: (i) aggregated evidence from systematic reviews and narrative reviews; (ii) administrative/claims/EHR-derived epidemiology (e.g., state ED databases); and (iii) case series and a limited number of randomized or pilot randomized trials evaluating acute therapies. (soh2024trendsofemergency pages 1-2, sorensen2017cannabinoidhyperemesissyndrome pages 1-2, merino2024mitigatingtherisk pages 7-9)</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>2.1 Primary causal factors</h3>
+<p>CHS is most consistently associated with <strong>chronic, heavy cannabis exposure</strong>, and symptom resolution after cessation is a key diagnostic feature, supporting a causal role for continued cannabinoid (CB1 agonist) exposure in susceptible individuals. (sorensen2017cannabinoidhyperemesissyndrome pages 1-2, russo2024cannabinoidhyperemesissyndrome pages 3-4)</p>
+<h3>2.2 Risk factors</h3>
+<p><strong>Exposure-related risk context</strong>
+- Heavy/regular cannabis use is ubiquitous in reported CHS cases, with systematic review evidence showing history of regular cannabis use in 100% of included cases. (sorensen2017cannabinoidhyperemesissyndrome pages 1-2)
+- CHS appears in the context of changing cannabis markets and legalization/commercialization. In Nevada, CHS ED visit rates increased from <strong>1.07 per 100,000 (pre-commercialization) to 2.22 per 100,000 (post-commercialization)</strong> after recreational commercialization (Q3 2017). (soh2024trendsofemergency pages 1-2, soh2024trendsofemergency pages 2-4)
+- Synthetic cannabinoids are highlighted as potential higher-risk CB1 agonists in mechanistic discussions; ascertainment is limited in routine ED toxicology. (russo2024cannabinoidhyperemesissyndrome pages 2-3, soh2024trendsofemergency pages 5-7)</p>
+<p><strong>Direct abstract quote supporting exposure link</strong>
+- Russo &amp; Whiteley (2024) describe CHS as occurring “most typically in a heavy cannabis user” and discuss association with “escalating intake of high potency cannabis” (Frontiers in Toxicology). (russo2024cannabinoidhyperemesissyndrome pages 1-2)</p>
+<h3>2.3 Protective factors</h3>
+<p>The only consistently supported protective factor in the retrieved evidence is <strong>cannabis cessation</strong>, which is both diagnostic-supportive (resolution after cessation) and therapeutic. (sorensen2017cannabinoidhyperemesissyndrome pages 1-2, russo2024cannabinoidhyperemesissyndrome pages 4-6)</p>
+<h3>2.4 Gene–environment interactions</h3>
+<p>A current hypothesis is that CHS arises from <strong>genetic susceptibility interacting with high cumulative cannabinoid exposure</strong> (“toxic exposure”). A 2024 review reports statistically significant differences in several gene variants between CHS cases and heavy cannabis-using controls, consistent with a gene–environment model. (russo2024cannabinoidhyperemesissyndrome pages 1-2)</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>3.1 Core phenotypes and frequencies (with HPO suggestions)</h3>
+<p>The most quantitative phenotype frequencies available in the retrieved evidence come from Sorensen et al. (2017), which summarized case literature:
+- <strong>Cyclic nausea/vomiting:</strong> 100% (HPO: <strong>HP:0002018 Nausea</strong>, <strong>HP:0002013 Vomiting</strong>, <strong>HP:0002572 Cyclic vomiting</strong>) (sorensen2017cannabinoidhyperemesissyndrome pages 1-2)
+- <strong>Compulsive hot bathing/showering with relief:</strong> 92.3% (behavioral/relief feature; suggest HPO proxy <strong>HP:0033836 Compulsive bathing behavior</strong> and/or thermoregulation-related <strong>HP:0012531 Abnormality of temperature regulation</strong>) (sorensen2017cannabinoidhyperemesissyndrome pages 1-2, stumpf2021managementofcannabinoid pages 2-3)
+- <strong>Abdominal pain:</strong> 85.1% (HPO: <strong>HP:0002027 Abdominal pain</strong>) (sorensen2017cannabinoidhyperemesissyndrome pages 1-2)
+- <strong>Male predominance:</strong> 72.9% in the compiled case literature (note more recent administrative data may show different sex distributions depending on comparator group and ascertainment). (sorensen2017cannabinoidhyperemesissyndrome pages 1-2, soh2024trendsofemergency pages 4-5)</p>
+<p><strong>Additional commonly reported phenotype characteristics</strong>
+- Morning predominance and normal bowel patterns between episodes are repeatedly mentioned as typical clinical characteristics in reviews, though without pooled percentages in the retrieved evidence. (stumpf2021managementofcannabinoid pages 1-2, stumpf2021managementofcannabinoid pages 2-3)</p>
+<h3>3.2 Onset, severity, progression</h3>
+<p>CHS is typically episodic with phases (prodromal → hyperemesis → recovery/postdrome) described in reviews; hyperemetic episodes are commonly short (days) but recur over time if exposure persists. (stumpf2021managementofcannabinoid pages 1-2, perisetti2020cannabishyperemesissyndrome pages 5-6)</p>
+<h3>3.3 Quality-of-life impact</h3>
+<p>Although formal QoL instruments were not captured in the retrieved evidence snippets, frequent ED presentations and repeated negative workups are emphasized, indicating substantial functional burden. (stumpf2021managementofcannabinoid pages 1-2, soh2024trendsofemergency pages 1-2)</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<h3>4.1 Causal genes</h3>
+<p>CHS is not established as a single-gene disorder; instead, it is treated as complex with <strong>emerging candidate susceptibility genes</strong>.</p>
+<h3>4.2 Candidate susceptibility genes/variants (emerging evidence)</h3>
+<p>A 2024 review reports five statistically significant mutations differentiating CHS patients from heavy-cannabis-user controls, implicating:
+- <strong>TRPV1</strong> (heat/capsaicin-responsive receptor) (p = 0.015)
+- <strong>CYP2C9</strong> (THC-metabolizing enzyme) (p = 0.043)
+- <strong>COMT</strong> (dopamine catabolism) (p = 0.012)
+- <strong>DRD2</strong> (dopamine D2 receptor) (p = 0.031)
+- <strong>ABCA1</strong> (ATP-binding cassette transporter) (p = 0.012)
+(russo2024cannabinoidhyperemesissyndrome pages 1-2)</p>
+<p>A contrasting point in the same review is that a CNR1 SNP associated with cyclic vomiting syndrome (CVS) was reported absent in tested CHS patients, supporting genetic distinction between CVS and CHS. (russo2024cannabinoidhyperemesissyndrome pages 3-4)</p>
+<p><strong>Interpretation note:</strong> these findings are presented as recent/innovative and should be treated as <strong>hypothesis-generating</strong> pending replication and variant-level validation. (russo2024cannabinoidhyperemesissyndrome pages 6-7)</p>
+<h3>4.3 Epigenetics / chromosomal abnormalities</h3>
+<p>No CHS-specific epigenetic or chromosomal abnormality evidence was identified in the retrieved sources. (russo2024cannabinoidhyperemesissyndrome pages 6-7)</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<h3>5.1 Environmental and lifestyle factors</h3>
+<ul>
+<li>The dominant lifestyle exposure is <strong>chronic cannabis use</strong>; changes in product potency and market access are discussed as contextual contributors. (russo2024cannabinoidhyperemesissyndrome pages 1-2, stumpf2021managementofcannabinoid pages 1-2)</li>
+<li>Administrative epidemiology suggests system-level context: Nevada CHS ED visits increased after recreational commercialization, with notable increases also discussed during COVID-19 time periods. (soh2024trendsofemergency pages 4-5, soh2024trendsofemergency pages 1-2)</li>
+</ul>
+<h3>5.2 Infectious agents</h3>
+<p>No infectious etiology is suggested in the retrieved evidence. (perisetti2020cannabishyperemesissyndrome pages 5-6)</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>6.1 Current mechanistic understanding (hypothesis-supported)</h3>
+<p>Mechanistic models converge on dysregulation of the <strong>endocannabinoid system (ECS)</strong> and downstream emetic circuitry:
+- <strong>Biphasic cannabinoid effect:</strong> anti-emetic at low doses and pro-emetic at high doses is emphasized in recent reviews as relevant to CHS pathophysiology. (loganathan2024acomprehensivereview pages 1-2, loganathan2024acomprehensivereview pages 2-4)
+- <strong>CB1 receptor biology in gut and brain:</strong> CB1 receptors in the intestinal nerve plexus inhibit GI motility; chronic/high-dose exposure may lead to CB1 desensitization/internalization and paradoxical effects that increase emetogenic transmitter signaling (serotonin, dopamine, substance P). (loganathan2024acomprehensivereview pages 1-2, loganathan2024acomprehensivereview pages 2-4)
+- <strong>TRPV1/heat pathway:</strong> TRPV1 involvement is used to explain symptomatic relief with hot bathing and responsiveness to topical capsaicin (a TRPV1 agonist). (stumpf2021managementofcannabinoid pages 2-3, russo2024cannabinoidhyperemesissyndrome pages 1-2)
+- <strong>Thermoregulatory contribution:</strong> endocannabinoid thermoregulation is proposed to relate to compulsive hot bathing behavior. (loganathan2024acomprehensivereview pages 1-2)</p>
+<h3>6.2 Causal chain (KB-ready)</h3>
+<p><strong>Upstream trigger:</strong> sustained exposure to cannabinoids (particularly high cumulative THC/CB1 agonism) in susceptible individuals → <strong>ECS/CB1 dysregulation</strong> (desensitization/internalization; altered feedback control) → <strong>increased emetogenic neurotransmission</strong> in gut–brain pathways and altered GI motility → <strong>episodic hyperemesis</strong> with abdominal pain → <strong>behavioral compensation</strong> (hot bathing, possibly via TRPV1-mediated symptom modulation) → <strong>downstream complications</strong> including dehydration, electrolyte derangements, AKI, and arrhythmia risk (QTc prolongation) exacerbated by vomiting and by some antiemetic drugs. (loganathan2024acomprehensivereview pages 2-4, perisetti2020cannabishyperemesissyndrome pages 5-6, merino2024mitigatingtherisk pages 1-2)</p>
+<h3>6.3 Suggested GO terms (biological processes) and CL terms (cell types)</h3>
+<p>These are ontology suggestions consistent with the mechanisms described in the cited reviews (not direct experimental annotations in CHS patients):
+- <strong>GO (biological process):</strong> vomiting reflex; regulation of gastrointestinal motility; neurotransmitter secretion; response to heat; sensory perception of pain; response to xenobiotic stimulus. (loganathan2024acomprehensivereview pages 2-4, stumpf2021managementofcannabinoid pages 2-3)
+- <strong>Cell Ontology (CL):</strong> enteric neurons; dorsal vagal complex/brainstem neurons (broadly “neurons” involved in emesis); sensory neurons expressing TRPV1. (loganathan2024acomprehensivereview pages 2-4, russo2024cannabinoidhyperemesissyndrome pages 1-2)</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<h3>7.1 Organ/system level (UBERON suggestions)</h3>
+<ul>
+<li>Primary system: <strong>gastrointestinal system</strong> (e.g., stomach/intestine) and <strong>central nervous system emesis circuitry</strong>. (loganathan2024acomprehensivereview pages 2-4, perisetti2020cannabishyperemesissyndrome pages 5-6)</li>
+<li>Supportive observations implicate thermoregulatory systems. (loganathan2024acomprehensivereview pages 1-2)</li>
+</ul>
+<p>Suggested UBERON terms (broad): stomach; small intestine; enteric nervous system; brainstem. (loganathan2024acomprehensivereview pages 2-4)</p>
+<h3>7.2 Tissue/cell level</h3>
+<ul>
+<li>Enteric nervous system involvement is highlighted through CB1 receptor localization and GI motility regulation. (loganathan2024acomprehensivereview pages 1-2, loganathan2024acomprehensivereview pages 2-4)</li>
+</ul>
+<h3>7.3 Subcellular level</h3>
+<p>Not specifically addressed in the retrieved evidence (no CHS-specific organelle pathology described). (loganathan2024acomprehensivereview pages 2-4)</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> typically after prolonged cannabis use (months to years); exposure windows in reviewed literature ranged from 6 months to 11 years. (senderovich2022asystematicreview pages 1-2)</li>
+<li><strong>Course:</strong> episodic/recurrent with phases; hyperemesis episodes often last days with inter-episodic relative well-being; recurrence is common if cannabis use continues. (stumpf2021managementofcannabinoid pages 1-2, perisetti2020cannabishyperemesissyndrome pages 5-6)</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>9.1 Epidemiology</h3>
+<p>High-quality prevalence estimates vary due to diagnostic inconsistency and coding limitations; nonetheless, administrative data demonstrate increasing healthcare utilization.</p>
+<p><strong>Nevada ED interrupted time series (2013–2021)</strong>
+- CHS ED visits increased over time and rose after recreational commercialization: <strong>1.07 per 100,000 pre-commercialization → 2.22 per 100,000 post-commercialization</strong> (Nevada, Q3 2017). (soh2024trendsofemergency pages 1-2)
+- Demographic characteristics included a largest age group of <strong>21–29 years (35.24% of CHS visits; n = 5,284)</strong> and a lower proportion of males among CHS visits than comparator ED visits. (soh2024trendsofemergency pages 4-5, soh2024trendsofemergency pages 2-4)</p>
+<h3>9.2 Inheritance</h3>
+<p>CHS is best described as <strong>multifactorial/complex</strong>, with emerging candidate genetic susceptibility loci rather than Mendelian inheritance. (russo2024cannabinoidhyperemesissyndrome pages 1-2)</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>10.1 Clinical criteria (Rome IV highlight)</h3>
+<p>Rome IV criteria are summarized in reviews and include chronic cannabis use with stereotypical episodic vomiting and improvement with cessation; diagnostic features are summarized in review tables extracted from Loganathan et al. (2024). (perisetti2020cannabishyperemesissyndrome pages 5-6, loganathan2024acomprehensivereview media 73dc557e)</p>
+<p>A Rome IV–style criteria summary reported in Perisetti et al. (2020) includes: onset ≥6 months before diagnosis; stereotypical episodes &lt;1 week; ≥3 episodes/year; no vomiting between episodes; association with cannabis use and improvement after cessation. (perisetti2020cannabishyperemesissyndrome pages 5-6)</p>
+<h3>10.2 Differential diagnosis</h3>
+<p>A key clinical differential is <strong>cyclic vomiting syndrome (CVS)</strong>. Recent genetic discussion notes a CNR1 SNP association in CVS but not in tested CHS patients, supporting distinction. (russo2024cannabinoidhyperemesissyndrome pages 3-4)</p>
+<h3>10.3 Laboratory/ECG evaluation for complications and safety</h3>
+<ul>
+<li>Given vomiting-associated electrolyte losses and antiemetic QT effects, recent guidance emphasizes checking metabolic panels and magnesium and considering ECG monitoring, particularly when using haloperidol. (merino2024mitigatingtherisk pages 6-7, merino2024mitigatingtherisk pages 9-10)</li>
+</ul>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<h3>11.1 Prognosis with and without cannabis cessation</h3>
+<ul>
+<li>Symptom resolution after stopping cannabis was reported in <strong>96.8%</strong> of compiled cases in a systematic review, supporting cessation as the major determinant of remission. (sorensen2017cannabinoidhyperemesissyndrome pages 1-2)</li>
+<li>Morbidity can be substantial: dehydration, electrolyte disturbances, AKI, and esophageal injury are repeatedly reported complications. (perisetti2020cannabishyperemesissyndrome pages 5-6, moses2024exploringalternativetreatments pages 5-6)</li>
+</ul>
+<h3>11.2 Complication-focused statistics</h3>
+<ul>
+<li>QTc prolongation is highlighted as a clinically important risk in adolescents/young adults with cannabis exposure and vomiting-related electrolyte disturbances, with severe cases of torsades reported in the literature review summarized by Merino et al. (2024). (merino2024mitigatingtherisk pages 1-2, merino2024mitigatingtherisk pages 4-5)</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<h3>12.1 Real-world implementation context</h3>
+<p>CHS is frequently encountered in emergency departments, where misdiagnosis and repeated negative workups are common; supportive care and targeted antiemetics are applied acutely, while long-term resolution typically requires cannabis cessation and behavioral support. (stumpf2021managementofcannabinoid pages 1-2, loganathan2024acomprehensivereview pages 11-12)</p>
+<h3>12.2 Acute management (supportive)</h3>
+<ul>
+<li>IV fluids and electrolyte correction are foundational; monitoring for dehydration and electrolyte abnormalities is emphasized. (moses2024exploringalternativetreatments pages 5-6, merino2024mitigatingtherisk pages 6-7)</li>
+</ul>
+<h3>12.3 Acute pharmacotherapy with direct evidence</h3>
+<p><strong>Haloperidol (dopamine antagonist)</strong>
+- A randomized controlled trial summarized in Merino et al. (2024) found IV haloperidol (0.05–0.1 mg/kg) superior to ondansetron 8 mg IV for acute CHS: <strong>lower rescue antiemetic use (31% vs 59%)</strong> and <strong>shorter ED stays (3.1 h vs 5.6 h)</strong>. (merino2024mitigatingtherisk pages 4-5)
+- Safety: QTc prolongation risk requires attention, especially with electrolyte disturbances; ECG monitoring is recommended for at-risk patients. (merino2024mitigatingtherisk pages 9-10, merino2024mitigatingtherisk pages 6-7)</p>
+<p><strong>Topical capsaicin (TRPV1 agonist)</strong>
+- Pilot randomized evidence (summarized by Merino et al. 2024) indicates 0.1% capsaicin improved nausea at 60 minutes, with <strong>29.4% complete nausea relief</strong>; retrospective studies indicate reduced need for additional medications in some cohorts. (merino2024mitigatingtherisk pages 7-9, stumpf2021managementofcannabinoid pages 1-2)</p>
+<p><strong>Benzodiazepines (e.g., lorazepam)</strong>
+- Frequently reported as effective, especially in pediatric/adolescent literature, and recommended as an alternative when QT risk is a concern. (merino2024mitigatingtherisk pages 6-7, merino2024mitigatingtherisk pages 9-10)</p>
+<p><strong>NK-1 antagonists (aprepitant/fosaprepitant)</strong>
+- Emerging evidence supports use as an alternative with low cardiac risk; Merino et al. summarize response rates from related vomiting disorders and CHS-focused reports, including an adolescent abstract reporting <strong>97% overall improvement</strong>. (merino2024mitigatingtherisk pages 7-9)</p>
+<p><strong>Olanzapine</strong>
+- Discussed as an alternative with relatively low QTc prolongation risk; CHS-specific dosing/efficacy remains limited. (merino2024mitigatingtherisk pages 7-9, merino2024mitigatingtherisk pages 9-10)</p>
+<h3>12.4 Definitive and long-term management</h3>
+<p><strong>Cannabis cessation</strong> is the only consistently “proven” intervention and is tightly linked to symptom resolution and diagnostic confirmation. (russo2024cannabinoidhyperemesissyndrome pages 4-6, sorensen2017cannabinoidhyperemesissyndrome pages 1-2)</p>
+<p><strong>Behavioral health / relapse prevention</strong>
+Recent reviews emphasize multimodal treatment addressing psychiatric comorbidity and substance use, using psychotherapy plus pharmacotherapy when appropriate. (loganathan2024acomprehensivereview pages 11-12)</p>
+<h3>12.5 Suggested MAXO terms (examples)</h3>
+<ul>
+<li>Substance use cessation intervention; counseling; psychotherapy; IV fluid administration; electrolyte supplementation; ECG monitoring; topical medication administration; antipsychotic administration; benzodiazepine administration; neurokinin-1 receptor antagonist therapy. (loganathan2024acomprehensivereview pages 11-12, merino2024mitigatingtherisk pages 6-7)</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<h3>13.1 Primary prevention</h3>
+<p>Primary prevention is principally <strong>avoiding chronic/heavy cannabis exposure</strong> and education about CHS risk, especially in high-risk populations and in regions with increased access/potency. (soh2024trendsofemergency pages 1-2, loganathan2024acomprehensivereview pages 11-12)</p>
+<h3>13.2 Secondary/tertiary prevention</h3>
+<ul>
+<li>Earlier recognition in ED/clinical settings may reduce repeated diagnostic testing and mitigate dehydration/electrolyte complications. (stumpf2021managementofcannabinoid pages 1-2, merino2024mitigatingtherisk pages 6-7)</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p>No naturally occurring CHS analogs in other species were identified in the retrieved evidence for this run. (russo2024cannabinoidhyperemesissyndrome pages 6-7)</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<p>No validated model organism systems that recapitulate CHS (cyclic vomiting with hot-bathing relief in the setting of chronic cannabinoid exposure) were identified in the retrieved evidence, although the mechanistic literature references cannabinoid antiemetic/proemetic biology in animal models in general terms. (russo2024cannabinoidhyperemesissyndrome pages 6-7)</p>
+<hr />
+<h2>Recent developments (2023–2024) emphasized</h2>
+<ol>
+<li><strong>Administrative epidemiology linking legalization/commercialization with increasing ED burden:</strong> Nevada interrupted time-series shows increased CHS ED visit rates post-commercialization (1.07 → 2.22 per 100,000). (Publication: 2024-05; URL https://doi.org/10.1371/journal.pone.0303205) (soh2024trendsofemergency pages 1-2)</li>
+<li><strong>Safety-focused ED management refinements:</strong> 2024 review stresses QTc/TdP risk with haloperidol in the context of electrolyte abnormalities and recommends structured monitoring and alternatives (capsaicin, aprepitant/fosaprepitant, lorazepam, olanzapine). (Publication: 2024-12; URL https://doi.org/10.3390/jcm14010163) (merino2024mitigatingtherisk pages 1-2, merino2024mitigatingtherisk pages 9-10)</li>
+<li><strong>Emerging genetic susceptibility candidates:</strong> 2024 Frontiers in Toxicology review reports associations with TRPV1, CYP2C9, COMT, DRD2, ABCA1 and proposes genomic testing as a future diagnostic adjunct (hypothesis-generating). (Publication: 2024-10; URL https://doi.org/10.3389/ftox.2024.1465728) (russo2024cannabinoidhyperemesissyndrome pages 1-2)</li>
+<li><strong>Updated synthesis of ECS mechanisms and multi-modal management:</strong> 2024 Pharmaceuticals review discusses ECS receptor biology, CB1R modulators, and integrated psychiatric/addiction management approaches. (Publication: 2024-11; URL https://doi.org/10.3390/ph17111549) (loganathan2024acomprehensivereview pages 1-2, loganathan2024acomprehensivereview pages 11-12)</li>
+</ol>
+<hr />
+<h2>Limitations of this report (evidence availability)</h2>
+<ul>
+<li>This run could not confirm authoritative <strong>MONDO/MeSH/ICD identifiers</strong> from primary ontology resources within retrieved full text; identifiers are therefore left unspecified rather than inferred. (soh2024trendsofemergency pages 2-4, soh2024trendsofemergency pages 5-7)</li>
+<li>Several potentially important 2024 EHR prevalence papers were not obtainable in full text via the tools during this run; Nevada statewide ED data and systematic review case-frequency data were used as primary quantitative sources. (soh2024trendsofemergency pages 1-2, sorensen2017cannabinoidhyperemesissyndrome pages 1-2)</li>
+</ul>
+<p>References</p>
+<ol>
+<li>
+<p>(loganathan2024acomprehensivereview pages 1-2): Priyadarshini Loganathan, Mahesh Gajendran, and Hemant Goyal. A comprehensive review and update on cannabis hyperemesis syndrome. Pharmaceuticals, 17:1549, Nov 2024. URL: https://doi.org/10.3390/ph17111549, doi:10.3390/ph17111549. This article has 28 citations.</p>
+</li>
+<li>
+<p>(sorensen2017cannabinoidhyperemesissyndrome pages 1-2): Cecilia J. Sorensen, Kristen DeSanto, Laura Borgelt, Kristina T. Phillips, and Andrew A. Monte. Cannabinoid hyperemesis syndrome: diagnosis, pathophysiology, and treatment—a systematic review. Journal of Medical Toxicology, 13:71-87, Dec 2017. URL: https://doi.org/10.1007/s13181-016-0595-z, doi:10.1007/s13181-016-0595-z. This article has 461 citations.</p>
+</li>
+<li>
+<p>(perisetti2020cannabishyperemesissyndrome pages 5-6): A. Perisetti, M. Gajendran, C. Dasari, P. Bansal, Muhammad Aziz, Sumant Inamdar, B. Tharian, and H. Goyal. Cannabis hyperemesis syndrome: an update on the pathophysiology and management. Annals of Gastroenterology, 33:571-578, Sep 2020. URL: https://doi.org/10.20524/aog.2020.0528, doi:10.20524/aog.2020.0528. This article has 101 citations.</p>
+</li>
+<li>
+<p>(senderovich2022asystematicreview pages 1-2): Helen Senderovich, Preet Patel, Briam Jimenez Lopez, and Sarah Waicus. A systematic review on cannabis hyperemesis syndrome and its management options. Medical Principles and Practice, 31:29-38, Nov 2022. URL: https://doi.org/10.1159/000520417, doi:10.1159/000520417. This article has 50 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(stumpf2021managementofcannabinoid pages 2-3): Janice L. Stumpf and Lauren D. Williams. Management of cannabinoid hyperemesis syndrome: focus on capsaicin. Journal of Pharmacy Practice, 34:786-793, Jul 2021. URL: https://doi.org/10.1177/0897190020934289, doi:10.1177/0897190020934289. This article has 22 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(stumpf2021managementofcannabinoid pages 1-2): Janice L. Stumpf and Lauren D. Williams. Management of cannabinoid hyperemesis syndrome: focus on capsaicin. Journal of Pharmacy Practice, 34:786-793, Jul 2021. URL: https://doi.org/10.1177/0897190020934289, doi:10.1177/0897190020934289. This article has 22 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(moses2024exploringalternativetreatments pages 5-6): Tabitha E H Moses. Exploring alternative treatments for acute exacerbations of cannabis hyperemesis syndrome in patients who plan to continue using cannabis. Clinical Research In Practice: The Journal of Team Hippocrates, Nov 2024. URL: https://doi.org/10.22237/crp/1724285340, doi:10.22237/crp/1724285340. This article has 0 citations.</p>
+</li>
+<li>
+<p>(merino2024mitigatingtherisk pages 1-2): Sandra Merino, Lissette Tordera, Allison Jun, and Sun Yang. Mitigating the risk of qtc prolongation when using haloperidol for acute treatment of cannabinoid hyperemesis syndrome in adolescents and young adults. Journal of Clinical Medicine, 14:163, Dec 2024. URL: https://doi.org/10.3390/jcm14010163, doi:10.3390/jcm14010163. This article has 4 citations.</p>
+</li>
+<li>
+<p>(merino2024mitigatingtherisk pages 4-5): Sandra Merino, Lissette Tordera, Allison Jun, and Sun Yang. Mitigating the risk of qtc prolongation when using haloperidol for acute treatment of cannabinoid hyperemesis syndrome in adolescents and young adults. Journal of Clinical Medicine, 14:163, Dec 2024. URL: https://doi.org/10.3390/jcm14010163, doi:10.3390/jcm14010163. This article has 4 citations.</p>
+</li>
+<li>
+<p>(merino2024mitigatingtherisk pages 6-7): Sandra Merino, Lissette Tordera, Allison Jun, and Sun Yang. Mitigating the risk of qtc prolongation when using haloperidol for acute treatment of cannabinoid hyperemesis syndrome in adolescents and young adults. Journal of Clinical Medicine, 14:163, Dec 2024. URL: https://doi.org/10.3390/jcm14010163, doi:10.3390/jcm14010163. This article has 4 citations.</p>
+</li>
+<li>
+<p>(moses2024exploringalternativetreatments pages 1-3): Tabitha E H Moses. Exploring alternative treatments for acute exacerbations of cannabis hyperemesis syndrome in patients who plan to continue using cannabis. Clinical Research In Practice: The Journal of Team Hippocrates, Nov 2024. URL: https://doi.org/10.22237/crp/1724285340, doi:10.22237/crp/1724285340. This article has 0 citations.</p>
+</li>
+<li>
+<p>(merino2024mitigatingtherisk pages 9-10): Sandra Merino, Lissette Tordera, Allison Jun, and Sun Yang. Mitigating the risk of qtc prolongation when using haloperidol for acute treatment of cannabinoid hyperemesis syndrome in adolescents and young adults. Journal of Clinical Medicine, 14:163, Dec 2024. URL: https://doi.org/10.3390/jcm14010163, doi:10.3390/jcm14010163. This article has 4 citations.</p>
+</li>
+<li>
+<p>(soh2024trendsofemergency pages 1-2): Jaeseung Soh, Yonsu Kim, Jay Shen, Mingon Kang, Stefan Chaudhry, Tae Ha Chung, Seo Hyun Kim, Yena Hwang, Daniel Lim, Adam Khattak, Leora Frimer, and Ji Won Yoo. Trends of emergency department visits for cannabinoid hyperemesis syndrome in nevada: an interrupted time series analysis. PLOS ONE, 19:e0303205, May 2024. URL: https://doi.org/10.1371/journal.pone.0303205, doi:10.1371/journal.pone.0303205. This article has 12 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(soh2024trendsofemergency pages 2-4): Jaeseung Soh, Yonsu Kim, Jay Shen, Mingon Kang, Stefan Chaudhry, Tae Ha Chung, Seo Hyun Kim, Yena Hwang, Daniel Lim, Adam Khattak, Leora Frimer, and Ji Won Yoo. Trends of emergency department visits for cannabinoid hyperemesis syndrome in nevada: an interrupted time series analysis. PLOS ONE, 19:e0303205, May 2024. URL: https://doi.org/10.1371/journal.pone.0303205, doi:10.1371/journal.pone.0303205. This article has 12 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(soh2024trendsofemergency pages 4-5): Jaeseung Soh, Yonsu Kim, Jay Shen, Mingon Kang, Stefan Chaudhry, Tae Ha Chung, Seo Hyun Kim, Yena Hwang, Daniel Lim, Adam Khattak, Leora Frimer, and Ji Won Yoo. Trends of emergency department visits for cannabinoid hyperemesis syndrome in nevada: an interrupted time series analysis. PLOS ONE, 19:e0303205, May 2024. URL: https://doi.org/10.1371/journal.pone.0303205, doi:10.1371/journal.pone.0303205. This article has 12 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(merino2024mitigatingtherisk pages 7-9): Sandra Merino, Lissette Tordera, Allison Jun, and Sun Yang. Mitigating the risk of qtc prolongation when using haloperidol for acute treatment of cannabinoid hyperemesis syndrome in adolescents and young adults. Journal of Clinical Medicine, 14:163, Dec 2024. URL: https://doi.org/10.3390/jcm14010163, doi:10.3390/jcm14010163. This article has 4 citations.</p>
+</li>
+<li>
+<p>(russo2024cannabinoidhyperemesissyndrome pages 4-6): Ethan B. Russo and Venetia L. Whiteley. Cannabinoid hyperemesis syndrome: genetic susceptibility to toxic exposure. Frontiers in Toxicology, Oct 2024. URL: https://doi.org/10.3389/ftox.2024.1465728, doi:10.3389/ftox.2024.1465728. This article has 11 citations.</p>
+</li>
+<li>
+<p>(loganathan2024acomprehensivereview pages 11-12): Priyadarshini Loganathan, Mahesh Gajendran, and Hemant Goyal. A comprehensive review and update on cannabis hyperemesis syndrome. Pharmaceuticals, 17:1549, Nov 2024. URL: https://doi.org/10.3390/ph17111549, doi:10.3390/ph17111549. This article has 28 citations.</p>
+</li>
+<li>
+<p>(loganathan2024acomprehensivereview media 73dc557e): Priyadarshini Loganathan, Mahesh Gajendran, and Hemant Goyal. A comprehensive review and update on cannabis hyperemesis syndrome. Pharmaceuticals, 17:1549, Nov 2024. URL: https://doi.org/10.3390/ph17111549, doi:10.3390/ph17111549. This article has 28 citations.</p>
+</li>
+<li>
+<p>(loganathan2024acomprehensivereview media 15f1dbc6): Priyadarshini Loganathan, Mahesh Gajendran, and Hemant Goyal. A comprehensive review and update on cannabis hyperemesis syndrome. Pharmaceuticals, 17:1549, Nov 2024. URL: https://doi.org/10.3390/ph17111549, doi:10.3390/ph17111549. This article has 28 citations.</p>
+</li>
+<li>
+<p>(soh2024trendsofemergency pages 5-7): Jaeseung Soh, Yonsu Kim, Jay Shen, Mingon Kang, Stefan Chaudhry, Tae Ha Chung, Seo Hyun Kim, Yena Hwang, Daniel Lim, Adam Khattak, Leora Frimer, and Ji Won Yoo. Trends of emergency department visits for cannabinoid hyperemesis syndrome in nevada: an interrupted time series analysis. PLOS ONE, 19:e0303205, May 2024. URL: https://doi.org/10.1371/journal.pone.0303205, doi:10.1371/journal.pone.0303205. This article has 12 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(russo2024cannabinoidhyperemesissyndrome pages 3-4): Ethan B. Russo and Venetia L. Whiteley. Cannabinoid hyperemesis syndrome: genetic susceptibility to toxic exposure. Frontiers in Toxicology, Oct 2024. URL: https://doi.org/10.3389/ftox.2024.1465728, doi:10.3389/ftox.2024.1465728. This article has 11 citations.</p>
+</li>
+<li>
+<p>(russo2024cannabinoidhyperemesissyndrome pages 2-3): Ethan B. Russo and Venetia L. Whiteley. Cannabinoid hyperemesis syndrome: genetic susceptibility to toxic exposure. Frontiers in Toxicology, Oct 2024. URL: https://doi.org/10.3389/ftox.2024.1465728, doi:10.3389/ftox.2024.1465728. This article has 11 citations.</p>
+</li>
+<li>
+<p>(russo2024cannabinoidhyperemesissyndrome pages 1-2): Ethan B. Russo and Venetia L. Whiteley. Cannabinoid hyperemesis syndrome: genetic susceptibility to toxic exposure. Frontiers in Toxicology, Oct 2024. URL: https://doi.org/10.3389/ftox.2024.1465728, doi:10.3389/ftox.2024.1465728. This article has 11 citations.</p>
+</li>
+<li>
+<p>(russo2024cannabinoidhyperemesissyndrome pages 6-7): Ethan B. Russo and Venetia L. Whiteley. Cannabinoid hyperemesis syndrome: genetic susceptibility to toxic exposure. Frontiers in Toxicology, Oct 2024. URL: https://doi.org/10.3389/ftox.2024.1465728, doi:10.3389/ftox.2024.1465728. This article has 11 citations.</p>
+</li>
+<li>
+<p>(loganathan2024acomprehensivereview pages 2-4): Priyadarshini Loganathan, Mahesh Gajendran, and Hemant Goyal. A comprehensive review and update on cannabis hyperemesis syndrome. Pharmaceuticals, 17:1549, Nov 2024. URL: https://doi.org/10.3390/ph17111549, doi:10.3390/ph17111549. This article has 28 citations.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </div>
         
 
         <footer class="page-footer">
@@ -5283,7 +6295,7 @@ notes: &gt;
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Cannabis Hyperemesis Syndrome", "mondoId": "MONDO:0100094", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cannabis_Hyperemesis_Syndrome", "yamlRevision": "e0c80d55d9da"};
+        const OS_CONFIG = {"diseaseName": "Cannabis Hyperemesis Syndrome", "mondoId": "MONDO:0100094", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cannabis_Hyperemesis_Syndrome", "yamlRevision": "b8a1bac6cd3a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

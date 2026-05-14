@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,7 +2570,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 6</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 16</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Inborn error of purine metabolism</span>
@@ -2570,7 +2723,7 @@
             
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
-                <div class="stat-value">11</div>
+                <div class="stat-value">12</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -2578,16 +2731,18 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">6</div>
+                <div class="stat-value">16</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
             
+            <a class="stat-link" href="#genetic">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">1</div>
                 <div class="stat-label">Genes</div>
             </div>
+            </a>
             
             
             <a class="stat-link" href="#treatments">
@@ -2930,7 +3085,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
             
@@ -2951,26 +3106,6 @@
                 
                 
                 <div class="evidence-explanation">The abstract directly identifies the core biochemical lesion and the major organ systems affected by ADK loss of function.</div>
-                
-            </div>
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27903722" target="_blank">PMID:27903722</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"ADK deficiency in human patients (OMIM:614300) disrupts the methionine cycle and triggers hypermethioninemia, hepatic encephalopathy, cognitive impairment, and seizures."</div>
-                
-                
-                <div class="evidence-explanation">The mouse-model paper states the human disease mechanism and links it to the brain and liver phenotypes.</div>
                 
             </div>
             
@@ -3076,6 +3211,13 @@
 	                            <span class="crosslink-meta">Transmethylation Cycle Disruption and Hypermethioninemia</span>
 	                            
 	                            <span class="crosslink-desc">Adenosine accumulation drives the S-adenosylhomocysteine hydrolase reaction backward and impairs methylation flux.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Neurodevelopmental Impairment and Seizures</span>
+	                            
+	                            <span class="crosslink-desc">Elevated brain adenosine alters adenosine receptor signaling and synaptic plasticity, contributing to cognitive impairment and seizure risk.</span>
 	                            
 	                        </div>
 	                        
@@ -3226,6 +3368,13 @@
 	                            
 	                        </div>
 	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hypermethioninemia</span>
+	                            
+	                            <span class="crosslink-desc">Disrupted methionine-cycle flux produces the characteristic elevated plasma methionine phenotype.</span>
+	                            
+	                        </div>
+	                        
 	                    </div>
 	                </div>
 	                
@@ -3359,9 +3508,9 @@
 	                    <div class="crosslink-list">
 	                        
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Neurodevelopmental Impairment and Seizures</span>
+	                            <span class="crosslink-meta">Cholestasis</span>
 	                            
-	                            <span class="crosslink-desc">Liver dysfunction does not fully explain the neurologic phenotype, which persists even after transplantation in some patients.</span>
+	                            <span class="crosslink-desc">Hepatic involvement in ADK deficiency commonly presents as transient liver dysfunction with cholestasis.</span>
 	                            
 	                        </div>
 	                        
@@ -3535,9 +3684,30 @@
 	                    <div class="crosslink-list">
 	                        
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Cerebrovascular Abnormalities</span>
+	                            <span class="crosslink-meta">Global Developmental Delay</span>
 	                            
-	                            <span class="crosslink-desc">A subset of patients develops vascular tortuosity and stroke.</span>
+	                            <span class="crosslink-desc">Neurodevelopmental impairment manifests clinically as global developmental delay.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hypotonia</span>
+	                            
+	                            <span class="crosslink-desc">The neurologic disease includes generalized hypotonia.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Seizure</span>
+	                            
+	                            <span class="crosslink-desc">Brain ADK deficiency increases seizure susceptibility and epilepsy risk.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Delayed brain myelination</span>
+	                            
+	                            <span class="crosslink-desc">Delayed myelination is a reported neuroimaging manifestation in affected patients.</span>
 	                            
 	                        </div>
 	                        
@@ -3658,6 +3828,20 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Stroke</span>
+	                            
+	                            <span class="crosslink-desc">Cervical artery tortuosity and related cerebrovascular abnormalities can lead to stroke in a subset of patients.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
@@ -3738,7 +3922,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ADK Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss of ADK activity reduces phosphorylation of adenosine to AMP, impairing adenosine salvage and disturbing intracellular adenine nucleotide balance.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\", \"astrocyte\", \"neuron\"], \"biological_processes\": [\"adenosine metabolic process\", \"methionine metabolic process\", \"methionine cycle\"], \"molecular_functions\": [\"adenosine kinase activity\"], \"genes\": [\"ADK\"], \"locations\": [\"liver\"]}}, {\"id\": \"Adenosine Accumulation and AMP Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess adenosine and reduced AMP availability alter purine homeostasis, disturb adenosine receptor signaling, and contribute to downstream neuronal and hepatic stress.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"astrocyte\", \"neuron\"], \"biological_processes\": [\"adenosine metabolic process\"]}}, {\"id\": \"Cerebrovascular Abnormalities\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Vascular tortuosity of the cervical arteries and recurrent stroke have been reported as additional complications of ADK deficiency.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"blood vessel endothelial cell\"]}}, {\"id\": \"Hepatic Dysfunction and Cholestasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patients may present with neonatal jaundice, cholestasis, transaminase elevation, transient liver dysfunction, or even liver failure.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"hepatocyte\"], \"locations\": [\"liver\"]}}, {\"id\": \"Neurodevelopmental Impairment and Seizures\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ADK deficiency causes hypotonia, global developmental delay, epilepsy, and cognitive impairment; brain-specific deficiency can directly drive seizure susceptibility and learning deficits, and neurologic disease may persist despite liver transplantation.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\", \"astrocyte\"], \"biological_processes\": [\"chemical synaptic transmission\"]}}, {\"id\": \"Transmethylation Cycle Disruption and Hypermethioninemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulation of adenosine and S-adenosylhomocysteine perturbs one-carbon metabolism, producing elevated methionine, elevated AdoMet/AdoHcy, and a biochemical pattern that is diagnostically useful.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"methionine metabolic process\", \"methionine cycle\"]}}], \"edges\": [{\"source\": \"ADK Loss of Function\", \"target\": \"Adenosine Accumulation and AMP Depletion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Adenosine Accumulation and AMP Depletion\", \"target\": \"Transmethylation Cycle Disruption and Hypermethioninemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Transmethylation Cycle Disruption and Hypermethioninemia\", \"target\": \"Hepatic Dysfunction and Cholestasis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Transmethylation Cycle Disruption and Hypermethioninemia\", \"target\": \"Neurodevelopmental Impairment and Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatic Dysfunction and Cholestasis\", \"target\": \"Neurodevelopmental Impairment and Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental Impairment and Seizures\", \"target\": \"Cerebrovascular Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ADK\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ADK\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"ADK Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss of ADK activity reduces phosphorylation of adenosine to AMP, impairing adenosine salvage and disturbing intracellular adenine nucleotide balance.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\", \"astrocyte\", \"neuron\"], \"biological_processes\": [\"adenosine metabolic process\", \"methionine metabolic process\", \"methionine cycle\"], \"molecular_functions\": [\"adenosine kinase activity\"], \"genes\": [\"ADK\"], \"locations\": [\"liver\"]}}, {\"id\": \"Adenosine Accumulation and AMP Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess adenosine and reduced AMP availability alter purine homeostasis, disturb adenosine receptor signaling, and contribute to downstream neuronal and hepatic stress.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"astrocyte\", \"neuron\"], \"biological_processes\": [\"adenosine metabolic process\"]}}, {\"id\": \"Cerebrovascular Abnormalities\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Vascular tortuosity of the cervical arteries and recurrent stroke have been reported as additional complications of ADK deficiency.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"blood vessel endothelial cell\"]}}, {\"id\": \"Cholestasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neonatal or early infantile cholestasis is a common presentation of the liver disease component.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001396\"}}, {\"id\": \"Delayed brain myelination\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brain MRI may show delayed myelination as part of the neurologic disease spectrum.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012448\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Affected children commonly have delayed psychomotor development and global developmental delay.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hepatic Dysfunction and Cholestasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patients may present with neonatal jaundice, cholestasis, transaminase elevation, transient liver dysfunction, or even liver failure.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"hepatocyte\"], \"locations\": [\"liver\"]}}, {\"id\": \"Hypermethioninemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated plasma methionine is a recurring biochemical hallmark and is diagnostically useful in ADK deficiency.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003235\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized hypotonia is commonly reported in the neonatal or infantile presentation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001290\"}}, {\"id\": \"Liver transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Liver transplantation can correct the hepatic component, although neurologic disease may continue to progress.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Methionine-Restricted Diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dietary methionine intake restriction has been tried, but outcomes are variable and it is not curative.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neurodevelopmental Impairment and Seizures\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ADK deficiency causes hypotonia, global developmental delay, epilepsy, and cognitive impairment; brain-specific deficiency can directly drive seizure susceptibility and learning deficits, and neurologic disease may persist despite liver transplantation.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\", \"astrocyte\"], \"biological_processes\": [\"chemical synaptic transmission\"]}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy and seizures are recurrent neurologic manifestations and may be driven directly by brain ADK deficiency.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Stroke\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Stroke has been reported in ADK deficiency in association with tortuous cervical arteries.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001297\"}}, {\"id\": \"Transmethylation Cycle Disruption and Hypermethioninemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulation of adenosine and S-adenosylhomocysteine perturbs one-carbon metabolism, producing elevated methionine, elevated AdoMet/AdoHcy, and a biochemical pattern that is diagnostically useful.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"methionine metabolic process\", \"methionine cycle\"]}}], \"edges\": [{\"source\": \"ADK Loss of Function\", \"target\": \"Adenosine Accumulation and AMP Depletion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Adenosine Accumulation and AMP Depletion\", \"target\": \"Transmethylation Cycle Disruption and Hypermethioninemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Adenosine Accumulation and AMP Depletion\", \"target\": \"Neurodevelopmental Impairment and Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Transmethylation Cycle Disruption and Hypermethioninemia\", \"target\": \"Hepatic Dysfunction and Cholestasis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Transmethylation Cycle Disruption and Hypermethioninemia\", \"target\": \"Neurodevelopmental Impairment and Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Transmethylation Cycle Disruption and Hypermethioninemia\", \"target\": \"Hypermethioninemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatic Dysfunction and Cholestasis\", \"target\": \"Cholestasis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental Impairment and Seizures\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental Impairment and Seizures\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental Impairment and Seizures\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental Impairment and Seizures\", \"target\": \"Delayed brain myelination\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cerebrovascular Abnormalities\", \"target\": \"Stroke\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Methionine-Restricted Diet\", \"target\": \"Transmethylation Cycle Disruption and Hypermethioninemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Hepatic Dysfunction and Cholestasis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ADK\", \"target\": \"ADK Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3751,7 +3935,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">11</span>
+                <span class="card-count">12</span>
             </div>
             
             
@@ -3759,7 +3943,7 @@
                 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(2)</span></button>
                 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(1)</span></button>
                 
@@ -3846,7 +4030,7 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
                 
                 <div class="item-box phenotype-box">
@@ -3892,6 +4076,60 @@
                 
                 
                 <div class="evidence-explanation">Directly supports cardiac defects as part of the ADK deficiency phenotype.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Stroke
+                        
+                    
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0001297" target="_blank">
+                            Stroke
+                        </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001297)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34765398" target="_blank">PMID:34765398</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"vascular tortuosity leading to stroke in one of them."</div>
+                
+                
+                <div class="evidence-explanation">The case report documents stroke in a patient with ADK deficiency and vascular tortuosity.</div>
                 
             </div>
             
@@ -4470,7 +4708,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Biochemically, methionine is elevated with normal homocysteine levels."</div>
+                <div class="evidence-snippet">"Biochemically, methionine is elevated with normal homocysteine levels and the diagnosis is confirmed through molecular analysis of the ADK gene."</div>
                 
                 
                 <div class="evidence-explanation">Confirms the biochemical phenotype.</div>
@@ -4575,6 +4813,58 @@
 
         <!-- Genetic Associations -->
         
+        <div class="card" id="genetic">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
+                <h2 class="card-title">Genetic Associations</h2>
+                <span class="card-count">1</span>
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    ADK
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_c2319ca2-652d-411e-ab6d-5b7fb7e185ea-2021-04-08T160000.000Z" target="_blank">CGGV:assertion_c2319ca2-652d-411e-ab6d-5b7fb7e185ea-2021-04-08T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"ADK | HGNC:257 | adenosine kinase deficiency | MONDO:0100255 | AR | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the ADK-adenosine kinase deficiency gene-disease relationship as definitive with autosomal recessive inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+        </div>
+        
 
         <!-- Treatments -->
         
@@ -4624,6 +4914,54 @@
                 
                 <div class="item-desc">Dietary methionine intake restriction has been tried, but outcomes are variable and it is not curative.</div>
                 
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+                        <strong style="color: #5b21b6;">Transmethylation Cycle Disruption and Hypermethioninemia</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Methionine restriction is intended to reduce the hypermethioninemia component of the disturbed methionine cycle, though outcomes are variable.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30477030" target="_blank">PMID:30477030</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"There is no curative treatment; however, a methionine-restricted diet has been tried with variable outcomes."</div>
+                
+                
+                <div class="evidence-explanation">The clinical review supports methionine restriction as a management approach but notes variable outcomes, so the target effect is modeled as modulation rather than correction.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
                 
                 
                 
@@ -4702,6 +5040,54 @@
                 <div class="item-desc">Liver transplantation can correct the hepatic component, although neurologic disease may continue to progress.</div>
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Hepatic Dysfunction and Cholestasis</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Liver transplantation can correct the hepatic dysfunction component while neurologic disease may persist.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36589157" target="_blank">PMID:36589157</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Ten-year follow-up after LTx revealed a preserved good liver function, persistent regenerative macrocytic anemia, progressive neurological disease but disappearance of brain MR changes, short stature, and cortisol deficiency."</div>
+                
+                
+                <div class="evidence-explanation">Long-term follow-up supports improvement of liver function after transplantation while distinguishing persistent non-hepatic disease.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
+                
                 
                 
                 
@@ -4725,7 +5111,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"The patient underwent living-donor liver transplantation (LTx) at 14 months of age. Ten-year follow-up after LTx revealed a preserved good liver function, persistent regenerative macrocytic anemia, progressive neurological disease but disappearance of brain MR changes."</div>
+                <div class="evidence-snippet">"The patient underwent living-donor liver transplantation (LTx) at 14 months of age. Ten-year follow-up after LTx revealed a preserved good liver function, persistent regenerative macrocytic anemia, progressive neurological disease but disappearance of brain MR changes, short stature, and..."</div>
                 
                 
                 <div class="evidence-explanation">Supports liver transplantation as a major intervention that improves liver disease while not fully correcting the neurologic phenotype.</div>
@@ -4887,7 +5273,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"This review covers briefly the major conditions, genetic and non- genetic, sometimes leading to abnormally elevated methionine, with emphasis on recent developments. A major aim is to assist in the differential diagnosis of hypermethioninemia."</div>
+                <div class="evidence-snippet">"This review covers briefly the major conditions, genetic and non-genetic, sometimes leading to abnormally elevated methionine, with emphasis on recent developments. A major aim is to assist in the differential diagnosis of hypermethioninemia."</div>
                 
                 
                 <div class="evidence-explanation">The review explicitly frames these disorders as the differential for hypermethioninemia.</div>
@@ -4929,7 +5315,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Adenosine Kinase Deficiency
 creation_date: &#34;2026-04-16T00:00:00Z&#34;
-updated_date: &#34;2026-04-16T22:40:00Z&#34;
+updated_date: &#34;2026-05-10T06:39:28Z&#34;
 category: Mendelian
 description: &gt;-
   Adenosine kinase deficiency is a rare autosomal recessive inborn error of
@@ -4943,730 +5329,970 @@ disease_term:
     id: MONDO:0100255
     label: adenosine kinase deficiency
 parents:
-  - Inborn error of purine metabolism
-  - Inborn error of metabolism
+- Inborn error of purine metabolism
+- Inborn error of metabolism
 synonyms:
-  - hypermethioninemia due to adenosine kinase deficiency
-  - ADK deficiency
+- hypermethioninemia due to adenosine kinase deficiency
+- ADK deficiency
 inheritance:
-  - name: Autosomal recessive inheritance
-    inheritance_term:
-      preferred_term: autosomal recessive inheritance
-      term:
-        id: HP:0000007
-        label: Autosomal recessive inheritance
+- name: Autosomal recessive inheritance
+  inheritance_term:
+    preferred_term: autosomal recessive inheritance
+    term:
+      id: HP:0000007
+      label: Autosomal recessive inheritance
 pathophysiology:
-  - name: ADK Loss of Function
+- name: ADK Loss of Function
+  description: &gt;-
+    Biallelic loss of ADK activity reduces phosphorylation of adenosine to
+    AMP, impairing adenosine salvage and disturbing intracellular adenine
+    nucleotide balance.
+  genes:
+  - preferred_term: ADK
+    term:
+      id: hgnc:257
+      label: ADK
+  molecular_functions:
+  - preferred_term: adenosine kinase activity
+    term:
+      id: GO:0004001
+      label: adenosine kinase activity
+  biological_processes:
+  - preferred_term: adenosine metabolic process
+    term:
+      id: GO:0046085
+      label: adenosine metabolic process
+    modifier: DECREASED
+  - preferred_term: methionine metabolic process
+    term:
+      id: GO:0006555
+      label: L-methionine metabolic process
+    modifier: ABNORMAL
+  - preferred_term: methionine cycle
+    term:
+      id: GO:0033353
+      label: L-methionine cycle
+    modifier: ABNORMAL
+  cell_types:
+  - preferred_term: hepatocyte
+    term:
+      id: CL:0000182
+      label: hepatocyte
+  - preferred_term: astrocyte
+    term:
+      id: CL:0000127
+      label: astrocyte
+  - preferred_term: neuron
+    term:
+      id: CL:0000540
+      label: neuron
+  locations:
+  - preferred_term: liver
+    term:
+      id: UBERON:0002107
+      label: liver
+  evidence:
+  - reference: PMID:33309011
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Adenosine kinase (ADK) deficiency is characterized by liver disease,
+      dysmorphic features, epilepsy and developmental delay. This defect
+      disrupts the adenosine/AMP futile cycle and interferes with the
+      upstream methionine cycle.
+    explanation: &gt;-
+      The abstract directly identifies the core biochemical lesion and the
+      major organ systems affected by ADK loss of function.
+  downstream:
+  - target: Adenosine Accumulation and AMP Depletion
     description: &gt;-
-      Biallelic loss of ADK activity reduces phosphorylation of adenosine to
-      AMP, impairing adenosine salvage and disturbing intracellular adenine
-      nucleotide balance.
-    genes:
-      - preferred_term: ADK
-        term:
-          id: hgnc:257
-          label: ADK
-    molecular_functions:
-      - preferred_term: adenosine kinase activity
-        term:
-          id: GO:0004001
-          label: adenosine kinase activity
-    biological_processes:
-      - preferred_term: adenosine metabolic process
-        term:
-          id: GO:0046085
-          label: adenosine metabolic process
-        modifier: DECREASED
-      - preferred_term: methionine metabolic process
-        term:
-          id: GO:0006555
-          label: L-methionine metabolic process
-        modifier: ABNORMAL
-      - preferred_term: methionine cycle
-        term:
-          id: GO:0033353
-          label: L-methionine cycle
-        modifier: ABNORMAL
-    cell_types:
-      - preferred_term: hepatocyte
-        term:
-          id: CL:0000182
-          label: hepatocyte
-      - preferred_term: astrocyte
-        term:
-          id: CL:0000127
-          label: astrocyte
-      - preferred_term: neuron
-        term:
-          id: CL:0000540
-          label: neuron
-    locations:
-      - preferred_term: liver
-        term:
-          id: UBERON:0002107
-          label: liver
+      Loss of ADK activity shifts adenosine away from AMP generation and
+      raises intracellular and extracellular adenosine.
+    causal_link_type: DIRECT
     evidence:
-      - reference: PMID:33309011
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;-
-          Adenosine kinase (ADK) deficiency is characterized by liver disease,
-          dysmorphic features, epilepsy and developmental delay. This defect
-          disrupts the adenosine/AMP futile cycle and interferes with the
-          upstream methionine cycle.
-        explanation: &gt;-
-          The abstract directly identifies the core biochemical lesion and the
-          major organ systems affected by ADK loss of function.
-      - reference: PMID:27903722
-        supports: SUPPORT
-        evidence_source: MODEL_ORGANISM
-        snippet: &gt;-
-          ADK deficiency in human patients (OMIM:614300) disrupts the methionine
-          cycle and triggers hypermethioninemia, hepatic encephalopathy,
-          cognitive impairment, and seizures.
-        explanation: &gt;-
-          The mouse-model paper states the human disease mechanism and links it
-          to the brain and liver phenotypes.
-    downstream:
-      - target: Adenosine Accumulation and AMP Depletion
-        description: &gt;-
-          Loss of ADK activity shifts adenosine away from AMP generation and
-          raises intracellular and extracellular adenosine.
-  - name: Adenosine Accumulation and AMP Depletion
+    - reference: PMID:33309011
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        This defect disrupts the adenosine/AMP futile cycle and interferes
+        with the upstream methionine cycle.
+      explanation: &gt;-
+        The human case-series abstract directly links ADK deficiency to
+        disruption of the adenosine/AMP cycle.
+- name: Adenosine Accumulation and AMP Depletion
+  description: &gt;-
+    Excess adenosine and reduced AMP availability alter purine homeostasis,
+    disturb adenosine receptor signaling, and contribute to downstream
+    neuronal and hepatic stress.
+  cell_types:
+  - preferred_term: astrocyte
+    term:
+      id: CL:0000127
+      label: astrocyte
+  - preferred_term: neuron
+    term:
+      id: CL:0000540
+      label: neuron
+  biological_processes:
+  - preferred_term: adenosine metabolic process
+    term:
+      id: GO:0046085
+      label: adenosine metabolic process
+    modifier: INCREASED
+  evidence:
+  - reference: PMID:27903722
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      Pharmacological, biochemical, and electrophysiological studies
+      suggest enhanced adenosine levels around synapses resulting in an
+      enhanced adenosine A1 receptor (A1R)-dependent protective tone
+      despite lower expression levels of the receptor.
+    explanation: &gt;-
+      The model shows elevated synaptic adenosine after ADK deficiency.
+  downstream:
+  - target: Transmethylation Cycle Disruption and Hypermethioninemia
     description: &gt;-
-      Excess adenosine and reduced AMP availability alter purine homeostasis,
-      disturb adenosine receptor signaling, and contribute to downstream
-      neuronal and hepatic stress.
-    cell_types:
-      - preferred_term: astrocyte
-        term:
-          id: CL:0000127
-          label: astrocyte
-      - preferred_term: neuron
-        term:
-          id: CL:0000540
-          label: neuron
-    biological_processes:
-      - preferred_term: adenosine metabolic process
-        term:
-          id: GO:0046085
-          label: adenosine metabolic process
-        modifier: INCREASED
+      Adenosine accumulation drives the S-adenosylhomocysteine hydrolase
+      reaction backward and impairs methylation flux.
+    causal_link_type: DIRECT
     evidence:
-      - reference: PMID:27903722
-        supports: SUPPORT
-        evidence_source: MODEL_ORGANISM
-        snippet: &gt;-
-          Pharmacological, biochemical, and electrophysiological studies
-          suggest enhanced adenosine levels around synapses resulting in an
-          enhanced adenosine A1 receptor (A1R)-dependent protective tone
-          despite lower expression levels of the receptor.
-        explanation: &gt;-
-          The model shows elevated synaptic adenosine after ADK deficiency.
-    downstream:
-      - target: Transmethylation Cycle Disruption and Hypermethioninemia
-        description: &gt;-
-          Adenosine accumulation drives the S-adenosylhomocysteine hydrolase
-          reaction backward and impairs methylation flux.
-  - name: Transmethylation Cycle Disruption and Hypermethioninemia
+    - reference: PMID:33309011
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        This defect disrupts the adenosine/AMP futile cycle and interferes
+        with the upstream methionine cycle.
+      explanation: &gt;-
+        The same clinical report connects disrupted adenosine/AMP cycling to
+        upstream methionine-cycle interference.
+  - target: Neurodevelopmental Impairment and Seizures
     description: &gt;-
-      Accumulation of adenosine and S-adenosylhomocysteine perturbs one-carbon
-      metabolism, producing elevated methionine, elevated AdoMet/AdoHcy, and a
-      biochemical pattern that is diagnostically useful.
-    cell_types:
-      - preferred_term: hepatocyte
-        term:
-          id: CL:0000182
-          label: hepatocyte
-    biological_processes:
-      - preferred_term: methionine metabolic process
-        term:
-          id: GO:0006555
-          label: L-methionine metabolic process
-        modifier: INCREASED
-      - preferred_term: methionine cycle
-        term:
-          id: GO:0033353
-          label: L-methionine cycle
-        modifier: INCREASED
+      Elevated brain adenosine alters adenosine receptor signaling and synaptic
+      plasticity, contributing to cognitive impairment and seizure risk.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - adenosine receptor signaling
+    - dysregulated synaptic plasticity
     evidence:
-      - reference: PMID:33309011
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;-
-          In addition, we retrospectively analyzed methionine plasma
-          concentration, a hallmark of ADK deficiency, in a cohort of children
-          and showed that methionine level in patients with ADK deficiency was
-          strongly increased compared with patients with other liver diseases.
-        explanation: &gt;-
-          This directly supports hypermethioninemia as a hallmark biochemical
-          feature.
-      - reference: PMID:36589157
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;-
-          Whole exome sequencing revealed the patient to be affected with two
-          novel ADK variants, which pathogenicity was confirmed biochemically
-          by demonstration of elevated concentration of S-adenosylhomocysteine.
-        explanation: &gt;-
-          Confirms the AdoHcy elevation that accompanies the disturbed
-          transmethylation state.
-      - reference: PMID:30477030
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;-
-          Biochemically, methionine is elevated with normal homocysteine levels
-          and the diagnosis is confirmed through molecular analysis of the ADK
-          gene.
-        explanation: &gt;-
-          Establishes the expected biochemical profile of ADK deficiency.
-    downstream:
-      - target: Hepatic Dysfunction and Cholestasis
-        description: &gt;-
-          The biochemical block is most evident in the liver and can present as
-          neonatal or early infantile liver disease.
-      - target: Neurodevelopmental Impairment and Seizures
-        description: &gt;-
-          Methionine cycle disruption and excess adenosine also affect the
-          central nervous system.
-  - name: Hepatic Dysfunction and Cholestasis
+    - reference: PMID:27903722
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &gt;-
+        Pharmacological, biochemical, and electrophysiological studies
+        suggest enhanced adenosine levels around synapses resulting in an
+        enhanced adenosine A1 receptor (A1R)-dependent protective tone
+        despite lower expression levels of the receptor.
+      explanation: &gt;-
+        Brain-specific ADK deficiency raises synaptic adenosine, and the same
+        model links altered adenosine receptor signaling to neurologic
+        phenotypes.
+    - reference: PMID:27903722
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &gt;-
+        We conclude that ADK deficiency in the brain triggers neuronal
+        adaptation processes that lead to dysregulated synaptic plasticity,
+        cognitive deficits, and increased seizure risk.
+      explanation: &gt;-
+        The same mouse model links brain ADK deficiency and downstream synaptic
+        adaptation to cognitive deficits and seizure risk.
+- name: Transmethylation Cycle Disruption and Hypermethioninemia
+  description: &gt;-
+    Accumulation of adenosine and S-adenosylhomocysteine perturbs one-carbon
+    metabolism, producing elevated methionine, elevated AdoMet/AdoHcy, and a
+    biochemical pattern that is diagnostically useful.
+  cell_types:
+  - preferred_term: hepatocyte
+    term:
+      id: CL:0000182
+      label: hepatocyte
+  biological_processes:
+  - preferred_term: methionine metabolic process
+    term:
+      id: GO:0006555
+      label: L-methionine metabolic process
+    modifier: INCREASED
+  - preferred_term: methionine cycle
+    term:
+      id: GO:0033353
+      label: L-methionine cycle
+    modifier: INCREASED
+  evidence:
+  - reference: PMID:33309011
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      In addition, we retrospectively analyzed methionine plasma
+      concentration, a hallmark of ADK deficiency, in a cohort of children
+      and showed that methionine level in patients with ADK deficiency was
+      strongly increased compared with patients with other liver diseases.
+    explanation: &gt;-
+      This directly supports hypermethioninemia as a hallmark biochemical
+      feature.
+  - reference: PMID:36589157
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Whole exome sequencing revealed the patient to be affected with two
+      novel ADK variants, which pathogenicity was confirmed biochemically
+      by demonstration of elevated concentration of S-adenosylhomocysteine.
+    explanation: &gt;-
+      Confirms the AdoHcy elevation that accompanies the disturbed
+      transmethylation state.
+  - reference: PMID:30477030
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Biochemically, methionine is elevated with normal homocysteine levels
+      and the diagnosis is confirmed through molecular analysis of the ADK
+      gene.
+    explanation: &gt;-
+      Establishes the expected biochemical profile of ADK deficiency.
+  downstream:
+  - target: Hepatic Dysfunction and Cholestasis
     description: &gt;-
-      Patients may present with neonatal jaundice, cholestasis, transaminase
-      elevation, transient liver dysfunction, or even liver failure.
-    cell_types:
-      - preferred_term: hepatocyte
-        term:
-          id: CL:0000182
-          label: hepatocyte
-    locations:
-      - preferred_term: liver
-        term:
-          id: UBERON:0002107
-          label: liver
+      The biochemical block is most evident in the liver and can present as
+      neonatal or early infantile liver disease.
+    causal_link_type: DIRECT
     evidence:
-      - reference: PMID:34765398
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;-
-          It is characterized by developmental delay, hypotonia, epilepsy,
-          facial dysmorphism, failure to thrive, transient liver dysfunction
-          with cholestasis, recurrent hypoglycemia, and cardiac defects.
-        explanation: &gt;-
-          Supports the hepatic phenotype and the variability of organ
-          involvement in ADK deficiency.
-      - reference: PMID:33309011
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;-
-          Adenosine kinase (ADK) deficiency is characterized by liver disease,
-          dysmorphic features, epilepsy and developmental delay.
-        explanation: &gt;-
-          The abstract identifies liver disease as a defining clinical feature.
-      - reference: PMID:36589157
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;-
-          Six-month-old patient presented with cholestatic liver disease,
-          macrocytic anemia, developmental delay, generalized hypotonia,
-          delayed brain myelination, and elevated levels of serum methionine.
-        explanation: &gt;-
-          Demonstrates cholestatic liver disease in a long-followed patient.
-    downstream:
-      - target: Neurodevelopmental Impairment and Seizures
-        description: &gt;-
-          Liver dysfunction does not fully explain the neurologic phenotype,
-          which persists even after transplantation in some patients.
-  - name: Neurodevelopmental Impairment and Seizures
+    - reference: PMID:33309011
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        ADK deficiency is a cause of neonatal or early infantile liver disease
+        that may mimic primary mitochondrial disorders.
+      explanation: &gt;-
+        The clinical series directly supports ADK-related metabolic disruption
+        as a cause of early liver disease.
+  - target: Neurodevelopmental Impairment and Seizures
     description: &gt;-
-      ADK deficiency causes hypotonia, global developmental delay, epilepsy,
-      and cognitive impairment; brain-specific deficiency can directly drive
-      seizure susceptibility and learning deficits, and neurologic disease may
-      persist despite liver transplantation.
-    cell_types:
-      - preferred_term: neuron
-        term:
-          id: CL:0000540
-          label: neuron
-      - preferred_term: astrocyte
-        term:
-          id: CL:0000127
-          label: astrocyte
-    biological_processes:
-      - preferred_term: chemical synaptic transmission
-        term:
-          id: GO:0007268
-          label: chemical synaptic transmission
-        modifier: ABNORMAL
+      Methionine cycle disruption and excess adenosine also affect the
+      central nervous system.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
-      - reference: PMID:27903722
-        supports: SUPPORT
-        evidence_source: MODEL_ORGANISM
-        snippet: &gt;-
-          We conclude that ADK deficiency in the brain triggers neuronal
-          adaptation processes that lead to dysregulated synaptic plasticity,
-          cognitive deficits, and increased seizure risk.
-        explanation: &gt;-
-          Directly links brain ADK deficiency to the neurologic phenotype.
-      - reference: PMID:34765398
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;-
-          Adenosine kinase (ADK) deficiency is a very rare inborn error of
-          methionine and adenosine metabolism. It is characterized by
-          developmental delay, hypotonia, epilepsy, facial dysmorphism, failure
-          to thrive, transient liver dysfunction with cholestasis, recurrent
-          hypoglycemia, and cardiac defects.
-        explanation: &gt;-
-          Summarizes the recurring human neurologic phenotype.
-      - reference: PMID:30477030
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;-
-          Subsequently, patients demonstrate hypotonia and global developmental
-          delay.
-        explanation: &gt;-
-          Confirms the common developmental and tone abnormalities.
-    downstream:
-      - target: Cerebrovascular Abnormalities
-        description: &gt;-
-          A subset of patients develops vascular tortuosity and stroke.
-  - name: Cerebrovascular Abnormalities
+    - reference: PMID:33309011
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Adenosine kinase (ADK) deficiency is characterized by liver disease,
+        dysmorphic features, epilepsy and developmental delay. This defect
+        disrupts the adenosine/AMP futile cycle and interferes with the
+        upstream methionine cycle.
+      explanation: &gt;-
+        The human case series links ADK metabolic disruption with epilepsy and
+        developmental delay, while the exact biochemical-to-neurologic
+        intermediates remain incompletely resolved.
+  - target: Hypermethioninemia
     description: &gt;-
-      Vascular tortuosity of the cervical arteries and recurrent stroke have
-      been reported as additional complications of ADK deficiency.
-    cell_types:
-      - preferred_term: blood vessel endothelial cell
-        term:
-          id: CL:0000071
-          label: blood vessel endothelial cell
+      Disrupted methionine-cycle flux produces the characteristic elevated
+      plasma methionine phenotype.
+    causal_link_type: DIRECT
     evidence:
-      - reference: PMID:34765398
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;-
-          Here, we describe two patients with ADK deficiency and vascular
-          tortuosity leading to stroke in one of them.
-        explanation: &gt;-
-          Directly documents the cerebrovascular complication.
-      - reference: PMID:34765398
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;-
-          ADK deficiency is a rare inborn error of methionine metabolism with a
-          complex phenotype that might be associated with cerebrovascular
-          abnormalities and stroke.
-        explanation: &gt;-
-          Supports vascular involvement as part of the broader phenotype.
+    - reference: PMID:33309011
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        methionine level in patients with ADK deficiency was strongly
+        increased compared with patients with other liver diseases.
+      explanation: &gt;-
+        The patient cohort directly supports hypermethioninemia downstream of
+        ADK-related methionine-cycle disruption.
+- name: Hepatic Dysfunction and Cholestasis
+  description: &gt;-
+    Patients may present with neonatal jaundice, cholestasis, transaminase
+    elevation, transient liver dysfunction, or even liver failure.
+  cell_types:
+  - preferred_term: hepatocyte
+    term:
+      id: CL:0000182
+      label: hepatocyte
+  locations:
+  - preferred_term: liver
+    term:
+      id: UBERON:0002107
+      label: liver
+  evidence:
+  - reference: PMID:34765398
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      It is characterized by developmental delay, hypotonia, epilepsy,
+      facial dysmorphism, failure to thrive, transient liver dysfunction
+      with cholestasis, recurrent hypoglycemia, and cardiac defects.
+    explanation: &gt;-
+      Supports the hepatic phenotype and the variability of organ
+      involvement in ADK deficiency.
+  - reference: PMID:33309011
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Adenosine kinase (ADK) deficiency is characterized by liver disease,
+      dysmorphic features, epilepsy and developmental delay.
+    explanation: &gt;-
+      The abstract identifies liver disease as a defining clinical feature.
+  - reference: PMID:36589157
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Six-month-old patient presented with cholestatic liver disease,
+      macrocytic anemia, developmental delay, generalized hypotonia,
+      delayed brain myelination, and elevated levels of serum methionine.
+    explanation: &gt;-
+      Demonstrates cholestatic liver disease in a long-followed patient.
+  downstream:
+  - target: Cholestasis
+    description: &gt;-
+      Hepatic involvement in ADK deficiency commonly presents as transient
+      liver dysfunction with cholestasis.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:34765398
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        transient liver dysfunction with cholestasis
+      explanation: &gt;-
+        The clinical summary directly links the hepatic disease component to
+        cholestasis.
+- name: Neurodevelopmental Impairment and Seizures
+  description: &gt;-
+    ADK deficiency causes hypotonia, global developmental delay, epilepsy,
+    and cognitive impairment; brain-specific deficiency can directly drive
+    seizure susceptibility and learning deficits, and neurologic disease may
+    persist despite liver transplantation.
+  cell_types:
+  - preferred_term: neuron
+    term:
+      id: CL:0000540
+      label: neuron
+  - preferred_term: astrocyte
+    term:
+      id: CL:0000127
+      label: astrocyte
+  biological_processes:
+  - preferred_term: chemical synaptic transmission
+    term:
+      id: GO:0007268
+      label: chemical synaptic transmission
+    modifier: ABNORMAL
+  evidence:
+  - reference: PMID:27903722
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      We conclude that ADK deficiency in the brain triggers neuronal
+      adaptation processes that lead to dysregulated synaptic plasticity,
+      cognitive deficits, and increased seizure risk.
+    explanation: &gt;-
+      Directly links brain ADK deficiency to the neurologic phenotype.
+  - reference: PMID:34765398
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Adenosine kinase (ADK) deficiency is a very rare inborn error of
+      methionine and adenosine metabolism. It is characterized by
+      developmental delay, hypotonia, epilepsy, facial dysmorphism, failure
+      to thrive, transient liver dysfunction with cholestasis, recurrent
+      hypoglycemia, and cardiac defects.
+    explanation: &gt;-
+      Summarizes the recurring human neurologic phenotype.
+  - reference: PMID:30477030
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Subsequently, patients demonstrate hypotonia and global developmental
+      delay.
+    explanation: &gt;-
+      Confirms the common developmental and tone abnormalities.
+  downstream:
+  - target: Global Developmental Delay
+    description: &gt;-
+      Neurodevelopmental impairment manifests clinically as global
+      developmental delay.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:30477030
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Subsequently, patients demonstrate hypotonia and global developmental
+        delay.
+      explanation: &gt;-
+        The clinical review directly supports developmental delay as a
+        manifestation of ADK deficiency.
+  - target: Hypotonia
+    description: &gt;-
+      The neurologic disease includes generalized hypotonia.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:34765398
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        It is characterized by developmental delay, hypotonia, epilepsy,
+        facial dysmorphism, failure to thrive, transient liver dysfunction
+        with cholestasis, recurrent hypoglycemia, and cardiac defects.
+      explanation: &gt;-
+        The human clinical summary lists hypotonia among the core neurologic
+        manifestations.
+  - target: Seizure
+    description: &gt;-
+      Brain ADK deficiency increases seizure susceptibility and epilepsy risk.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:27903722
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &gt;-
+        We conclude that ADK deficiency in the brain triggers neuronal
+        adaptation processes that lead to dysregulated synaptic plasticity,
+        cognitive deficits, and increased seizure risk.
+      explanation: &gt;-
+        The brain-specific mouse model directly links ADK deficiency to
+        increased seizure risk.
+  - target: Delayed brain myelination
+    description: &gt;-
+      Delayed myelination is a reported neuroimaging manifestation in affected
+      patients.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:36589157
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Six-month-old patient presented with cholestatic liver disease,
+        macrocytic anemia, developmental delay, generalized hypotonia,
+        delayed brain myelination, and elevated levels of serum methionine.
+      explanation: &gt;-
+        The case report directly documents delayed brain myelination as part of
+        the neurologic phenotype, though intermediates are not resolved.
+- name: Cerebrovascular Abnormalities
+  description: &gt;-
+    Vascular tortuosity of the cervical arteries and recurrent stroke have
+    been reported as additional complications of ADK deficiency.
+  cell_types:
+  - preferred_term: blood vessel endothelial cell
+    term:
+      id: CL:0000071
+      label: blood vessel endothelial cell
+  evidence:
+  - reference: PMID:34765398
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Here, we describe two patients with ADK deficiency and vascular
+      tortuosity leading to stroke in one of them.
+    explanation: &gt;-
+      Directly documents the cerebrovascular complication.
+  - reference: PMID:34765398
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      ADK deficiency is a rare inborn error of methionine metabolism with a
+      complex phenotype that might be associated with cerebrovascular
+      abnormalities and stroke.
+    explanation: &gt;-
+      Supports vascular involvement as part of the broader phenotype.
+  downstream:
+  - target: Stroke
+    description: &gt;-
+      Cervical artery tortuosity and related cerebrovascular abnormalities can
+      lead to stroke in a subset of patients.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - vascular tortuosity
+    evidence:
+    - reference: PMID:34765398
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Here, we describe two patients with ADK deficiency and vascular
+        tortuosity leading to stroke in one of them.
+      explanation: &gt;-
+        The report explicitly links vascular tortuosity to stroke in ADK
+        deficiency.
 phenotypes:
-  - category: Clinical
-    name: Hypermethioninemia
-    description: &gt;-
-      Elevated plasma methionine is a recurring biochemical hallmark and is
-      diagnostically useful in ADK deficiency.
-    phenotype_term:
-      preferred_term: hypermethioninemia
-      term:
-        id: HP:0003235
-        label: Hypermethioninemia
-    frequency: VERY_FREQUENT
-    evidence:
-      - reference: PMID:33309011
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;-
-          methionine level in patients with ADK deficiency was strongly
-          increased compared with patients with other liver diseases.
-        explanation: &gt;-
-          Demonstrates the strong diagnostic signal of hypermethioninemia.
-      - reference: PMID:30477030
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;-
-          Biochemically, methionine is elevated with normal homocysteine levels.
-        explanation: &gt;-
-          Confirms the biochemical phenotype.
-  - category: Clinical
-    name: Cholestasis
-    description: &gt;-
-      Neonatal or early infantile cholestasis is a common presentation of the
-      liver disease component.
-    phenotype_term:
-      preferred_term: cholestasis
-      term:
-        id: HP:0001396
-        label: Cholestasis
-    frequency: FREQUENT
-    evidence:
-      - reference: PMID:34765398
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;-
-          transient liver dysfunction with cholestasis
-        explanation: &gt;-
-          Confirms cholestasis as part of the reported phenotype.
-  - category: Clinical
-    name: Global Developmental Delay
-    description: &gt;-
-      Affected children commonly have delayed psychomotor development and
-      global developmental delay.
-    phenotype_term:
-      preferred_term: global developmental delay
-      term:
-        id: HP:0001263
-        label: Global developmental delay
-    frequency: VERY_FREQUENT
-    evidence:
-      - reference: PMID:33309011
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;-
-          Adenosine kinase (ADK) deficiency is characterized by liver disease,
-          dysmorphic features, epilepsy and developmental delay.
-        explanation: &gt;-
-          Supports developmental delay as a core phenotype.
-      - reference: PMID:30477030
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;-
-          Subsequently, patients demonstrate hypotonia and global developmental
-          delay.
-        explanation: &gt;-
-          Confirms global developmental delay in the clinical description.
-  - category: Clinical
-    name: Hypotonia
-    description: &gt;-
-      Generalized hypotonia is commonly reported in the neonatal or infantile
+- category: Clinical
+  name: Hypermethioninemia
+  description: &gt;-
+    Elevated plasma methionine is a recurring biochemical hallmark and is
+    diagnostically useful in ADK deficiency.
+  phenotype_term:
+    preferred_term: hypermethioninemia
+    term:
+      id: HP:0003235
+      label: Hypermethioninemia
+  frequency: VERY_FREQUENT
+  evidence:
+  - reference: PMID:33309011
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      methionine level in patients with ADK deficiency was strongly
+      increased compared with patients with other liver diseases.
+    explanation: &gt;-
+      Demonstrates the strong diagnostic signal of hypermethioninemia.
+  - reference: PMID:30477030
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Biochemically, methionine is elevated with normal homocysteine levels
+      and the diagnosis is confirmed through molecular analysis of the ADK
+      gene.
+    explanation: &gt;-
+      Confirms the biochemical phenotype.
+- category: Clinical
+  name: Cholestasis
+  description: &gt;-
+    Neonatal or early infantile cholestasis is a common presentation of the
+    liver disease component.
+  phenotype_term:
+    preferred_term: cholestasis
+    term:
+      id: HP:0001396
+      label: Cholestasis
+  frequency: FREQUENT
+  evidence:
+  - reference: PMID:34765398
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      transient liver dysfunction with cholestasis
+    explanation: &gt;-
+      Confirms cholestasis as part of the reported phenotype.
+- category: Clinical
+  name: Global Developmental Delay
+  description: &gt;-
+    Affected children commonly have delayed psychomotor development and
+    global developmental delay.
+  phenotype_term:
+    preferred_term: global developmental delay
+    term:
+      id: HP:0001263
+      label: Global developmental delay
+  frequency: VERY_FREQUENT
+  evidence:
+  - reference: PMID:33309011
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Adenosine kinase (ADK) deficiency is characterized by liver disease,
+      dysmorphic features, epilepsy and developmental delay.
+    explanation: &gt;-
+      Supports developmental delay as a core phenotype.
+  - reference: PMID:30477030
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Subsequently, patients demonstrate hypotonia and global developmental
+      delay.
+    explanation: &gt;-
+      Confirms global developmental delay in the clinical description.
+- category: Clinical
+  name: Hypotonia
+  description: &gt;-
+    Generalized hypotonia is commonly reported in the neonatal or infantile
+    presentation.
+  phenotype_term:
+    preferred_term: generalized hypotonia
+    term:
+      id: HP:0001290
+      label: Generalized hypotonia
+  frequency: VERY_FREQUENT
+  evidence:
+  - reference: PMID:34765398
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      It is characterized by developmental delay, hypotonia, epilepsy,
+      facial dysmorphism, failure to thrive, transient liver dysfunction
+      with cholestasis, recurrent hypoglycemia, and cardiac defects.
+    explanation: &gt;-
+      Confirms generalized hypotonia as a common presenting feature.
+  - reference: PMID:36589157
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      generalized hypotonia
+    explanation: &gt;-
+      The follow-up case report explicitly lists generalized hypotonia.
+- category: Clinical
+  name: Seizure
+  description: &gt;-
+    Epilepsy and seizures are recurrent neurologic manifestations and may be
+    driven directly by brain ADK deficiency.
+  phenotype_term:
+    preferred_term: seizure
+    term:
+      id: HP:0001250
+      label: Seizure
+  frequency: FREQUENT
+  evidence:
+  - reference: PMID:27903722
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      Similar to ADK-deficient patients, AdkΔbrain mice develop seizures and
+      cognitive deficits.
+    explanation: &gt;-
+      Demonstrates a direct mechanistic link between ADK deficiency and
+      seizure susceptibility.
+  - reference: PMID:34765398
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      epilepsy
+    explanation: &gt;-
+      Confirms seizure/epilepsy as a recurring clinical feature.
+- category: Clinical
+  name: Failure to Thrive
+  description: &gt;-
+    Poor weight gain is described in several affected infants.
+  phenotype_term:
+    preferred_term: failure to thrive
+    term:
+      id: HP:0001508
+      label: Failure to thrive
+  frequency: FREQUENT
+  evidence:
+  - reference: PMID:34765398
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      failure to thrive
+    explanation: &gt;-
+      Confirms failure to thrive as part of the clinical spectrum.
+- category: Clinical
+  name: Facial dysmorphism
+  description: &gt;-
+    Dysmorphic facial features are repeatedly reported as part of the human
+    ADK deficiency phenotype.
+  phenotype_term:
+    preferred_term: Abnormality of the face
+    term:
+      id: HP:0000271
+      label: Abnormality of the face
+  frequency: FREQUENT
+  evidence:
+  - reference: PMID:34765398
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      It is characterized by developmental delay, hypotonia, epilepsy,
+      facial dysmorphism, failure to thrive, transient liver dysfunction
+      with cholestasis, recurrent hypoglycemia, and cardiac defects.
+    explanation: &gt;-
+      Directly supports facial dysmorphism as part of the core clinical
       presentation.
-    phenotype_term:
-      preferred_term: generalized hypotonia
-      term:
-        id: HP:0001290
-        label: Generalized hypotonia
-    frequency: VERY_FREQUENT
-    evidence:
-      - reference: PMID:34765398
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;-
-          It is characterized by developmental delay, hypotonia, epilepsy,
-          facial dysmorphism, failure to thrive, transient liver dysfunction
-          with cholestasis, recurrent hypoglycemia, and cardiac defects.
-        explanation: &gt;-
-          Confirms generalized hypotonia as a common presenting feature.
-      - reference: PMID:36589157
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;-
-          generalized hypotonia
-        explanation: &gt;-
-          The follow-up case report explicitly lists generalized hypotonia.
-  - category: Clinical
-    name: Seizure
-    description: &gt;-
-      Epilepsy and seizures are recurrent neurologic manifestations and may be
-      driven directly by brain ADK deficiency.
-    phenotype_term:
-      preferred_term: seizure
-      term:
-        id: HP:0001250
-        label: Seizure
-    frequency: FREQUENT
-    evidence:
-      - reference: PMID:27903722
-        supports: SUPPORT
-        evidence_source: MODEL_ORGANISM
-        snippet: &gt;-
-          Similar to ADK-deficient patients, AdkΔbrain mice develop seizures and
-          cognitive deficits.
-        explanation: &gt;-
-          Demonstrates a direct mechanistic link between ADK deficiency and
-          seizure susceptibility.
-      - reference: PMID:34765398
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;-
-          epilepsy
-        explanation: &gt;-
-          Confirms seizure/epilepsy as a recurring clinical feature.
-  - category: Clinical
-    name: Failure to Thrive
-    description: &gt;-
-      Poor weight gain is described in several affected infants.
-    phenotype_term:
-      preferred_term: failure to thrive
-      term:
-        id: HP:0001508
-        label: Failure to thrive
-    frequency: FREQUENT
-    evidence:
-      - reference: PMID:34765398
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;-
-          failure to thrive
-        explanation: &gt;-
-          Confirms failure to thrive as part of the clinical spectrum.
-  - category: Clinical
-    name: Facial dysmorphism
-    description: &gt;-
-      Dysmorphic facial features are repeatedly reported as part of the human
-      ADK deficiency phenotype.
-    phenotype_term:
-      preferred_term: Abnormality of the face
-      term:
-        id: HP:0000271
-        label: Abnormality of the face
-    frequency: FREQUENT
-    evidence:
-      - reference: PMID:34765398
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;-
-          It is characterized by developmental delay, hypotonia, epilepsy,
-          facial dysmorphism, failure to thrive, transient liver dysfunction
-          with cholestasis, recurrent hypoglycemia, and cardiac defects.
-        explanation: &gt;-
-          Directly supports facial dysmorphism as part of the core clinical
-          presentation.
-  - category: Clinical
-    name: Hypoglycemia
-    description: &gt;-
-      Recurrent hypoglycemia is reported in affected children with the hepatic
-      metabolic phenotype.
-    phenotype_term:
-      preferred_term: Hypoglycemia
-      term:
-        id: HP:0001943
-        label: Hypoglycemia
-    frequency: FREQUENT
-    evidence:
-      - reference: PMID:34765398
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;-
-          It is characterized by developmental delay, hypotonia, epilepsy,
-          facial dysmorphism, failure to thrive, transient liver dysfunction
-          with cholestasis, recurrent hypoglycemia, and cardiac defects.
-        explanation: &gt;-
-          Directly supports hypoglycemia as part of the reported clinical
-          spectrum.
-  - category: Clinical
-    name: Cardiac defects
-    description: &gt;-
-      Structural or other cardiac abnormalities have been reported in the human
-      clinical phenotype.
-    phenotype_term:
-      preferred_term: Abnormality of the cardiovascular system
-      term:
-        id: HP:0001626
-        label: Abnormality of the cardiovascular system
-    frequency: OCCASIONAL
-    evidence:
-      - reference: PMID:34765398
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;-
-          It is characterized by developmental delay, hypotonia, epilepsy,
-          facial dysmorphism, failure to thrive, transient liver dysfunction
-          with cholestasis, recurrent hypoglycemia, and cardiac defects.
-        explanation: &gt;-
-          Directly supports cardiac defects as part of the ADK deficiency
-          phenotype.
-  - category: Clinical
-    name: Macrocytic anemia
-    description: &gt;-
-      Persistent macrocytic anemia has been documented in long-term follow-up.
-    phenotype_term:
-      preferred_term: Macrocytic anemia
-      term:
-        id: HP:0001972
-        label: Macrocytic anemia
-    frequency: OCCASIONAL
-    evidence:
-      - reference: PMID:36589157
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;-
-          Six-month-old patient presented with cholestatic liver disease,
-          macrocytic anemia, developmental delay, generalized hypotonia,
-          delayed brain myelination, and elevated levels of serum methionine.
-        explanation: &gt;-
-          Directly supports macrocytic anemia in a well-described human case.
-  - category: Clinical
-    name: Delayed brain myelination
-    description: &gt;-
-      Brain MRI may show delayed myelination as part of the neurologic disease
+- category: Clinical
+  name: Hypoglycemia
+  description: &gt;-
+    Recurrent hypoglycemia is reported in affected children with the hepatic
+    metabolic phenotype.
+  phenotype_term:
+    preferred_term: Hypoglycemia
+    term:
+      id: HP:0001943
+      label: Hypoglycemia
+  frequency: FREQUENT
+  evidence:
+  - reference: PMID:34765398
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      It is characterized by developmental delay, hypotonia, epilepsy,
+      facial dysmorphism, failure to thrive, transient liver dysfunction
+      with cholestasis, recurrent hypoglycemia, and cardiac defects.
+    explanation: &gt;-
+      Directly supports hypoglycemia as part of the reported clinical
       spectrum.
-    phenotype_term:
-      preferred_term: Delayed myelination
-      term:
-        id: HP:0012448
-        label: Delayed myelination
-    frequency: OCCASIONAL
-    evidence:
-      - reference: PMID:36589157
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;-
-          Six-month-old patient presented with cholestatic liver disease,
-          macrocytic anemia, developmental delay, generalized hypotonia,
-          delayed brain myelination, and elevated levels of serum methionine.
-        explanation: &gt;-
-          Directly supports delayed brain myelination in a human case with ADK
-          deficiency.
+- category: Clinical
+  name: Cardiac defects
+  description: &gt;-
+    Structural or other cardiac abnormalities have been reported in the human
+    clinical phenotype.
+  phenotype_term:
+    preferred_term: Abnormality of the cardiovascular system
+    term:
+      id: HP:0001626
+      label: Abnormality of the cardiovascular system
+  frequency: OCCASIONAL
+  evidence:
+  - reference: PMID:34765398
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      It is characterized by developmental delay, hypotonia, epilepsy,
+      facial dysmorphism, failure to thrive, transient liver dysfunction
+      with cholestasis, recurrent hypoglycemia, and cardiac defects.
+    explanation: &gt;-
+      Directly supports cardiac defects as part of the ADK deficiency
+      phenotype.
+- category: Clinical
+  name: Stroke
+  description: &gt;-
+    Stroke has been reported in ADK deficiency in association with tortuous
+    cervical arteries.
+  phenotype_term:
+    preferred_term: Stroke
+    term:
+      id: HP:0001297
+      label: Stroke
+  evidence:
+  - reference: PMID:34765398
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      vascular tortuosity leading to stroke in one of them.
+    explanation: &gt;-
+      The case report documents stroke in a patient with ADK deficiency and
+      vascular tortuosity.
+- category: Clinical
+  name: Macrocytic anemia
+  description: &gt;-
+    Persistent macrocytic anemia has been documented in long-term follow-up.
+  phenotype_term:
+    preferred_term: Macrocytic anemia
+    term:
+      id: HP:0001972
+      label: Macrocytic anemia
+  frequency: OCCASIONAL
+  evidence:
+  - reference: PMID:36589157
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Six-month-old patient presented with cholestatic liver disease,
+      macrocytic anemia, developmental delay, generalized hypotonia,
+      delayed brain myelination, and elevated levels of serum methionine.
+    explanation: &gt;-
+      Directly supports macrocytic anemia in a well-described human case.
+- category: Clinical
+  name: Delayed brain myelination
+  description: &gt;-
+    Brain MRI may show delayed myelination as part of the neurologic disease
+    spectrum.
+  phenotype_term:
+    preferred_term: Delayed myelination
+    term:
+      id: HP:0012448
+      label: Delayed myelination
+  frequency: OCCASIONAL
+  evidence:
+  - reference: PMID:36589157
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Six-month-old patient presented with cholestatic liver disease,
+      macrocytic anemia, developmental delay, generalized hypotonia,
+      delayed brain myelination, and elevated levels of serum methionine.
+    explanation: &gt;-
+      Directly supports delayed brain myelination in a human case with ADK
+      deficiency.
+genetic:
+- name: ADK
+  gene_term:
+    preferred_term: ADK
+    term:
+      id: hgnc:257
+      label: ADK
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_c2319ca2-652d-411e-ab6d-5b7fb7e185ea-2021-04-08T160000.000Z
+    reference_title: &#34;ADK / adenosine kinase deficiency (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;ADK | HGNC:257 | adenosine kinase deficiency | MONDO:0100255 | AR | Definitive&#34;
+    explanation: ClinGen classifies the ADK-adenosine kinase deficiency gene-disease relationship as definitive with autosomal recessive inheritance.
 diagnosis:
-  - name: Biochemical Screening
-    diagnosis_term:
-      preferred_term: biomarker analysis
-      term:
-        id: MAXO:0000018
-        label: biomarker analysis
-    description: &gt;-
-      Plasma amino acid profiling and one-carbon metabolite measurements can
-      suggest ADK deficiency before molecular confirmation.
-    notes: &gt;-
-      Focus on methionine, S-adenosylmethionine, S-adenosylhomocysteine, and
-      homocysteine.
-    evidence:
-      - reference: PMID:33309011
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;-
-          methionine level in patients with ADK deficiency was strongly
-          increased compared with patients with other liver diseases.
-        explanation: &gt;-
-          Supports the use of methionine as a diagnostic biomarker.
-      - reference: PMID:30477030
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;-
-          Biochemically, methionine is elevated with normal homocysteine levels
-          and the diagnosis is confirmed through molecular analysis of the ADK
-          gene.
-        explanation: &gt;-
-          Summarizes the biochemical pattern used in diagnosis.
-      - reference: PMID:36589157
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;-
-          elevated concentration of S-adenosylhomocysteine.
-        explanation: &gt;-
-          Supports use of transmethylation biomarkers for diagnosis.
-  - name: Molecular Genetic Testing
-    diagnosis_term:
-      preferred_term: molecular genetic testing
-      term:
-        id: MAXO:0000533
-        label: molecular genetic testing
-    description: &gt;-
-      ADK sequencing or exome sequencing confirms the diagnosis and identifies
-      pathogenic biallelic variants.
-    evidence:
-      - reference: PMID:30477030
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;-
-          the diagnosis is confirmed through molecular analysis of the ADK gene.
-        explanation: &gt;-
-          States that molecular analysis confirms ADK deficiency.
-      - reference: PMID:36589157
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;-
-          Whole exome sequencing revealed the patient to be affected with two
-          novel ADK variants
-        explanation: &gt;-
-          Shows exome sequencing as the confirming test in a later case.
+- name: Biochemical Screening
+  diagnosis_term:
+    preferred_term: biomarker analysis
+    term:
+      id: MAXO:0000018
+      label: biomarker analysis
+  description: &gt;-
+    Plasma amino acid profiling and one-carbon metabolite measurements can
+    suggest ADK deficiency before molecular confirmation.
+  notes: &gt;-
+    Focus on methionine, S-adenosylmethionine, S-adenosylhomocysteine, and
+    homocysteine.
+  evidence:
+  - reference: PMID:33309011
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      methionine level in patients with ADK deficiency was strongly
+      increased compared with patients with other liver diseases.
+    explanation: &gt;-
+      Supports the use of methionine as a diagnostic biomarker.
+  - reference: PMID:30477030
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Biochemically, methionine is elevated with normal homocysteine levels
+      and the diagnosis is confirmed through molecular analysis of the ADK
+      gene.
+    explanation: &gt;-
+      Summarizes the biochemical pattern used in diagnosis.
+  - reference: PMID:36589157
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      elevated concentration of S-adenosylhomocysteine.
+    explanation: &gt;-
+      Supports use of transmethylation biomarkers for diagnosis.
+- name: Molecular Genetic Testing
+  diagnosis_term:
+    preferred_term: molecular genetic testing
+    term:
+      id: MAXO:0000533
+      label: molecular genetic testing
+  description: &gt;-
+    ADK sequencing or exome sequencing confirms the diagnosis and identifies
+    pathogenic biallelic variants.
+  evidence:
+  - reference: PMID:30477030
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      the diagnosis is confirmed through molecular analysis of the ADK gene.
+    explanation: &gt;-
+      States that molecular analysis confirms ADK deficiency.
+  - reference: PMID:36589157
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Whole exome sequencing revealed the patient to be affected with two
+      novel ADK variants
+    explanation: &gt;-
+      Shows exome sequencing as the confirming test in a later case.
 differential_diagnoses:
-  - name: Primary Mitochondrial Disease
-    disease_term:
-      preferred_term: mitochondrial disease
-      term:
-        id: MONDO:0044970
-        label: mitochondrial disease
-    description: &gt;-
-      ADK deficiency can mimic a primary mitochondrial disorder because it may
-      present with neonatal liver disease, hypotonia, developmental delay, and
-      respiratory-chain abnormalities on tissue testing.
-    distinguishing_features:
-      - Elevated plasma methionine and elevated S-adenosylhomocysteine favor ADK deficiency.
-      - ADK sequencing identifies biallelic pathogenic variants in ADK.
-      - Mitochondrial disease may show broader respiratory chain defects without the ADK biochemical signature.
-    evidence:
-      - reference: PMID:33309011
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;-
-          ADK deficiency is a cause of neonatal or early infantile liver disease
-          that may mimic primary mitochondrial disorders.
-        explanation: &gt;-
-          Directly identifies mitochondrial disease as an important mimic.
-  - name: Other Hypermethioninemic Disorders
-    description: &gt;-
-      The differential diagnosis of elevated methionine includes CBS
-      deficiency, MAT1A deficiency, GNMT deficiency, AHCY deficiency, citrin
-      deficiency, and FAH deficiency/tyrosinemia type I.
-    distinguishing_features:
-      - CBS deficiency usually produces homocystinuria with elevated homocysteine.
-      - MAT1A, GNMT, and AHCY deficiencies are alternative methionine-cycle disorders with overlapping hypermethioninemia.
-      - Citrin deficiency and tyrosinemia type I can also present with hypermethioninemia, but the broader metabolic context differs.
-      - ADK deficiency is distinguished by the combination of hypermethioninemia with elevated S-adenosylhomocysteine and ADK variants.
-    evidence:
-      - reference: PMID:21308989
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;-
-          This review covers briefly the major conditions, genetic and non-
-          genetic, sometimes leading to abnormally elevated methionine, with
-          emphasis on recent developments. A major aim is to assist in the
-          differential diagnosis of hypermethioninemia.
-        explanation: &gt;-
-          The review explicitly frames these disorders as the differential for
-          hypermethioninemia.
+- name: Primary Mitochondrial Disease
+  disease_term:
+    preferred_term: mitochondrial disease
+    term:
+      id: MONDO:0044970
+      label: mitochondrial disease
+  description: &gt;-
+    ADK deficiency can mimic a primary mitochondrial disorder because it may
+    present with neonatal liver disease, hypotonia, developmental delay, and
+    respiratory-chain abnormalities on tissue testing.
+  distinguishing_features:
+  - Elevated plasma methionine and elevated S-adenosylhomocysteine favor ADK deficiency.
+  - ADK sequencing identifies biallelic pathogenic variants in ADK.
+  - Mitochondrial disease may show broader respiratory chain defects without the ADK biochemical signature.
+  evidence:
+  - reference: PMID:33309011
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      ADK deficiency is a cause of neonatal or early infantile liver disease
+      that may mimic primary mitochondrial disorders.
+    explanation: &gt;-
+      Directly identifies mitochondrial disease as an important mimic.
+- name: Other Hypermethioninemic Disorders
+  description: &gt;-
+    The differential diagnosis of elevated methionine includes CBS
+    deficiency, MAT1A deficiency, GNMT deficiency, AHCY deficiency, citrin
+    deficiency, and FAH deficiency/tyrosinemia type I.
+  distinguishing_features:
+  - CBS deficiency usually produces homocystinuria with elevated homocysteine.
+  - MAT1A, GNMT, and AHCY deficiencies are alternative methionine-cycle disorders with overlapping hypermethioninemia.
+  - Citrin deficiency and tyrosinemia type I can also present with hypermethioninemia, but the broader metabolic context differs.
+  - ADK deficiency is distinguished by the combination of hypermethioninemia with elevated S-adenosylhomocysteine and ADK variants.
+  evidence:
+  - reference: PMID:21308989
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      This review covers briefly the major conditions, genetic and
+      non-genetic, sometimes leading to abnormally elevated methionine, with
+      emphasis on recent developments. A major aim is to assist in the
+      differential diagnosis of hypermethioninemia.
+    explanation: &gt;-
+      The review explicitly frames these disorders as the differential for
+      hypermethioninemia.
 clinical_trials: []
 datasets: []
 treatments:
-  - name: Methionine-Restricted Diet
+- name: Methionine-Restricted Diet
+  description: &gt;-
+    Dietary methionine intake restriction has been tried, but outcomes are
+    variable and it is not curative.
+  treatment_term:
+    preferred_term: dietary methionine intake avoidance
+    term:
+      id: MAXO:0010092
+      label: dietary methionine intake avoidance
+  target_mechanisms:
+  - target: Transmethylation Cycle Disruption and Hypermethioninemia
+    treatment_effect: MODULATES
     description: &gt;-
-      Dietary methionine intake restriction has been tried, but outcomes are
-      variable and it is not curative.
-    treatment_term:
-      preferred_term: dietary methionine intake avoidance
-      term:
-        id: MAXO:0010092
-        label: dietary methionine intake avoidance
+      Methionine restriction is intended to reduce the hypermethioninemia
+      component of the disturbed methionine cycle, though outcomes are variable.
     evidence:
-      - reference: PMID:30477030
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;-
-          There is no curative treatment; however, a methionine-restricted diet
-          has been tried with variable outcomes.
-        explanation: &gt;-
-          Directly supports methionine restriction as a tried management
-          strategy.
-  - name: Liver transplantation
+    - reference: PMID:30477030
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        There is no curative treatment; however, a methionine-restricted diet
+        has been tried with variable outcomes.
+      explanation: &gt;-
+        The clinical review supports methionine restriction as a management
+        approach but notes variable outcomes, so the target effect is modeled
+        as modulation rather than correction.
+  evidence:
+  - reference: PMID:30477030
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      There is no curative treatment; however, a methionine-restricted diet
+      has been tried with variable outcomes.
+    explanation: &gt;-
+      Directly supports methionine restriction as a tried management
+      strategy.
+- name: Liver transplantation
+  description: &gt;-
+    Liver transplantation can correct the hepatic component, although
+    neurologic disease may continue to progress.
+  treatment_term:
+    preferred_term: organ transplantation
+    term:
+      id: MAXO:0010039
+      label: organ transplantation
+  target_mechanisms:
+  - target: Hepatic Dysfunction and Cholestasis
+    treatment_effect: INHIBITS
     description: &gt;-
-      Liver transplantation can correct the hepatic component, although
-      neurologic disease may continue to progress.
-    treatment_term:
-      preferred_term: organ transplantation
-      term:
-        id: MAXO:0010039
-        label: organ transplantation
+      Liver transplantation can correct the hepatic dysfunction component while
+      neurologic disease may persist.
     evidence:
-      - reference: PMID:36589157
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;-
-          The patient underwent living-donor liver transplantation (LTx) at 14
-          months of age. Ten-year follow-up after LTx revealed a preserved good
-          liver function, persistent regenerative macrocytic anemia,
-          progressive neurological disease but disappearance of brain MR
-          changes.
-        explanation: &gt;-
-          Supports liver transplantation as a major intervention that improves
-          liver disease while not fully correcting the neurologic phenotype.
+    - reference: PMID:36589157
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Ten-year follow-up after LTx revealed a preserved good liver function,
+        persistent regenerative macrocytic anemia, progressive neurological
+        disease but disappearance of brain MR changes, short stature, and
+        cortisol deficiency.
+      explanation: &gt;-
+        Long-term follow-up supports improvement of liver function after
+        transplantation while distinguishing persistent non-hepatic disease.
+  evidence:
+  - reference: PMID:36589157
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The patient underwent living-donor liver transplantation (LTx) at 14
+      months of age. Ten-year follow-up after LTx revealed a preserved good
+      liver function, persistent regenerative macrocytic anemia,
+      progressive neurological disease but disappearance of brain MR changes,
+      short stature, and cortisol deficiency.
+    explanation: &gt;-
+      Supports liver transplantation as a major intervention that improves
+      liver disease while not fully correcting the neurologic phenotype.
 </pre>
             </div>
         </div>
@@ -6066,7 +6692,7 @@ treatments:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Adenosine Kinase Deficiency", "mondoId": "MONDO:0100255", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Adenosine_Kinase_Deficiency", "yamlRevision": "c4492710d522"};
+        const OS_CONFIG = {"diseaseName": "Adenosine Kinase Deficiency", "mondoId": "MONDO:0100255", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Adenosine_Kinase_Deficiency", "yamlRevision": "7aca5e5ad476"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

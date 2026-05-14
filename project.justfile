@@ -87,7 +87,16 @@ validate-schema file:
 validate-schema-all:
     #!/usr/bin/env bash
     set -e
-    for f in {{kb_dir}}/*.yaml; do
+    if command -v rg >/dev/null 2>&1; then
+        mapfile -t files < <(rg --files -g '*.yaml' -g '!*.history.yaml' --no-ignore {{kb_dir}})
+    else
+        mapfile -t files < <(find {{kb_dir}} -maxdepth 1 -type f -name '*.yaml' ! -name '*.history.yaml' | sort)
+    fi
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No disorder YAML files found in {{kb_dir}} (after excluding *.history.yaml)."
+        exit 1
+    fi
+    for f in "${files[@]}"; do
         echo "Validating: $f"
         uv run linkml-validate --schema {{schema_path}} --target-class Disease "$f"
     done
@@ -174,6 +183,22 @@ validate-comorbidities-all:
         done
         exit 1
     fi
+
+# Validate all surrogate endpoint collection YAML files
+[group('QC')]
+validate-surrogate-endpoints:
+    #!/usr/bin/env bash
+    set -e
+    shopt -s nullglob
+    files=(kb/surrogate_endpoints/*.yaml)
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No surrogate endpoint collection files found."
+        exit 0
+    fi
+    for f in "${files[@]}"; do
+        echo "=== $(basename "$f") ==="
+        uv run linkml-validate --schema {{schema_path}} --target-class FDASurrogateEndpointCollection "$f"
+    done
 
 # Validate all mechanism module YAML files (schema + terms + references)
 [group('QC')]
@@ -883,6 +908,49 @@ research-disorder-cyberian-codex disorder *args="":
 research-providers:
     uv run deep-research-client providers
 
+# Rehydrate an existing Edison trajectory into a full research report with its
+# recovered artifacts and a separate citations file using deep-research-client.
+#
+# Example:
+#   just rehydrate-edison-trajectory 784d73d5-da42-402e-9701-6c5b44beab14 \
+#       research/Alcoholic_Liver_Disease-deep-research-falcon.md
+[group('Research')]
+rehydrate-edison-trajectory trajectory_id output_file:
+    #!/usr/bin/env bash
+    set -e
+    export EDISON_API_KEY="${EDISON_API_KEY:-$(cat edison_tok 2>/dev/null || true)}"
+    if [ -z "$EDISON_API_KEY" ]; then
+        echo "Error: EDISON_API_KEY is not set and no edison_tok file found." >&2
+        exit 1
+    fi
+    uv run deep-research-client edison-trajectory "{{trajectory_id}}" \
+        --output "{{output_file}}" \
+        --separate-citations "{{output_file}}.citations.md"
+
+# Legacy helper to backfill artifacts into an existing report file while keeping
+# the current report body intact.
+#
+# Examples:
+#   just fetch-research-artifacts 0ab9e2d2-7601-4bbe-ba01-e26bfce94cfd \
+#       research/Dimethylglycine_Dehydrogenase_Deficiency-deep-research-falcon.md
+#   just fetch-research-artifacts <trajectory_id> research/<Disorder>-deep-research-falcon.md
+[group('Research')]
+fetch-research-artifacts trajectory_id research_file:
+    #!/usr/bin/env bash
+    set -e
+    export EDISON_API_KEY="${EDISON_API_KEY:-$(cat edison_tok 2>/dev/null || true)}"
+    if [ -z "$EDISON_API_KEY" ]; then
+        echo "Error: EDISON_API_KEY is not set and no edison_tok file found." >&2
+        exit 1
+    fi
+    uv run python scripts/fetch_edison_artifacts.py "{{trajectory_id}}" "{{research_file}}"
+
+# Build an index of all deep-research artifact files across the research/ directory.
+# Produces research/artifact_index.yaml and warns about any filename collisions.
+[group('Research')]
+index-research-artifacts:
+    uv run python scripts/index_research_artifacts.py
+
 # Fetch and cache a reference by ID
 # This may be a PMID, DOI, or other supported identifier
 [group('Research')]
@@ -890,7 +958,17 @@ fetch-reference +identifiers:
     #!/usr/bin/env bash
     for identifier in {{identifiers}}; do
         echo "Fetching reference: $identifier"
-        uv run linkml-reference-validator cache reference "$identifier"
+        case "$identifier" in
+            CIViC_EID:*|CIVIC_EID:*|civic_eid:*|CIViC_ASSERTION:*|CIVIC_ASSERTION:*|civic_assertion:*)
+                if [ ! -f data/civic/accepted_assertion_summaries.tsv ] || [ ! -f data/civic/accepted_clinical_evidence_summaries.tsv ]; then
+                    uv run python -m dismech.structured_sources.cli refresh civic
+                fi
+                uv run python -m dismech.structured_sources.cli rebuild civic --id "$identifier"
+                ;;
+            *)
+                uv run linkml-reference-validator cache reference "$identifier"
+                ;;
+        esac
     done
 
 # Tag top-level PublicationReference entries with authoritative-source labels
@@ -932,11 +1010,59 @@ cohd-add-signal file *args="":
 refresh-orphadata:
     uv run python -m dismech.structured_sources.cli refresh orphanet
 
+# Refresh ClinGen Gene-Disease Validity CSV (pinned by data/clingen/MANIFEST.yaml)
+[group('Research')]
+clingen-refresh:
+    uv run python -m dismech.structured_sources.cli refresh clingen
+
+# Refresh ClinGen Dosage Sensitivity TSV (pinned by data/clingen-dosage/MANIFEST.yaml)
+[group('Research')]
+clingen-dosage-refresh:
+    uv run python -m dismech.structured_sources.cli refresh clingen-dosage
+
+# Refresh CIViC accepted assertion/evidence TSVs (pinned by data/civic/MANIFEST.yaml)
+[group('Research')]
+civic-refresh:
+    uv run python -m dismech.structured_sources.cli refresh civic
+
 # Rebuild every references_cache/ORPHA_*.md from current bulk XML
 # Use --id to limit to specific ORPHA codes.
 [group('Research')]
 structured-rebuild-orphanet *args="":
     uv run python -m dismech.structured_sources.cli rebuild orphanet {{args}}
+
+# Rebuild every references_cache/CGGV_*.md from current ClinGen CSV
+# Use --id to limit to specific CGGV assertion IDs.
+[group('Research')]
+clingen-rebuild *args="":
+    uv run python -m dismech.structured_sources.cli rebuild clingen {{args}}
+
+# Rebuild every references_cache/CGDS_*.md from current ClinGen Dosage TSV
+# Use --id to limit to specific CGDS or HGNC identifiers.
+[group('Research')]
+clingen-dosage-rebuild *args="":
+    uv run python -m dismech.structured_sources.cli rebuild clingen-dosage {{args}}
+
+# Rebuild every references_cache/CIVIC_*.md from current CIViC TSVs
+# Use --id to limit to specific CIVIC_EID or CIVIC_ASSERTION identifiers.
+[group('Research')]
+civic-rebuild *args="":
+    uv run python -m dismech.structured_sources.cli rebuild civic {{args}}
+
+# List the first N ClinGen Gene-Disease Validity assertion IDs
+[group('Research')]
+clingen-list limit="20":
+    uv run python -m dismech.structured_sources.cli list clingen --limit {{limit}}
+
+# List the first N ClinGen Dosage Sensitivity gene IDs
+[group('Research')]
+clingen-dosage-list limit="20":
+    uv run python -m dismech.structured_sources.cli list clingen-dosage --limit {{limit}}
+
+# Audit ClinGen Gene-Disease Validity coverage in disorder YAML
+[group('Research')]
+clingen-audit-yaml *args="":
+    uv run python -m dismech.structured_sources.cli clingen-audit-yaml {{args}}
 
 # List the first N identifiers from a structured source
 [group('Research')]

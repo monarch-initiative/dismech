@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,7 +2570,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">hereditary disease</span>
@@ -2580,7 +2733,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">10</div>
+                <div class="stat-value">11</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -2588,7 +2741,7 @@
             
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
-                <div class="stat-value">2</div>
+                <div class="stat-value">14</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
@@ -3358,7 +3511,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Congestive heart failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Later disease stages can progress to clinically significant heart failure.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001635\"}}, {\"id\": \"Desmosomal adhesion failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The dominant proximal mechanism in ARVC is disruption of desmosomal cell-cell adhesion at the cardiomyocyte intercalated disc, most often from pathogenic variants in PKP2, DSP, DSG2, DSC2, or JUP.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"cell-cell adhesion\"], \"genes\": [\"PKP2\", \"DSP\", \"DSG2\", \"DSC2\", \"JUP\"]}}, {\"id\": \"Fibrofatty replacement of cardiomyocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive loss of cardiomyocytes with fibrofatty replacement produces structural ventricular disease and later-stage ventricular dysfunction.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\", \"fibroblast of cardiac tissue\"], \"biological_processes\": [\"tissue remodeling\"], \"locations\": [\"heart right ventricle\"]}}, {\"id\": \"Gap junction uncoupling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Altered connexin43 distribution reduces effective electrical coupling between ventricular cardiomyocytes.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"cell-cell signaling\"]}}, {\"id\": \"PKP2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PKP2\"], \"association\": \"Common causative gene\"}}, {\"id\": \"Right ventricular dilatation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive structural disease produces right ventricular enlargement and wall-motion abnormalities.\", \"meta\": {\"term_id\": \"HP:0005133\"}}, {\"id\": \"Sodium-channel redistribution and conduction slowing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Altered sodium-channel localization slows conduction in ventricular myocardium and enlarges the arrhythmogenic substrate.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"transmembrane transport\"]}}, {\"id\": \"Sudden cardiac death\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sudden death may be the first manifestation, including in the concealed stage.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001645\"}}, {\"id\": \"Syncope\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Syncope commonly reflects transient cerebral hypoperfusion from malignant ventricular arrhythmia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001279\"}}, {\"id\": \"Ventricular tachycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Monomorphic ventricular tachycardia with left bundle branch block morphology is a classic presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004756\"}}], \"edges\": [{\"source\": \"Desmosomal adhesion failure\", \"target\": \"Gap junction uncoupling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Desmosomal adhesion failure\", \"target\": \"Sodium-channel redistribution and conduction slowing\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Gap junction uncoupling\", \"target\": \"Ventricular tachycardia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Gap junction uncoupling\", \"target\": \"Syncope\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sodium-channel redistribution and conduction slowing\", \"target\": \"Ventricular tachycardia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sodium-channel redistribution and conduction slowing\", \"target\": \"Sudden cardiac death\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrofatty replacement of cardiomyocytes\", \"target\": \"Right ventricular dilatation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrofatty replacement of cardiomyocytes\", \"target\": \"Congestive heart failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PKP2\", \"target\": \"Desmosomal adhesion failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Congestive heart failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Later disease stages can progress to clinically significant heart failure.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001635\"}}, {\"id\": \"DSG2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DSG2\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Desmosomal adhesion failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The dominant proximal mechanism in ARVC is disruption of desmosomal cell-cell adhesion at the cardiomyocyte intercalated disc, most often from pathogenic variants in PKP2, DSP, DSG2, DSC2, or JUP.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"cell-cell adhesion\"], \"genes\": [\"PKP2\", \"DSP\", \"DSG2\", \"DSC2\", \"JUP\"]}}, {\"id\": \"Fibrofatty replacement of cardiomyocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive loss of cardiomyocytes with fibrofatty replacement produces structural ventricular disease and later-stage ventricular dysfunction.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\", \"fibroblast of cardiac tissue\"], \"biological_processes\": [\"tissue remodeling\"], \"locations\": [\"heart right ventricle\"]}}, {\"id\": \"Gap junction uncoupling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Altered connexin43 distribution reduces effective electrical coupling between ventricular cardiomyocytes.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"cell-cell signaling\"]}}, {\"id\": \"PKP2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PKP2\"], \"association\": \"Common causative gene\"}}, {\"id\": \"Right ventricular dilatation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive structural disease produces right ventricular enlargement and wall-motion abnormalities.\", \"meta\": {\"term_id\": \"HP:0005133\"}}, {\"id\": \"Sodium-channel redistribution and conduction slowing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Altered sodium-channel localization slows conduction in ventricular myocardium and enlarges the arrhythmogenic substrate.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"transmembrane transport\"]}}, {\"id\": \"Sudden cardiac death\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sudden death may be the first manifestation, including in the concealed stage.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001645\"}}, {\"id\": \"Syncope\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Syncope commonly reflects transient cerebral hypoperfusion from malignant ventricular arrhythmia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001279\"}}, {\"id\": \"Ventricular tachycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Monomorphic ventricular tachycardia with left bundle branch block morphology is a classic presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004756\"}}], \"edges\": [{\"source\": \"Desmosomal adhesion failure\", \"target\": \"Gap junction uncoupling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Desmosomal adhesion failure\", \"target\": \"Sodium-channel redistribution and conduction slowing\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Gap junction uncoupling\", \"target\": \"Ventricular tachycardia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Gap junction uncoupling\", \"target\": \"Syncope\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sodium-channel redistribution and conduction slowing\", \"target\": \"Ventricular tachycardia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sodium-channel redistribution and conduction slowing\", \"target\": \"Sudden cardiac death\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrofatty replacement of cardiomyocytes\", \"target\": \"Right ventricular dilatation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrofatty replacement of cardiomyocytes\", \"target\": \"Congestive heart failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PKP2\", \"target\": \"Desmosomal adhesion failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DSG2\", \"target\": \"Desmosomal adhesion failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3692,7 +3845,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">14</span>
             </div>
             
             <div class="item-box genetic-box">
@@ -3707,7 +3860,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -3728,6 +3881,26 @@
                 
                 
                 <div class="evidence-explanation">This directly supports PKP2 as the most common established ARVC gene in this cohort.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_6f97b6cd-5225-4076-b67a-2f609908e6fe-2018-03-08T170000.000Z" target="_blank">CGGV:assertion_6f97b6cd-5225-4076-b67a-2f609908e6fe-2018-03-08T170000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"PKP2 | HGNC:9024 | arrhythmogenic right ventricular cardiomyopathy | MONDO:0016587 | AD | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the PKP2-arrhythmogenic right ventricular cardiomyopathy gene-disease relationship as definitive with autosomal dominant inheritance.</div>
                 
             </div>
             
@@ -3769,6 +3942,522 @@
                 
                 
                 <div class="evidence-explanation">This supports disease-level genetic heterogeneity centered on desmosomal genes.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    CDH2
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_c7a03805-bf73-4d2d-9756-c666c67be119-2018-07-13T160000.000Z" target="_blank">CGGV:assertion_c7a03805-bf73-4d2d-9756-c666c67be119-2018-07-13T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"CDH2 | HGNC:1759 | arrhythmogenic right ventricular cardiomyopathy | MONDO:0016587 | AD | Limited"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the CDH2-arrhythmogenic right ventricular cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    CTNNA3
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_0f1dd946-f2bb-496f-8fea-3dea303e2e76-2019-08-06T160000.000Z" target="_blank">CGGV:assertion_0f1dd946-f2bb-496f-8fea-3dea303e2e76-2019-08-06T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"CTNNA3 | HGNC:2511 | arrhythmogenic right ventricular cardiomyopathy | MONDO:0016587 | AD | Limited"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the CTNNA3-arrhythmogenic right ventricular cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    DES
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_aef9a60b-a94f-4318-824e-e748c5c20ecb-2018-09-11T160000.000Z" target="_blank">CGGV:assertion_aef9a60b-a94f-4318-824e-e748c5c20ecb-2018-09-11T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"DES | HGNC:2770 | arrhythmogenic right ventricular cardiomyopathy | MONDO:0016587 | AD | Moderate"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the DES-arrhythmogenic right ventricular cardiomyopathy gene-disease relationship as moderate with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    DSG2
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_f679611d-6e25-45f9-aac3-4a8ad37b1592-2018-09-14T160000.000Z" target="_blank">CGGV:assertion_f679611d-6e25-45f9-aac3-4a8ad37b1592-2018-09-14T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"DSG2 | HGNC:3049 | arrhythmogenic right ventricular cardiomyopathy | MONDO:0016587 | AD | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the DSG2-arrhythmogenic right ventricular cardiomyopathy gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    LMNA
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_ef503af9-9d10-4714-848b-34cfa0049c23-2019-09-06T160000.000Z" target="_blank">CGGV:assertion_ef503af9-9d10-4714-848b-34cfa0049c23-2019-09-06T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"LMNA | HGNC:6636 | arrhythmogenic right ventricular cardiomyopathy | MONDO:0016587 | AD | Limited"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the LMNA-arrhythmogenic right ventricular cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    MYBPC3
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_0639d989-8415-425c-ab89-e8a3a0b6ea49-2019-08-06T160000.000Z" target="_blank">CGGV:assertion_0639d989-8415-425c-ab89-e8a3a0b6ea49-2019-08-06T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"MYBPC3 | HGNC:7551 | arrhythmogenic right ventricular cardiomyopathy | MONDO:0016587 | AD | Limited"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the MYBPC3-arrhythmogenic right ventricular cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    MYH7
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_0265f091-a67d-4521-b6bd-5a110bd5356f-2019-08-06T160000.000Z" target="_blank">CGGV:assertion_0265f091-a67d-4521-b6bd-5a110bd5356f-2019-08-06T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"MYH7 | HGNC:7577 | arrhythmogenic right ventricular cardiomyopathy | MONDO:0016587 | AD | Limited"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the MYH7-arrhythmogenic right ventricular cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    MYL3
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_b1d5e9bf-ca57-445a-a432-27fe221484bf-2019-09-13T160000.000Z" target="_blank">CGGV:assertion_b1d5e9bf-ca57-445a-a432-27fe221484bf-2019-09-13T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"MYL3 | HGNC:7584 | arrhythmogenic right ventricular cardiomyopathy | MONDO:0016587 | AD | Limited"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the MYL3-arrhythmogenic right ventricular cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    PLN
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_13027de9-c84a-4968-936b-6356265193a6-2020-12-17T213224.631Z" target="_blank">CGGV:assertion_13027de9-c84a-4968-936b-6356265193a6-2020-12-17T213224.631Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"PLN | HGNC:9080 | arrhythmogenic right ventricular cardiomyopathy | MONDO:0016587 | AD | Moderate"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the PLN-arrhythmogenic right ventricular cardiomyopathy gene-disease relationship as moderate with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    SCN5A
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_3c1cdce2-c8de-442d-b0c4-5936919b310f-2019-06-06T160000.000Z" target="_blank">CGGV:assertion_3c1cdce2-c8de-442d-b0c4-5936919b310f-2019-06-06T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"SCN5A | HGNC:10593 | arrhythmogenic right ventricular cardiomyopathy | MONDO:0016587 | AD | Limited"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the SCN5A-arrhythmogenic right ventricular cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    TGFB3
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_36ed9be9-2854-49e5-801c-a8fd65fec98e-2019-08-16T160000.000Z" target="_blank">CGGV:assertion_36ed9be9-2854-49e5-801c-a8fd65fec98e-2019-08-16T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"TGFB3 | HGNC:11769 | arrhythmogenic right ventricular cardiomyopathy | MONDO:0016587 | AD | Limited"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the TGFB3-arrhythmogenic right ventricular cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    TJP1
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_435951df-5a0d-4596-b112-ccd6d6204409-2019-02-08T170000.000Z" target="_blank">CGGV:assertion_435951df-5a0d-4596-b112-ccd6d6204409-2019-02-08T170000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"TJP1 | HGNC:11827 | arrhythmogenic right ventricular cardiomyopathy | MONDO:0016587 | AD | Limited"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the TJP1-arrhythmogenic right ventricular cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.</div>
                 
             </div>
             
@@ -4738,6 +5427,12 @@ genetic:
     explanation: &gt;-
       This directly supports PKP2 as the most common established ARVC gene in
       this cohort.
+  - reference: CGGV:assertion_6f97b6cd-5225-4076-b67a-2f609908e6fe-2018-03-08T170000.000Z
+    reference_title: &#34;PKP2 / arrhythmogenic right ventricular cardiomyopathy (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;PKP2 | HGNC:9024 | arrhythmogenic right ventricular cardiomyopathy | MONDO:0016587 | AD | Definitive&#34;
+    explanation: ClinGen classifies the PKP2-arrhythmogenic right ventricular cardiomyopathy gene-disease relationship as definitive with autosomal dominant inheritance.
 - name: Desmosomal gene spectrum
   features: &gt;-
     ARVC is genetically heterogeneous, but the principal high-confidence genes
@@ -4757,6 +5452,174 @@ genetic:
     explanation: &gt;-
       This supports disease-level genetic heterogeneity centered on desmosomal
       genes.
+- name: CDH2
+  gene_term:
+    preferred_term: CDH2
+    term:
+      id: hgnc:1759
+      label: CDH2
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_c7a03805-bf73-4d2d-9756-c666c67be119-2018-07-13T160000.000Z
+    reference_title: &#34;CDH2 / arrhythmogenic right ventricular cardiomyopathy (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;CDH2 | HGNC:1759 | arrhythmogenic right ventricular cardiomyopathy | MONDO:0016587 | AD | Limited&#34;
+    explanation: ClinGen classifies the CDH2-arrhythmogenic right ventricular cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.
+- name: CTNNA3
+  gene_term:
+    preferred_term: CTNNA3
+    term:
+      id: hgnc:2511
+      label: CTNNA3
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_0f1dd946-f2bb-496f-8fea-3dea303e2e76-2019-08-06T160000.000Z
+    reference_title: &#34;CTNNA3 / arrhythmogenic right ventricular cardiomyopathy (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;CTNNA3 | HGNC:2511 | arrhythmogenic right ventricular cardiomyopathy | MONDO:0016587 | AD | Limited&#34;
+    explanation: ClinGen classifies the CTNNA3-arrhythmogenic right ventricular cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.
+- name: DES
+  gene_term:
+    preferred_term: DES
+    term:
+      id: hgnc:2770
+      label: DES
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_aef9a60b-a94f-4318-824e-e748c5c20ecb-2018-09-11T160000.000Z
+    reference_title: &#34;DES / arrhythmogenic right ventricular cardiomyopathy (Moderate)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;DES | HGNC:2770 | arrhythmogenic right ventricular cardiomyopathy | MONDO:0016587 | AD | Moderate&#34;
+    explanation: ClinGen classifies the DES-arrhythmogenic right ventricular cardiomyopathy gene-disease relationship as moderate with autosomal dominant inheritance.
+- name: DSG2
+  gene_term:
+    preferred_term: DSG2
+    term:
+      id: hgnc:3049
+      label: DSG2
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_f679611d-6e25-45f9-aac3-4a8ad37b1592-2018-09-14T160000.000Z
+    reference_title: &#34;DSG2 / arrhythmogenic right ventricular cardiomyopathy (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;DSG2 | HGNC:3049 | arrhythmogenic right ventricular cardiomyopathy | MONDO:0016587 | AD | Definitive&#34;
+    explanation: ClinGen classifies the DSG2-arrhythmogenic right ventricular cardiomyopathy gene-disease relationship as definitive with autosomal dominant inheritance.
+- name: LMNA
+  gene_term:
+    preferred_term: LMNA
+    term:
+      id: hgnc:6636
+      label: LMNA
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_ef503af9-9d10-4714-848b-34cfa0049c23-2019-09-06T160000.000Z
+    reference_title: &#34;LMNA / arrhythmogenic right ventricular cardiomyopathy (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;LMNA | HGNC:6636 | arrhythmogenic right ventricular cardiomyopathy | MONDO:0016587 | AD | Limited&#34;
+    explanation: ClinGen classifies the LMNA-arrhythmogenic right ventricular cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.
+- name: MYBPC3
+  gene_term:
+    preferred_term: MYBPC3
+    term:
+      id: hgnc:7551
+      label: MYBPC3
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_0639d989-8415-425c-ab89-e8a3a0b6ea49-2019-08-06T160000.000Z
+    reference_title: &#34;MYBPC3 / arrhythmogenic right ventricular cardiomyopathy (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;MYBPC3 | HGNC:7551 | arrhythmogenic right ventricular cardiomyopathy | MONDO:0016587 | AD | Limited&#34;
+    explanation: ClinGen classifies the MYBPC3-arrhythmogenic right ventricular cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.
+- name: MYH7
+  gene_term:
+    preferred_term: MYH7
+    term:
+      id: hgnc:7577
+      label: MYH7
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_0265f091-a67d-4521-b6bd-5a110bd5356f-2019-08-06T160000.000Z
+    reference_title: &#34;MYH7 / arrhythmogenic right ventricular cardiomyopathy (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;MYH7 | HGNC:7577 | arrhythmogenic right ventricular cardiomyopathy | MONDO:0016587 | AD | Limited&#34;
+    explanation: ClinGen classifies the MYH7-arrhythmogenic right ventricular cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.
+- name: MYL3
+  gene_term:
+    preferred_term: MYL3
+    term:
+      id: hgnc:7584
+      label: MYL3
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_b1d5e9bf-ca57-445a-a432-27fe221484bf-2019-09-13T160000.000Z
+    reference_title: &#34;MYL3 / arrhythmogenic right ventricular cardiomyopathy (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;MYL3 | HGNC:7584 | arrhythmogenic right ventricular cardiomyopathy | MONDO:0016587 | AD | Limited&#34;
+    explanation: ClinGen classifies the MYL3-arrhythmogenic right ventricular cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.
+- name: PLN
+  gene_term:
+    preferred_term: PLN
+    term:
+      id: hgnc:9080
+      label: PLN
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_13027de9-c84a-4968-936b-6356265193a6-2020-12-17T213224.631Z
+    reference_title: &#34;PLN / arrhythmogenic right ventricular cardiomyopathy (Moderate)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;PLN | HGNC:9080 | arrhythmogenic right ventricular cardiomyopathy | MONDO:0016587 | AD | Moderate&#34;
+    explanation: ClinGen classifies the PLN-arrhythmogenic right ventricular cardiomyopathy gene-disease relationship as moderate with autosomal dominant inheritance.
+- name: SCN5A
+  gene_term:
+    preferred_term: SCN5A
+    term:
+      id: hgnc:10593
+      label: SCN5A
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_3c1cdce2-c8de-442d-b0c4-5936919b310f-2019-06-06T160000.000Z
+    reference_title: &#34;SCN5A / arrhythmogenic right ventricular cardiomyopathy (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;SCN5A | HGNC:10593 | arrhythmogenic right ventricular cardiomyopathy | MONDO:0016587 | AD | Limited&#34;
+    explanation: ClinGen classifies the SCN5A-arrhythmogenic right ventricular cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.
+- name: TGFB3
+  gene_term:
+    preferred_term: TGFB3
+    term:
+      id: hgnc:11769
+      label: TGFB3
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_36ed9be9-2854-49e5-801c-a8fd65fec98e-2019-08-16T160000.000Z
+    reference_title: &#34;TGFB3 / arrhythmogenic right ventricular cardiomyopathy (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;TGFB3 | HGNC:11769 | arrhythmogenic right ventricular cardiomyopathy | MONDO:0016587 | AD | Limited&#34;
+    explanation: ClinGen classifies the TGFB3-arrhythmogenic right ventricular cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.
+- name: TJP1
+  gene_term:
+    preferred_term: TJP1
+    term:
+      id: hgnc:11827
+      label: TJP1
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_435951df-5a0d-4596-b112-ccd6d6204409-2019-02-08T170000.000Z
+    reference_title: &#34;TJP1 / arrhythmogenic right ventricular cardiomyopathy (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;TJP1 | HGNC:11827 | arrhythmogenic right ventricular cardiomyopathy | MONDO:0016587 | AD | Limited&#34;
+    explanation: ClinGen classifies the TJP1-arrhythmogenic right ventricular cardiomyopathy gene-disease relationship as limited with autosomal dominant inheritance.
 environmental:
 - name: Competitive and endurance sports
   description: &gt;-
@@ -5428,7 +6291,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "arrhythmogenic right ventricular cardiomyopathy", "mondoId": "MONDO:0016587", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "arrhythmogenic_right_ventricular_cardiomyopathy", "yamlRevision": "dbf33c948545"};
+        const OS_CONFIG = {"diseaseName": "arrhythmogenic right ventricular cardiomyopathy", "mondoId": "MONDO:0016587", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "arrhythmogenic_right_ventricular_cardiomyopathy", "yamlRevision": "4de96c2f57a4"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2550,7 +2703,7 @@
             
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
-                <div class="stat-value">5</div>
+                <div class="stat-value">10</div>
                 <div class="stat-label">Pathophysiology</div>
             </div>
             </a>
@@ -2629,6 +2782,20 @@
             
             
             
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-value">13</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -2768,7 +2935,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">10</span>
             </div>
             
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-caga-mediated-oncogenic-signaling">
@@ -2878,16 +3045,16 @@
 	                    <div class="crosslink-list">
 	                        
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Disrupted Cell Polarity</span>
+	                            <span class="crosslink-meta">SHP-2 Activation</span>
 	                            
-	                            <span class="crosslink-desc">CagA interacts with PAR1b/MARK2, disrupting epithelial architecture</span>
+	                            <span class="crosslink-desc">Phosphorylated CagA activates SHP-2 phosphatase, promoting cell motility</span>
 	                            
 	                        </div>
 	                        
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">SHP-2 Activation</span>
+	                            <span class="crosslink-meta">CagA-Induced Epithelial Morphological Transformation</span>
 	                            
-	                            <span class="crosslink-desc">Phosphorylated CagA activates SHP-2 phosphatase, promoting cell motility</span>
+	                            <span class="crosslink-desc">CagA signaling produces transformed gastric epithelial cell morphology.</span>
 	                            
 	                        </div>
 	                        
@@ -2919,6 +3086,154 @@
                 
                 
                 <div class="evidence-explanation">This study demonstrates the molecular mechanism of CagA-SHP-2 interaction and downstream oncogenic signaling in gastric epithelial cells.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+	            </div>
+	            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-shp-2-activation">
+                <div class="item-name">SHP-2 Activation</div>
+                
+                <div class="item-desc">Tyrosine-phosphorylated CagA binds and activates the host SHP-2 phosphatase, linking the injected bacterial oncoprotein to aberrant intracellular signaling in gastric epithelial cells.</div>
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-cell">
+                        epithelial cell of stomach
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0002178" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+                
+                
+                
+	                
+	                
+	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12446738" target="_blank">PMID:12446738</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"the tyrosine-phosphorylated form of CagA specifically binds to and activates SHP-2 phosphatase, thereby inducing morphological transformation of gastric epithelial cells (hummingbird phenotype)"</div>
+                
+                
+                <div class="evidence-explanation">This exact experimental observation supports SHP-2 activation as a named downstream effect of CagA in gastric epithelial cells.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+	            </div>
+	            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-caga-induced-epithelial-morphological-transformation">
+                <div class="item-name">CagA-Induced Epithelial Morphological Transformation</div>
+                
+                <div class="item-desc">CagA-driven host signaling changes gastric epithelial cell morphology, represented experimentally by the hummingbird phenotype.</div>
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-cell">
+                        epithelial cell of stomach
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0002178" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+                
+                
+                
+	                
+	                
+	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12446738" target="_blank">PMID:12446738</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"the tyrosine-phosphorylated form of CagA specifically binds to and activates SHP-2 phosphatase, thereby inducing morphological transformation of gastric epithelial cells (hummingbird phenotype)"</div>
+                
+                
+                <div class="evidence-explanation">The cited CagA experiment directly reports morphological transformation of gastric epithelial cells.</div>
                 
             </div>
             
@@ -3293,6 +3608,116 @@
     
 	            </div>
 	            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-atrophic-gastritis">
+                <div class="item-name">Atrophic Gastritis</div>
+                
+                <div class="item-desc">Persistent H. pylori-associated gastritis can progress to atrophic gastritis as part of the gastric precancerous cascade.</div>
+                
+                
+                
+                
+                
+                
+                
+                
+                
+	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Intestinal Metaplasia</span>
+	                            
+	                            <span class="crosslink-desc">Atrophic gastritis is followed by intestinal metaplasia in the Correa precancerous cascade.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
+	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26668499" target="_blank">PMID:26668499</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                </div>
+                
+                <div class="evidence-snippet">"infection targets the normal gastric mucosa causing non-atrophic gastritis, an initiating lesion that can be cured by clearing H. pylori with antibiotics or that may then linger in the case of chronic infection and progress to atrophic gastritis."</div>
+                
+                
+                <div class="evidence-explanation">This review describes atrophic gastritis as a downstream lesion after persistent H. pylori-associated gastritis.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+	            </div>
+	            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-intestinal-metaplasia">
+                <div class="item-name">Intestinal Metaplasia</div>
+                
+                <div class="item-desc">Intestinal metaplasia is a premalignant epithelial change in the Correa cascade between atrophic gastritis and dysplasia/carcinoma.</div>
+                
+                
+                
+                
+                
+                
+                
+                
+                
+	                
+	                
+	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26668499" target="_blank">PMID:26668499</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The sequence of events associated with the development of gastric cancer has been described as &#34;the gastric precancerous cascade&#34;. This cascade is a dynamic process that includes lesions, such as atrophic gastritis, intestinal metaplasia and dysplasia."</div>
+                
+                
+                <div class="evidence-explanation">This exact abstract text places intestinal metaplasia within the gastric precancerous cascade.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+	            </div>
+	            
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cdh1-e-cadherin-inactivation">
                 <div class="item-name">CDH1/E-cadherin Inactivation</div>
                 
@@ -3366,6 +3791,84 @@
     
 	            </div>
 	            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-cell-cohesion">
+                <div class="item-name">Loss of Cell Cohesion</div>
+                
+                <div class="item-desc">Reduced or absent E-cadherin weakens epithelial tumor-cell adhesion and is associated with invasive, infiltrating gastrointestinal adenocarcinoma behavior.</div>
+                
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        cell-cell adhesion
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0098609" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+	                
+	                
+	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41710815" target="_blank">PMID:41710815</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Loss of E-cadherin expression in advanced tumor stages, higher nodal metastasis, and perineural invasion elucidate the role of E-cadherin as a useful prognostic immunohistochemical marker in gastrointestinal adenocarcinomas."</div>
+                
+                
+                <div class="evidence-explanation">This human adenocarcinoma study supports reduced E-cadherin as a clinically observed marker of invasive tumor behavior.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+	            </div>
+	            
         </div>
         
 
@@ -3407,7 +3910,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"with adenocarcinoma being the most "</div>
+                <div class="evidence-snippet">"with adenocarcinoma being the most common histologic type (91.0%)"</div>
                 
                 
                 <div class="evidence-explanation">Abstract notes adenocarcinoma as the predominant histologic type in a gastric cancer cohort.</div>
@@ -3433,24 +3936,6 @@
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
-            <div class="graph-warning">
-                <strong>Referential integrity issues (5):</strong>
-                <ul>
-                    
-                    <li>Target &#39;Disrupted Cell Polarity&#39; (from &#39;CagA-Mediated Oncogenic Signaling&#39;) not found in named elements</li>
-                    
-                    <li>Target &#39;SHP-2 Activation&#39; (from &#39;CagA-Mediated Oncogenic Signaling&#39;) not found in named elements</li>
-                    
-                    <li>Target &#39;Atrophic Gastritis&#39; (from &#39;Chronic Inflammation (Correa Cascade)&#39;) not found in named elements</li>
-                    
-                    <li>Target &#39;Intestinal Metaplasia&#39; (from &#39;Chronic Inflammation (Correa Cascade)&#39;) not found in named elements</li>
-                    
-                    <li>Target &#39;Loss of Cell Cohesion&#39; (from &#39;CDH1/E-cadherin Inactivation&#39;) not found in named elements</li>
-                    
-                    
-                </ul>
-            </div>
-            
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -3461,7 +3946,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Atrophic Gastritis\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"CDH1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Somatic and Germline Mutations\"}}, {\"id\": \"CDH1/E-cadherin Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of E-cadherin function through somatic mutation, promoter methylation, or loss of heterozygosity occurs in diffuse-type gastric cancer and some intestinal-type tumors. E-cadherin loss disrupts cell-cell adhesion and activates Wnt/beta-catenin signaling, promoting invasion.\", \"meta\": {\"biological_processes\": [\"cell-cell adhesion\"], \"genes\": [\"CDH1\"]}}, {\"id\": \"CagA-Mediated Oncogenic Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cagA gene encodes the CagA oncoprotein, a major H. pylori virulence factor injected into host cells via a type IV secretion system. CagA is phosphorylated by host kinases and activates SHP-2, disrupting cell polarity, promoting proliferation, and inhibiting apoptosis. CagA-positive strains confer higher cancer risk.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"epithelial cell of stomach\"], \"biological_processes\": [\"cell population proliferation\", \"apoptotic process\"], \"locations\": [\"stomach\"]}}, {\"id\": \"Chronic Inflammation (Correa Cascade)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"H. pylori induces chronic gastritis with infiltration of neutrophils, lymphocytes, and macrophages. Persistent inflammation generates reactive oxygen and nitrogen species that cause DNA damage. Over decades, this leads to atrophic gastritis, intestinal metaplasia, dysplasia, and ultimately adenocarcinoma.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"inflammatory response\", \"response to oxidative stress\"]}}, {\"id\": \"Disrupted Cell Polarity\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Intestinal Metaplasia\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Loss of Cell Cohesion\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"SHP-2 Activation\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"VacA-Induced Cellular Damage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VacA (vacuolating cytotoxin A) is a pore-forming toxin that induces vacuolation and apoptosis in epithelial cells. Different VacA alleles (s1/s2, m1/m2) confer different cancer risk.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"epithelial cell of stomach\"], \"biological_processes\": [\"apoptotic process\"], \"locations\": [\"stomach\"]}}, {\"id\": \"VacA-Mediated T Cell Suppression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VacA impairs T cell activation by blocking calcium influx and preventing NF-AT-dependent cytokine transcription. This blunts adaptive immunity and helps H. pylori persist in the gastric mucosa.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T cell\"], \"biological_processes\": [\"T cell activation\"]}}], \"edges\": [{\"source\": \"CagA-Mediated Oncogenic Signaling\", \"target\": \"Disrupted Cell Polarity\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"CagA-Mediated Oncogenic Signaling\", \"target\": \"SHP-2 Activation\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"VacA-Induced Cellular Damage\", \"target\": \"Chronic Inflammation (Correa Cascade)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"VacA-Mediated T Cell Suppression\", \"target\": \"Chronic Inflammation (Correa Cascade)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Inflammation (Correa Cascade)\", \"target\": \"Atrophic Gastritis\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"Chronic Inflammation (Correa Cascade)\", \"target\": \"Intestinal Metaplasia\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"CDH1/E-cadherin Inactivation\", \"target\": \"Loss of Cell Cohesion\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"CDH1\", \"target\": \"CDH1/E-cadherin Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": [\"Atrophic Gastritis\", \"Disrupted Cell Polarity\", \"Intestinal Metaplasia\", \"Loss of Cell Cohesion\", \"SHP-2 Activation\"]}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Atrophic Gastritis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent H. pylori-associated gastritis can progress to atrophic gastritis as part of the gastric precancerous cascade.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"CDH1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Somatic and Germline Mutations\"}}, {\"id\": \"CDH1/E-cadherin Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of E-cadherin function through somatic mutation, promoter methylation, or loss of heterozygosity occurs in diffuse-type gastric cancer and some intestinal-type tumors. E-cadherin loss disrupts cell-cell adhesion and activates Wnt/beta-catenin signaling, promoting invasion.\", \"meta\": {\"biological_processes\": [\"cell-cell adhesion\"], \"genes\": [\"CDH1\"]}}, {\"id\": \"CagA-Induced Epithelial Morphological Transformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CagA-driven host signaling changes gastric epithelial cell morphology, represented experimentally by the hummingbird phenotype.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"epithelial cell of stomach\"]}}, {\"id\": \"CagA-Mediated Oncogenic Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cagA gene encodes the CagA oncoprotein, a major H. pylori virulence factor injected into host cells via a type IV secretion system. CagA is phosphorylated by host kinases and activates SHP-2, disrupting cell polarity, promoting proliferation, and inhibiting apoptosis. CagA-positive strains confer higher cancer risk.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"epithelial cell of stomach\"], \"biological_processes\": [\"cell population proliferation\", \"apoptotic process\"], \"locations\": [\"stomach\"]}}, {\"id\": \"Chronic Inflammation (Correa Cascade)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"H. pylori induces chronic gastritis with infiltration of neutrophils, lymphocytes, and macrophages. Persistent inflammation generates reactive oxygen and nitrogen species that cause DNA damage. Over decades, this leads to atrophic gastritis, intestinal metaplasia, dysplasia, and ultimately adenocarcinoma.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"inflammatory response\", \"response to oxidative stress\"]}}, {\"id\": \"Intestinal Metaplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Intestinal metaplasia is a premalignant epithelial change in the Correa cascade between atrophic gastritis and dysplasia/carcinoma.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Loss of Cell Cohesion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced or absent E-cadherin weakens epithelial tumor-cell adhesion and is associated with invasive, infiltrating gastrointestinal adenocarcinoma behavior.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell-cell adhesion\"]}}, {\"id\": \"SHP-2 Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tyrosine-phosphorylated CagA binds and activates the host SHP-2 phosphatase, linking the injected bacterial oncoprotein to aberrant intracellular signaling in gastric epithelial cells.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"epithelial cell of stomach\"]}}, {\"id\": \"VacA-Induced Cellular Damage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VacA (vacuolating cytotoxin A) is a pore-forming toxin that induces vacuolation and apoptosis in epithelial cells. Different VacA alleles (s1/s2, m1/m2) confer different cancer risk.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"epithelial cell of stomach\"], \"biological_processes\": [\"apoptotic process\"], \"locations\": [\"stomach\"]}}, {\"id\": \"VacA-Mediated T Cell Suppression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VacA impairs T cell activation by blocking calcium influx and preventing NF-AT-dependent cytokine transcription. This blunts adaptive immunity and helps H. pylori persist in the gastric mucosa.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T cell\"], \"biological_processes\": [\"T cell activation\"]}}], \"edges\": [{\"source\": \"CagA-Mediated Oncogenic Signaling\", \"target\": \"SHP-2 Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CagA-Mediated Oncogenic Signaling\", \"target\": \"CagA-Induced Epithelial Morphological Transformation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"VacA-Induced Cellular Damage\", \"target\": \"Chronic Inflammation (Correa Cascade)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"VacA-Mediated T Cell Suppression\", \"target\": \"Chronic Inflammation (Correa Cascade)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Inflammation (Correa Cascade)\", \"target\": \"Atrophic Gastritis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Inflammation (Correa Cascade)\", \"target\": \"Intestinal Metaplasia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Atrophic Gastritis\", \"target\": \"Intestinal Metaplasia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CDH1/E-cadherin Inactivation\", \"target\": \"Loss of Cell Cohesion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CDH1\", \"target\": \"CDH1/E-cadherin Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4180,6 +4665,7 @@
                 </div>
                 
                 
+                
     
     
             </div>
@@ -4189,6 +4675,7 @@
                     Serum Pepsinogen
                     
                 </div>
+                
                 
                 
     
@@ -4226,7 +4713,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Gastric Cancer H. pylori Associated
 creation_date: &#39;2026-01-26T02:55:13Z&#39;
-updated_date: &#39;2026-04-22T20:13:21Z&#39;
+updated_date: &#39;2026-05-09T00:41:13Z&#39;
 description: &gt;-
   Helicobacter pylori-associated gastric cancer represents the majority of gastric
   adenocarcinomas worldwide. H. pylori is classified as a Class I carcinogen by the
@@ -4315,10 +4802,51 @@ pathophysiology:
       id: UBERON:0000945
       label: stomach
   downstream:
-  - target: Disrupted Cell Polarity
-    description: CagA interacts with PAR1b/MARK2, disrupting epithelial architecture
   - target: SHP-2 Activation
     description: Phosphorylated CagA activates SHP-2 phosphatase, promoting cell motility
+  - target: CagA-Induced Epithelial Morphological Transformation
+    description: CagA signaling produces transformed gastric epithelial cell morphology.
+- name: SHP-2 Activation
+  description: &gt;-
+    Tyrosine-phosphorylated CagA binds and activates the host SHP-2 phosphatase,
+    linking the injected bacterial oncoprotein to aberrant intracellular signaling
+    in gastric epithelial cells.
+  evidence:
+  - reference: PMID:12446738
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      the tyrosine-phosphorylated form of CagA specifically binds to and activates
+      SHP-2 phosphatase, thereby inducing morphological transformation of gastric
+      epithelial cells (hummingbird phenotype)
+    explanation: &gt;-
+      This exact experimental observation supports SHP-2 activation as a named
+      downstream effect of CagA in gastric epithelial cells.
+  cell_types:
+  - preferred_term: epithelial cell of stomach
+    term:
+      id: CL:0002178
+      label: epithelial cell of stomach
+- name: CagA-Induced Epithelial Morphological Transformation
+  description: &gt;-
+    CagA-driven host signaling changes gastric epithelial cell morphology,
+    represented experimentally by the hummingbird phenotype.
+  evidence:
+  - reference: PMID:12446738
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      the tyrosine-phosphorylated form of CagA specifically binds to and activates
+      SHP-2 phosphatase, thereby inducing morphological transformation of gastric
+      epithelial cells (hummingbird phenotype)
+    explanation: &gt;-
+      The cited CagA experiment directly reports morphological transformation of
+      gastric epithelial cells.
+  cell_types:
+  - preferred_term: epithelial cell of stomach
+    term:
+      id: CL:0002178
+      label: epithelial cell of stomach
 - name: VacA-Induced Cellular Damage
   description: &gt;-
     VacA (vacuolating cytotoxin A) is a pore-forming toxin that induces
@@ -4415,6 +4943,41 @@ pathophysiology:
     description: Chronic inflammation leads to loss of gastric glandular cells
   - target: Intestinal Metaplasia
     description: Gastric epithelium undergoes metaplastic change to intestinal-type
+- name: Atrophic Gastritis
+  description: &gt;-
+    Persistent H. pylori-associated gastritis can progress to atrophic gastritis
+    as part of the gastric precancerous cascade.
+  evidence:
+  - reference: PMID:26668499
+    reference_title: &#34;Helicobacter pylori-induced inflammation and epigenetic changes during gastric carcinogenesis.&#34;
+    supports: SUPPORT
+    snippet: &gt;-
+      infection targets the normal gastric mucosa causing non-atrophic gastritis,
+      an initiating lesion that can be cured by clearing H. pylori with antibiotics
+      or that may then linger in the case of chronic infection and progress to
+      atrophic gastritis.
+    explanation: &gt;-
+      This review describes atrophic gastritis as a downstream lesion after
+      persistent H. pylori-associated gastritis.
+  downstream:
+  - target: Intestinal Metaplasia
+    description: Atrophic gastritis is followed by intestinal metaplasia in the Correa precancerous cascade.
+- name: Intestinal Metaplasia
+  description: &gt;-
+    Intestinal metaplasia is a premalignant epithelial change in the Correa
+    cascade between atrophic gastritis and dysplasia/carcinoma.
+  evidence:
+  - reference: PMID:26668499
+    reference_title: &#34;Helicobacter pylori-induced inflammation and epigenetic changes during gastric carcinogenesis.&#34;
+    supports: SUPPORT
+    snippet: &gt;-
+      The sequence of events associated with the development of gastric cancer has
+      been described as &#34;the gastric precancerous cascade&#34;. This cascade is a
+      dynamic process that includes lesions, such as atrophic gastritis, intestinal
+      metaplasia and dysplasia.
+    explanation: &gt;-
+      This exact abstract text places intestinal metaplasia within the gastric
+      precancerous cascade.
 - name: CDH1/E-cadherin Inactivation
   description: &gt;-
     Loss of E-cadherin function through somatic mutation, promoter methylation,
@@ -4435,6 +4998,29 @@ pathophysiology:
   downstream:
   - target: Loss of Cell Cohesion
     description: Enables single-cell infiltrative growth pattern
+- name: Loss of Cell Cohesion
+  description: &gt;-
+    Reduced or absent E-cadherin weakens epithelial tumor-cell adhesion and is
+    associated with invasive, infiltrating gastrointestinal adenocarcinoma
+    behavior.
+  evidence:
+  - reference: PMID:41710815
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Loss of E-cadherin expression in advanced tumor stages, higher nodal
+      metastasis, and perineural invasion elucidate the role of E-cadherin as a
+      useful prognostic immunohistochemical marker in gastrointestinal
+      adenocarcinomas.
+    explanation: &gt;-
+      This human adenocarcinoma study supports reduced E-cadherin as a clinically
+      observed marker of invasive tumor behavior.
+  biological_processes:
+  - preferred_term: cell-cell adhesion
+    modifier: DECREASED
+    term:
+      id: GO:0098609
+      label: cell-cell adhesion
 histopathology:
 - name: Gastric Adenocarcinoma
   finding_term:
@@ -4448,7 +5034,7 @@ histopathology:
   - reference: PMID:40647518
     reference_title: &#34;A Histopathological and Surgical Analysis of Gastric Cancer: A Two-Year Experience in a Single Center.&#34;
     supports: PARTIAL
-    snippet: &#34;with adenocarcinoma being the most &#34;
+    snippet: &#34;with adenocarcinoma being the most common histologic type (91.0%)&#34;
     explanation: Abstract notes adenocarcinoma as the predominant histologic type in a gastric cancer cohort.
 
 phenotypes:
@@ -4668,11 +5254,2051 @@ classifications:
   harrisons_chapter:
   - classification_value: cancer
   - classification_value: solid tumor
+references:
+- reference: DOI:10.1007/s11938-020-00298-8
+  title: &#39;Gastritis: An Update in 2020&#39;
+  found_in:
+  - Gastric_Cancer_H_pylori_Associated-deep-research-falcon.md
+  findings:
+  - statement: The gastritis constellation includes heterogeneous clinicopathological entities, among which long-standing, non-self-limiting gastritis, mainly due to Helicobacter pylori infection, has been epidemiologically, biologically, and clinically linked to gastric cancer development (i.e. “inflammation-associated cancer”).
+    supporting_text: The gastritis constellation includes heterogeneous clinicopathological entities, among which long-standing, non-self-limiting gastritis, mainly due to Helicobacter pylori infection, has been epidemiologically, biologically, and clinically linked to gastric cancer development (i.e. “inflammation-associated cancer”).
+    evidence:
+    - reference: DOI:10.1007/s11938-020-00298-8
+      reference_title: &#39;Gastritis: An Update in 2020&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The gastritis constellation includes heterogeneous clinicopathological entities, among which long-standing, non-self-limiting gastritis, mainly due to Helicobacter pylori infection, has been epidemiologically, biologically, and clinically linked to gastric cancer development (i.e. “inflammation-associated cancer”).
+      explanation: Deep research cited this publication as relevant literature for Gastric Cancer H pylori Associated.
+- reference: DOI:10.1055/a-0859-1883
+  title: &#39;Management of epithelial precancerous conditions and lesions in the stomach (MAPS II): European Society of Gastrointestinal Endoscopy (ESGE), European Helicobacter and Microbiota Study Group (EHMSG), European Society of Pathology (ESP), and Sociedade Portuguesa de Endoscopia Digestiva (SPED) guideline update 2019&#39;
+  found_in:
+  - Gastric_Cancer_H_pylori_Associated-deep-research-falcon.md
+  findings:
+  - statement: Main RecommendationsPatients with chronic atrophic gastritis or intestinal metaplasia (IM) are at risk for gastric adenocarcinoma.
+    supporting_text: Main RecommendationsPatients with chronic atrophic gastritis or intestinal metaplasia (IM) are at risk for gastric adenocarcinoma.
+    evidence:
+    - reference: DOI:10.1055/a-0859-1883
+      reference_title: &#39;Management of epithelial precancerous conditions and lesions in the stomach (MAPS II): European Society of Gastrointestinal Endoscopy (ESGE), European Helicobacter and Microbiota Study Group (EHMSG), European Society of Pathology (ESP), and Sociedade Portuguesa de Endoscopia Digestiva (SPED) guideline update 2019&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Main RecommendationsPatients with chronic atrophic gastritis or intestinal metaplasia (IM) are at risk for gastric adenocarcinoma.
+      explanation: Deep research cited this publication as relevant literature for Gastric Cancer H pylori Associated.
+- reference: DOI:10.1055/a-2529-5025
+  title: &#39;Management of epithelial precancerous conditions and early neoplasia of the stomach (MAPS III): European Society of Gastrointestinal Endoscopy (ESGE), European Helicobacter and Microbiota Study Group (EHMSG) and European Society of Pathology (ESP) Guideline update 2025&#39;
+  found_in:
+  - Gastric_Cancer_H_pylori_Associated-deep-research-falcon.md
+  findings:
+  - statement: &#39;Management of epithelial precancerous conditions and early neoplasia of the stomach (MAPS III): European Society of Gastrointestinal Endoscopy (ESGE), European Helicobacter and Microbiota Study Group (EHMSG) and European Society of Pathology (ESP) Guideline update 2025&#39;
+    supporting_text: ESGE/EHMSG/ESP recommend that irrespective of country of origin, individual gastric risk assessment and stratification of precancerous conditions is recommended for first-time gastroscopy.
+    evidence:
+    - reference: DOI:10.1055/a-2529-5025
+      reference_title: &#39;Management of epithelial precancerous conditions and early neoplasia of the stomach (MAPS III): European Society of Gastrointestinal Endoscopy (ESGE), European Helicobacter and Microbiota Study Group (EHMSG) and European Society of Pathology (ESP) Guideline update 2025&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: ESGE/EHMSG/ESP recommend that irrespective of country of origin, individual gastric risk assessment and stratification of precancerous conditions is recommended for first-time gastroscopy.
+      explanation: Deep research cited this publication as relevant literature for Gastric Cancer H pylori Associated.
+- reference: DOI:10.1055/a-2695-1376
+  title: Adherence to clinical practice guidelines for Management of epithelial precancerous conditions and lesions in the stomach in Europe
+  found_in:
+  - Gastric_Cancer_H_pylori_Associated-deep-research-falcon.md
+  findings:
+  - statement: The first international guideline for managing preneoplastic conditions of the stomach (MAPS I) was published in 2012, followed by an update (MAPS II) in 2019.
+    supporting_text: The first international guideline for managing preneoplastic conditions of the stomach (MAPS I) was published in 2012, followed by an update (MAPS II) in 2019.
+    evidence:
+    - reference: DOI:10.1055/a-2695-1376
+      reference_title: Adherence to clinical practice guidelines for Management of epithelial precancerous conditions and lesions in the stomach in Europe
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The first international guideline for managing preneoplastic conditions of the stomach (MAPS I) was published in 2012, followed by an update (MAPS II) in 2019.
+      explanation: Deep research cited this publication as relevant literature for Gastric Cancer H pylori Associated.
+- reference: DOI:10.1186/s12876-025-03886-z
+  title: &#39;The relationship between the eradication of Helicobacter pylori and the occurrence of stomach cancer: an updated meta-analysis and systemic review&#39;
+  found_in:
+  - Gastric_Cancer_H_pylori_Associated-deep-research-falcon.md
+  findings:
+  - statement: &#39;The relationship between the eradication of Helicobacter pylori and the occurrence of stomach cancer: an updated meta-analysis and systemic review&#39;
+    supporting_text: &#39;The relationship between the eradication of Helicobacter pylori and the occurrence of stomach cancer: an updated meta-analysis and systemic review&#39;
+- reference: DOI:10.1186/s12916-024-03554-1
+  title: &#39;Overall and cause-specific mortality among patients diagnosed with gastric precancerous lesions in Sweden between 1979 and 2014: an observational cohort study&#39;
+  found_in:
+  - Gastric_Cancer_H_pylori_Associated-deep-research-falcon.md
+  findings:
+  - statement: The Correa’s cascade, encompassing chronic non-atrophic gastritis, atrophic gastritis, intestinal metaplasia, and dysplasia, represents the well-recognized pathway for the development of non-cardia gastric cancer.
+    supporting_text: The Correa’s cascade, encompassing chronic non-atrophic gastritis, atrophic gastritis, intestinal metaplasia, and dysplasia, represents the well-recognized pathway for the development of non-cardia gastric cancer.
+    evidence:
+    - reference: DOI:10.1186/s12916-024-03554-1
+      reference_title: &#39;Overall and cause-specific mortality among patients diagnosed with gastric precancerous lesions in Sweden between 1979 and 2014: an observational cohort study&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The Correa’s cascade, encompassing chronic non-atrophic gastritis, atrophic gastritis, intestinal metaplasia, and dysplasia, represents the well-recognized pathway for the development of non-cardia gastric cancer.
+      explanation: Deep research cited this publication as relevant literature for Gastric Cancer H pylori Associated.
+- reference: DOI:10.1371/journal.pone.0307172
+  title: &#39;CagA toxin and risk of Helicobacter pylori-infected gastric phenotype: A meta-analysis of observational studies&#39;
+  found_in:
+  - Gastric_Cancer_H_pylori_Associated-deep-research-falcon.md
+  findings:
+  - statement: Helicobacter pylori (H. pylori) is frequently associated with non-cardia type gastric cancer, and it is designated as a group I carcinogen.
+    supporting_text: Helicobacter pylori (H. pylori) is frequently associated with non-cardia type gastric cancer, and it is designated as a group I carcinogen.
+    evidence:
+    - reference: DOI:10.1371/journal.pone.0307172
+      reference_title: &#39;CagA toxin and risk of Helicobacter pylori-infected gastric phenotype: A meta-analysis of observational studies&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Helicobacter pylori (H. pylori) is frequently associated with non-cardia type gastric cancer, and it is designated as a group I carcinogen.
+      explanation: Deep research cited this publication as relevant literature for Gastric Cancer H pylori Associated.
+- reference: DOI:10.20892/j.issn.2095-3941.2024.0159
+  title: Global, regional, and national burden of early-onset gastric cancer
+  found_in:
+  - Gastric_Cancer_H_pylori_Associated-deep-research-falcon.md
+  findings:
+  - statement: The burden of gastric cancer (GC) across different age groups needs updating.
+    supporting_text: The burden of gastric cancer (GC) across different age groups needs updating.
+    evidence:
+    - reference: DOI:10.20892/j.issn.2095-3941.2024.0159
+      reference_title: Global, regional, and national burden of early-onset gastric cancer
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The burden of gastric cancer (GC) across different age groups needs updating.
+      explanation: Deep research cited this publication as relevant literature for Gastric Cancer H pylori Associated.
+- reference: DOI:10.21203/rs.3.rs-8058648/v1
+  title: &#39;Global epidemiology of gastric cancer in 2022 and projections for 2050: A comprehensive analysis and forecasts based on GLOBOCAN data&#39;
+  found_in:
+  - Gastric_Cancer_H_pylori_Associated-deep-research-falcon.md
+  findings:
+  - statement: Gastric cancer (GC) has greatly damaged the health of patients, and the burden exhibits substantial heterogeneity across diverse regions globally.
+    supporting_text: Gastric cancer (GC) has greatly damaged the health of patients, and the burden exhibits substantial heterogeneity across diverse regions globally.
+    evidence:
+    - reference: DOI:10.21203/rs.3.rs-8058648/v1
+      reference_title: &#39;Global epidemiology of gastric cancer in 2022 and projections for 2050: A comprehensive analysis and forecasts based on GLOBOCAN data&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Gastric cancer (GC) has greatly damaged the health of patients, and the burden exhibits substantial heterogeneity across diverse regions globally.
+      explanation: Deep research cited this publication as relevant literature for Gastric Cancer H pylori Associated.
+- reference: DOI:10.3389/fmed.2024.1393498
+  title: &#39;Helicobacterpylori eradication following endoscopic resection might prevent metachronous gastric cancer: a systematic review and meta-analysis of studies from Japan and Korea&#39;
+  found_in:
+  - Gastric_Cancer_H_pylori_Associated-deep-research-falcon.md
+  findings:
+  - statement: &#39;Helicobacterpylori eradication following endoscopic resection might prevent metachronous gastric cancer: a systematic review and meta-analysis of studies from Japan and Korea&#39;
+    supporting_text: A systematic review and meta-analysis was performed to evaluate the preventive effectiveness of Helicobacter pylori eradication against metachronous gastric cancer (MGC) or dysplasia following endoscopic resection (ER) for early gastric cancer (EGC) or dysplasia.MethodsPubMed, Cochrane Library, MEDLINE, and EMBASE were searched until 31 October 2023, and randomized controlled trials or cohort studies were peer-reviewed.
+    evidence:
+    - reference: DOI:10.3389/fmed.2024.1393498
+      reference_title: &#39;Helicobacterpylori eradication following endoscopic resection might prevent metachronous gastric cancer: a systematic review and meta-analysis of studies from Japan and Korea&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: A systematic review and meta-analysis was performed to evaluate the preventive effectiveness of Helicobacter pylori eradication against metachronous gastric cancer (MGC) or dysplasia following endoscopic resection (ER) for early gastric cancer (EGC) or dysplasia.MethodsPubMed, Cochrane Library, MEDLINE, and EMBASE were searched until 31 October 2023, and randomized controlled trials or cohort studies were peer-reviewed.
+      explanation: Deep research cited this publication as relevant literature for Gastric Cancer H pylori Associated.
+- reference: DOI:10.3389/fmicb.2024.1395403
+  title: &#39;The immunopathogenesis of Helicobacter pylori-induced gastric cancer: a narrative review&#39;
+  found_in:
+  - Gastric_Cancer_H_pylori_Associated-deep-research-falcon.md
+  findings:
+  - statement: Helicobacter pylori infection is a well-established risk factor for the development of gastric cancer (GC).
+    supporting_text: Helicobacter pylori infection is a well-established risk factor for the development of gastric cancer (GC).
+    evidence:
+    - reference: DOI:10.3389/fmicb.2024.1395403
+      reference_title: &#39;The immunopathogenesis of Helicobacter pylori-induced gastric cancer: a narrative review&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Helicobacter pylori infection is a well-established risk factor for the development of gastric cancer (GC).
+      explanation: Deep research cited this publication as relevant literature for Gastric Cancer H pylori Associated.
+- reference: DOI:10.3389/fonc.2024.1468488
+  title: &#39;Global, regional, and national trends in gastric cancer burden: 1990-2021 and projections to 2040&#39;
+  found_in:
+  - Gastric_Cancer_H_pylori_Associated-deep-research-falcon.md
+  findings:
+  - statement: &#39;Global, regional, and national trends in gastric cancer burden: 1990-2021 and projections to 2040&#39;
+    supporting_text: &#39;Gastric cancer (GC) is a common malignancy of the digestive system, with significant geographical variation in its disease burden.MethodsThis study used data from the Global Burden of Diseases, Injuries, and Risk Factors Study 2021 to analyze three key indicators: incidence, mortality, and disability-adjusted life years (DALYs).&#39;
+    evidence:
+    - reference: DOI:10.3389/fonc.2024.1468488
+      reference_title: &#39;Global, regional, and national trends in gastric cancer burden: 1990-2021 and projections to 2040&#39;
+      supports: SUPPORT
+      evidence_source: COMPUTATIONAL
+      snippet: &#39;Gastric cancer (GC) is a common malignancy of the digestive system, with significant geographical variation in its disease burden.MethodsThis study used data from the Global Burden of Diseases, Injuries, and Risk Factors Study 2021 to analyze three key indicators: incidence, mortality, and disability-adjusted life years (DALYs).&#39;
+      explanation: Deep research cited this publication as relevant literature for Gastric Cancer H pylori Associated.
+- reference: DOI:10.3390/cancers16111958
+  title: &#39;Helicobacter pylori Infection in Patients with Gastric Cancer: A 2024 Update&#39;
+  found_in:
+  - Gastric_Cancer_H_pylori_Associated-deep-research-falcon.md
+  findings:
+  - statement: Numerous studies have been performed on Helicobacter pylori infection because of the high death rate linked to this illness and gastric cancer.
+    supporting_text: Numerous studies have been performed on Helicobacter pylori infection because of the high death rate linked to this illness and gastric cancer.
+    evidence:
+    - reference: DOI:10.3390/cancers16111958
+      reference_title: &#39;Helicobacter pylori Infection in Patients with Gastric Cancer: A 2024 Update&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Numerous studies have been performed on Helicobacter pylori infection because of the high death rate linked to this illness and gastric cancer.
+      explanation: Deep research cited this publication as relevant literature for Gastric Cancer H pylori Associated.
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
+        
+        <div class="card reference-card" id="references-deep-research">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+            
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">13</span>
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s11938-020-00298-8" target="_blank">DOI:10.1007/s11938-020-00298-8</a>
+                            </div>
+                            
+                            <div class="reference-title">Gastritis: An Update in 2020</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The gastritis constellation includes heterogeneous clinicopathological entities, among which long-standing, non-self-limiting gastritis, mainly due to Helicobacter pylori infection, has been epidemiologically, biologically, and clinically linked to gastric cancer development (i.e. “inflammation-associated cancer”).</div>
+            
+            
+            <div class="reference-finding-supporting">"The gastritis constellation includes heterogeneous clinicopathological entities, among which long-standing, non-self-limiting gastritis, mainly due to Helicobacter pylori infection, has been epidemiologically, biologically, and clinically linked to gastric cancer development (i.e...."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s11938-020-00298-8" target="_blank">DOI:10.1007/s11938-020-00298-8</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The gastritis constellation includes heterogeneous clinicopathological entities, among which long-standing, non-self-limiting gastritis, mainly due to Helicobacter pylori infection, has been epidemiologically, biologically, and clinically linked to gastric cancer development (i.e...."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Gastric Cancer H pylori Associated.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1055/a-0859-1883" target="_blank">DOI:10.1055/a-0859-1883</a>
+                            </div>
+                            
+                            <div class="reference-title">Management of epithelial precancerous conditions and lesions in the stomach (MAPS II): European Society of Gastrointestinal Endoscopy (ESGE), European Helicobacter and Microbiota Study Group (EHMSG), European Society of Pathology (ESP), and Sociedade Portuguesa de Endoscopia Digestiva (SPED) guideline update 2019</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Main RecommendationsPatients with chronic atrophic gastritis or intestinal metaplasia (IM) are at risk for gastric adenocarcinoma.</div>
+            
+            
+            <div class="reference-finding-supporting">"Main RecommendationsPatients with chronic atrophic gastritis or intestinal metaplasia (IM) are at risk for gastric adenocarcinoma."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1055/a-0859-1883" target="_blank">DOI:10.1055/a-0859-1883</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Main RecommendationsPatients with chronic atrophic gastritis or intestinal metaplasia (IM) are at risk for gastric adenocarcinoma."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Gastric Cancer H pylori Associated.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1055/a-2529-5025" target="_blank">DOI:10.1055/a-2529-5025</a>
+                            </div>
+                            
+                            <div class="reference-title">Management of epithelial precancerous conditions and early neoplasia of the stomach (MAPS III): European Society of Gastrointestinal Endoscopy (ESGE), European Helicobacter and Microbiota Study Group (EHMSG) and European Society of Pathology (ESP) Guideline update 2025</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Management of epithelial precancerous conditions and early neoplasia of the stomach (MAPS III): European Society of Gastrointestinal Endoscopy (ESGE), European Helicobacter and Microbiota Study Group (EHMSG) and European Society of Pathology (ESP) Guideline update 2025</div>
+            
+            
+            <div class="reference-finding-supporting">"ESGE/EHMSG/ESP recommend that irrespective of country of origin, individual gastric risk assessment and stratification of precancerous conditions is recommended for first-time gastroscopy."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1055/a-2529-5025" target="_blank">DOI:10.1055/a-2529-5025</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"ESGE/EHMSG/ESP recommend that irrespective of country of origin, individual gastric risk assessment and stratification of precancerous conditions is recommended for first-time gastroscopy."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Gastric Cancer H pylori Associated.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1055/a-2695-1376" target="_blank">DOI:10.1055/a-2695-1376</a>
+                            </div>
+                            
+                            <div class="reference-title">Adherence to clinical practice guidelines for Management of epithelial precancerous conditions and lesions in the stomach in Europe</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The first international guideline for managing preneoplastic conditions of the stomach (MAPS I) was published in 2012, followed by an update (MAPS II) in 2019.</div>
+            
+            
+            <div class="reference-finding-supporting">"The first international guideline for managing preneoplastic conditions of the stomach (MAPS I) was published in 2012, followed by an update (MAPS II) in 2019."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1055/a-2695-1376" target="_blank">DOI:10.1055/a-2695-1376</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The first international guideline for managing preneoplastic conditions of the stomach (MAPS I) was published in 2012, followed by an update (MAPS II) in 2019."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Gastric Cancer H pylori Associated.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1186/s12876-025-03886-z" target="_blank">DOI:10.1186/s12876-025-03886-z</a>
+                            </div>
+                            
+                            <div class="reference-title">The relationship between the eradication of Helicobacter pylori and the occurrence of stomach cancer: an updated meta-analysis and systemic review</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The relationship between the eradication of Helicobacter pylori and the occurrence of stomach cancer: an updated meta-analysis and systemic review</div>
+            
+            
+            <div class="reference-finding-supporting">"The relationship between the eradication of Helicobacter pylori and the occurrence of stomach cancer: an updated meta-analysis and systemic review"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1186/s12916-024-03554-1" target="_blank">DOI:10.1186/s12916-024-03554-1</a>
+                            </div>
+                            
+                            <div class="reference-title">Overall and cause-specific mortality among patients diagnosed with gastric precancerous lesions in Sweden between 1979 and 2014: an observational cohort study</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The Correa’s cascade, encompassing chronic non-atrophic gastritis, atrophic gastritis, intestinal metaplasia, and dysplasia, represents the well-recognized pathway for the development of non-cardia gastric cancer.</div>
+            
+            
+            <div class="reference-finding-supporting">"The Correa’s cascade, encompassing chronic non-atrophic gastritis, atrophic gastritis, intestinal metaplasia, and dysplasia, represents the well-recognized pathway for the development of non-cardia gastric cancer."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s12916-024-03554-1" target="_blank">DOI:10.1186/s12916-024-03554-1</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The Correa’s cascade, encompassing chronic non-atrophic gastritis, atrophic gastritis, intestinal metaplasia, and dysplasia, represents the well-recognized pathway for the development of non-cardia gastric cancer."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Gastric Cancer H pylori Associated.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1371/journal.pone.0307172" target="_blank">DOI:10.1371/journal.pone.0307172</a>
+                            </div>
+                            
+                            <div class="reference-title">CagA toxin and risk of Helicobacter pylori-infected gastric phenotype: A meta-analysis of observational studies</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Helicobacter pylori (H. pylori) is frequently associated with non-cardia type gastric cancer, and it is designated as a group I carcinogen.</div>
+            
+            
+            <div class="reference-finding-supporting">"Helicobacter pylori (H. pylori) is frequently associated with non-cardia type gastric cancer, and it is designated as a group I carcinogen."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pone.0307172" target="_blank">DOI:10.1371/journal.pone.0307172</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Helicobacter pylori (H. pylori) is frequently associated with non-cardia type gastric cancer, and it is designated as a group I carcinogen."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Gastric Cancer H pylori Associated.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.20892/j.issn.2095-3941.2024.0159" target="_blank">DOI:10.20892/j.issn.2095-3941.2024.0159</a>
+                            </div>
+                            
+                            <div class="reference-title">Global, regional, and national burden of early-onset gastric cancer</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The burden of gastric cancer (GC) across different age groups needs updating.</div>
+            
+            
+            <div class="reference-finding-supporting">"The burden of gastric cancer (GC) across different age groups needs updating."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.20892/j.issn.2095-3941.2024.0159" target="_blank">DOI:10.20892/j.issn.2095-3941.2024.0159</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The burden of gastric cancer (GC) across different age groups needs updating."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Gastric Cancer H pylori Associated.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.21203/rs.3.rs-8058648/v1" target="_blank">DOI:10.21203/rs.3.rs-8058648/v1</a>
+                            </div>
+                            
+                            <div class="reference-title">Global epidemiology of gastric cancer in 2022 and projections for 2050: A comprehensive analysis and forecasts based on GLOBOCAN data</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Gastric cancer (GC) has greatly damaged the health of patients, and the burden exhibits substantial heterogeneity across diverse regions globally.</div>
+            
+            
+            <div class="reference-finding-supporting">"Gastric cancer (GC) has greatly damaged the health of patients, and the burden exhibits substantial heterogeneity across diverse regions globally."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.21203/rs.3.rs-8058648/v1" target="_blank">DOI:10.21203/rs.3.rs-8058648/v1</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Gastric cancer (GC) has greatly damaged the health of patients, and the burden exhibits substantial heterogeneity across diverse regions globally."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Gastric Cancer H pylori Associated.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3389/fmed.2024.1393498" target="_blank">DOI:10.3389/fmed.2024.1393498</a>
+                            </div>
+                            
+                            <div class="reference-title">Helicobacterpylori eradication following endoscopic resection might prevent metachronous gastric cancer: a systematic review and meta-analysis of studies from Japan and Korea</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Helicobacterpylori eradication following endoscopic resection might prevent metachronous gastric cancer: a systematic review and meta-analysis of studies from Japan and Korea</div>
+            
+            
+            <div class="reference-finding-supporting">"A systematic review and meta-analysis was performed to evaluate the preventive effectiveness of Helicobacter pylori eradication against metachronous gastric cancer (MGC) or dysplasia following endoscopic resection (ER) for early gastric cancer (EGC) or dysplasia.MethodsPubMed, Cochrane Library,..."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fmed.2024.1393498" target="_blank">DOI:10.3389/fmed.2024.1393498</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"A systematic review and meta-analysis was performed to evaluate the preventive effectiveness of Helicobacter pylori eradication against metachronous gastric cancer (MGC) or dysplasia following endoscopic resection (ER) for early gastric cancer (EGC) or dysplasia.MethodsPubMed, Cochrane Library,..."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Gastric Cancer H pylori Associated.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3389/fmicb.2024.1395403" target="_blank">DOI:10.3389/fmicb.2024.1395403</a>
+                            </div>
+                            
+                            <div class="reference-title">The immunopathogenesis of Helicobacter pylori-induced gastric cancer: a narrative review</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Helicobacter pylori infection is a well-established risk factor for the development of gastric cancer (GC).</div>
+            
+            
+            <div class="reference-finding-supporting">"Helicobacter pylori infection is a well-established risk factor for the development of gastric cancer (GC)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fmicb.2024.1395403" target="_blank">DOI:10.3389/fmicb.2024.1395403</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Helicobacter pylori infection is a well-established risk factor for the development of gastric cancer (GC)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Gastric Cancer H pylori Associated.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3389/fonc.2024.1468488" target="_blank">DOI:10.3389/fonc.2024.1468488</a>
+                            </div>
+                            
+                            <div class="reference-title">Global, regional, and national trends in gastric cancer burden: 1990-2021 and projections to 2040</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Global, regional, and national trends in gastric cancer burden: 1990-2021 and projections to 2040</div>
+            
+            
+            <div class="reference-finding-supporting">"Gastric cancer (GC) is a common malignancy of the digestive system, with significant geographical variation in its disease burden.MethodsThis study used data from the Global Burden of Diseases, Injuries, and Risk Factors Study 2021 to analyze three key indicators: incidence, mortality, and..."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fonc.2024.1468488" target="_blank">DOI:10.3389/fonc.2024.1468488</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Gastric cancer (GC) is a common malignancy of the digestive system, with significant geographical variation in its disease burden.MethodsThis study used data from the Global Burden of Diseases, Injuries, and Risk Factors Study 2021 to analyze three key indicators: incidence, mortality, and..."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Gastric Cancer H pylori Associated.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/cancers16111958" target="_blank">DOI:10.3390/cancers16111958</a>
+                            </div>
+                            
+                            <div class="reference-title">Helicobacter pylori Infection in Patients with Gastric Cancer: A 2024 Update</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Numerous studies have been performed on Helicobacter pylori infection because of the high death rate linked to this illness and gastric cancer.</div>
+            
+            
+            <div class="reference-finding-supporting">"Numerous studies have been performed on Helicobacter pylori infection because of the high death rate linked to this illness and gastric cancer."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers16111958" target="_blank">DOI:10.3390/cancers16111958</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Numerous studies have been performed on Helicobacter pylori infection because of the high death rate linked to this illness and gastric cancer."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Gastric Cancer H pylori Associated.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">Disease Characteristics Research Template</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">40 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-08T16:51:35.317634</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
+<p>Provide detailed information focusing on:
+1. Key concepts and definitions with current understanding
+2. Recent developments and latest research (prioritize 2023-2024 sources)
+3. Current applications and real-world implementations
+4. Expert opinions and analysis from authoritative sources
+5. Relevant statistics and data from recent studies</p>
+<p>Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
+Always prioritize recent, authoritative sources and provide specific citations for all major claims.</p>
+<h1>Disease Characteristics Research Template</h1>
+<h2>Target Disease</h2>
+<ul>
+<li><strong>Disease Name:</strong> Gastric Cancer H. pylori Associated</li>
+<li><strong>MONDO ID:</strong>  (if available)</li>
+<li><strong>Category:</strong></li>
+</ul>
+<h2>Research Objectives</h2>
+<p>Please provide a comprehensive research report on <strong>Gastric Cancer H. pylori Associated</strong> covering all of the
+disease characteristics listed below. This report will be used to populate a disease knowledge
+base entry. Be thorough and cite primary literature (PMID preferred) for all claims.</p>
+<p>For each section, <strong>suggested databases/resources</strong> are listed. These are the first places
+you should search for information on each topic.</p>
+<hr />
+<h3>1. Disease Information</h3>
+<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, ICD-10/ICD-11, MeSH, PubMed</p>
+</blockquote>
+<ul>
+<li>What is the disease? Provide a concise overview.</li>
+<li>What are the key identifiers? (OMIM, Orphanet, ICD-10/ICD-11, MeSH, Mondo)</li>
+<li>What are the common synonyms and alternative names?</li>
+<li>Is the information derived from individual patients (e.g., EHR) or aggregated disease-level resources?</li>
+</ul>
+<h3>2. Etiology</h3>
+<ul>
+<li><strong>Disease Causal Factors</strong>: What are the primary causes? (genetic, environmental, infectious, mechanistic)</li>
+<li><strong>Risk Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, UpToDate, clinical guidelines, ClinVar, ClinGen, GWAS Catalog, PheGenI, CTD, CDC, WHO, epidemiological databases</p>
+</blockquote>
+</li>
+<li>Genetic risk factors (causal variants, susceptibility loci, modifier genes)</li>
+<li>Environmental risk factors (toxins, lifestyle, occupational exposures, age, sex, family history)</li>
+<li><strong>Protective Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, clinical trial databases, GWAS Catalog, gnomAD, WHO, CDC, nutrition databases</p>
+</blockquote>
+</li>
+<li>Genetic protective factors (protective variants, modifier alleles)</li>
+<li>Environmental protective factors (diet, lifestyle, exposures that reduce risk)</li>
+<li><strong>Gene-Environment Interactions</strong>: How do genetic and environmental factors interact to influence disease?<blockquote>
+<p><strong>Search first:</strong> CTD, PubMed, PheGenI, GxE databases</p>
+</blockquote>
+</li>
+</ul>
+<h3>3. Phenotypes</h3>
+<blockquote>
+<p><strong>Search first:</strong> HPO (Human Phenotype Ontology), OMIM, Orphanet, PubMed, clinicaltrials.gov, MedDRA, SNOMED CT, DECIPHER, LOINC</p>
+</blockquote>
+<p>For each phenotype, provide:
+- <strong>Phenotype type</strong>: symptoms, clinical signs, physical manifestations, behavioral changes, or laboratory abnormalities</p>
+<blockquote>
+<p>For symptoms/signs: HPO, OMIM, Orphanet, PubMed
+For behavioral changes: HPO, DSM, RDoC (Research Domain Criteria), PubMed
+For laboratory abnormalities: LOINC, SNOMED CT, LabTests Online, PubMed
+- <strong>Phenotype characteristics</strong>:
+<strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed
+  - Age of symptom onset (neonatal, childhood, adult-onset, late-onset)
+  - Symptom severity (mild, moderate, severe, variable)
+  - Symptom progression (stable, progressive, episodic, fluctuating)
+  - Frequency among affected individuals (percentage or qualitative)
+- <strong>Quality of life impact</strong>: Effects on daily functioning and well-being (per-phenotype when possible)
+<strong>Search first:</strong> EQ-5D database, SF-36, WHO QOL databases, PubMed
+- Suggest HPO (Human Phenotype Ontology) terms for each phenotype</p>
+</blockquote>
+<h3>4. Genetic/Molecular Information</h3>
+<ul>
+<li><strong>Causal Genes</strong>: Gene mutations or chromosomal abnormalities responsible for disease (gene symbols, OMIM IDs)<blockquote>
+<p><strong>Search first:</strong> OMIM, ClinVar, HGMD, Ensembl, NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Pathogenic Variants</strong>:</li>
+<li>Affected genes (gene symbols, HGNC IDs)
+    &gt; <strong>Search first:</strong> OMIM, NCBI Gene, Ensembl, HGNC, UniProt, GeneCards</li>
+<li>Variant classification (pathogenic, likely pathogenic, VUS per ACMG/AMP guidelines)
+    &gt; <strong>Search first:</strong> ClinVar, ClinGen, ACMG/AMP guidelines, VarSome</li>
+<li>Variant type/class (missense, frameshift, nonsense, splice-site, structural)</li>
+<li>Allele frequency in population databases
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, ExAC, TOPMed, dbSNP</li>
+<li>Somatic vs germline origin
+    &gt; <strong>Search first:</strong> COSMIC (somatic), ClinVar, ICGC, TCGA</li>
+<li>Functional consequences (loss of function, gain of function, dominant negative)</li>
+<li><strong>Modifier Genes</strong>: Genes that modify disease severity or expression</li>
+<li><strong>Epigenetic Information</strong>: DNA methylation, histone modifications, chromatin changes affecting disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Chromosomal Abnormalities</strong>: Large-scale genetic changes (aneuploidy, translocations, inversions)<blockquote>
+<p><strong>Search first:</strong> DECIPHER, ClinVar, ECARUCA, UCSC Genome Browser</p>
+</blockquote>
+</li>
+</ul>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Environmental Factors</strong>: Non-genetic contributing factors (toxins, radiation, pollution, occupational exposure)<blockquote>
+<p><strong>Search first:</strong> CTD (Comparative Toxicogenomics Database), TOXNET, PubMed, EPA databases</p>
+</blockquote>
+</li>
+<li><strong>Lifestyle Factors</strong>: Behavioral factors (smoking, diet, exercise, alcohol consumption)<blockquote>
+<p><strong>Search first:</strong> CDC databases, WHO, PubMed, NHANES</p>
+</blockquote>
+</li>
+<li><strong>Infectious Agents</strong>: If applicable, pathogens causing or triggering disease (bacteria, viruses, fungi, parasites)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON</p>
+</blockquote>
+</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<ul>
+<li><strong>Molecular Pathways</strong>: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)<blockquote>
+<p><strong>Search first:</strong> KEGG, Reactome, WikiPathways, PathBank, BioCyc</p>
+</blockquote>
+</li>
+<li><strong>Cellular Processes</strong>: Cell-level mechanisms (apoptosis, autophagy, cell cycle dysregulation, inflammation, etc.)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (GO), Reactome, KEGG, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Protein Dysfunction</strong>: How protein structure or function is altered (misfolding, aggregation, loss of function, gain of function)<blockquote>
+<p><strong>Search first:</strong> UniProt, PDB (Protein Data Bank), InterPro, Pfam, AlphaFold</p>
+</blockquote>
+</li>
+<li><strong>Metabolic Changes</strong>: Alterations in metabolic processes (energy metabolism, lipid metabolism, amino acid metabolism)<blockquote>
+<p><strong>Search first:</strong> KEGG, BioCyc, HMDB (Human Metabolome Database), BRENDA</p>
+</blockquote>
+</li>
+<li><strong>Immune System Involvement</strong>: Role of immune response (autoimmunity, immunodeficiency, chronic inflammation)<blockquote>
+<p><strong>Search first:</strong> ImmPort, Immunome Database, IEDB, Gene Ontology</p>
+</blockquote>
+</li>
+<li><strong>Tissue Damage Mechanisms</strong>: How tissues/ are injured (oxidative stress, ischemia, fibrosis, necrosis)<blockquote>
+<p><strong>Search first:</strong> PubMed, Gene Ontology, Reactome</p>
+</blockquote>
+</li>
+<li><strong>Biochemical Abnormalities</strong>: Specific molecular defects (enzyme deficiencies, receptor dysfunction, ion channel defects)<blockquote>
+<p><strong>Search first:</strong> BRENDA, UniProt, KEGG, OMIM, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Epigenetic Changes</strong>: DNA methylation, histone modifications affecting gene expression in disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Molecular Profiling</strong> (if available):</li>
+<li>Transcriptomics/gene expression changes
+    &gt; <strong>Search first:</strong> GEO (Gene Expression Omnibus), ArrayExpress, GTEx, Human Cell Atlas, SRA</li>
+<li>Proteomics findings
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, Human Protein Atlas, STRING, BioGRID</li>
+<li>Metabolomics signatures
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB, METLIN</li>
+<li>Lipidomics alterations
+    &gt; <strong>Search first:</strong> LIPID MAPS, SwissLipids, LipidHome, Metabolomics Workbench</li>
+<li>Genomic structural features
+    &gt; <strong>Search first:</strong> UCSC Genome Browser, Ensembl, NCBI, dbVar, DGV</li>
+<li><strong>Advanced Technologies</strong> (if applicable):</li>
+<li>Single-cell analysis findings (cell-type specific mechanisms, cellular heterogeneity)
+    &gt; <strong>Search first:</strong> Human Cell Atlas, Single Cell Portal, GEO, CELLxGENE</li>
+<li>Spatial transcriptomics findings
+    &gt; <strong>Search first:</strong> GEO, Spatial Research, Vizgen, 10x Genomics data</li>
+<li>Multi-omics integration results
+    &gt; <strong>Search first:</strong> TCGA, ICGC, cBioPortal, LinkedOmics, PubMed</li>
+<li>Functional genomics screens (CRISPR, RNAi)
+    &gt; <strong>Search first:</strong> DepMap, GenomeRNAi, PubMed, BioGRID ORCS</li>
+</ul>
+<p>For each mechanism, describe:
+- The causal chain from initial trigger to clinical manifestation
+- Which mechanisms are upstream vs downstream
+- What cell types and biological processes are involved
+- Suggest GO terms for biological processes and CL terms for cell types</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ Level</strong>:</li>
+<li>Primary organs directly affected</li>
+<li>Secondary organ involvement (complications, secondary effects)</li>
+<li>Body systems involved (cardiovascular, nervous, digestive, respiratory, endocrine, etc.)<blockquote>
+<p><strong>Search first:</strong> Uberon, FMA (Foundational Model of Anatomy), OMIM, HPO, ICD-11, MeSH, SNOMED CT</p>
+</blockquote>
+</li>
+<li><strong>Tissue and Cell Level</strong>:</li>
+<li>Specific tissue types affected (epithelial, connective, muscle, nervous)</li>
+<li>Specific cell populations targeted (with Cell Ontology terms)<blockquote>
+<p><strong>Search first:</strong> Uberon, Human Protein Atlas, Cell Ontology, Human Cell Atlas, CellMarker, PanglaoDB</p>
+</blockquote>
+</li>
+<li><strong>Subcellular Level</strong>:</li>
+<li>Cellular compartments involved (mitochondria, nucleus, ER, lysosomes) (with GO Cellular Component terms)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (Cellular Component), UniProt, Human Protein Atlas</p>
+</blockquote>
+</li>
+<li><strong>Localization</strong>:</li>
+<li>Specific anatomical sites (with UBERON terms)
+    &gt; <strong>Search first:</strong> FMA, Uberon, NeuroNames (for brain), SNOMED CT</li>
+<li>Lateralization (unilateral, bilateral, asymmetric)
+    &gt; <strong>Search first:</strong> HPO, clinical literature, imaging databases</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset</strong>:</li>
+<li>Typical age of onset (congenital, pediatric, adult, geriatric)</li>
+<li>Onset pattern (acute, subacute, chronic, insidious)<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Progression</strong>:</li>
+<li>Disease stages (early, intermediate, advanced, end-stage)
+    &gt; <strong>Search first:</strong> Cancer Staging Manual (AJCC), WHO classifications, PubMed</li>
+<li>Progression rate (rapid, slow, variable)</li>
+<li>Disease course pattern (episodic, relapsing-remitting, progressive, stable)</li>
+<li>Disease duration (self-limited, chronic lifelong)<blockquote>
+<p><strong>Search first:</strong> Disease registries, longitudinal cohort databases, natural history studies, PubMed, Orphanet, OMIM</p>
+</blockquote>
+</li>
+<li><strong>Patterns</strong>:</li>
+<li>Remission patterns (spontaneous, treatment-induced)
+    &gt; <strong>Search first:</strong> Clinical trial databases, disease registries, PubMed</li>
+<li>Critical periods (time windows of vulnerability or opportunity for intervention)
+    &gt; <strong>Search first:</strong> PubMed, developmental biology databases, clinical guidelines</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology</strong>:</li>
+<li>Prevalence (cases per 100,000 at given time)</li>
+<li>Incidence (new cases per 100,000 per year)<blockquote>
+<p><strong>Search first:</strong> Orphanet, CDC, WHO, GBD (Global Burden of Disease), national registries, SEER, disease registries</p>
+</blockquote>
+</li>
+<li><strong>For Genetic Etiology</strong>:</li>
+<li>Inheritance pattern (AD, AR, X-linked, mitochondrial, multifactorial, polygenic)
+    &gt; <strong>Search first:</strong> OMIM, Orphanet, ClinVar, GTR (Genetic Testing Registry)</li>
+<li>Penetrance (complete, incomplete, age-dependent)
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, PubMed, ClinGen</li>
+<li>Expressivity (variable, consistent)
+    &gt; <strong>Search first:</strong> OMIM, ClinVar, PubMed</li>
+<li>Genetic anticipation (increasing severity in successive generations)
+    &gt; <strong>Search first:</strong> OMIM, PubMed (especially for repeat expansion disorders)</li>
+<li>Germline mosaicism
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, genetic counseling literature, PubMed</li>
+<li>Founder effects (population-specific mutations)
+    &gt; <strong>Search first:</strong> gnomAD, population genetics databases, PubMed</li>
+<li>Consanguinity role
+    &gt; <strong>Search first:</strong> OMIM, population studies, genetic counseling resources</li>
+<li>Carrier frequency
+    &gt; <strong>Search first:</strong> gnomAD, carrier screening databases, GeneReviews, GTR</li>
+<li><strong>Population Demographics</strong>:</li>
+<li>Affected populations (ethnic or demographic groups with higher prevalence)
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, PAGE Study, PubMed, population registries</li>
+<li>Geographic distribution (endemic areas, regional variation)
+    &gt; <strong>Search first:</strong> WHO, CDC, GBD, Orphanet, geographic epidemiology databases</li>
+<li>Geographic distribution of specific variants</li>
+<li>Sex ratio (male:female)
+    &gt; <strong>Search first:</strong> Disease registries, OMIM, PubMed, epidemiological databases</li>
+<li>Age distribution of affected individuals
+    &gt; <strong>Search first:</strong> CDC, disease registries, SEER, Orphanet</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Clinical Tests</strong>:</li>
+<li>Laboratory tests (blood, urine, tissue chemistry, specific enzyme assays)
+    &gt; <strong>Search first:</strong> LOINC, LabTests Online, PubMed</li>
+<li>Biomarkers (proteins, metabolites, genetic markers, circulating biomarkers)
+    &gt; <strong>Search first:</strong> FDA Biomarker List, BEST (Biomarkers, EndpointS, and other Tools), PubMed</li>
+<li>Imaging studies (X-ray, CT, MRI, PET, ultrasound)
+    &gt; <strong>Search first:</strong> RadLex, DICOM, Radiopaedia, imaging databases</li>
+<li>Functional tests (pulmonary function, cardiac stress tests)
+    &gt; <strong>Search first:</strong> LOINC, clinical guidelines, PubMed</li>
+<li>Electrophysiology (EEG, EMG, ECG, nerve conduction studies)
+    &gt; <strong>Search first:</strong> LOINC, clinical neurophysiology databases, PubMed</li>
+<li>Biopsy findings (histopathology, immunohistochemistry)
+    &gt; <strong>Search first:</strong> SNOMED CT, College of American Pathologists resources, PubMed</li>
+<li>Pathology findings (microscopic examination)
+    &gt; <strong>Search first:</strong> SNOMED CT, Digital Pathology databases, PubMed</li>
+<li><strong>Genetic Testing</strong>:<blockquote>
+<p><strong>Search first:</strong> GTR (Genetic Testing Registry), GeneReviews, ClinGen</p>
+</blockquote>
+</li>
+<li>Overview of recommended genetic testing approach</li>
+<li>Whole genome sequencing (WGS) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, GEL (Genomics England), gnomAD</li>
+<li>Whole exome sequencing (WES) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneMatcher</li>
+<li>Gene panels (which panels, which genes)
+    &gt; <strong>Search first:</strong> GTR, ClinVar, laboratory-specific databases</li>
+<li>Single gene testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneReviews</li>
+<li>Chromosomal microarray (CMA)
+    &gt; <strong>Search first:</strong> DECIPHER, ClinVar, dbVar, ECARUCA</li>
+<li>Karyotyping
+    &gt; <strong>Search first:</strong> Chromosome Abnormality Database, ClinVar, cytogenetics resources</li>
+<li>FISH
+    &gt; <strong>Search first:</strong> ClinVar, cytogenetics databases, PubMed</li>
+<li>Mitochondrial DNA testing
+    &gt; <strong>Search first:</strong> MITOMAP, MSeqDR, ClinVar, GTR</li>
+<li>Repeat expansion testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, repeat expansion databases, PubMed</li>
+<li><strong>Omics-Based Diagnostics</strong> (if applicable):</li>
+<li>RNA sequencing / transcriptomics
+    &gt; <strong>Search first:</strong> GEO, ArrayExpress, GTEx, RNA-seq databases</li>
+<li>Proteomics
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, FDA Biomarker database</li>
+<li>Metabolomics
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB</li>
+<li>Epigenomics
+    &gt; <strong>Search first:</strong> GEO, ENCODE, Roadmap Epigenomics, MethBase</li>
+<li>Liquid biopsy
+    &gt; <strong>Search first:</strong> COSMIC, ClinVar, liquid biopsy databases, PubMed</li>
+<li><strong>Clinical Criteria</strong>:</li>
+<li>Standardized diagnostic criteria (DSM, ICD, society guidelines)
+    &gt; <strong>Search first:</strong> DSM-5, ICD-11, clinical society guidelines, UpToDate</li>
+<li>Differential diagnosis (other conditions to rule out, with distinguishing features)
+    &gt; <strong>Search first:</strong> DynaMed, UpToDate, clinical decision support systems</li>
+<li><strong>Screening</strong>:</li>
+<li>Screening methods for asymptomatic individuals (newborn screening, carrier screening, cascade screening)
+    &gt; <strong>Search first:</strong> ACMG recommendations, CDC newborn screening, GTR</li>
+</ul>
+<h3>11. Outcome/Prognosis</h3>
+<ul>
+<li><strong>Survival and Mortality</strong>:</li>
+<li>Survival rate (5-year, 10-year, overall)
+    &gt; <strong>Search first:</strong> SEER, cancer registries, disease-specific registries, PubMed</li>
+<li>Life expectancy (with and without treatment if applicable)
+    &gt; <strong>Search first:</strong> Orphanet, disease registries, actuarial databases, PubMed</li>
+<li>Mortality rate
+    &gt; <strong>Search first:</strong> CDC, WHO, GBD, national mortality databases</li>
+<li>Disease-specific mortality (deaths directly attributable to disease)
+    &gt; <strong>Search first:</strong> Disease registries, CDC Wonder, GBD, PubMed</li>
+<li><strong>Morbidity and Function</strong>:</li>
+<li>Morbidity (disease-related disability and health impacts)
+    &gt; <strong>Search first:</strong> GBD, WHO, disability databases, PubMed</li>
+<li>Disability outcomes (long-term functional impairments)
+    &gt; <strong>Search first:</strong> ICF (International Classification of Functioning), disability registries</li>
+<li>Quality of life measures (EQ-5D, SF-36, PROMIS, disease-specific tools)
+    &gt; <strong>Search first:</strong> EQ-5D database, SF-36, PROMIS, PubMed</li>
+<li><strong>Disease Course</strong>:</li>
+<li>Complications (secondary problems: infections, organ failure, etc.)
+    &gt; <strong>Search first:</strong> ICD codes, disease registries, clinical databases, PubMed</li>
+<li>Recovery potential (likelihood and extent of recovery, with vs without treatment)
+    &gt; <strong>Search first:</strong> Natural history studies, rehabilitation databases, PubMed</li>
+<li><strong>Prediction</strong>:</li>
+<li>Prognostic factors (age, disease severity, biomarkers, treatment response)
+    &gt; <strong>Search first:</strong> Prognostic models databases, clinical calculators, PubMed</li>
+<li>Prognostic biomarkers (molecular markers predicting disease course)
+    &gt; <strong>Search first:</strong> FDA Biomarker database, PubMed, cancer prognostic databases</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Pharmacotherapy</strong>:</li>
+<li>Pharmacological treatments (drug names, drug classes, mechanisms of action)
+    &gt; <strong>Search first:</strong> DrugBank, RxNorm, ATC classification, DailyMed, FDA databases</li>
+<li>Pharmacogenomics (how genetic variants affect drug metabolism, efficacy, toxicity)
+    &gt; <strong>Search first:</strong> PharmGKB, CPIC (Clinical Pharmacogenetics), FDA Table of PGx Biomarkers</li>
+<li><strong>Advanced Therapeutics</strong>:</li>
+<li>Gene therapy (viral vectors, CRISPR, gene replacement, gene editing)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA gene therapy database, ASGCT resources</li>
+<li>Cell therapy (stem cell transplant, CAR-T, cellular therapeutics)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA cell therapy database, FACT standards</li>
+<li>RNA-based therapies (ASOs, siRNA, mRNA therapies)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA approvals, PubMed</li>
+<li>Targeted therapies (treatments directed at specific molecular targets)
+    &gt; <strong>Search first:</strong> My Cancer Genome, OncoKB, ClinicalTrials.gov, FDA approvals</li>
+<li>Immunotherapies (checkpoint inhibitors, monoclonal antibodies)
+    &gt; <strong>Search first:</strong> Cancer Immunotherapy Database, FDA approvals, ClinicalTrials.gov</li>
+<li><strong>Surgical and Interventional</strong>:</li>
+<li>Surgical interventions (types of surgery, timing, outcomes)
+    &gt; <strong>Search first:</strong> CPT codes, surgical registries, clinical guidelines, PubMed</li>
+<li><strong>Supportive and Rehabilitative</strong>:</li>
+<li>Supportive care (symptom management, pain control, nutrition)
+    &gt; <strong>Search first:</strong> Clinical guidelines, Cochrane Library, PubMed</li>
+<li>Rehabilitation (physical therapy, occupational therapy, speech therapy)
+    &gt; <strong>Search first:</strong> Rehabilitation medicine databases, clinical guidelines, PubMed</li>
+<li><strong>Experimental</strong>:</li>
+<li>Experimental treatments in clinical trials (with NCT identifiers if available)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, EU Clinical Trials Register, WHO ICTRP</li>
+<li><strong>Treatment Outcomes</strong>:</li>
+<li>Treatment response rates
+    &gt; <strong>Search first:</strong> Clinical trial databases, FDA reviews, systematic reviews, PubMed</li>
+<li>Side effects and adverse events
+    &gt; <strong>Search first:</strong> FDA Adverse Event Reporting System (FAERS), MedWatch, PubMed</li>
+<li><strong>Treatment Strategy</strong>:</li>
+<li>Treatment algorithms (clinical pathways, decision trees)
+    &gt; <strong>Search first:</strong> Clinical practice guidelines, NCCN Guidelines, UpToDate</li>
+<li>Combination therapies
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, treatment guidelines, PubMed</li>
+<li>Personalized medicine approaches (genotype-guided treatment)
+    &gt; <strong>Search first:</strong> My Cancer Genome, CIViC, PharmGKB, precision medicine databases</li>
+</ul>
+<p>For each treatment, suggest MAXO (Medical Action Ontology) terms where applicable.</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Prevention Levels</strong>:</li>
+<li>Primary prevention (preventing disease occurrence: vaccination, risk factor modification)
+    &gt; <strong>Search first:</strong> CDC, WHO, USPSTF recommendations, Cochrane Library</li>
+<li>Secondary prevention (early detection and treatment: screening programs, early intervention)
+    &gt; <strong>Search first:</strong> USPSTF, CDC screening guidelines, WHO</li>
+<li>Tertiary prevention (preventing complications in those with disease)
+    &gt; <strong>Search first:</strong> Clinical guidelines, disease management protocols, PubMed</li>
+<li><strong>Immunization</strong>: Vaccine strategies (if applicable)<blockquote>
+<p><strong>Search first:</strong> CDC vaccine schedules, WHO immunization, FDA vaccine database</p>
+</blockquote>
+</li>
+<li><strong>Screening and Early Detection</strong>:</li>
+<li>Screening programs (population-based: newborn screening, cancer screening)
+    &gt; <strong>Search first:</strong> CDC screening programs, USPSTF, cancer screening databases</li>
+<li>Genetic screening (carrier screening, preimplantation genetic diagnosis, prenatal testing)
+    &gt; <strong>Search first:</strong> ACMG recommendations, ACOG guidelines, GTR</li>
+<li>Risk stratification (identifying high-risk individuals for targeted prevention)
+    &gt; <strong>Search first:</strong> Risk prediction models, clinical calculators, PubMed</li>
+<li><strong>Behavioral Interventions</strong>: Lifestyle modifications to reduce risk<blockquote>
+<p><strong>Search first:</strong> CDC, WHO, behavioral intervention databases, Cochrane Library</p>
+</blockquote>
+</li>
+<li><strong>Counseling</strong>: Genetic counseling (risk assessment, family planning guidance)<blockquote>
+<p><strong>Search first:</strong> NSGC resources, ACMG guidelines, GeneReviews</p>
+</blockquote>
+</li>
+<li><strong>Public Health</strong>:</li>
+<li>Public health interventions (sanitation, vector control, health education)
+    &gt; <strong>Search first:</strong> CDC, WHO, public health databases, PubMed</li>
+<li>Environmental interventions (reducing environmental risk factors)
+    &gt; <strong>Search first:</strong> EPA databases, WHO environmental health, PubMed</li>
+<li><strong>Prophylaxis</strong>: Preventive medications or procedures<blockquote>
+<p><strong>Search first:</strong> Clinical guidelines, FDA approvals, PubMed</p>
+</blockquote>
+</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy</strong>: Species affected (with NCBI Taxon identifiers)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy</p>
+</blockquote>
+</li>
+<li><strong>Breed</strong>: Specific breeds affected (with VBO identifiers if applicable)<blockquote>
+<p><strong>Search first:</strong> VBO (Vertebrate Breed Ontology)</p>
+</blockquote>
+</li>
+<li><strong>Gene</strong>: Orthologous genes in other species (with NCBI Gene IDs)<blockquote>
+<p><strong>Search first:</strong> NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Natural Disease</strong>:</li>
+<li>Naturally occurring disease in other species (companion animals, wildlife)
+    &gt; <strong>Search first:</strong> OMIA (Online Mendelian Inheritance in Animals), VetCompass, PubMed</li>
+<li>Veterinary relevance and importance in animal health
+    &gt; <strong>Search first:</strong> OMIA, veterinary databases, PubMed</li>
+<li><strong>Comparative Biology</strong>:</li>
+<li>Comparative pathology (similarities and differences across species)
+    &gt; <strong>Search first:</strong> OMIA, comparative pathology databases, PubMed</li>
+<li>Evolutionary conservation of disease mechanisms
+    &gt; <strong>Search first:</strong> HomoloGene, OrthoMCL, Alliance of Genome Resources</li>
+<li><strong>Transmission</strong> (if applicable):</li>
+<li>Zoonotic potential
+    &gt; <strong>Search first:</strong> CDC zoonotic diseases, WHO zoonoses, GIDEON</li>
+<li>Cross-species susceptibility
+    &gt; <strong>Search first:</strong> NCBI Taxonomy, veterinary databases, PubMed</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Model Types</strong>:</li>
+<li>Model organism type (mammalian, invertebrate, cellular, in vitro)
+    &gt; <strong>Search first:</strong> Alliance of Genome Resources, model organism databases</li>
+<li>Specific model systems (mouse, rat, zebrafish, Drosophila, C. elegans, yeast, cell lines, organoids, iPSCs)
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, SGD, ATCC, Cellosaurus</li>
+<li>Induced models (drug treatment, surgical intervention, environmental manipulation)
+    &gt; <strong>Search first:</strong> MGI, model organism databases, PubMed</li>
+<li><strong>Genetic Models</strong>:</li>
+<li>Types available (knockout, knock-in, transgenic, conditional, humanized)
+    &gt; <strong>Search first:</strong> MGI, IMPC, KOMP, EuMMCR, IMSR</li>
+<li><strong>Model Characteristics</strong>:</li>
+<li>Phenotype recapitulation (how well model reproduces human disease features)
+    &gt; <strong>Search first:</strong> Model organism databases, comparative studies, PubMed</li>
+<li>Model limitations (aspects of human disease not captured)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed, review articles</li>
+<li><strong>Applications</strong>:</li>
+<li>Research applications (what aspects of disease can be studied)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed</li>
+<li><strong>Resources</strong>:</li>
+<li>Model databases
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, IMSR, EMMA, MMRRC</li>
+</ul>
+<hr />
+<h2>Citation Requirements</h2>
+<ul>
+<li>Cite primary literature (PMID preferred) for all mechanistic and clinical claims</li>
+<li>Prioritize recent reviews and landmark papers</li>
+<li>Include direct quotes from abstracts where possible to support key statements</li>
+<li>Distinguish evidence source types: human clinical, model organism, in vitro, computational</li>
+</ul>
+<h2>Output Format</h2>
+<p>Structure your response as a comprehensive narrative organized by the sections above.
+For each section, provide:
+- Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
+- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, MAXO, MONDO) where applicable
+- Evidence citations with PMIDs
+- Direct quotes from abstracts to support key claims
+- Clear indication when information is not available or not applicable for this disease</p>
+<p>This report will be used to populate a disease knowledge base entry with:
+- Pathophysiology descriptions with causal chains
+- Gene/protein annotations (HGNC, GO terms)
+- Phenotype associations (HP terms) with frequencies
+- Cell type involvement (CL terms)
+- Anatomical locations (UBERON terms)
+- Chemical entities (CHEBI terms)
+- Treatment annotations (MAXO terms)
+- Evidence items with PMIDs and exact abstract quotes
+- Epidemiology, prognosis, diagnostic, and prevention information
+- Animal model descriptions with phenotype recapitulation details</p>
+<h2>Comprehensive Research Report: <em>Helicobacter pylori</em>–Associated Gastric Cancer</h2>
+<h3>Target disease</h3>
+<ul>
+<li><strong>Disease name:</strong> Gastric cancer, <em>H. pylori</em> associated (primarily non-cardia gastric adenocarcinoma developing in the setting of chronic <em>Helicobacter pylori</em> infection) (shirani2024theimmunopathogenesisof pages 1-2, burz2024helicobacterpyloriinfection pages 1-2).</li>
+<li><strong>Category:</strong> Infection-associated malignancy (bacterial carcinogen-associated), digestive system cancer (stomach).</li>
+<li><strong>MONDO ID / MeSH / ICD-10/ICD-11:</strong> Not retrievable from the provided tool evidence. The retrieved texts mention that <em>H. pylori</em> infection is recognized in ICD-11 contexts, but the specific ICD-11 entity code(s) for “<em>H. pylori</em>–associated gastric cancer” were not extractable from the available excerpts (rugge2020gastritisanupdate pages 1-4, burz2024helicobacterpyloriinfection pages 1-2).</li>
+<li><strong>Common synonyms / alternative names (used in practice/literature):</strong></li>
+<li><em>H. pylori</em>–associated gastric cancer; <em>Helicobacter pylori</em>–associated gastric adenocarcinoma (shirani2024theimmunopathogenesisof pages 1-2)</li>
+<li>Infection-associated gastric cancer; inflammation-associated gastric cancer (conceptual framing) (rugge2020gastritisanupdate pages 1-4)</li>
+<li>Non-cardia gastric cancer arising via the Correa cascade (sun2024overallandcausespecific pages 1-2)</li>
+<li><strong>Evidence source type in this report:</strong> Primarily aggregated evidence (systematic reviews/meta-analyses, guidelines, large registry/GBD studies), plus large human cohort data; limited mechanistic inference from narrative reviews. No EHR-level patient records were used.</li>
+</ul>
+<hr />
+<h2>1. Disease information (overview and current understanding)</h2>
+<h3>What is the disease?</h3>
+<p><em>H. pylori</em>–associated gastric cancer refers to gastric carcinoma—most often <strong>non-cardia gastric adenocarcinoma</strong>—arising as a long-term consequence of chronic gastric colonization by <em>Helicobacter pylori</em> and the resulting chronic inflammation and mucosal remodeling. Contemporary reviews emphasize that carcinogenesis typically follows a multistep mucosal progression (often termed the <strong>Correa cascade</strong>) from chronic gastritis to atrophy, intestinal metaplasia, dysplasia, and eventually invasive cancer (sun2024overallandcausespecific pages 1-2, areiaUnknownyeargastricprecancerousconditions pages 1-3).</p>
+<h3>Key concept definitions</h3>
+<ul>
+<li><strong>Correa cascade (intestinal-type, non-cardia pathway):</strong> A stepwise histopathologic sequence from chronic gastritis → atrophic gastritis → intestinal metaplasia → dysplasia → non-cardia gastric cancer (sun2024overallandcausespecific pages 1-2).</li>
+<li><strong>Precancerous conditions:</strong> Chronic atrophic gastritis and gastric intestinal metaplasia are repeatedly identified as the principal gastric precancerous states requiring risk stratification and (in selected patients) endoscopic surveillance (pimentelnunes2019managementofepithelial pages 5-6, rugge2020gastritisanupdate pages 1-4).</li>
+<li><strong>OLGA/OLGIM:</strong> Histology-based staging systems used to grade risk based on extent/severity of atrophy (OLGA) and intestinal metaplasia (OLGIM); advanced stages (III/IV) are used in guidelines to define higher-risk strata and surveillance needs (pimentelnunes2019managementofepithelial pages 13-14, pimentelnunes2019managementofepithelial pages 5-6).</li>
+</ul>
+<hr />
+<h2>2. Etiology</h2>
+<h3>Primary causal factor (infectious)</h3>
+<ul>
+<li><em>H. pylori</em> infection is repeatedly described as a major etiologic driver of gastric carcinogenesis, with emphasis on chronic inflammation and bacterial virulence determinants (shirani2024theimmunopathogenesisof pages 1-2, burz2024helicobacterpyloriinfection pages 1-2).</li>
+</ul>
+<h3>Bacterial (pathogen) risk determinants</h3>
+<ul>
+<li><strong>CagA/T4SS (cag pathogenicity island):</strong> A 2024 meta-analysis notes that CagA is delivered into host cells by a type IV secretion system (T4SS) “needle-like pilus” mechanism, supporting its role as a virulence effector associated with more severe gastric inflammation and carcinogenesis (naing2024cagatoxinand pages 1-2).</li>
+<li><strong>Quantified association (CagA positivity):</strong> In observational studies across Indo-Pacific countries, pooled CagA positivity among <em>H. pylori</em>–infected gastric disorders was <strong>83%</strong>, and CagA positivity was associated with higher odds of gastric cancer vs gastritis (<strong>OR 2.53, 95% CI 1.15–5.55</strong>) (Naing et al., PLOS ONE, published Aug 2024; DOI: https://doi.org/10.1371/journal.pone.0307172) (naing2024cagatoxinand pages 1-2).</li>
+<li><strong>Other virulence factors frequently highlighted in recent reviews:</strong> VacA, BabA, SabA, OipA, urease, flagella-mediated motility—important for colonization, persistence, and host pathway perturbation (shirani2024theimmunopathogenesisof pages 1-2).</li>
+</ul>
+<h3>Host and environmental risk modifiers (gene–environment and environment)</h3>
+<ul>
+<li>The available evidence in this run supports that risk is modulated by population and environmental context (e.g., socioeconomic factors/crowding linked to higher infection prevalence and non-cardia cancer association) (burz2024helicobacterpyloriinfection pages 1-2).</li>
+<li><strong>Environmental/lifestyle co-factors</strong> (not exhaustively quantified in the provided excerpts) are noted as contributors in reviews: smoking, diet, obesity and other exposures (burz2024helicobacterpyloriinfection pages 1-2).</li>
+</ul>
+<h3>Protective factors</h3>
+<ul>
+<li><strong>Eradication of <em>H. pylori</em></strong> is the most consistently supported protective intervention, with randomized trial evidence summarized in meta-analyses showing reduced gastric cancer incidence (wu2025therelationshipbetween pages 1-2).</li>
+</ul>
+<h3>Gene–environment interactions</h3>
+<ul>
+<li>Mechanistic and immune-pathway reviews emphasize an interaction among bacterial virulence programs, host innate/adaptive immune responses (TLRs/cytokines), and downstream epithelial genetic/epigenetic alterations (shirani2024theimmunopathogenesisof pages 1-2). Specific human susceptibility loci were not extractable from the provided excerpts.</li>
+</ul>
+<hr />
+<h2>3. Phenotypes (clinical presentation and natural history)</h2>
+<h3>Natural history and phenotypic sequence</h3>
+<ul>
+<li><strong>Correa cascade and its clinical significance:</strong> A large population-based Swedish cohort study explicitly frames Correa’s cascade as “chronic non-atrophic gastritis, atrophic gastritis, intestinal metaplasia, and dysplasia” as the “well-recognized pathway for the development of non-cardia gastric cancer” (Sun et al., BMC Medicine, Aug 2024; DOI: https://doi.org/10.1186/s12916-024-03554-1) (sun2024overallandcausespecific pages 1-2).</li>
+<li><strong>Mortality gradient across lesions:</strong> In that cohort (306,117 patients; ~3.0 million person-years), gastric cancer mortality increased stepwise along the cascade, with “excess risk rising from <strong>105%</strong> for patients with chronic gastritis to <strong>more than 600%</strong> for the dysplasia group” (sun2024overallandcausespecific pages 1-2).</li>
+<li><strong>Clinical implication (secondary prevention):</strong> The authors conclude that “early recognition and intervention of gastric precancerous lesions probably benefit the patients” (sun2024overallandcausespecific pages 1-2).</li>
+</ul>
+<h3>Suggested HPO terms (for KB population)</h3>
+<p>Because the report is for a disease KB entry, below are suggested phenotype mappings commonly relevant to gastric cancer and/or the precancerous stages; the provided excerpts do not quantify symptom frequencies:
+- <strong>Epigastric pain</strong> (HP:0033052)
+- <strong>Dyspepsia</strong> (HP:0100544)
+- <strong>Nausea</strong> (HP:0002018)
+- <strong>Vomiting</strong> (HP:0002013)
+- <strong>Weight loss</strong> (HP:0001824)
+- <strong>Anemia</strong> (HP:0001903) (often in malignancy/bleeding; not quantified here)
+- <strong>Gastrointestinal bleeding</strong> (HP:0002239) / <strong>Melena</strong> (HP:0002249) (context-dependent)
+- <strong>Gastritis (histologic/clinical)</strong> (can be represented via relevant ontologies; HPO has “Gastritis” HP:0002032)
+- <strong>Intestinal metaplasia</strong> (may be represented via pathology ontologies; HPO has limited granularity for histology)</p>
+<h3>Staging frameworks to reference</h3>
+<ul>
+<li>Correa cascade (histopathologic)</li>
+<li>OLGA/OLGIM (risk staging) (pimentelnunes2019managementofepithelial pages 13-14)</li>
+<li>Dysplasia grading (low-grade vs high-grade) for management decisions (pimentelnunes2019managementofepithelial pages 10-11)</li>
+</ul>
+<hr />
+<h2>4. Genetic / molecular information</h2>
+<h3>Mechanism/pathophysiology: causal chain (infection → cancer)</h3>
+<p>A 2024 immunopathogenesis review describes a multi-component cascade involving bacterial colonization factors, virulence determinants, chronic immune activation, and downstream epithelial remodeling/genomic/epigenomic change (shirani2024theimmunopathogenesisof pages 1-2):
+1. <strong>Colonization &amp; persistence:</strong> Motility, urease-mediated acid adaptation, and adhesins (e.g., BabA/SabA) support stable mucosal colonization (shirani2024theimmunopathogenesisof pages 1-2).
+2. <strong>Delivery of oncogenic/inflammatory effectors:</strong> CagA is injected into host cells via T4SS, and CagA-positive strains are linked to more severe inflammation (naing2024cagatoxinand pages 1-2).
+3. <strong>Chronic inflammation and immune dysregulation:</strong> Reviews emphasize innate/adaptive signaling, including TLRs and cytokines, as central mediators that sustain tissue injury and pro-tumor microenvironments (shirani2024theimmunopathogenesisof pages 1-2).
+4. <strong>Tissue remodeling and precancerous lesion formation:</strong> Development of atrophic gastritis and intestinal metaplasia creates a “field” permissive for neoplasia; advanced atrophy/metaplasia stages define higher-risk states for surveillance (pimentelnunes2019managementofepithelial pages 5-6, rugge2020gastritisanupdate pages 1-4).
+5. <strong>Genetic/epigenetic alteration accumulation:</strong> The immunopathogenesis review highlights “abnormal DNA methylation” and mutation accumulation in carcinogenesis/field cancerization (shirani2024theimmunopathogenesisof pages 1-2).</p>
+<h3>Pathways and ontology suggestions (for annotation)</h3>
+<p>Given the evidence emphasizes inflammation, innate recognition, cytokines, and epithelial remodeling, plausible <strong>GO Biological Process</strong> targets for annotation include:
+- <strong>Inflammatory response</strong> (GO:0006954)
+- <strong>Innate immune response</strong> (GO:0045087)
+- <strong>Toll-like receptor signaling pathway</strong> (e.g., GO:0002224)
+- <strong>Cytokine-mediated signaling pathway</strong> (GO:0019221)
+- <strong>Regulation of epithelial cell proliferation</strong> (GO:0050673)
+- <strong>DNA methylation</strong> (GO:0006306)</p>
+<p><strong>Cell Ontology (CL) suggestions</strong> (prominent in gastric mucosa inflammation/carcinogenesis):
+- <strong>Gastric epithelial cell</strong> (context-specific CL term)
+- <strong>Macrophage</strong> (CL:0000235)
+- <strong>T cell</strong> (CL:0000084)
+- <strong>B cell</strong> (CL:0000236)</p>
+<p><strong>Anatomy (UBERON) suggestions:</strong>
+- <strong>Stomach</strong> (UBERON:0000945)
+- <strong>Gastric mucosa</strong> (UBERON:0001199)
+- <strong>Gastric antrum</strong> (UBERON:0001165)
+- <strong>Gastric body/corpus</strong> (UBERON:0001163)</p>
+<h3>Causal genes / pathogenic variants (host)</h3>
+<p>Specific germline causal genes/variants for “<em>H. pylori</em>–associated gastric cancer” were not extractable from the provided excerpts, which focus on infection-driven carcinogenesis and population risk stratification.</p>
+<hr />
+<h2>5. Environmental information</h2>
+<ul>
+<li><strong>Socioeconomic/environmental context:</strong> A 2024 review notes higher <em>H. pylori</em> prevalence in crowded/low-socioeconomic settings and links this context particularly to non-cardia gastric cancer risk (burz2024helicobacterpyloriinfection pages 1-2).</li>
+</ul>
+<hr />
+<h2>6. Mechanism / pathophysiology (expanded)</h2>
+<h3>Immune involvement</h3>
+<p>A 2024 narrative review frames immunopathogenesis as involving bacterial virulence determinants (CagA, VacA, BabA, SabA), TLRs, cytokines, and immune evasion mechanisms as key contributors to chronicity and carcinogenesis (Frontiers in Microbiology, Jul 2024; DOI: https://doi.org/10.3389/fmicb.2024.1395403) (shirani2024theimmunopathogenesisof pages 1-2).</p>
+<h3>Epigenetics</h3>
+<p>The same review highlights epigenetic alterations—particularly abnormal DNA methylation—as part of the progression toward malignant transformation (shirani2024theimmunopathogenesisof pages 1-2).</p>
+<hr />
+<h2>7. Anatomical structures affected</h2>
+<ul>
+<li><strong>Primary organ:</strong> Stomach (UBERON:0000945), with emphasis on gastric mucosa and the antrum/corpus compartments for biopsy-based risk staging (pimentelnunes2019managementofepithelial pages 5-6, dinisribeiro2025managementofepithelial pages 6-7).</li>
+<li><strong>Disease localization:</strong> The Correa cascade is explicitly described as the pathway to <strong>non-cardia gastric cancer</strong> (sun2024overallandcausespecific pages 1-2).</li>
+</ul>
+<hr />
+<h2>8. Temporal development</h2>
+<ul>
+<li><strong>Onset pattern:</strong> Chronic, often acquired earlier in life and progressing over decades to precancerous lesions and cancer in a minority of infected individuals; the provided evidence emphasizes multiyear/decade progression rather than acute onset (sun2024overallandcausespecific pages 1-2, areiaUnknownyeargastricprecancerousconditions pages 1-3).</li>
+<li><strong>Critical periods / intervention window:</strong> Reviews describe a practical “point of no return,” emphasizing that earlier eradication is more likely to prevent irreversible precancerous change (burz2024helicobacterpyloriinfection pages 1-2).</li>
+</ul>
+<hr />
+<h2>9. Inheritance and population</h2>
+<h3>Epidemiology (recent quantitative data)</h3>
+<ul>
+<li><strong>Global burden (GBD 2021, reported in 2024 analysis):</strong> In 2021 there were <strong>1.23 million</strong> new gastric cancer cases and <strong>0.95 million</strong> deaths globally, with <strong>22.79 million DALYs</strong> (Zhang et al., Frontiers in Oncology, Dec 2024; DOI: https://doi.org/10.3389/fonc.2024.1468488) (zhang2024globalregionaland pages 1-2).</li>
+<li><strong>Sex disparity:</strong> Age-standardized rates in 2021 were substantially higher in men (ASIR <strong>20.9/100,000</strong>) than women (ASIR <strong>8.6/100,000</strong>) (zhang2024globalregionaland pages 1-2).</li>
+<li><strong>GLOBOCAN 2022 (reported in 2024 early-onset burden paper):</strong> Estimated <strong>968,000</strong> new cases and <strong>660,000</strong> deaths in 2022; East Asia contributed <strong>53.8% of cases</strong> and <strong>48.2% of deaths</strong> (Tan et al., Cancer Biology &amp; Medicine, Aug 2024; DOI: https://doi.org/10.20892/j.issn.2095-3941.2024.0159) (tan2024globalregionaland pages 1-2).</li>
+</ul>
+<h3>Infection prevalence context</h3>
+<p>A 2024 review reiterates global <em>H. pylori</em> infection prevalence as ~50% (“Nearly 50% of the global population is infected”) (Burz et al., Cancers, May 2024; DOI: https://doi.org/10.3390/cancers16111958) (burz2024helicobacterpyloriinfection pages 1-2).</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>Diagnosis of <em>H. pylori</em> (relevant to cancer prevention)</h3>
+<p>The MAPS III guideline update emphasizes that first-time diagnostic endoscopy should include gastric biopsies for <em>H. pylori</em> diagnosis and for identification/stratification of advanced atrophic gastritis (dinisribeiro2025managementofepithelial pages 6-7).</p>
+<h3>Biomarkers / risk stratification tests</h3>
+<ul>
+<li><strong>Pepsinogen (PG I and PG I/II ratio):</strong> MAPS II summarizes that serum pepsinogen testing is among the best-evaluated non-invasive options to detect advanced atrophic gastritis; low PG I and low PG I/II ratio are discussed as thresholds from meta-analytic evaluations, and low PG I (especially with <em>H. pylori</em> serology negative) may identify individuals who should be offered endoscopy (pimentelnunes2019managementofepithelial pages 10-11).</li>
+</ul>
+<h3>Endoscopic biopsy protocols (guideline-based)</h3>
+<ul>
+<li><strong>MAPS II biopsy concept:</strong> At minimum, biopsies should include at least antrum and corpus sampling; the guideline text also emphasizes chromoendoscopy-guided biopsies for staging and for lesions (pimentelnunes2019managementofepithelial pages 5-6).</li>
+<li><strong>MAPS III adds implementation detail and virtual chromoendoscopy:</strong> High-quality endoscopy including <strong>virtual chromoendoscopy (VCE)</strong> is recommended for screening/diagnosis/staging of precancerous conditions, and VCE should guide sampling; random biopsies should be taken in the absence of endoscopically suspected changes (dinisribeiro2025managementofepithelial pages 6-7).</li>
+</ul>
+<h3>Differential diagnosis</h3>
+<p>Not explicitly detailed in the retrieved excerpts (e.g., EBV-associated gastric cancer is mentioned elsewhere in the broader corpus but is outside the scope of evidence extracted here).</p>
+<hr />
+<h2>11. Outcome / prognosis</h2>
+<ul>
+<li><strong>Lesion severity correlates with elevated mortality risk:</strong> In the Swedish cohort, overall mortality increased with lesion severity (SMR up to <strong>1.54</strong> for dysplasia vs general population), and gastric-cancer–specific mortality rose sharply across the Correa cascade (sun2024overallandcausespecific pages 1-2).</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<h3>Prevention-relevant treatment: <em>H. pylori</em> eradication</h3>
+<p>Randomized trial evidence summarized in a 2025 meta-analysis (RCT-only) supports eradication as a preventive intervention:
+- Overall reduction in gastric cancer incidence: <strong>RR 0.61 (95% CI 0.47–0.79)</strong>; <strong>NNT = 332</strong> (Wu et al., BMC Gastroenterology, Apr 2025; DOI: https://doi.org/10.1186/s12876-025-03886-z) (wu2025therelationshipbetween pages 1-2).
+- Healthy adult subgroup: <strong>RR 0.67 (95% CI 0.48–0.93)</strong>; <strong>NNT = 476</strong> (wu2025therelationshipbetween pages 1-2).
+- Post-endoscopic mucosal resection subgroup: <strong>RR 0.51 (95% CI 0.36–0.71)</strong>; <strong>NNT = 21</strong> (wu2025therelationshipbetween pages 1-2).</p>
+<h3>Post-endoscopic resection (metachronous lesions)</h3>
+<p>A 2024 systematic review/meta-analysis focusing on Japan and Korea supports reduced metachronous gastric lesions after successful eradication vs persistent infection (<strong>RR 0.54, 95% CI 0.44–0.65</strong>) (Yu et al., Frontiers in Medicine, Sep 2024; DOI: https://doi.org/10.3389/fmed.2024.1393498) (wu2025therelationshipbetween pages 1-2).</p>
+<h3>MAXO (Medical Action Ontology) suggestions</h3>
+<ul>
+<li><strong>Antibiotic therapy</strong> (eradication regimens; MAXO term to be mapped)</li>
+<li><strong>Endoscopic surveillance</strong></li>
+<li><strong>Upper gastrointestinal endoscopy</strong></li>
+<li><strong>Endoscopic mucosal resection / endoscopic submucosal dissection</strong> (for early neoplasia/precursor lesions per MAPS guidelines)</li>
+</ul>
+<p><em>Note:</em> Detailed systemic therapy for established gastric cancer (e.g., specific chemotherapy regimens, anti-HER2, anti-VEGFR2, PD-1 inhibitors) was not supported by the retrieved excerpts in this run; therefore, it is not asserted here.</p>
+<hr />
+<h2>13. Prevention</h2>
+<h3>Primary prevention</h3>
+<ul>
+<li><strong>Eradication of confirmed <em>H. pylori</em> infection</strong> is repeatedly framed as the leading strategy for primary prevention of gastric cancer (rugge2020gastritisanupdate pages 1-4, wu2025therelationshipbetween pages 1-2).</li>
+</ul>
+<h3>Secondary prevention (screening/surveillance of precancerous lesions)</h3>
+<p>Guidelines emphasize risk stratification and targeted surveillance:
+- <strong>MAPS II (2019) surveillance principles:</strong>
+  - “For patients with mild to moderate atrophy restricted to the antrum there is no evidence to recommend surveillance.” (Endoscopy, Mar 2019; DOI: https://doi.org/10.1055/a-0859-1883) (pimentelnunes2019managementofepithelial pages 5-6).
+  - Surveillance may be considered at <strong>3 years</strong> for single-location intestinal metaplasia with risk factors (family history, incomplete IM, persistent <em>H. pylori</em>) (pimentelnunes2019managementofepithelial pages 5-6).
+  - For dysplasia without a visible lesion, high-quality reassessment with chromoendoscopy is recommended; if no lesion is found, surveillance at <strong>6 months (HGD)</strong> and <strong>12 months (LGD)</strong> is recommended (pimentelnunes2019managementofepithelial pages 10-11).
+- <strong>MAPS III (2025) population screening stratification:</strong>
+  - High-risk regions (gastric cancer ASR <strong>&gt;20/100,000 person-years</strong>): screening every <strong>2–3 years</strong>; intermediate risk (ASR <strong>10–20</strong>): every <strong>5 years</strong> (Dinis-Ribeiro et al., Endoscopy, 2025; DOI: https://doi.org/10.1055/a-2529-5025) (dinisribeiro2025managementofepithelial pages 16-17).
+  - Screening/surveillance in asymptomatic individuals <strong>&gt;80 years</strong> should be discontinued or not started (dinisribeiro2025managementofepithelial pages 6-7).</p>
+<h3>Real-world implementations and uptake</h3>
+<ul>
+<li><strong>European implementation evidence (practice audit):</strong> After MAPS I/II introduction, virtual chromoendoscopy adoption rose (4 of 9 centers using it in <strong>&gt;50%</strong> of endoscopies), and systematic biopsies (antrum/corpus ± incisura) increased (4 centers performing antrum+corpus+incisura biopsies in <strong>&gt;90%</strong> of cases) (Fontes et al., Endoscopy, Sep 2025; DOI: https://doi.org/10.1055/a-2695-1376) (fontes2025adherencetoclinical pages 1-2).</li>
+<li><strong>Country-level early detection performance (implementation proxy):</strong> A GLOBOCAN 2022-based report notes early diagnosis rates <strong>&gt;70%</strong> in Japan and South Korea vs ~<strong>20%</strong> in China (lu2025globalepidemiologyof pages 1-4).</li>
+</ul>
+<hr />
+<h2>14. Other species / natural disease</h2>
+<p>Not addressed in the retrieved evidence excerpts.</p>
+<hr />
+<h2>15. Model organisms</h2>
+<p>Not fully developed in the retrieved evidence excerpts in this run. (The paper search retrieved an animal-model review, but supporting evidence passages were not extracted with tool citations in this run.)</p>
+<hr />
+<h2>Key quantitative findings and guideline recommendations (summary table)</h2>
+<table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Key finding (with numbers)</th>
+<th>Population/context</th>
+<th>Source (first author, journal, year)</th>
+<th>Publication date (month/year)</th>
+<th>URL/DOI</th>
+<th>Tool citation id</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Epidemiology</td>
+<td>2021 global burden: <strong>1.23 million new cases</strong>, <strong>0.95 million deaths</strong>, <strong>22.79 million DALYs</strong></td>
+<td>Global gastric cancer burden, GBD 2021</td>
+<td>Zhang, <em>Frontiers in Oncology</em>, 2024</td>
+<td>12/2024</td>
+<td>https://doi.org/10.3389/fonc.2024.1468488</td>
+<td>(zhang2024globalregionaland pages 1-2)</td>
+</tr>
+<tr>
+<td>Epidemiology</td>
+<td>Male burden exceeded female burden: <strong>ASIR 20.9 vs 8.6/100,000</strong>, <strong>ASMR 16.0 vs 7.1/100,000</strong>, age-standardized DALY rate <strong>371.2 vs 165.6/100,000</strong></td>
+<td>Global, sex-stratified GBD 2021 estimates</td>
+<td>Zhang, <em>Frontiers in Oncology</em>, 2024</td>
+<td>12/2024</td>
+<td>https://doi.org/10.3389/fonc.2024.1468488</td>
+<td>(zhang2024globalregionaland pages 1-2)</td>
+</tr>
+<tr>
+<td>Epidemiology</td>
+<td>2022 global estimates: <strong>968,194 new cases</strong> and <strong>659,944 deaths</strong>; male ASIR <strong>12.8/100,000</strong> vs female <strong>6.0/100,000</strong></td>
+<td>Global gastric cancer burden, GLOBOCAN 2022-based analysis</td>
+<td>Lu, preprint/unknown journal, 2025</td>
+<td>12/2025</td>
+<td>https://doi.org/10.21203/rs.3.rs-8058648/v1</td>
+<td>(lu2025globalepidemiologyof pages 1-4)</td>
+</tr>
+<tr>
+<td>Epidemiology</td>
+<td>East Asia accounted for <strong>53.8% of cases</strong> and <strong>48.2% of deaths</strong> globally</td>
+<td>Geographic distribution, GLOBOCAN 2022-based analysis</td>
+<td>Tan, <em>Cancer Biology &amp; Medicine</em>, 2024</td>
+<td>08/2024</td>
+<td>https://doi.org/10.20892/j.issn.2095-3941.2024.0159</td>
+<td>(tan2024globalregionaland pages 1-2)</td>
+</tr>
+<tr>
+<td>Virulence-factor risk</td>
+<td>Among H. pylori-infected gastric disorders, pooled <strong>CagA positivity was 83%</strong> overall; <strong>78%</strong> in gastritis, <strong>86%</strong> in peptic ulcer disease, <strong>83%</strong> in gastric cancer</td>
+<td>24 observational studies from 8 Indo-Pacific countries</td>
+<td>Naing, <em>PLOS ONE</em>, 2024</td>
+<td>08/2024</td>
+<td>https://doi.org/10.1371/journal.pone.0307172</td>
+<td>(naing2024cagatoxinand pages 1-2)</td>
+</tr>
+<tr>
+<td>Virulence-factor risk</td>
+<td><strong>CagA-positive</strong> infection was associated with increased odds of gastric cancer vs gastritis: <strong>OR 2.53 (95% CI 1.15–5.55)</strong></td>
+<td>H. pylori-infected individuals in Indo-Pacific observational studies</td>
+<td>Naing, <em>PLOS ONE</em>, 2024</td>
+<td>08/2024</td>
+<td>https://doi.org/10.1371/journal.pone.0307172</td>
+<td>(naing2024cagatoxinand pages 1-2)</td>
+</tr>
+<tr>
+<td>Eradication benefit</td>
+<td>Eradication reduced gastric cancer incidence: <strong>RR 0.61 (95% CI 0.47–0.79)</strong>; <strong>NNT 332</strong></td>
+<td>11 RCTs, <strong>104,786</strong> participants</td>
+<td>Wu, <em>BMC Gastroenterology</em>, 2025</td>
+<td>04/2025</td>
+<td>https://doi.org/10.1186/s12876-025-03886-z</td>
+<td>(wu2025therelationshipbetween pages 1-2)</td>
+</tr>
+<tr>
+<td>Eradication benefit</td>
+<td>In healthy adults, eradication reduced gastric cancer risk: <strong>RR 0.67 (95% CI 0.48–0.93)</strong>; <strong>NNT 476</strong></td>
+<td>Healthy H. pylori-positive adults in RCT subgroup</td>
+<td>Wu, <em>BMC Gastroenterology</em>, 2025</td>
+<td>04/2025</td>
+<td>https://doi.org/10.1186/s12876-025-03886-z</td>
+<td>(wu2025therelationshipbetween pages 1-2)</td>
+</tr>
+<tr>
+<td>Eradication benefit</td>
+<td>After endoscopic mucosal resection, eradication reduced gastric cancer risk: <strong>RR 0.51 (95% CI 0.36–0.71)</strong>; <strong>NNT 21</strong></td>
+<td>Post-EMR patients in RCT subgroup</td>
+<td>Wu, <em>BMC Gastroenterology</em>, 2025</td>
+<td>04/2025</td>
+<td>https://doi.org/10.1186/s12876-025-03886-z</td>
+<td>(wu2025therelationshipbetween pages 1-2)</td>
+</tr>
+<tr>
+<td>Eradication benefit</td>
+<td>After endoscopic resection, successful eradication lowered metachronous gastric lesion risk vs persistent infection: <strong>RR 0.54 (95% CI 0.44–0.65)</strong></td>
+<td>21 studies, <strong>82,256</strong> observations from Japan/Korea</td>
+<td>Yu, <em>Frontiers in Medicine</em>, 2024</td>
+<td>09/2024</td>
+<td>https://doi.org/10.3389/fmed.2024.1393498</td>
+<td>(wu2025therelationshipbetween pages 1-2)</td>
+</tr>
+<tr>
+<td>Surveillance guideline</td>
+<td><strong>No surveillance</strong> recommended for mild-to-moderate atrophy restricted to the antrum</td>
+<td>MAPS II management of gastric precancerous lesions</td>
+<td>Pimentel-Nunes, <em>Endoscopy</em>, 2019</td>
+<td>03/2019</td>
+<td>https://doi.org/10.1055/a-0859-1883</td>
+<td>(pimentelnunes2019managementofepithelial pages 5-6)</td>
+</tr>
+<tr>
+<td>Surveillance guideline</td>
+<td>For single-location intestinal metaplasia with family history, incomplete IM, or persistent H. pylori, surveillance with chromoendoscopy and guided biopsies may be considered at <strong>3 years</strong></td>
+<td>Higher-risk intestinal metaplasia</td>
+<td>Pimentel-Nunes, <em>Endoscopy</em>, 2019</td>
+<td>03/2019</td>
+<td>https://doi.org/10.1055/a-0859-1883</td>
+<td>(pimentelnunes2019managementofepithelial pages 5-6)</td>
+</tr>
+<tr>
+<td>Surveillance guideline</td>
+<td>Patients with advanced atrophic gastritis / OLGA-OLGIM <strong>III/IV</strong> should undergo high-quality endoscopy every <strong>3 years</strong></td>
+<td>Advanced precancerous lesions</td>
+<td>Pimentel-Nunes, <em>Endoscopy</em>, 2019</td>
+<td>03/2019</td>
+<td>https://doi.org/10.1055/a-0859-1883</td>
+<td>(pimentelnunes2019managementofepithelial pages 13-14, pimentelnunes2019managementofepithelial pages 5-6, pimentelnunes2019managementofepithelial pages 1-2)</td>
+</tr>
+<tr>
+<td>Surveillance guideline</td>
+<td>If dysplasia is present without a visible lesion: repeat high-quality endoscopy with chromoendoscopy; if still no lesion, surveillance at <strong>6 months for high-grade dysplasia</strong> and <strong>12 months for low-grade dysplasia</strong></td>
+<td>Non-visible gastric dysplasia</td>
+<td>Pimentel-Nunes, <em>Endoscopy</em>, 2019</td>
+<td>03/2019</td>
+<td>https://doi.org/10.1055/a-0859-1883</td>
+<td>(pimentelnunes2019managementofepithelial pages 10-11)</td>
+</tr>
+<tr>
+<td>Screening implementation</td>
+<td>Population endoscopic screening suggested every <strong>2–3 years</strong> in high-risk regions with gastric cancer <strong>ASR &gt;20/100,000 person-years</strong>, and every <strong>5 years</strong> in intermediate-risk regions with <strong>ASR 10–20/100,000</strong></td>
+<td>MAPS III population-level screening framework</td>
+<td>Dinis-Ribeiro, <em>Endoscopy</em>, 2025</td>
+<td>03/2025</td>
+<td>https://doi.org/10.1055/a-2529-5025</td>
+<td>(dinisribeiro2025managementofepithelial pages 16-17)</td>
+</tr>
+<tr>
+<td>Screening implementation</td>
+<td>For first-degree relatives of gastric cancer patients: noninvasive H. pylori screening/eradication at ages <strong>20–30</strong>; endoscopic screening at age <strong>45</strong> or <strong>10 years before</strong> the relative’s diagnosis</td>
+<td>Familial-risk strategy</td>
+<td>Dinis-Ribeiro, <em>Endoscopy</em>, 2025</td>
+<td>03/2025</td>
+<td>https://doi.org/10.1055/a-2529-5025</td>
+<td>(dinisribeiro2025managementofepithelial pages 6-7)</td>
+</tr>
+<tr>
+<td>Screening implementation</td>
+<td>Screening/surveillance in asymptomatic individuals <strong>&gt;80 years</strong> should be discontinued or not started</td>
+<td>MAPS III age threshold</td>
+<td>Dinis-Ribeiro, <em>Endoscopy</em>, 2025</td>
+<td>03/2025</td>
+<td>https://doi.org/10.1055/a-2529-5025</td>
+<td>(dinisribeiro2025managementofepithelial pages 6-7)</td>
+</tr>
+<tr>
+<td>Screening implementation</td>
+<td>Real-world adherence data: virtual chromoendoscopy use improved in <strong>6 centers</strong>, with <strong>4 centers &gt;50%</strong> use; <strong>4 centers</strong> performed antrum+corpus+incisura biopsies in <strong>&gt;90%</strong> of cases</td>
+<td>European multicenter practice audit across 2010/11, 2017/18, 2022/23</td>
+<td>Fontes, <em>Endoscopy</em>, 2025</td>
+<td>09/2025</td>
+<td>https://doi.org/10.1055/a-2695-1376</td>
+<td>(fontes2025adherencetoclinical pages 1-2)</td>
+</tr>
+<tr>
+<td>Screening implementation</td>
+<td>Early diagnosis rates reported as <strong>&gt;70%</strong> in Japan and South Korea vs about <strong>20%</strong> in China</td>
+<td>Country-level implementation differences in gastric cancer detection</td>
+<td>Lu, preprint/unknown journal, 2025</td>
+<td>12/2025</td>
+<td>https://doi.org/10.21203/rs.3.rs-8058648/v1</td>
+<td>(lu2025globalepidemiologyof pages 1-4)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table compiles the main numeric findings and actionable guideline points for H. pylori–associated gastric cancer from the retrieved evidence. It is useful for quickly comparing burden estimates, virulence-associated risk, benefits of eradication, and current surveillance/screening recommendations.</em></p>
+<hr />
+<h2>Visual evidence: MAPS II surveillance algorithm</h2>
+<p>A figure from MAPS II showing an OLGA/OLGIM-based surveillance algorithm (including interval tiers) was retrieved (pimentelnunes2019managementofepithelial media 670f31ad).</p>
+<hr />
+<h2>Expert synthesis (authoritative interpretation)</h2>
+<ol>
+<li><strong>Causality plus actionability:</strong> Across guidelines and meta-analyses, the most actionable point is that <em>H. pylori</em>–driven gastric carcinogenesis is a long-latency process with identifiable intermediate states (atrophy, intestinal metaplasia, dysplasia) that can be risk-staged and surveilled (pimentelnunes2019managementofepithelial pages 5-6, dinisribeiro2025managementofepithelial pages 6-7, sun2024overallandcausespecific pages 1-2).</li>
+<li><strong>Eradication has measurable preventive effect sizes:</strong> RCT-only evidence synthesis supports a meaningful relative reduction in gastric cancer incidence with eradication (RR ~0.61 overall; strong effect after endoscopic resection with low NNT) (wu2025therelationshipbetween pages 1-2).</li>
+<li><strong>Implementation gap is narrowing but persists:</strong> Real-world European audits show improved use of guideline-recommended approaches (VCE, biopsy protocols), implying feasible implementation pathways but also remaining gaps in standardized risk scoring and surveillance adherence (fontes2025adherencetoclinical pages 1-2).</li>
+</ol>
+<hr />
+<h2>Limitations of this evidence package</h2>
+<ul>
+<li><strong>PMIDs:</strong> The tool-extracted snippets largely provided DOIs and journal metadata but did not include PubMed IDs. Consequently, PMID-preferred citations could not be supplied from the available evidence.</li>
+<li><strong>Ontology IDs (MONDO/MeSH/ICD):</strong> Specific identifiers for the exact disease concept “<em>H. pylori</em>–associated gastric cancer” were not retrievable in the current evidence excerpts.</li>
+<li><strong>Systemic therapy for established gastric cancer:</strong> Not covered by extracted evidence; therefore omitted to avoid uncited claims.</li>
+</ul>
+<p>References</p>
+<ol>
+<li>
+<p>(shirani2024theimmunopathogenesisof pages 1-2): Maryam Shirani, Saeedeh Shariati, Monireh Bazdar, Faezeh Sojoudi Ghamnak, Melika Moradi, Reyhane Shams Khozani, Elahe Taki, Zahra Arabsorkhi, Mohsen Heidary, and Dorsa Bahrami Eskandari. The immunopathogenesis of helicobacter pylori-induced gastric cancer: a narrative review. Frontiers in Microbiology, Jul 2024. URL: https://doi.org/10.3389/fmicb.2024.1395403, doi:10.3389/fmicb.2024.1395403. This article has 22 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(burz2024helicobacterpyloriinfection pages 1-2): Claudia Burz, Vlad Pop, Ciprian Silaghi, Iulia Lupan, and Gabriel Samasca. Helicobacter pylori infection in patients with gastric cancer: a 2024 update. Cancers, 16:1958, May 2024. URL: https://doi.org/10.3390/cancers16111958, doi:10.3390/cancers16111958. This article has 7 citations.</p>
+</li>
+<li>
+<p>(rugge2020gastritisanupdate pages 1-4): Massimo Rugge, Kentaro Sugano, Diana Sacchi, Marta Sbaraglia, and Peter Malfertheiner. Gastritis: an update in 2020. Current Treatment Options in Gastroenterology, 18:488-503, Aug 2020. URL: https://doi.org/10.1007/s11938-020-00298-8, doi:10.1007/s11938-020-00298-8. This article has 12 citations.</p>
+</li>
+<li>
+<p>(sun2024overallandcausespecific pages 1-2): Yawen Sun, Li Yin, Dariush Nasrollahzadeh Nesheli, Jingru Yu, Joar Franzén, and Weimin Ye. Overall and cause-specific mortality among patients diagnosed with gastric precancerous lesions in sweden between 1979 and 2014: an observational cohort study. BMC Medicine, Aug 2024. URL: https://doi.org/10.1186/s12916-024-03554-1, doi:10.1186/s12916-024-03554-1. This article has 8 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(areiaUnknownyeargastricprecancerousconditions pages 1-3): M Areia and M Dinis-Ribeiro. Gastric precancerous conditions or lesions and helicobacter pylori. Unknown journal, Unknown year.</p>
+</li>
+<li>
+<p>(pimentelnunes2019managementofepithelial pages 5-6): Pedro Pimentel-Nunes, Diogo Libânio, Ricardo Marcos-Pinto, Miguel Areia, Marcis Leja, Gianluca Esposito, Monica Garrido, Ilze Kikuste, Francis Megraud, Tamara Matysiak-Budnik, Bruno Annibale, Jean-Marc Dumonceau, Rita Barros, Jean-François Fléjou, Fátima Carneiro, Jeanin van Hooft, Ernst Kuipers, and Mario Dinis-Ribeiro. Management of epithelial precancerous conditions and lesions in the stomach (maps ii): european society of gastrointestinal endoscopy (esge), european helicobacter and microbiota study group (ehmsg), european society of pathology (esp), and sociedade portuguesa de endoscopia digestiva (sped) guideli. Endoscopy, 51 4:365-388, Mar 2019. URL: https://doi.org/10.1055/a-0859-1883, doi:10.1055/a-0859-1883. This article has 1252 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(pimentelnunes2019managementofepithelial pages 13-14): Pedro Pimentel-Nunes, Diogo Libânio, Ricardo Marcos-Pinto, Miguel Areia, Marcis Leja, Gianluca Esposito, Monica Garrido, Ilze Kikuste, Francis Megraud, Tamara Matysiak-Budnik, Bruno Annibale, Jean-Marc Dumonceau, Rita Barros, Jean-François Fléjou, Fátima Carneiro, Jeanin van Hooft, Ernst Kuipers, and Mario Dinis-Ribeiro. Management of epithelial precancerous conditions and lesions in the stomach (maps ii): european society of gastrointestinal endoscopy (esge), european helicobacter and microbiota study group (ehmsg), european society of pathology (esp), and sociedade portuguesa de endoscopia digestiva (sped) guideli. Endoscopy, 51 4:365-388, Mar 2019. URL: https://doi.org/10.1055/a-0859-1883, doi:10.1055/a-0859-1883. This article has 1252 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(naing2024cagatoxinand pages 1-2): Cho Naing, Htar Htar Aung, Saint Nway Aye, Yong Poovorawan, and Maxine A. Whittaker. Caga toxin and risk of helicobacter pylori-infected gastric phenotype: a meta-analysis of observational studies. PLOS ONE, 19:e0307172, Aug 2024. URL: https://doi.org/10.1371/journal.pone.0307172, doi:10.1371/journal.pone.0307172. This article has 13 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(wu2025therelationshipbetween pages 1-2): Zhouhan Wu, Yi Tang, Meiwen Tang, Zhoutong Wu, and Yonghui Xu. The relationship between the eradication of helicobacter pylori and the occurrence of stomach cancer: an updated meta-analysis and systemic review. BMC Gastroenterology, Apr 2025. URL: https://doi.org/10.1186/s12876-025-03886-z, doi:10.1186/s12876-025-03886-z. This article has 18 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(pimentelnunes2019managementofepithelial pages 10-11): Pedro Pimentel-Nunes, Diogo Libânio, Ricardo Marcos-Pinto, Miguel Areia, Marcis Leja, Gianluca Esposito, Monica Garrido, Ilze Kikuste, Francis Megraud, Tamara Matysiak-Budnik, Bruno Annibale, Jean-Marc Dumonceau, Rita Barros, Jean-François Fléjou, Fátima Carneiro, Jeanin van Hooft, Ernst Kuipers, and Mario Dinis-Ribeiro. Management of epithelial precancerous conditions and lesions in the stomach (maps ii): european society of gastrointestinal endoscopy (esge), european helicobacter and microbiota study group (ehmsg), european society of pathology (esp), and sociedade portuguesa de endoscopia digestiva (sped) guideli. Endoscopy, 51 4:365-388, Mar 2019. URL: https://doi.org/10.1055/a-0859-1883, doi:10.1055/a-0859-1883. This article has 1252 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(dinisribeiro2025managementofepithelial pages 6-7): M. Dinis-Ribeiro, D. Libânio, Hugo I. Uchima, M. Spaander, Jan Bornschein, Tamara Matysiak-Budnik, G. Tziatzios, J. Santos-Antunes, M. Areia, N. Chapelle, Gianluca Esposito, Glòria Fernández-Esparrach, L. Kunovský, M. Garrido, I. Tachecí, Alexander Link, Pedro Marcos, R. Marcos-Pinto, L. Moreira, Ana Carina Pereira, Pedro Pimentel-Nunes, Marcin Romańczyk, Filipa Fontes, C. Hassan, R. Bisschops, R. Feakins, Christian Schulz, K. Triantafyllou, Fatima Carneiro, and Ernst J Kuipers. Management of epithelial precancerous conditions and early neoplasia of the stomach (maps iii): european society of gastrointestinal endoscopy (esge), european helicobacter and microbiota study group (ehmsg) and european society of pathology (esp) guideline update 2025. Endoscopy, Mar 2025. URL: https://doi.org/10.1055/a-2529-5025, doi:10.1055/a-2529-5025. This article has 130 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(zhang2024globalregionaland pages 1-2): Tao Zhang, Yiqun Zhang, and Xiaofei Leng. Global, regional, and national trends in gastric cancer burden: 1990-2021 and projections to 2040. Frontiers in Oncology, Dec 2024. URL: https://doi.org/10.3389/fonc.2024.1468488, doi:10.3389/fonc.2024.1468488. This article has 10 citations.</p>
+</li>
+<li>
+<p>(tan2024globalregionaland pages 1-2): Nuopei Tan, Hongliang Wu, Maomao Cao, Fan Yang, Xinxin Yan, Siyi He, Mengdi Cao, Shaoli Zhang, Yi Teng, Qianru Li, Jiachen Wang, Changfa Xia, and Wanqing Chen. Global, regional, and national burden of early-onset gastric cancer. Cancer Biology &amp; Medicine, 21:667-678, Aug 2024. URL: https://doi.org/10.20892/j.issn.2095-3941.2024.0159, doi:10.20892/j.issn.2095-3941.2024.0159. This article has 54 citations.</p>
+</li>
+<li>
+<p>(dinisribeiro2025managementofepithelial pages 16-17): M. Dinis-Ribeiro, D. Libânio, Hugo I. Uchima, M. Spaander, Jan Bornschein, Tamara Matysiak-Budnik, G. Tziatzios, J. Santos-Antunes, M. Areia, N. Chapelle, Gianluca Esposito, Glòria Fernández-Esparrach, L. Kunovský, M. Garrido, I. Tachecí, Alexander Link, Pedro Marcos, R. Marcos-Pinto, L. Moreira, Ana Carina Pereira, Pedro Pimentel-Nunes, Marcin Romańczyk, Filipa Fontes, C. Hassan, R. Bisschops, R. Feakins, Christian Schulz, K. Triantafyllou, Fatima Carneiro, and Ernst J Kuipers. Management of epithelial precancerous conditions and early neoplasia of the stomach (maps iii): european society of gastrointestinal endoscopy (esge), european helicobacter and microbiota study group (ehmsg) and european society of pathology (esp) guideline update 2025. Endoscopy, Mar 2025. URL: https://doi.org/10.1055/a-2529-5025, doi:10.1055/a-2529-5025. This article has 130 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(fontes2025adherencetoclinical pages 1-2): Filipa Fontes, Noa E. A. Kapteijn, Cesare Hassan, Charlene Deane, Margarida Cristiano, Henrique Fernandes-Mendes, Irina Luzko, Maša Čavlina Sevo, Orlaith Kelly, Gianluca Esposito, I Lisanne Holster, Michiel P. J. van der Horst, Charlotte F. Kweldam, Andrei Voiosu, Ricardo Marcos Pinto, Nuno Almeida, Colm O'Morain, Leticia Moreira, Jan Bornschein, Manon C.W. Spaander, and Mário Dinis-Ribeiro. Adherence to clinical practice guidelines for management of epithelial precancerous conditions and lesions in the stomach in europe. Endoscopy, 57:1338-1347, Sep 2025. URL: https://doi.org/10.1055/a-2695-1376, doi:10.1055/a-2695-1376. This article has 2 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(lu2025globalepidemiologyof pages 1-4): Bingyun Lu, Dongjing Zhang, Qizhen Liu, Xuanxuan Zuo, and Ye Chen. Global epidemiology of gastric cancer in 2022 and projections for 2050: a comprehensive analysis and forecasts based on globocan data. Unknown journal, Dec 2025. URL: https://doi.org/10.21203/rs.3.rs-8058648/v1, doi:10.21203/rs.3.rs-8058648/v1.</p>
+</li>
+<li>
+<p>(pimentelnunes2019managementofepithelial pages 1-2): Pedro Pimentel-Nunes, Diogo Libânio, Ricardo Marcos-Pinto, Miguel Areia, Marcis Leja, Gianluca Esposito, Monica Garrido, Ilze Kikuste, Francis Megraud, Tamara Matysiak-Budnik, Bruno Annibale, Jean-Marc Dumonceau, Rita Barros, Jean-François Fléjou, Fátima Carneiro, Jeanin van Hooft, Ernst Kuipers, and Mario Dinis-Ribeiro. Management of epithelial precancerous conditions and lesions in the stomach (maps ii): european society of gastrointestinal endoscopy (esge), european helicobacter and microbiota study group (ehmsg), european society of pathology (esp), and sociedade portuguesa de endoscopia digestiva (sped) guideli. Endoscopy, 51 4:365-388, Mar 2019. URL: https://doi.org/10.1055/a-0859-1883, doi:10.1055/a-0859-1883. This article has 1252 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(pimentelnunes2019managementofepithelial media 670f31ad): Pedro Pimentel-Nunes, Diogo Libânio, Ricardo Marcos-Pinto, Miguel Areia, Marcis Leja, Gianluca Esposito, Monica Garrido, Ilze Kikuste, Francis Megraud, Tamara Matysiak-Budnik, Bruno Annibale, Jean-Marc Dumonceau, Rita Barros, Jean-François Fléjou, Fátima Carneiro, Jeanin van Hooft, Ernst Kuipers, and Mario Dinis-Ribeiro. Management of epithelial precancerous conditions and lesions in the stomach (maps ii): european society of gastrointestinal endoscopy (esge), european helicobacter and microbiota study group (ehmsg), european society of pathology (esp), and sociedade portuguesa de endoscopia digestiva (sped) guideli. Endoscopy, 51 4:365-388, Mar 2019. URL: https://doi.org/10.1055/a-0859-1883, doi:10.1055/a-0859-1883. This article has 1252 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </div>
         
 
         <footer class="page-footer">
@@ -4723,7 +7349,7 @@ classifications:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Gastric Cancer H. pylori Associated", "mondoId": "MONDO:0004950", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Gastric_Cancer_H._pylori_Associated", "yamlRevision": "78176269d701"};
+        const OS_CONFIG = {"diseaseName": "Gastric Cancer H. pylori Associated", "mondoId": "MONDO:0004950", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Gastric_Cancer_H._pylori_Associated", "yamlRevision": "a0ad5ad45e6e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

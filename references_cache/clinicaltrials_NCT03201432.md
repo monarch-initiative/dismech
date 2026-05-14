@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT03201432
+reference_id: "clinicaltrials:NCT03201432"
 title: "A Randomized Trial for Treatment of Symptomatic Extracranial Vertebral Artery Stenosis: Drug Eluting Stents Versus Bare Metal Stents"
 content_type: summary
 ---

@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2588,10 +2741,12 @@
             </a>
             
             
+            <a class="stat-link" href="#treatments">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">1</div>
                 <div class="stat-label">Treatments</div>
             </div>
+            </a>
             
             
             <div class="stat-item">
@@ -2625,6 +2780,20 @@
             
             
             
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-value">14</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -3606,6 +3775,120 @@
 
         <!-- Treatments -->
         
+        <div class="card" id="treatments">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
+                <h2 class="card-title">Treatments</h2>
+                <span class="card-count">1</span>
+            </div>
+            
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    PARP Inhibitor Maintenance for BRCA-Mutated or HRD Disease
+                </div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">targeted therapy</span>
+                    
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
+                    
+                    
+                    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C93352</a>
+                    
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                </div>
+                
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        olaparib
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_83766" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-treatment">
+                        niraparib
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_176844" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-treatment">
+                        rucaparib
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_134689" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+                
+                <div class="item-desc">PARP inhibitor maintenance therapy is used in advanced or metastatic ovarian cancer with BRCA mutation or homologous recombination deficiency, exploiting impaired DNA repair to prolong disease control after platinum-responsive therapy.</div>
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers15123095" target="_blank">DOI:10.3390/cancers15123095</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Among ovarian cancer patients with BRCA mutation or homologous recombination deficiency (HRD), the efficacy of Poly-ADP-ribose polymerase (PARP) inhibitors such as olaparib, niraparib, veliparib, and rucaparib has been proven in a number of clinical trials."</div>
+                
+                
+                <div class="evidence-explanation">Review-level synthesis supports PARP inhibitor maintenance as a treatment class for BRCA-mutated or HRD ovarian cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+        </div>
+        
 
         <!-- Environmental Factors -->
         
@@ -3734,13 +4017,18 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Metastatic Ovarian Cancer
 creation_date: &#39;2026-03-28T21:40:00Z&#39;
-updated_date: &#39;2026-04-11T14:29:25Z&#39;
+updated_date: &#39;2026-05-10T08:48:15Z&#39;
 description: &gt;-
-  Metastatic ovarian cancer is usually advanced epithelial ovarian carcinoma, most often
-  high-grade serous ovarian cancer, with dominant transcoelomic spread throughout the
-  peritoneal cavity. Its metastatic biology is characterized by ascitic shedding, multicellular
-  spheroid formation, mesothelial and extracellular matrix interactions, EMT-like plasticity,
-  homologous recombination defects in BRCA-associated cases, and recurrent platinum resistance.
+  Metastatic ovarian cancer is usually advanced epithelial ovarian carcinoma, most
+  often
+  high-grade serous ovarian cancer, with dominant transcoelomic spread throughout
+  the
+  peritoneal cavity. Its metastatic biology is characterized by ascitic shedding,
+  multicellular
+  spheroid formation, mesothelial and extracellular matrix interactions, EMT-like
+  plasticity,
+  homologous recombination defects in BRCA-associated cases, and recurrent platinum
+  resistance.
 categories:
 - Gynecologic Cancer
 - Metastatic Cancer
@@ -3782,8 +4070,10 @@ prevalence:
 pathophysiology:
 - name: Transcoelomic Dissemination and Spheroid Formation
   description: &gt;-
-    Ovarian cancer typically metastasizes by shedding into ascites rather than first through
-    the bloodstream. Tumor cells form multicellular spheroids that survive in suspension and
+    Ovarian cancer typically metastasizes by shedding into ascites rather than first
+    through
+    the bloodstream. Tumor cells form multicellular spheroids that survive in suspension
+    and
     implant across peritoneal surfaces.
   evidence:
   - reference: PMID:27612856
@@ -3799,8 +4089,10 @@ pathophysiology:
       label: cell migration
 - name: Mesothelial Crosstalk and Platinum Resistance
   description: &gt;-
-    Disseminated ovarian cancer cells engage mesothelial and stromal cells within the
-    peritoneum, creating FN1-AKT and related survival programs that protect tumor cells from
+    Disseminated ovarian cancer cells engage mesothelial and stromal cells within
+    the
+    peritoneum, creating FN1-AKT and related survival programs that protect tumor
+    cells from
     platinum-induced apoptosis.
   evidence:
   - reference: PMID:31904865
@@ -3832,8 +4124,10 @@ pathophysiology:
       label: epithelial to mesenchymal transition
 - name: BRCA-Associated Homologous Recombination Deficiency
   description: &gt;-
-    BRCA1/2-deficient metastatic ovarian cancers exhibit homologous recombination deficiency,
-    increased platinum sensitivity, and marked susceptibility to PARP inhibition, although
+    BRCA1/2-deficient metastatic ovarian cancers exhibit homologous recombination
+    deficiency,
+    increased platinum sensitivity, and marked susceptibility to PARP inhibition,
+    although
     acquired resistance eventually emerges in many cases.
   evidence:
   - reference: PMID:38174379
@@ -3850,7 +4144,8 @@ pathophysiology:
 - name: Tumor Angiogenesis
   description: &gt;-
     Ovarian cancer metastases depend on angiogenic support within the peritoneal cavity,
-    and anti-VEGF therapy remains part of maintenance treatment for advanced-stage disease.
+    and anti-VEGF therapy remains part of maintenance treatment for advanced-stage
+    disease.
   evidence:
   - reference: PMID:40690248
     supports: SUPPORT
@@ -3983,14 +4278,1461 @@ environmental:
     snippet: Risk factors include older age, family history of breast or ovarian cancer, endometriosis, and nulliparity.
     explanation: This supports nulliparity as a recognized risk factor for ovarian cancer.
 notes: &gt;-
-  Although ovarian cancer can spread hematogenously late in its course, its defining metastatic
-  biology is transcoelomic. High-grade serous tumors dominate this phenotype and explain the
+  Although ovarian cancer can spread hematogenously late in its course, its defining
+  metastatic
+  biology is transcoelomic. High-grade serous tumors dominate this phenotype and explain
+  the
   choice of MONDO ovarian serous adenocarcinoma as the structured disease term.
+treatments:
+- name: PARP Inhibitor Maintenance for BRCA-Mutated or HRD Disease
+  description: PARP inhibitor maintenance therapy is used in advanced or metastatic ovarian cancer with BRCA mutation or homologous recombination deficiency, exploiting impaired DNA repair to prolong disease control after platinum-responsive therapy.
+  treatment_term:
+    preferred_term: targeted therapy
+    term:
+      id: NCIT:C93352
+      label: Targeted Therapy
+    therapeutic_agent:
+    - preferred_term: olaparib
+      term:
+        id: CHEBI:83766
+        label: olaparib
+    - preferred_term: niraparib
+      term:
+        id: CHEBI:176844
+        label: niraparib
+    - preferred_term: rucaparib
+      term:
+        id: CHEBI:134689
+        label: rucaparib
+  evidence:
+  - reference: DOI:10.3390/cancers15123095
+    reference_title: Prevalence of Homologous Recombination Deficiency in First-Line PARP Inhibitor Maintenance Clinical Trials and Further Implication of Personalized Treatment in Ovarian Cancer
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: Among ovarian cancer patients with BRCA mutation or homologous recombination deficiency (HRD), the efficacy of Poly-ADP-ribose polymerase (PARP) inhibitors such as olaparib, niraparib, veliparib, and rucaparib has been proven in a number of clinical trials.
+    explanation: Review-level synthesis supports PARP inhibitor maintenance as a treatment class for BRCA-mutated or HRD ovarian cancer.
+references:
+- reference: DOI:10.1007/s00330-024-11300-7
+  title: &#39;Ovarian cancer staging and follow-up: updated guidelines from the European Society of Urogenital Radiology female pelvic imaging working group&#39;
+  found_in:
+  - Metastatic_Ovarian_Cancer-deep-research-falcon.md
+  findings:
+  - statement: To provide up-to-date European Society of Urogenital Radiology (ESUR) guidelines for staging and follow-up of patients with ovarian cancer (OC).
+    supporting_text: To provide up-to-date European Society of Urogenital Radiology (ESUR) guidelines for staging and follow-up of patients with ovarian cancer (OC).
+    evidence:
+    - reference: DOI:10.1007/s00330-024-11300-7
+      reference_title: &#39;Ovarian cancer staging and follow-up: updated guidelines from the European Society of Urogenital Radiology female pelvic imaging working group&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: To provide up-to-date European Society of Urogenital Radiology (ESUR) guidelines for staging and follow-up of patients with ovarian cancer (OC).
+      explanation: Deep research cited this publication as relevant literature for Metastatic Ovarian Cancer.
+- reference: DOI:10.1007/s12094-024-03531-3
+  title: SEOM–GEICO clinical guideline on epithelial ovarian cancer (2023)
+  found_in:
+  - Metastatic_Ovarian_Cancer-deep-research-falcon.md
+  findings:
+  - statement: In recent years, the incorporation of new strategies to the therapeutic armamentarium has completely changed the outcomes of epithelial ovarian cancer (EOC).
+    supporting_text: In recent years, the incorporation of new strategies to the therapeutic armamentarium has completely changed the outcomes of epithelial ovarian cancer (EOC).
+    evidence:
+    - reference: DOI:10.1007/s12094-024-03531-3
+      reference_title: SEOM–GEICO clinical guideline on epithelial ovarian cancer (2023)
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: In recent years, the incorporation of new strategies to the therapeutic armamentarium has completely changed the outcomes of epithelial ovarian cancer (EOC).
+      explanation: Deep research cited this publication as relevant literature for Metastatic Ovarian Cancer.
+- reference: DOI:10.1056/nejmoa2309169
+  title: Mirvetuximab Soravtansine in FRα-Positive, Platinum-Resistant Ovarian Cancer
+  found_in:
+  - Metastatic_Ovarian_Cancer-deep-research-falcon.md
+  findings:
+  - statement: Mirvetuximab Soravtansine in FRα-Positive, Platinum-Resistant Ovarian Cancer
+    supporting_text: Mirvetuximab Soravtansine in FRα-Positive, Platinum-Resistant Ovarian Cancer
+- reference: DOI:10.1136/ijgc-2024-005401
+  title: &#39;Mirvetuximab soravtansine in folate receptor alpha (FRα)–high platinum-resistant ovarian cancer: final overall survival and post hoc sequence of therapy subgroup results from the SORAYA trial&#39;
+  found_in:
+  - Metastatic_Ovarian_Cancer-deep-research-falcon.md
+  findings:
+  - statement: &#39;Mirvetuximab soravtansine in folate receptor alpha (FRα)–high platinum-resistant ovarian cancer: final overall survival and post hoc sequence of therapy subgroup results from the SORAYA trial&#39;
+    supporting_text: The single-arm, phase II SORAYA trial ( NCT04296890 ) of mirvetuximab soravtansine-gynx in folate receptor alpha (FRα)–high platinum-resistant ovarian cancer (n=105 (efficacy-evaluable)) met its primary endpoint with an objective response rate of 32.4% (95% CI, 23.6 to 42.2).
+    evidence:
+    - reference: DOI:10.1136/ijgc-2024-005401
+      reference_title: &#39;Mirvetuximab soravtansine in folate receptor alpha (FRα)–high platinum-resistant ovarian cancer: final overall survival and post hoc sequence of therapy subgroup results from the SORAYA trial&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The single-arm, phase II SORAYA trial ( NCT04296890 ) of mirvetuximab soravtansine-gynx in folate receptor alpha (FRα)–high platinum-resistant ovarian cancer (n=105 (efficacy-evaluable)) met its primary endpoint with an objective response rate of 32.4% (95% CI, 23.6 to 42.2).
+      explanation: Deep research cited this publication as relevant literature for Metastatic Ovarian Cancer.
+- reference: DOI:10.1186/s12905-024-03199-5
+  title: &#39;Effect of different treatment modalities on the prognosis of stage IV epithelial ovarian cancer: analysis of the SEER database&#39;
+  found_in:
+  - Metastatic_Ovarian_Cancer-deep-research-falcon.md
+  findings:
+  - statement: The prognosis of advanced ovarian cancer is often poor.
+    supporting_text: The prognosis of advanced ovarian cancer is often poor.
+    evidence:
+    - reference: DOI:10.1186/s12905-024-03199-5
+      reference_title: &#39;Effect of different treatment modalities on the prognosis of stage IV epithelial ovarian cancer: analysis of the SEER database&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The prognosis of advanced ovarian cancer is often poor.
+      explanation: Deep research cited this publication as relevant literature for Metastatic Ovarian Cancer.
+- reference: DOI:10.1200/jco-24-02589
+  title: &#39;Neoadjuvant Chemotherapy for Newly Diagnosed, Advanced Ovarian Cancer: ASCO Guideline Update&#39;
+  found_in:
+  - Metastatic_Ovarian_Cancer-deep-research-falcon.md
+  findings:
+  - statement: ASCO Guidelines provide recommendations with comprehensive review and analyses of the relevant literature for each recommendation, following the guideline development process as outlined in the ASCO Guidelines Methodology Manual .
+    supporting_text: ASCO Guidelines provide recommendations with comprehensive review and analyses of the relevant literature for each recommendation, following the guideline development process as outlined in the ASCO Guidelines Methodology Manual .
+- reference: DOI:10.1200/jco.22.01900
+  title: &#39;Efficacy and Safety of Mirvetuximab Soravtansine in Patients With Platinum-Resistant Ovarian Cancer With High Folate Receptor Alpha Expression: Results From the SORAYA Study&#39;
+  found_in:
+  - Metastatic_Ovarian_Cancer-deep-research-falcon.md
+  findings:
+  - statement: Single-agent chemotherapies have limited activity and considerable toxicity in patients with platinum-resistant epithelial ovarian cancer (PROC).
+    supporting_text: Single-agent chemotherapies have limited activity and considerable toxicity in patients with platinum-resistant epithelial ovarian cancer (PROC).
+    evidence:
+    - reference: DOI:10.1200/jco.22.01900
+      reference_title: &#39;Efficacy and Safety of Mirvetuximab Soravtansine in Patients With Platinum-Resistant Ovarian Cancer With High Folate Receptor Alpha Expression: Results From the SORAYA Study&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Single-agent chemotherapies have limited activity and considerable toxicity in patients with platinum-resistant epithelial ovarian cancer (PROC).
+      explanation: Deep research cited this publication as relevant literature for Metastatic Ovarian Cancer.
+- reference: DOI:10.1891/cjnpwh-2506
+  title: Ovarian Cancer Risk Assessment, Risk Reduction, and Early Detection
+  found_in:
+  - Metastatic_Ovarian_Cancer-deep-research-falcon.md
+  findings:
+  - statement: Nurse practitioners (NPs) who provide women’s healthcare have an essential role in cancer risk assessment, risk reduction for prevention, and early detection.
+    supporting_text: Nurse practitioners (NPs) who provide women’s healthcare have an essential role in cancer risk assessment, risk reduction for prevention, and early detection.
+    evidence:
+    - reference: DOI:10.1891/cjnpwh-2506
+      reference_title: Ovarian Cancer Risk Assessment, Risk Reduction, and Early Detection
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Nurse practitioners (NPs) who provide women’s healthcare have an essential role in cancer risk assessment, risk reduction for prevention, and early detection.
+      explanation: Deep research cited this publication as relevant literature for Metastatic Ovarian Cancer.
+- reference: DOI:10.20892/j.issn.2095-3941.2025.0619
+  title: &#39;Global epidemiology of ovarian cancer: patterns, trends, and risk factors&#39;
+  found_in:
+  - Metastatic_Ovarian_Cancer-deep-research-falcon.md
+  findings:
+  - statement: Ovarian cancer was the eighth most frequently diagnosed cancer among women in 2022.
+    supporting_text: Ovarian cancer was the eighth most frequently diagnosed cancer among women in 2022.
+    evidence:
+    - reference: DOI:10.20892/j.issn.2095-3941.2025.0619
+      reference_title: &#39;Global epidemiology of ovarian cancer: patterns, trends, and risk factors&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Ovarian cancer was the eighth most frequently diagnosed cancer among women in 2022.
+      explanation: Deep research cited this publication as relevant literature for Metastatic Ovarian Cancer.
+- reference: DOI:10.3389/fonc.2024.1421828
+  title: &#39;Does a high peritoneal cancer index lead to a worse prognosis of patients with advanced ovarian cancer?: a systematic review and meta-analysis based on the latest evidence&#39;
+  found_in:
+  - Metastatic_Ovarian_Cancer-deep-research-falcon.md
+  findings:
+  - statement: &#39;Does a high peritoneal cancer index lead to a worse prognosis of patients with advanced ovarian cancer?: a systematic review and meta-analysis based on the latest evidence&#39;
+    supporting_text: The newest clinical evidence that the relationship between the peritoneal cancer index (PCI) and the postoperative prognosis of advanced ovarian cancer patients remains controversial, and there are no large-sample and multicenter studies to clarify this matter.
+    evidence:
+    - reference: DOI:10.3389/fonc.2024.1421828
+      reference_title: &#39;Does a high peritoneal cancer index lead to a worse prognosis of patients with advanced ovarian cancer?: a systematic review and meta-analysis based on the latest evidence&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: The newest clinical evidence that the relationship between the peritoneal cancer index (PCI) and the postoperative prognosis of advanced ovarian cancer patients remains controversial, and there are no large-sample and multicenter studies to clarify this matter.
+      explanation: Deep research cited this publication as relevant literature for Metastatic Ovarian Cancer.
+- reference: DOI:10.3390/cancers15020407
+  title: Diagnostic and Therapeutic Pathway of Advanced Ovarian Cancer with Peritoneal Metastases
+  found_in:
+  - Metastatic_Ovarian_Cancer-deep-research-falcon.md
+  findings:
+  - statement: Over two thirds of ovarian cancer patients present with advanced stage disease at the time of diagnosis.
+    supporting_text: Over two thirds of ovarian cancer patients present with advanced stage disease at the time of diagnosis.
+    evidence:
+    - reference: DOI:10.3390/cancers15020407
+      reference_title: Diagnostic and Therapeutic Pathway of Advanced Ovarian Cancer with Peritoneal Metastases
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Over two thirds of ovarian cancer patients present with advanced stage disease at the time of diagnosis.
+      explanation: Deep research cited this publication as relevant literature for Metastatic Ovarian Cancer.
+- reference: DOI:10.3390/cancers15030706
+  title: A Suggested Modification to FIGO Stage IV Epithelial Ovarian Cancer
+  found_in:
+  - Metastatic_Ovarian_Cancer-deep-research-falcon.md
+  findings:
+  - statement: International Federation of Gynecology and Obstetrics (FIGO) staging classification for stage IV epithelial ovarian cancer (EOC) separates stages IVA (pleural effusion) and IVB (parenchymal and/or extra-abdominal lymph node metastases).
+    supporting_text: International Federation of Gynecology and Obstetrics (FIGO) staging classification for stage IV epithelial ovarian cancer (EOC) separates stages IVA (pleural effusion) and IVB (parenchymal and/or extra-abdominal lymph node metastases).
+    evidence:
+    - reference: DOI:10.3390/cancers15030706
+      reference_title: A Suggested Modification to FIGO Stage IV Epithelial Ovarian Cancer
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: International Federation of Gynecology and Obstetrics (FIGO) staging classification for stage IV epithelial ovarian cancer (EOC) separates stages IVA (pleural effusion) and IVB (parenchymal and/or extra-abdominal lymph node metastases).
+      explanation: Deep research cited this publication as relevant literature for Metastatic Ovarian Cancer.
+- reference: DOI:10.3390/cancers15123095
+  title: Prevalence of Homologous Recombination Deficiency in First-Line PARP Inhibitor Maintenance Clinical Trials and Further Implication of Personalized Treatment in Ovarian Cancer
+  found_in:
+  - Metastatic_Ovarian_Cancer-deep-research-falcon.md
+  findings:
+  - statement: Prevalence of Homologous Recombination Deficiency in First-Line PARP Inhibitor Maintenance Clinical Trials and Further Implication of Personalized Treatment in Ovarian Cancer
+    supporting_text: Among ovarian cancer patients with BRCA mutation or homologous recombination deficiency (HRD), the efficacy of Poly-ADP-ribose polymerase (PARP) inhibitors such as olaparib, niraparib, veliparib, and rucaparib has been proven in a number of clinical trials.
+    evidence:
+    - reference: DOI:10.3390/cancers15123095
+      reference_title: Prevalence of Homologous Recombination Deficiency in First-Line PARP Inhibitor Maintenance Clinical Trials and Further Implication of Personalized Treatment in Ovarian Cancer
+      supports: SUPPORT
+      evidence_source: COMPUTATIONAL
+      snippet: Among ovarian cancer patients with BRCA mutation or homologous recombination deficiency (HRD), the efficacy of Poly-ADP-ribose polymerase (PARP) inhibitors such as olaparib, niraparib, veliparib, and rucaparib has been proven in a number of clinical trials.
+      explanation: Deep research cited this publication as relevant literature for Metastatic Ovarian Cancer.
+- reference: DOI:10.3390/cancers16081467
+  title: &#39;Imaging of Peritoneal Metastases in Ovarian Cancer Using MDCT, MRI, and FDG PET/CT: A Systematic Review and Meta-Analysis&#39;
+  found_in:
+  - Metastatic_Ovarian_Cancer-deep-research-falcon.md
+  findings:
+  - statement: This review aims to compare the diagnostic performance of multidetector CT (MDCT), MRI, including diffusion-weighted imaging, and FDG PET/CT in the detection of peritoneal metastases (PMs) in ovarian cancer (OC).
+    supporting_text: This review aims to compare the diagnostic performance of multidetector CT (MDCT), MRI, including diffusion-weighted imaging, and FDG PET/CT in the detection of peritoneal metastases (PMs) in ovarian cancer (OC).
+    evidence:
+    - reference: DOI:10.3390/cancers16081467
+      reference_title: &#39;Imaging of Peritoneal Metastases in Ovarian Cancer Using MDCT, MRI, and FDG PET/CT: A Systematic Review and Meta-Analysis&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: This review aims to compare the diagnostic performance of multidetector CT (MDCT), MRI, including diffusion-weighted imaging, and FDG PET/CT in the detection of peritoneal metastases (PMs) in ovarian cancer (OC).
+      explanation: Deep research cited this publication as relevant literature for Metastatic Ovarian Cancer.
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
+        
+        <div class="card reference-card" id="references-deep-research">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+            
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">14</span>
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s00330-024-11300-7" target="_blank">DOI:10.1007/s00330-024-11300-7</a>
+                            </div>
+                            
+                            <div class="reference-title">Ovarian cancer staging and follow-up: updated guidelines from the European Society of Urogenital Radiology female pelvic imaging working group</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">To provide up-to-date European Society of Urogenital Radiology (ESUR) guidelines for staging and follow-up of patients with ovarian cancer (OC).</div>
+            
+            
+            <div class="reference-finding-supporting">"To provide up-to-date European Society of Urogenital Radiology (ESUR) guidelines for staging and follow-up of patients with ovarian cancer (OC)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s00330-024-11300-7" target="_blank">DOI:10.1007/s00330-024-11300-7</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"To provide up-to-date European Society of Urogenital Radiology (ESUR) guidelines for staging and follow-up of patients with ovarian cancer (OC)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Ovarian Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s12094-024-03531-3" target="_blank">DOI:10.1007/s12094-024-03531-3</a>
+                            </div>
+                            
+                            <div class="reference-title">SEOM–GEICO clinical guideline on epithelial ovarian cancer (2023)</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">In recent years, the incorporation of new strategies to the therapeutic armamentarium has completely changed the outcomes of epithelial ovarian cancer (EOC).</div>
+            
+            
+            <div class="reference-finding-supporting">"In recent years, the incorporation of new strategies to the therapeutic armamentarium has completely changed the outcomes of epithelial ovarian cancer (EOC)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s12094-024-03531-3" target="_blank">DOI:10.1007/s12094-024-03531-3</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"In recent years, the incorporation of new strategies to the therapeutic armamentarium has completely changed the outcomes of epithelial ovarian cancer (EOC)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Ovarian Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1056/nejmoa2309169" target="_blank">DOI:10.1056/nejmoa2309169</a>
+                            </div>
+                            
+                            <div class="reference-title">Mirvetuximab Soravtansine in FRα-Positive, Platinum-Resistant Ovarian Cancer</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Mirvetuximab Soravtansine in FRα-Positive, Platinum-Resistant Ovarian Cancer</div>
+            
+            
+            <div class="reference-finding-supporting">"Mirvetuximab Soravtansine in FRα-Positive, Platinum-Resistant Ovarian Cancer"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1136/ijgc-2024-005401" target="_blank">DOI:10.1136/ijgc-2024-005401</a>
+                            </div>
+                            
+                            <div class="reference-title">Mirvetuximab soravtansine in folate receptor alpha (FRα)–high platinum-resistant ovarian cancer: final overall survival and post hoc sequence of therapy subgroup results from the SORAYA trial</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Mirvetuximab soravtansine in folate receptor alpha (FRα)–high platinum-resistant ovarian cancer: final overall survival and post hoc sequence of therapy subgroup results from the SORAYA trial</div>
+            
+            
+            <div class="reference-finding-supporting">"The single-arm, phase II SORAYA trial ( NCT04296890 ) of mirvetuximab soravtansine-gynx in folate receptor alpha (FRα)–high platinum-resistant ovarian cancer (n=105 (efficacy-evaluable)) met its primary endpoint with an objective response rate of 32.4% (95% CI, 23.6 to 42.2)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1136/ijgc-2024-005401" target="_blank">DOI:10.1136/ijgc-2024-005401</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The single-arm, phase II SORAYA trial ( NCT04296890 ) of mirvetuximab soravtansine-gynx in folate receptor alpha (FRα)–high platinum-resistant ovarian cancer (n=105 (efficacy-evaluable)) met its primary endpoint with an objective response rate of 32.4% (95% CI, 23.6 to 42.2)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Ovarian Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1186/s12905-024-03199-5" target="_blank">DOI:10.1186/s12905-024-03199-5</a>
+                            </div>
+                            
+                            <div class="reference-title">Effect of different treatment modalities on the prognosis of stage IV epithelial ovarian cancer: analysis of the SEER database</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The prognosis of advanced ovarian cancer is often poor.</div>
+            
+            
+            <div class="reference-finding-supporting">"The prognosis of advanced ovarian cancer is often poor."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s12905-024-03199-5" target="_blank">DOI:10.1186/s12905-024-03199-5</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The prognosis of advanced ovarian cancer is often poor."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Ovarian Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1200/jco-24-02589" target="_blank">DOI:10.1200/jco-24-02589</a>
+                            </div>
+                            
+                            <div class="reference-title">Neoadjuvant Chemotherapy for Newly Diagnosed, Advanced Ovarian Cancer: ASCO Guideline Update</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">ASCO Guidelines provide recommendations with comprehensive review and analyses of the relevant literature for each recommendation, following the guideline development process as outlined in the ASCO Guidelines Methodology Manual .</div>
+            
+            
+            <div class="reference-finding-supporting">"ASCO Guidelines provide recommendations with comprehensive review and analyses of the relevant literature for each recommendation, following the guideline development process as outlined in the ASCO Guidelines Methodology Manual ."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1200/jco.22.01900" target="_blank">DOI:10.1200/jco.22.01900</a>
+                            </div>
+                            
+                            <div class="reference-title">Efficacy and Safety of Mirvetuximab Soravtansine in Patients With Platinum-Resistant Ovarian Cancer With High Folate Receptor Alpha Expression: Results From the SORAYA Study</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Single-agent chemotherapies have limited activity and considerable toxicity in patients with platinum-resistant epithelial ovarian cancer (PROC).</div>
+            
+            
+            <div class="reference-finding-supporting">"Single-agent chemotherapies have limited activity and considerable toxicity in patients with platinum-resistant epithelial ovarian cancer (PROC)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1200/jco.22.01900" target="_blank">DOI:10.1200/jco.22.01900</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Single-agent chemotherapies have limited activity and considerable toxicity in patients with platinum-resistant epithelial ovarian cancer (PROC)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Ovarian Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1891/cjnpwh-2506" target="_blank">DOI:10.1891/cjnpwh-2506</a>
+                            </div>
+                            
+                            <div class="reference-title">Ovarian Cancer Risk Assessment, Risk Reduction, and Early Detection</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Nurse practitioners (NPs) who provide women’s healthcare have an essential role in cancer risk assessment, risk reduction for prevention, and early detection.</div>
+            
+            
+            <div class="reference-finding-supporting">"Nurse practitioners (NPs) who provide women’s healthcare have an essential role in cancer risk assessment, risk reduction for prevention, and early detection."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1891/cjnpwh-2506" target="_blank">DOI:10.1891/cjnpwh-2506</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Nurse practitioners (NPs) who provide women’s healthcare have an essential role in cancer risk assessment, risk reduction for prevention, and early detection."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Ovarian Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.20892/j.issn.2095-3941.2025.0619" target="_blank">DOI:10.20892/j.issn.2095-3941.2025.0619</a>
+                            </div>
+                            
+                            <div class="reference-title">Global epidemiology of ovarian cancer: patterns, trends, and risk factors</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Ovarian cancer was the eighth most frequently diagnosed cancer among women in 2022.</div>
+            
+            
+            <div class="reference-finding-supporting">"Ovarian cancer was the eighth most frequently diagnosed cancer among women in 2022."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.20892/j.issn.2095-3941.2025.0619" target="_blank">DOI:10.20892/j.issn.2095-3941.2025.0619</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Ovarian cancer was the eighth most frequently diagnosed cancer among women in 2022."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Ovarian Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3389/fonc.2024.1421828" target="_blank">DOI:10.3389/fonc.2024.1421828</a>
+                            </div>
+                            
+                            <div class="reference-title">Does a high peritoneal cancer index lead to a worse prognosis of patients with advanced ovarian cancer?: a systematic review and meta-analysis based on the latest evidence</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Does a high peritoneal cancer index lead to a worse prognosis of patients with advanced ovarian cancer?: a systematic review and meta-analysis based on the latest evidence</div>
+            
+            
+            <div class="reference-finding-supporting">"The newest clinical evidence that the relationship between the peritoneal cancer index (PCI) and the postoperative prognosis of advanced ovarian cancer patients remains controversial, and there are no large-sample and multicenter studies to clarify this matter."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fonc.2024.1421828" target="_blank">DOI:10.3389/fonc.2024.1421828</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The newest clinical evidence that the relationship between the peritoneal cancer index (PCI) and the postoperative prognosis of advanced ovarian cancer patients remains controversial, and there are no large-sample and multicenter studies to clarify this matter."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Ovarian Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/cancers15020407" target="_blank">DOI:10.3390/cancers15020407</a>
+                            </div>
+                            
+                            <div class="reference-title">Diagnostic and Therapeutic Pathway of Advanced Ovarian Cancer with Peritoneal Metastases</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Over two thirds of ovarian cancer patients present with advanced stage disease at the time of diagnosis.</div>
+            
+            
+            <div class="reference-finding-supporting">"Over two thirds of ovarian cancer patients present with advanced stage disease at the time of diagnosis."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers15020407" target="_blank">DOI:10.3390/cancers15020407</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Over two thirds of ovarian cancer patients present with advanced stage disease at the time of diagnosis."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Ovarian Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/cancers15030706" target="_blank">DOI:10.3390/cancers15030706</a>
+                            </div>
+                            
+                            <div class="reference-title">A Suggested Modification to FIGO Stage IV Epithelial Ovarian Cancer</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">International Federation of Gynecology and Obstetrics (FIGO) staging classification for stage IV epithelial ovarian cancer (EOC) separates stages IVA (pleural effusion) and IVB (parenchymal and/or extra-abdominal lymph node metastases).</div>
+            
+            
+            <div class="reference-finding-supporting">"International Federation of Gynecology and Obstetrics (FIGO) staging classification for stage IV epithelial ovarian cancer (EOC) separates stages IVA (pleural effusion) and IVB (parenchymal and/or extra-abdominal lymph node metastases)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers15030706" target="_blank">DOI:10.3390/cancers15030706</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"International Federation of Gynecology and Obstetrics (FIGO) staging classification for stage IV epithelial ovarian cancer (EOC) separates stages IVA (pleural effusion) and IVB (parenchymal and/or extra-abdominal lymph node metastases)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Ovarian Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/cancers15123095" target="_blank">DOI:10.3390/cancers15123095</a>
+                            </div>
+                            
+                            <div class="reference-title">Prevalence of Homologous Recombination Deficiency in First-Line PARP Inhibitor Maintenance Clinical Trials and Further Implication of Personalized Treatment in Ovarian Cancer</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Prevalence of Homologous Recombination Deficiency in First-Line PARP Inhibitor Maintenance Clinical Trials and Further Implication of Personalized Treatment in Ovarian Cancer</div>
+            
+            
+            <div class="reference-finding-supporting">"Among ovarian cancer patients with BRCA mutation or homologous recombination deficiency (HRD), the efficacy of Poly-ADP-ribose polymerase (PARP) inhibitors such as olaparib, niraparib, veliparib, and rucaparib has been proven in a number of clinical trials."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers15123095" target="_blank">DOI:10.3390/cancers15123095</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Among ovarian cancer patients with BRCA mutation or homologous recombination deficiency (HRD), the efficacy of Poly-ADP-ribose polymerase (PARP) inhibitors such as olaparib, niraparib, veliparib, and rucaparib has been proven in a number of clinical trials."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Ovarian Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/cancers16081467" target="_blank">DOI:10.3390/cancers16081467</a>
+                            </div>
+                            
+                            <div class="reference-title">Imaging of Peritoneal Metastases in Ovarian Cancer Using MDCT, MRI, and FDG PET/CT: A Systematic Review and Meta-Analysis</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">This review aims to compare the diagnostic performance of multidetector CT (MDCT), MRI, including diffusion-weighted imaging, and FDG PET/CT in the detection of peritoneal metastases (PMs) in ovarian cancer (OC).</div>
+            
+            
+            <div class="reference-finding-supporting">"This review aims to compare the diagnostic performance of multidetector CT (MDCT), MRI, including diffusion-weighted imaging, and FDG PET/CT in the detection of peritoneal metastases (PMs) in ovarian cancer (OC)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers16081467" target="_blank">DOI:10.3390/cancers16081467</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"This review aims to compare the diagnostic performance of multidetector CT (MDCT), MRI, including diffusion-weighted imaging, and FDG PET/CT in the detection of peritoneal metastases (PMs) in ovarian cancer (OC)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Ovarian Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">Metastatic Ovarian Cancer (advanced epithelial ovarian cancer; FIGO stage IV) — Disease Characteristics Research Report</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">40 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-10T01:48:14.012620</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <h1>Metastatic Ovarian Cancer (advanced epithelial ovarian cancer; FIGO stage IV) — Disease Characteristics Research Report</h1>
+<h2>Scope and terminology</h2>
+<p>This report focuses on <strong>advanced/metastatic epithelial ovarian cancer (EOC)</strong>, including ovarian, fallopian tube, and primary peritoneal carcinomas with <strong>advanced-stage dissemination (commonly FIGO III–IV)</strong>, and particularly <strong>metastatic disease corresponding to FIGO stage IV</strong>. In contemporary clinical guidance, “advanced EOC” is often used operationally for <strong>stage III–IV disease</strong> and drives shared diagnostic and treatment pathways. (ghirardi2023diagnosticandtherapeutic pages 1-2, perezfidalgo2024seom–geicoclinicalguideline pages 1-2)</p>
+<h3>Key concept definitions (current understanding)</h3>
+<ul>
+<li><strong>Peritoneal metastasis / carcinomatosis</strong>: the most common route of spread in ovarian cancer at diagnosis or recurrence (transcoelomic spread in the peritoneal cavity). (tsili2024imagingofperitoneal pages 1-2)</li>
+<li><strong>Primary debulking surgery (PDS)</strong> vs <strong>neoadjuvant chemotherapy followed by interval debulking surgery (NACT-IDS)</strong>: two standard first-line strategies for advanced disease; the clinical goal is <strong>no gross residual disease</strong> when surgery is undertaken. (ghirardi2023diagnosticandtherapeutic pages 1-2, ghirardi2023diagnosticandtherapeutic pages 5-7)</li>
+<li><strong>Platinum resistance</strong> (clinical concept): commonly defined by <strong>platinum-free interval &lt;6 months</strong> (vs platinum-sensitive ≥6 months), influencing subsequent-line strategy and trial eligibility. (caruso2025ovariancancera pages 8-9)</li>
+<li><strong>Biomarker-selected therapy</strong>: treatment selection based on <strong>BRCA/HRD</strong> (PARP inhibitor sensitivity) and <strong>FRα (FOLR1) expression</strong> (eligibility for mirvetuximab soravtansine in platinum-resistant disease). (ghirardi2023diagnosticandtherapeutic pages 7-8, perezfidalgo2024seom–geicoclinicalguideline pages 1-2)</li>
+</ul>
+<h2>Target disease identifiers and synonyms</h2>
+<h3>Ontology/identifier snapshot</h3>
+<ul>
+<li><strong>MONDO</strong>: Ovarian cancer <strong>MONDO:0008170</strong> (used as the nearest disease-level ontology concept in Open Targets; metastatic subtype was not available as a distinct MONDO term in retrieved evidence). (OpenTargets Search: metastatic ovarian cancer,ovarian carcinoma)</li>
+<li><strong>MeSH / ICD</strong>: In practice, metastatic ovarian cancer is commonly coded under ovarian malignancy (e.g., ICD-10 <strong>C56</strong>), while metastatic status is captured by staging (FIGO) rather than a distinct ICD code in many workflows (not uniquely resolved in retrieved evidence). (perezfidalgo2024seom–geicoclinicalguideline pages 1-2)</li>
+</ul>
+<h3>Common synonyms and alternative names</h3>
+<ul>
+<li>Metastatic ovarian cancer; <strong>stage IV epithelial ovarian cancer</strong>; advanced ovarian cancer; ovarian cancer with peritoneal metastases; advanced epithelial ovarian cancer; advanced tubo-ovarian carcinoma; ovarian/fallopian tube/primary peritoneal cancer (advanced). (ghirardi2023diagnosticandtherapeutic pages 1-2, perezfidalgo2024seom–geicoclinicalguideline pages 1-2)</li>
+</ul>
+<h3>Evidence source type</h3>
+<p>Information here is derived primarily from <strong>aggregated disease-level resources and guidelines</strong> (e.g., ASCO, SEOM–GEICO; systematic reviews), plus <strong>multicenter retrospective cohorts</strong> and <strong>phase II/III clinical trials</strong> in advanced/metastatic settings. (ghirardi2023diagnosticandtherapeutic pages 1-2, ghirardi2023diagnosticandtherapeutic pages 5-7, perezfidalgo2024seom–geicoclinicalguideline pages 1-2)</p>
+<h2>1. Disease information (overview)</h2>
+<p>Ovarian cancer is a leading cause of gynecologic cancer mortality and <strong>most patients present at advanced stage</strong>. In a diagnostic/treatment pathway review focused on advanced ovarian cancer with peritoneal metastases, the authors state: <strong>“Over two thirds of ovarian cancer patients present with advanced stage disease”</strong> and standard treatment includes <strong>cytoreductive surgery plus carboplatin–paclitaxel chemotherapy</strong>. (ghirardi2023diagnosticandtherapeutic pages 1-2)</p>
+<h2>2. Etiology</h2>
+<h3>2.1 Disease causal factors (mechanistic, genetic)</h3>
+<p><strong>Inherited DNA repair defects</strong> are a major causal contributor to a clinically actionable subset of EOC. Open Targets disease–gene associations for ovarian cancer highlight DNA repair genes and other cancer genes, including <strong>BRCA1, BRCA2, RAD51C, RAD51D, BRIP1, PALB2, MSH2, MSH6, and TP53</strong>. (OpenTargets Search: metastatic ovarian cancer,ovarian carcinoma)</p>
+<p>A contemporary clinical review summarizing risk and prevention reports: <strong>“Approximately one-quarter of ovarian cancers are hereditary”</strong> and that BRCA1/2 account for a substantial fraction of hereditary cases. (caruso2025ovariancancera pages 3-3)</p>
+<h3>2.2 Risk factors (genetic, environmental, reproductive)</h3>
+<p>Quantitative associations reported in a large contemporary review include:
+* <strong>Endometriosis</strong>: hazard ratio <strong>4.20</strong> (95% CI 3.59–4.91) in one cited analysis. (caruso2025ovariancancera pages 3-3)
+* <strong>Infertility</strong>: standardized incidence ratio <strong>2.0</strong> (95% CI 1.8–4.0). (caruso2025ovariancancera pages 3-3)
+* <strong>Postmenopausal estrogen therapy</strong>: relative risk <strong>1.31</strong> (95% CI 1.21–1.41). (caruso2025ovariancancera pages 3-3)
+* <strong>Familial/genetic risk</strong>: BRCA carrier lifetime ovarian cancer risk estimated broadly as <strong>20%–70%</strong> in one clinical synthesis. (caruso2025ovariancancera pages 3-3)</p>
+<p>A clinical risk assessment review provides genotype-stratified absolute lifetime risks:
+* <strong>BRCA1</strong>: <strong>39%–58%</strong>; <strong>BRCA2</strong>: <strong>13%–29%</strong>. (days2025ovariancancerrisk pages 2-4)</p>
+<h3>2.3 Protective factors</h3>
+<p>Protective reproductive/hormonal factors with quantitative effect estimates include:
+* <strong>Multiparity</strong>: OR per additional birth <strong>0.81</strong> (95% CI 0.75–0.85). (caruso2025ovariancancera pages 3-3)
+* <strong>Breastfeeding</strong>: OR <strong>0.72</strong> (95% CI 0.68–0.76). (caruso2025ovariancancera pages 3-3)
+* <strong>Oral contraceptive use</strong>: OR <strong>0.66</strong> (95% CI 0.52–0.83). (caruso2025ovariancancera pages 3-3)</p>
+<p>A global epidemiology review quantifies similar protective associations:
+* <strong>Ever vs never oral contraceptives</strong>: OR <strong>0.73</strong> (95% CI 0.70–0.76); each 5 years of use associated with ~20% lower risk (95% CI 18–23%). (li2026globalepidemiologyof pages 5-7)
+* <strong>Breastfeeding</strong>: ~10% lower risk per 12 months (RR <strong>0.89</strong>, 95% CI 0.84–0.94). (li2026globalepidemiologyof pages 5-7)</p>
+<h3>2.4 Gene–environment interactions</h3>
+<p>Robust, clinically used gene–environment interaction models specific to metastatic presentation were not identifiable from the retrieved evidence; however, available clinical syntheses emphasize that inherited BRCA-associated risk intersects with reproductive/hormonal exposures (e.g., oral contraceptives) relevant to prevention decisions. (days2025ovariancancerrisk pages 2-4, caruso2025ovariancancera pages 3-3)</p>
+<h2>3. Phenotypes (clinical presentation)</h2>
+<h3>3.1 Common clinical phenotypes in metastatic/advanced disease</h3>
+<p>Advanced EOC frequently presents with extensive intraperitoneal tumor burden and/or pleural involvement, driving symptoms such as abdominal distension and respiratory symptoms. A prevention/early-detection implementation review notes that <strong>CA-125 is elevated in ~80% of advanced ovarian cancer</strong>, reflecting the frequent high tumor burden at advanced presentation. (masouleh2024exploringopportunisticsalpingectomy pages 19-23)</p>
+<h4>Suggested HPO terms (phenotype mapping; typical in advanced disease)</h4>
+<p>Because the retrieved evidence base emphasizes diagnostic pathways rather than symptom prevalence tables, the following HPO mappings are proposed as standard phenotype representations for advanced/metastatic EOC, without frequency claims:
+* Ascites — <strong>HP:0001541</strong>
+* Abdominal distension — <strong>HP:0003270</strong>
+* Abdominal pain — <strong>HP:0002027</strong>
+* Pleural effusion — <strong>HP:0002202</strong>
+* Dyspnea — <strong>HP:0002094</strong>
+* Elevated CA-125 — <strong>HP:0032943</strong> (as a biomarker abnormality)</p>
+<h3>3.2 Quality-of-life impact</h3>
+<p>Peritoneal dissemination is repeatedly highlighted as clinically consequential because it complicates resectability and contributes to morbidity and recurrence risk; peritoneal metastasis mapping is positioned as crucial for planning therapy and predicting feasibility of complete cytoreduction. (tsili2024imagingofperitoneal pages 1-2)</p>
+<h2>4. Genetic / molecular information</h2>
+<h3>4.1 Major causal/driver genes and biomarker concepts</h3>
+<p>Key clinically actionable molecular concepts for metastatic/advanced EOC include:
+* <strong>BRCA1/BRCA2 alterations</strong> (germline and somatic) and broader <strong>homologous recombination deficiency (HRD)</strong>, which predict benefit from PARP inhibitors. (ghirardi2023diagnosticandtherapeutic pages 7-8, caruso2025ovariancancera pages 3-3)
+* <strong>TP53 alterations</strong>: a hallmark of high-grade serous ovarian cancer (frequently referenced in epidemiology and molecular summaries and in Open Targets associations), though not typically used alone to select current approved therapies. (OpenTargets Search: metastatic ovarian cancer,ovarian carcinoma, masouleh2024exploringopportunisticsalpingectomy pages 19-23)
+* <strong>FRα (FOLR1) expression</strong>: predictive biomarker for mirvetuximab soravtansine benefit in platinum-resistant disease; MIRASOL required <strong>≥75% of cells with ≥2+ staining intensity</strong>. (perezfidalgo2024seom–geicoclinicalguideline pages 1-2)</p>
+<h3>4.2 Biomarker-linked treatment selection (real-world implementation)</h3>
+<p>The SEOM–GEICO 2023 guideline summary emphasizes that new predictive biomarkers enable selection for targeted agents, and that diagnostics should enable biomarker analysis (adequate tissue sampling, cytology for effusions/ascites when present, and molecular profiling). (perezfidalgo2024seom–geicoclinicalguideline pages 1-2)</p>
+<h2>5. Mechanism / pathophysiology (metastasis-focused)</h2>
+<p>A metastasis-relevant mechanistic chain supported directly by the retrieved evidence is:
+1) Primary tubo-ovarian/peritoneal carcinoma develops and sheds tumor into peritoneal cavity →
+2) <strong>Peritoneal metastases</strong> become the predominant spread pattern at diagnosis/recurrence →
+3) Peritoneal tumor distribution determines feasibility of complete cytoreduction and drives selection between PDS and NACT-IDS →
+4) Residual disease after surgery strongly predicts outcomes. (ghirardi2023diagnosticandtherapeutic pages 1-2, tsili2024imagingofperitoneal pages 1-2)</p>
+<p><strong>Ontology suggestions (mechanism mapping):</strong>
+* GO biological processes (suggested): epithelial cell proliferation (GO:0050673), cell adhesion (GO:0007155), extracellular matrix organization (GO:0030198), angiogenesis (GO:0001525), DNA repair (GO:0006281).
+* CL cell types (suggested): epithelial cell (CL:0000066), fibroblast (CL:0000057), macrophage (CL:0000235), mesothelial cell (CL:0000077).</p>
+<h2>6. Anatomical structures affected</h2>
+<h3>Organ/tissue distribution relevant to metastatic disease</h3>
+<p>Peritoneal spread involves structures of the peritoneal cavity and abdominopelvic regions. Imaging meta-analysis emphasizes mapping peritoneal disease extent for surgical planning. (tsili2024imagingofperitoneal pages 1-2)</p>
+<p><strong>Stage IV subclassification</strong> highlights thoracic involvement:
+* A multicenter stage IV cohort described FIGO IVA vs IVB outcomes, consistent with pleural involvement defining a distinct stage IV group (IVA) with worse prognosis than IVB in that dataset. (metairie2023asuggestedmodification pages 11-12)</p>
+<p><strong>UBERON term suggestions:</strong>
+* Ovary — UBERON:0000992
+* Fallopian tube — UBERON:0003889
+* Peritoneum — UBERON:0002358
+* Greater omentum — UBERON:0003688
+* Pleural cavity/pleura — UBERON:0000175 / UBERON:0002097</p>
+<h2>7. Temporal development (onset and progression)</h2>
+<p>Advanced EOC typically presents after an insidious course; in one implementation-focused prevention review, the authors emphasize that early symptoms can be vague and that disease may progress rapidly, contributing to late-stage diagnosis. (masouleh2024exploringopportunisticsalpingectomy pages 19-23)</p>
+<h2>8. Inheritance and population</h2>
+<h3>8.1 Epidemiology (recent statistics)</h3>
+<p><strong>US burden (2024)</strong>: an imaging systematic review reports that in the United States <strong>~19,680 cases and 12,740 deaths were expected in 2024</strong>, and cites an overall <strong>5-year relative survival ~48%</strong> for ovarian cancer. (tsili2024imagingofperitoneal pages 1-2)</p>
+<p><strong>Global burden and trends (2022–2021)</strong>:
+* A contemporary review reports <strong>~324,398 new cases and 206,839 deaths</strong> globally (2022). (caruso2025ovariancancera pages 2-3)
+* Global age-standardized incidence decreased from <strong>7.22 to 6.71 per 100,000 (1990–2021)</strong>; global mortality decreased from <strong>4.73 to 4.06 per 100,000 (1999–2021)</strong>. (li2026globalepidemiologyof pages 1-2)</p>
+<h3>8.2 Inheritance patterns</h3>
+<p>Risk is substantially elevated in hereditary cancer syndromes (e.g., BRCA1/2). Clinical risk review notes that <strong>10%–15% of ovarian cancers have a germline BRCA mutation</strong> and provides BRCA1/2 lifetime risk ranges. (days2025ovariancancerrisk pages 2-4)</p>
+<h2>9. Diagnostics</h2>
+<h3>9.1 Diagnostic pathway (guideline-aligned; real-world implementation)</h3>
+<p>The diagnostic process in advanced disease is designed to (i) confirm malignancy and histotype, (ii) stage and map disease, and (iii) determine likelihood of complete cytoreduction.</p>
+<p><strong>ASCO guideline update (published 2025-03-??; DOI available)</strong> explicitly recommends that patients with suspected stage III–IV disease be evaluated by a gynecologic oncologist and that evaluation includes <strong>CA-125, CT abdomen/pelvis, and chest imaging</strong>, and that <strong>all patients be offered germline genetic and somatic testing at diagnosis</strong>. In addition, ASCO specifies histologic confirmation before starting NACT and recommends a platinum–taxane doublet for NACT. (perezfidalgo2024seom–geicoclinicalguideline pages 1-2)</p>
+<p><strong>SEOM–GEICO 2023 guideline (published 2024-07; https://doi.org/10.1007/s12094-024-03531-3)</strong> emphasizes:
+* Physical examination and labs including <strong>CA-125</strong>, plus pelvic ultrasound.
+* CT chest/abdomen/pelvis for disease extent; MRI and PET-CT as adjuncts in advanced disease.
+* <strong>Initial laparoscopy</strong> to obtain histopathology and evaluate feasibility of complete cytoreduction; use of peritoneal extension scoring (e.g., PCI, Fagotti score) for surgical planning. (perezfidalgo2024seom–geicoclinicalguideline pages 1-2)</p>
+<h3>9.2 Imaging for peritoneal metastases (systematic review evidence)</h3>
+<p>A 2024 systematic review/meta-analysis (33 studies; 487 women) concludes MRI and FDG PET/CT have higher per-patient sensitivity than MDCT for detecting peritoneal metastases, and reiterates the clinical importance of mapping peritoneal disease distribution. (tsili2024imagingofperitoneal pages 1-2)</p>
+<h3>9.3 Laparoscopy and tumor burden scoring</h3>
+<p>In a pathway review, the authors note that CT and CA-125 have limitations for predicting optimal cytoreduction, whereas <strong>laparoscopic assessment using validated scoring</strong> provides the highest specificity for identifying patients likely to undergo suboptimal cytoreduction and thus best suited to NACT-IDS. (ghirardi2023diagnosticandtherapeutic pages 1-2)</p>
+<h3>9.4 Liquid biopsy (emerging; advanced disease monitoring)</h3>
+<p>While not standard-of-care for primary diagnosis in advanced EOC in the retrieved guideline excerpts, evolving studies suggest ctDNA/cfDNA may correlate with CA-125 and potentially identify recurrence earlier than CT/CA-125 changes in small cohorts; however, broad clinical implementation remains investigational. (tsili2024imagingofperitoneal pages 1-2)</p>
+<h2>10. Treatment</h2>
+<h3>10.1 First-line backbone and surgical strategy</h3>
+<p>Standard first-line management consists of <strong>cytoreductive surgery</strong> (with the goal of <strong>no gross residual disease</strong>) plus <strong>carboplatin–paclitaxel chemotherapy</strong>. (ghirardi2023diagnosticandtherapeutic pages 1-2, ghirardi2023diagnosticandtherapeutic pages 7-8)</p>
+<h4>Choosing PDS vs NACT-IDS (trial evidence summarized in 2023 review)</h4>
+<p>Randomized evidence summarized for advanced disease includes:
+* EORTC-55971: median OS <strong>29 vs 30 months</strong> (PDS vs NACT-IDS). (ghirardi2023diagnosticandtherapeutic pages 5-7)
+* CHORUS: median OS <strong>22.8 vs 24.5 months</strong> (PDS vs NACT-IDS). (ghirardi2023diagnosticandtherapeutic pages 5-7)
+* Pooled analysis (FIGO stage IV subgroup): median OS <strong>21.2 vs 24.3 months</strong> and median PFS <strong>9.7 vs 10.6 months</strong>, favoring NACT-IDS in that analysis. (ghirardi2023diagnosticandtherapeutic pages 5-7)</p>
+<h3>10.2 Anti-angiogenic therapy (bevacizumab)</h3>
+<p>A review excerpt summarizes two major phase 3 trials:
+* GOG-0218: bevacizumab strategy PFS <strong>14.1 vs 10.3 months</strong>.
+* ICON7: PFS <strong>24.1 vs 22.4 months</strong>.
+These results support modest PFS improvements when bevacizumab is added to chemotherapy and continued as maintenance in selected advanced settings. (caruso2025ovariancancera pages 8-8)</p>
+<h3>10.3 PARP inhibitor maintenance (HRD/BRCA-guided)</h3>
+<p>In a pathway review, SOLO-1 is summarized as showing <strong>HR 0.30 (95% CI 0.23–0.41)</strong> for progression/death with olaparib maintenance, and median PFS not reached vs 13.8 months at 41-month follow-up in that trial context. (ghirardi2023diagnosticandtherapeutic pages 7-8)</p>
+<h3>10.4 Antibody–drug conjugate targeting FRα: mirvetuximab soravtansine</h3>
+<p><strong>SORAYA (phase II; JCO 2023-05; https://doi.org/10.1200/JCO.22.01900)</strong> abstract states:
+* ORR <strong>32.4%</strong> (95% CI 23.6–42.2); median duration of response <strong>6.9 months</strong>.
+* Common adverse events included blurred vision (41%) and keratopathy (29%). (perezfidalgo2024seom–geicoclinicalguideline pages 1-2)</p>
+<p><strong>MIRASOL (phase 3; NEJM 2023-12; https://doi.org/10.1056/NEJMoa2309169)</strong> abstract states:
+* Median PFS <strong>5.62 vs 3.98 months</strong>; ORR <strong>42.3% vs 15.9%</strong>.
+* Median OS <strong>16.46 vs 12.75 months</strong>.
+* Grade ≥3 adverse events <strong>41.7% vs 54.1%</strong>. (perezfidalgo2024seom–geicoclinicalguideline pages 1-2)</p>
+<p>A 2024 update on SORAYA reports <strong>final median OS 15.0 months</strong> (95% CI 11.5–18.7) at data cut-off 2022-12-22, supporting clinically meaningful activity in FRα-high platinum-resistant disease. (perezfidalgo2024seom–geicoclinicalguideline pages 1-2)</p>
+<h3>Suggested MAXO terms (treatments)</h3>
+<ul>
+<li>Cytoreductive surgery — <strong>MAXO:0001175</strong> (suggested)</li>
+<li>Neoadjuvant chemotherapy — <strong>MAXO:0000748</strong> (suggested)</li>
+<li>Platinum-based chemotherapy — <strong>MAXO:0000058</strong> (suggested)</li>
+<li>PARP inhibitor therapy — <strong>MAXO:0001021</strong> (suggested)</li>
+<li>Anti-VEGF therapy — <strong>MAXO:0000625</strong> (suggested)</li>
+<li>Antibody–drug conjugate therapy — <strong>MAXO:0001301</strong> (suggested)</li>
+</ul>
+<h2>11. Outcome / prognosis</h2>
+<h3>Stage IV heterogeneity</h3>
+<p>A multicenter retrospective study of FIGO stage IV epithelial ovarian cancer (n=307) reported worse outcomes for stage IVA vs IVB:
+* Median OS <strong>31 vs 45 months</strong> and median PFS <strong>18 vs 25 months</strong> (IVA vs IVB), suggesting meaningful prognostic heterogeneity within stage IV and supporting efforts to refine stage IV subclassification. (metairie2023asuggestedmodification pages 11-12)</p>
+<h3>Peritoneal tumor burden and outcomes</h3>
+<p>Disease mapping and completeness of cytoreduction are repeatedly emphasized as prognostically critical; the pathway review notes that achieving no gross residual disease is the surgical goal and that residual disease volume strongly predicts survival. (ghirardi2023diagnosticandtherapeutic pages 1-2, ghirardi2023diagnosticandtherapeutic pages 5-7)</p>
+<h2>12. Prevention</h2>
+<h3>12.1 Primary prevention and risk reduction (high-risk genetics)</h3>
+<p>A clinical review reports that <strong>bilateral salpingo-oophorectomy</strong> is the most effective preventive option for high-risk women; a pooled analysis of <strong>9,192 BRCA1/2 carriers</strong> found an <strong>81% risk reduction over 4 years</strong> (HR <strong>0.19</strong>, 95% CI 0.13–0.27). (caruso2025ovariancancera pages 3-3)</p>
+<h3>12.2 Opportunistic salpingectomy (average-risk prevention strategy)</h3>
+<p>A global epidemiology review reports <strong>unilateral or bilateral salpingectomy</strong> associated with reduced ovarian cancer risk (HR <strong>0.65</strong>, 95% CI 0.52–0.81). (li2026globalepidemiologyof pages 5-7)</p>
+<p>A feasibility/safety synthesis of opportunistic salpingectomy in general surgery settings suggests relative safety in limited data (no complications attributable to the procedure in 140 patients across included studies) and reports feasibility in selected procedures (e.g., successful in 98/105 cholecystectomies in one study). (perezfidalgo2024seom–geicoclinicalguideline pages 1-2)</p>
+<h3>12.3 Screening limitations (secondary prevention)</h3>
+<p>A prevention/implementation review reports that large screening trials have not demonstrated clear mortality benefit:
+* PLCO (78,286 women): CA-125 + transvaginal ultrasound had PPV <strong>26.5%</strong> and no survival benefit at 15 years.
+* UKCTOCS: no significant survival improvement. (masouleh2024exploringopportunisticsalpingectomy pages 19-23)</p>
+<h2>13. Model organisms and experimental systems</h2>
+<p>Direct evidence on specific ovarian cancer animal models and organoid/PDX systems was not extracted into the citable evidence set for this report. As a result, this section is not populated with model-specific performance claims.</p>
+<h2>Recent developments (2023–2024 prioritized highlights)</h2>
+<p>1) <strong>Imaging evidence base update (2024)</strong>: systematic review/meta-analysis supports MRI and FDG PET/CT as preferred modalities (vs MDCT) for detecting peritoneal metastases in ovarian cancer, emphasizing the need for disease mapping to guide surgery. (tsili2024imagingofperitoneal pages 1-2)
+2) <strong>Guideline-driven diagnostic pathway emphasis (2024)</strong>: SEOM–GEICO (2023 guideline published 2024) highlights structured workup including CA-125, CT chest/abdomen/pelvis, and the increasing role of laparoscopy-based scoring and biomarker-informed therapy selection. (perezfidalgo2024seom–geicoclinicalguideline pages 1-2)
+3) <strong>Targeted therapy implementation</strong>: mirvetuximab soravtansine demonstrates clinically meaningful benefit in FRα-high platinum-resistant ovarian cancer (SORAYA 2023; MIRASOL 2023), supporting routine FRα testing in this setting. (perezfidalgo2024seom–geicoclinicalguideline pages 1-2)</p>
+<h2>Key diagnostic/treatment pathway figure (evidence-supported visual)</h2>
+<p>A diagnostic/therapeutic pathway algorithm figure (Figure 1) from a 2023 review illustrates how clinical assessment, biopsy confirmation, and laparoscopic scoring guide selection between PDS and NACT-IDS in advanced disease. (ghirardi2023diagnosticandtherapeutic media b74131ac)</p>
+<h2>Structured summary table (for knowledge base ingestion)</h2>
+<table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Summary</th>
+<th>Key sources</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease definition, identifiers, synonyms</td>
+<td>Advanced/metastatic epithelial ovarian cancer refers to epithelial ovarian, fallopian tube, or primary peritoneal carcinoma presenting with disseminated intra-abdominal disease and/or distant metastasis; advanced disease is commonly stage III–IV, and metastatic disease generally corresponds to FIGO stage IV. Common synonyms used in the literature include advanced ovarian cancer, stage IV epithelial ovarian cancer, metastatic ovarian cancer, ovarian cancer with peritoneal metastases, and advanced epithelial ovarian cancer. Disease-level aggregated resources/tools referenced include Open Targets association data for ovarian cancer (MONDO_0008170). MeSH/ICD-10 identifiers are variably applied in practice to ovarian malignancy rather than a unique metastatic subtype; ICD-10 commonly maps ovarian cancer to C56.</td>
+<td>Open Targets context (ovarian cancer MONDO_0008170); Ghirardi 2023 https://doi.org/10.3390/cancers15020407; Métairie 2023 https://doi.org/10.3390/cancers15030706</td>
+</tr>
+<tr>
+<td>Key clinical characteristics and spread pattern</td>
+<td>Peritoneal metastases are the most common route of spread at diagnosis and recurrence. FIGO stage IVA denotes pleural effusion/pleural involvement; stage IVB denotes parenchymal metastases and/or extra-abdominal lymph node metastases. In one multicenter stage IV cohort (n=307), median OS was 31 months for stage IVA versus 45 months for stage IVB; median PFS 18 versus 25 months.</td>
+<td>Tsili 2024 https://doi.org/10.3390/cancers16081467; Métairie 2023 https://doi.org/10.3390/cancers15030706</td>
+</tr>
+<tr>
+<td>Diagnostic workup</td>
+<td>Guideline-level workup includes gynecologic oncologist assessment, CA-125, CT abdomen/pelvis plus chest imaging, and germline and somatic testing at diagnosis. Cross-sectional imaging maps disease burden and unresectable sites. MRI and FDG PET/CT showed higher per-patient sensitivity than MDCT in a meta-analysis (33 studies, 487 women); MRI vs MDCT p=0.03, PET/CT vs MDCT p&lt;0.01; MRI vs PET/CT p=0.84. Histologic confirmation is recommended before neoadjuvant chemotherapy. Diagnostic laparoscopy with Fagotti/laparoscopic predictive index assessment is highlighted as the most specific approach to identify patients unlikely to achieve optimal cytoreduction. The Peritoneal Cancer Index (PCI; 13 abdominopelvic regions) quantifies tumor burden and has prognostic value. CA-125 is useful but limited alone for predicting resectability.</td>
+<td>ASCO update 2025 https://doi.org/10.1200/jco-24-02589; Perez-Fidalgo 2024 https://doi.org/10.1007/s12094-024-03531-3; Tsili 2024 https://doi.org/10.3390/cancers16081467; Ghirardi 2023 https://doi.org/10.3390/cancers15020407; Rizzo 2025 https://doi.org/10.1007/s00330-024-11300-7</td>
+</tr>
+<tr>
+<td>Molecular biomarkers and clinical use</td>
+<td>BRCA1/2: predictive for platinum/PARP inhibitor benefit; maintenance selection. HRD: central biomarker for PARP inhibitor maintenance; prevalence varies across trials and assays; clinically relevant in first-line maintenance selection. TP53: near-ubiquitous hallmark of high-grade serous disease and useful as a molecular disease-defining feature rather than a routine therapy-selection biomarker. FRα: biomarker for mirvetuximab eligibility in platinum-resistant disease; MIRASOL required ≥75% of cells with ≥2+ staining intensity, and SORAYA enrolled FRα-high tumors. Open Targets disease associations prominently include BRCA1, BRCA2, RAD51C, TP53, RAD51D, BRIP1, PALB2, MSH2, and MSH6.</td>
+<td>Paik 2023 https://doi.org/10.3390/cancers15123095; Moore 2023 https://doi.org/10.1056/NEJMoa2309169; Matulonis 2023 https://doi.org/10.1200/jco.22.01900; Open Targets context</td>
+</tr>
+<tr>
+<td>Standard first-line treatment backbone</td>
+<td>Standard treatment combines cytoreductive surgery and platinum-taxane chemotherapy. Typical first-line regimen is carboplatin plus paclitaxel every 3 weeks for 6 cycles. Goal of surgery is no gross residual disease.</td>
+<td>Ghirardi 2023 https://doi.org/10.3390/cancers15020407; Caruso 2025 review excerpt</td>
+</tr>
+<tr>
+<td>Primary debulking surgery (PDS) vs neoadjuvant chemotherapy (NACT-IDS)</td>
+<td>PDS is preferred when complete or near-complete cytoreduction is feasible with acceptable morbidity; NACT followed by interval debulking is favored when complete upfront cytoreduction is unlikely or perioperative risk is high. EORTC-55971 (670 patients): median OS 29 vs 30 months (PDS vs NACT-IDS). CHORUS (550 patients): median OS 22.8 vs 24.5 months. Pooled analysis in FIGO stage IV: median OS 21.2 vs 24.3 months and median PFS 9.7 vs 10.6 months, favoring NACT-IDS. SCORPION (171 patients): median PFS 15 vs 14 months and median OS 41 vs 43 months, with less morbidity for NACT-IDS.</td>
+<td>Ghirardi 2023 https://doi.org/10.3390/cancers15020407; ASCO update 2025 https://doi.org/10.1200/jco-24-02589</td>
+</tr>
+<tr>
+<td>HIPEC</td>
+<td>In selected stage III patients treated with NACT/interval surgery, HIPEC may be offered in experienced centers. Randomized data cited in review: cisplatin 100 mg/m2 at IDS improved PFS 14.2 vs 10.7 months and OS 45.7 vs 33.9 months; meta-analysis HR 0.585 for PFS and HR 0.519 for OS.</td>
+<td>Ghirardi 2023 https://doi.org/10.3390/cancers15020407; ASCO update 2025 https://doi.org/10.1200/jco-24-02589</td>
+</tr>
+<tr>
+<td>Bevacizumab</td>
+<td>Added to chemotherapy then continued as maintenance, bevacizumab prolonged PFS in major first-line trials: GOG-0218 14.1 vs 10.3 months; ICON7 24.1 vs 22.4 months. In a high-risk subgroup, ICON7 OS was 39.3 vs 34.5 months (HR 0.78).</td>
+<td>Caruso 2025 review excerpt; Ghirardi 2023 https://doi.org/10.3390/cancers15020407</td>
+</tr>
+<tr>
+<td>PARP inhibitor maintenance</td>
+<td>PARP inhibitors are central maintenance options after response to first-line platinum, particularly in BRCA-mutated/HRD-positive disease. SOLO-1: olaparib reduced risk of progression/death by 70% (HR 0.30, 95% CI 0.23–0.41); median PFS not reached vs 13.8 months at 41-month follow-up. Seven-year SOLO-1 OS data reported in review excerpt: 67.0% vs 46.5%; median OS not reached vs 75.2 months; HR 0.55 (95% CI 0.40–0.76).</td>
+<td>Ghirardi 2023 https://doi.org/10.3390/cancers15020407; Caruso 2025 review excerpt; Paik 2023 https://doi.org/10.3390/cancers15123095</td>
+</tr>
+<tr>
+<td>Mirvetuximab soravtansine: SORAYA</td>
+<td>Biomarker-selected option for FRα-high platinum-resistant ovarian cancer after prior bevacizumab. SORAYA enrolled 106 patients; 105 efficacy-evaluable; 51% had 3 prior lines; 48% prior PARP inhibitor. ORR 32.4% (95% CI 23.6–42.2), including 5 complete and 29 partial responses; median duration of response 6.9 months (95% CI 5.6–9.7); final median OS 15.0 months (95% CI 11.5–18.7). Common treatment-related adverse events: blurred vision 41% (grade 3–4: 6%), keratopathy 29% (grade 3–4: 9%), nausea 29% (grade 3–4: 0%).</td>
+<td>Matulonis 2023 https://doi.org/10.1200/jco.22.01900; Coleman 2024 https://doi.org/10.1136/ijgc-2024-005401</td>
+</tr>
+<tr>
+<td>Mirvetuximab soravtansine: MIRASOL</td>
+<td>Phase 3 confirmatory trial in FRα-positive platinum-resistant high-grade serous ovarian cancer (453 randomized; 227 MIRV, 226 chemotherapy). Median PFS 5.62 vs 3.98 months; ORR 42.3% vs 15.9%; median OS 16.46 vs 12.75 months; grade ≥3 adverse events 41.7% vs 54.1%; serious adverse events 23.9% vs 32.9%; discontinuations 9.2% vs 15.9%.</td>
+<td>Moore 2023 https://doi.org/10.1056/NEJMoa2309169</td>
+</tr>
+<tr>
+<td>Prognosis / survival context</td>
+<td>Most ovarian cancers present at advanced stage; approximately 75% present advanced and advanced-stage 5-year survival is generally poor. Review excerpts cite overall 5-year survival of roughly 10–40% for advanced-stage disease; stage-specific SEER-derived figures in one study were 17% 5-year relative survival for stage IV. High PCI predicts worse survival with pooled HR 2.79 for OS and 1.89 for PFS in advanced disease.</td>
+<td>Ghirardi 2023 https://doi.org/10.3390/cancers15020407; Zhang 2024 https://doi.org/10.1186/s12905-024-03199-5; Wang 2024 https://doi.org/10.3389/fonc.2024.1421828; Caruso 2025 review excerpt</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table condenses identifiers, staging, diagnostic workup, biomarkers, and major treatment trial metrics for metastatic/advanced epithelial ovarian cancer. It is designed as a quick-reference artifact for knowledge base population and narrative synthesis.</em></p>
+<h2>References (URLs and publication dates)</h2>
+<ul>
+<li>Ghirardi V, et al. <strong>Diagnostic and Therapeutic Pathway of Advanced Ovarian Cancer with Peritoneal Metastases</strong>. <em>Cancers</em>. 2023-01. https://doi.org/10.3390/cancers15020407 (ghirardi2023diagnosticandtherapeutic pages 1-2)</li>
+<li>Tsili AC, et al. <strong>Imaging of Peritoneal Metastases in Ovarian Cancer Using MDCT, MRI, and FDG PET/CT: A Systematic Review and Meta-Analysis</strong>. <em>Cancers</em>. 2024-04. https://doi.org/10.3390/cancers16081467 (tsili2024imagingofperitoneal pages 1-2)</li>
+<li>Pérez-Fidalgo JA, et al. <strong>SEOM–GEICO clinical guideline on epithelial ovarian cancer (2023)</strong>. <em>Clin Transl Oncol</em>. 2024-07. https://doi.org/10.1007/s12094-024-03531-3 (perezfidalgo2024seom–geicoclinicalguideline pages 1-2)</li>
+<li>Métairie M, et al. <strong>A Suggested Modification to FIGO Stage IV Epithelial Ovarian Cancer</strong>. <em>Cancers</em>. 2023-01. https://doi.org/10.3390/cancers15030706 (metairie2023asuggestedmodification pages 11-12)</li>
+<li>Matulonis UA, et al. <strong>SORAYA</strong> results. <em>J Clin Oncol</em>. 2023-05. https://doi.org/10.1200/JCO.22.01900 (perezfidalgo2024seom–geicoclinicalguideline pages 1-2)</li>
+<li>Moore KN, et al. <strong>MIRASOL</strong>. <em>N Engl J Med</em>. 2023-12. https://doi.org/10.1056/NEJMoa2309169 (perezfidalgo2024seom–geicoclinicalguideline pages 1-2)</li>
+<li>Coleman RL, et al. SORAYA final OS. <em>Int J Gynecol Cancer</em>. 2024-06. https://doi.org/10.1136/ijgc-2024-005401 (perezfidalgo2024seom–geicoclinicalguideline pages 1-2)</li>
+<li>Li R, et al. <strong>Global epidemiology of ovarian cancer: patterns, trends, and risk factors</strong>. <em>Cancer Biol Med</em>. 2026-03. https://doi.org/10.20892/j.issn.2095-3941.2025.0619 (li2026globalepidemiologyof pages 1-2)</li>
+<li>Open Targets disease–gene associations for ovarian cancer (MONDO_0008170). https://platform.opentargets.org/ (OpenTargets Search: metastatic ovarian cancer,ovarian carcinoma)</li>
+</ul>
+<p>References</p>
+<ol>
+<li>
+<p>(ghirardi2023diagnosticandtherapeutic pages 1-2): Valentina Ghirardi, Anna Fagotti, Luca Ansaloni, Mario Valle, Franco Roviello, Lorena Sorrentino, Fabio Accarpio, Gianluca Baiocchi, Lorenzo Piccini, Michele De Simone, Federico Coccolini, Mario Visaloco, Stefano Bacchetti, Giovanni Scambia, and Daniele Marrelli. Diagnostic and therapeutic pathway of advanced ovarian cancer with peritoneal metastases. Cancers, 15:407, Jan 2023. URL: https://doi.org/10.3390/cancers15020407, doi:10.3390/cancers15020407. This article has 18 citations.</p>
+</li>
+<li>
+<p>(perezfidalgo2024seom–geicoclinicalguideline pages 1-2): Jose Alejandro Perez-Fidalgo, Fernando Gálvez-Montosa, Eva María Guerra, Ainhoa Madariaga, Aranzazu Manzano, Cristina Martin-Lorente, Maria Jesús Rubio-Pérez, Jesus Alarcón, María Pilar Barretina-Ginesta, and Lydia Gaba. Seom–geico clinical guideline on epithelial ovarian cancer (2023). Clinical &amp; Translational Oncology, 26:2758-2770, Jul 2024. URL: https://doi.org/10.1007/s12094-024-03531-3, doi:10.1007/s12094-024-03531-3. This article has 18 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(tsili2024imagingofperitoneal pages 1-2): Athina C. Tsili, George Alexiou, Martha Tzoumpa, Timoleon Siempis, and Maria I. Argyropoulou. Imaging of peritoneal metastases in ovarian cancer using mdct, mri, and fdg pet/ct: a systematic review and meta-analysis. Cancers, 16:1467, Apr 2024. URL: https://doi.org/10.3390/cancers16081467, doi:10.3390/cancers16081467. This article has 17 citations.</p>
+</li>
+<li>
+<p>(ghirardi2023diagnosticandtherapeutic pages 5-7): Valentina Ghirardi, Anna Fagotti, Luca Ansaloni, Mario Valle, Franco Roviello, Lorena Sorrentino, Fabio Accarpio, Gianluca Baiocchi, Lorenzo Piccini, Michele De Simone, Federico Coccolini, Mario Visaloco, Stefano Bacchetti, Giovanni Scambia, and Daniele Marrelli. Diagnostic and therapeutic pathway of advanced ovarian cancer with peritoneal metastases. Cancers, 15:407, Jan 2023. URL: https://doi.org/10.3390/cancers15020407, doi:10.3390/cancers15020407. This article has 18 citations.</p>
+</li>
+<li>
+<p>(caruso2025ovariancancera pages 8-9): G Caruso, SJ Weroha, and W Cliby. Ovarian cancer: a review. Unknown journal, 2025.</p>
+</li>
+<li>
+<p>(ghirardi2023diagnosticandtherapeutic pages 7-8): Valentina Ghirardi, Anna Fagotti, Luca Ansaloni, Mario Valle, Franco Roviello, Lorena Sorrentino, Fabio Accarpio, Gianluca Baiocchi, Lorenzo Piccini, Michele De Simone, Federico Coccolini, Mario Visaloco, Stefano Bacchetti, Giovanni Scambia, and Daniele Marrelli. Diagnostic and therapeutic pathway of advanced ovarian cancer with peritoneal metastases. Cancers, 15:407, Jan 2023. URL: https://doi.org/10.3390/cancers15020407, doi:10.3390/cancers15020407. This article has 18 citations.</p>
+</li>
+<li>
+<p>(OpenTargets Search: metastatic ovarian cancer,ovarian carcinoma): Open Targets Query (metastatic ovarian cancer,ovarian carcinoma, 43 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.</p>
+</li>
+<li>
+<p>(caruso2025ovariancancera pages 3-3): G Caruso, SJ Weroha, and W Cliby. Ovarian cancer: a review. Unknown journal, 2025.</p>
+</li>
+<li>
+<p>(days2025ovariancancerrisk pages 2-4): Flora Days and Edith Caroline Smith. Ovarian cancer risk assessment, risk reduction, and early detection. Clinical Journal for Nurse Practitioners in Women's Health, 2:6-12, Jan 2025. URL: https://doi.org/10.1891/cjnpwh-2506, doi:10.1891/cjnpwh-2506. This article has 0 citations.</p>
+</li>
+<li>
+<p>(li2026globalepidemiologyof pages 5-7): Ruyuan Li, Anqi Zhao, Meicen Liu, Lingeng Lu, Bin Li, and Hongmei Zeng. Global epidemiology of ovarian cancer: patterns, trends, and risk factors. Cancer Biology &amp; Medicine, pages 1-16, Mar 2026. URL: https://doi.org/10.20892/j.issn.2095-3941.2025.0619, doi:10.20892/j.issn.2095-3941.2025.0619. This article has 0 citations.</p>
+</li>
+<li>
+<p>(masouleh2024exploringopportunisticsalpingectomy pages 19-23): Z Masouleh. Exploring opportunistic salpingectomy as a preventive strategy for ovarian cancer: uptake in newfoundland and labrador, canada. Unknown journal, 2024.</p>
+</li>
+<li>
+<p>(metairie2023asuggestedmodification pages 11-12): Marie Métairie, Louise Benoit, Meriem Koual, Enrica Bentivegna, Henri Wohrer, Pierre-Adrien Bolze, Yohan Kerbage, Emilie Raimond, Cherif Akladios, Xavier Carcopino, Geoffroy Canlorbe, Jennifer Uzan, Vincent Lavoué, Camille Mimoun, Cyrille Huchon, Martin Koskas, Hélène Costaz, François Margueritte, Yohann Dabi, Cyril Touboul, Sofiane Bendifallah, Lobna Ouldamer, Nicolas Delanoy, Huyen-Thu Nguyen-Xuan, Anne-Sophie Bats, and Henri Azaïs. A suggested modification to figo stage iv epithelial ovarian cancer. Cancers, 15:706, Jan 2023. URL: https://doi.org/10.3390/cancers15030706, doi:10.3390/cancers15030706. This article has 8 citations.</p>
+</li>
+<li>
+<p>(caruso2025ovariancancera pages 2-3): G Caruso, SJ Weroha, and W Cliby. Ovarian cancer: a review. Unknown journal, 2025.</p>
+</li>
+<li>
+<p>(li2026globalepidemiologyof pages 1-2): Ruyuan Li, Anqi Zhao, Meicen Liu, Lingeng Lu, Bin Li, and Hongmei Zeng. Global epidemiology of ovarian cancer: patterns, trends, and risk factors. Cancer Biology &amp; Medicine, pages 1-16, Mar 2026. URL: https://doi.org/10.20892/j.issn.2095-3941.2025.0619, doi:10.20892/j.issn.2095-3941.2025.0619. This article has 0 citations.</p>
+</li>
+<li>
+<p>(caruso2025ovariancancera pages 8-8): G Caruso, SJ Weroha, and W Cliby. Ovarian cancer: a review. Unknown journal, 2025.</p>
+</li>
+<li>
+<p>(ghirardi2023diagnosticandtherapeutic media b74131ac): Valentina Ghirardi, Anna Fagotti, Luca Ansaloni, Mario Valle, Franco Roviello, Lorena Sorrentino, Fabio Accarpio, Gianluca Baiocchi, Lorenzo Piccini, Michele De Simone, Federico Coccolini, Mario Visaloco, Stefano Bacchetti, Giovanni Scambia, and Daniele Marrelli. Diagnostic and therapeutic pathway of advanced ovarian cancer with peritoneal metastases. Cancers, 15:407, Jan 2023. URL: https://doi.org/10.3390/cancers15020407, doi:10.3390/cancers15020407. This article has 18 citations.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </div>
         
 
         <footer class="page-footer">
@@ -4041,7 +5783,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Metastatic Ovarian Cancer", "mondoId": "MONDO:0005211", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Metastatic_Ovarian_Cancer", "yamlRevision": "5225d74bf340"};
+        const OS_CONFIG = {"diseaseName": "Metastatic Ovarian Cancer", "mondoId": "MONDO:0005211", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Metastatic_Ovarian_Cancer", "yamlRevision": "a1700ccd8673"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

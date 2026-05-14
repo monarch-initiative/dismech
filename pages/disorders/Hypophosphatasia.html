@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,6 +2570,8 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 24</a>
+                
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Metabolic Bone Disorders</span>
                 
@@ -2553,7 +2708,7 @@
             
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
-                <div class="stat-value">2</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Pathophysiology</div>
             </div>
             </a>
@@ -2567,16 +2722,18 @@
             
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
-                <div class="stat-value">8</div>
+                <div class="stat-value">13</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
             
             
+            <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">24</div>
                 <div class="stat-label">Pathograph</div>
             </div>
+            </a>
             
             
             <a class="stat-link" href="#genetic">
@@ -2685,6 +2842,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"severe HPP is recessive and rare, moderate HPP is recessive or dominant and more common, and mild HPP, characterized by low alkaline phosphatase and unspecific clinical signs, is dominantly inherited and very common"</div>
@@ -2719,7 +2878,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
             
@@ -2732,30 +2891,14 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                </div>
-                
-                <div class="evidence-snippet">"Adults with dominant HPP without DNE represent a new clinical entity mostly diagnosed from 2010s, characterized by nonspecific signs of HPP and low alkaline phosphatase, and for which a high prevalence is expected"</div>
-                
-                
-                <div class="evidence-explanation">Describes a newly recognized dominant mild HPP entity with high expected prevalence.</div>
-                
-            </div>
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32973344" target="_blank">PMID:32973344</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"Sixty percent of the adults tested were heterozygous for a variant showing no DNE, suggesting another mechanism of dominance like haploinsufficiency"</div>
+                <div class="evidence-snippet">"severe HPP is recessive and rare, moderate HPP is recessive or dominant and more common, and mild HPP, characterized by low alkaline phosphatase and unspecific clinical signs, is dominantly inherited and very common"</div>
                 
                 
-                <div class="evidence-explanation">Most dominant adult HPP cases involve haploinsufficiency rather than dominant negative effect.</div>
+                <div class="evidence-explanation">Establishes that mild HPP is commonly dominantly inherited while moderate disease can be recessive or dominant.</div>
                 
             </div>
             
@@ -2781,13 +2924,326 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">5</span>
             </div>
             
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-bone-mineralization">
-                <div class="item-name">Defective Bone Mineralization</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-alpl-loss-of-function-and-tnap-deficiency">
+                <div class="item-name">ALPL loss of function and TNAP deficiency</div>
                 
-                <div class="item-desc">ALPL encodes tissue-nonspecific alkaline phosphatase (TNSALP), which hydrolyzes inorganic pyrophosphate (PPi) at the osteoblast surface. Loss of TNSALP activity leads to accumulation of PPi, a potent inhibitor of hydroxyapatite crystal growth. This results in defective mineralization of bone and teeth (rickets/osteomalacia).
+                <div class="item-desc">Loss-of-function variants in ALPL reduce tissue-nonspecific alkaline phosphatase (TNAP) activity. Because TNAP functions as both an alkaline phosphatase and a pyrophosphatase at physiological pH, reduced activity lowers circulating alkaline phosphatase and prevents normal hydrolysis of mineralization and vitamin B6 substrates.
+</div>
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-gene">
+                        ALPL
+                        
+                        <a href="https://bioregistry.io/hgnc:438" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        alkaline phosphatase activity
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0004035" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    <span class="tag tag-bio">
+                        pyrophosphatase activity
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0016462" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Serum alkaline phosphatase activity</span>
+	                            
+	                            <span class="crosslink-desc">Reduced TNAP activity is measured clinically as persistently low alkaline phosphatase activity.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Low Alkaline Phosphatase</span>
+	                            
+	                            <span class="crosslink-desc">Reduced TNAP activity produces the hallmark decreased circulating alkaline phosphatase phenotype.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">TNAP substrate accumulation</span>
+	                            
+	                            <span class="crosslink-desc">Loss of TNAP enzyme activity leaves natural substrates extracellularly elevated.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
+	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s00223-025-01356-y" target="_blank">DOI:10.1007/s00223-025-01356-y</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Hypophosphatasia (HPP) is a rare inherited metabolic disorder characterized by deficient activity of tissue-nonspecific alkaline phosphatase (TNAP) caused by variants in the ALPL gene."</div>
+                
+                
+                <div class="evidence-explanation">Review evidence directly defines HPP as ALPL-variant disease with deficient TNAP activity.
+</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26590809" target="_blank">PMID:26590809</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Hypophosphatasia (HPP) results from ALPL mutations leading to deficient activity of the tissue-non-specific alkaline phosphatase isozyme (TNAP)"</div>
+                
+                
+                <div class="evidence-explanation">Review evidence supports ALPL mutation-driven TNAP deficiency as the initiating mechanism.
+</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+	            </div>
+	            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-tnap-substrate-accumulation">
+                <div class="item-name">TNAP substrate accumulation</div>
+                
+                <div class="item-desc">Deficient TNAP causes accumulation of natural substrates, especially inorganic pyrophosphate (PPi), pyridoxal 5&#39;-phosphate (PLP), and urinary phosphoethanolamine (PEA). PPi blocks apatite crystal growth, whereas PLP accumulation reflects disrupted vitamin B6 handling.
+</div>
+                
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        phosphate ion homeostasis
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0055062" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    <span class="tag tag-modifier">
+        ⚠ ABNORMAL
+    </span>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Inorganic pyrophosphate</span>
+	                            
+	                            <span class="crosslink-desc">PPi accumulates when TNAP pyrophosphatase activity is deficient.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Pyridoxal 5&#39;-phosphate</span>
+	                            
+	                            <span class="crosslink-desc">PLP accumulates extracellularly when TNAP phosphomonoesterase activity is deficient.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Urine phosphoethanolamine</span>
+	                            
+	                            <span class="crosslink-desc">PEA is another elevated ALP substrate used diagnostically.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Skeletal and dentoalveolar mineralization failure</span>
+	                            
+	                            <span class="crosslink-desc">PPi is a potent inhibitor of hydroxyapatite growth in bone and dental tissues.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Vitamin B6-dependent neurologic vulnerability</span>
+	                            
+	                            <span class="crosslink-desc">PLP accumulation marks abnormal vitamin B6 metabolism that contributes to seizure vulnerability.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Pyrophosphate crystal arthropathy</span>
+	                            
+	                            <span class="crosslink-desc">PPi excess can produce chondrocalcinosis and arthropathy.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
+	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s00223-025-01356-y" target="_blank">DOI:10.1007/s00223-025-01356-y</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"elevated levels of ALP substrates, specifically inorganic pyrophosphate (PPi), pyridoxal 5&#39;-phosphate (PLP) or urine phosphoethanolamine (PEA)"</div>
+                
+                
+                <div class="evidence-explanation">Diagnostic review identifies the three major elevated TNAP substrates in HPP.
+</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34884378" target="_blank">PMID:34884378</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Reduced activity of TNAP leads to the accumulation of its substrates, mainly inorganic pyrophosphate and pyridoxal-5&#39;-phosphate"</div>
+                
+                
+                <div class="evidence-explanation">Review links reduced TNAP activity to accumulation of PPi and PLP.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+	            </div>
+	            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-skeletal-and-dentoalveolar-mineralization-failure">
+                <div class="item-name">Skeletal and dentoalveolar mineralization failure</div>
+                
+                <div class="item-desc">Excess PPi inhibits hydroxyapatite crystal growth after matrix vesicle rupture, producing defective mineralization of bone, growth plates, teeth, and the dentoalveolar complex. This mechanism accounts for rickets or osteomalacia, impaired growth, fractures, premature tooth loss, and severe chest-wall disease.
 </div>
                 
                 
@@ -2821,7 +3277,31 @@
                 <div class="item-meta">
                     
                     <span class="tag tag-bio">
-                        Ossification
+                        bone mineralization
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0030282" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    <span class="tag tag-bio">
+                        ossification
                         
                         <a href="http://purl.obolibrary.org/obo/GO_0001503" target="_blank" class="linkout">link</a>
                         
@@ -2830,25 +3310,9 @@
     
     
     
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    <span class="tag tag-bio">
-                        Phosphate Ion Homeostasis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0055062" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-    
-    
+    <span class="tag tag-modifier">
+        ⚠ ABNORMAL
+    </span>
     
     
     
@@ -2868,116 +3332,54 @@
                 
 	                
 	                
-	                
-    
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (4 references)
-        </summary>
-        <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26590809" target="_blank">PMID:26590809</a>
-                    </span>
-                    
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
-                </div>
-                
-                <div class="evidence-snippet">"ALPL mutations leading to deficient activity of the tissue-non-specific alkaline phosphatase isozyme (TNAP) and thereby extracellular accumulation of inorganic pyrophosphate (PPi), a natural substrate of TNAP and potent inhibitor of mineralization"</div>
-                
-                
-                <div class="evidence-explanation">Concise summary of the core HPP pathophysiology: ALPL mutations cause TNAP deficiency, PPi accumulation, and mineralization failure.</div>
-                
-            </div>
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20392236" target="_blank">PMID:20392236</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                </div>
-                
-                <div class="evidence-snippet">"PP(i) inhibition of hydroxyapatite crystal growth extracellularly so that crystals form within matrix vesicles but fail to enlarge after these structures rupture"</div>
-                
-                
-                <div class="evidence-explanation">Explains the precise mineralization defect: hydroxyapatite crystals form in matrix vesicles but cannot grow after vesicle rupture due to PPi inhibition.</div>
-                
-            </div>
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20392236" target="_blank">PMID:20392236</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                </div>
-                
-                <div class="evidence-snippet">"TNSALP is a phosphomonoester phosphohydrolase and a pyrophosphatase that hydrolyzes much lower concentrations of natural substrates than the artificial substrates of laboratory assays"</div>
-                
-                
-                <div class="evidence-explanation">Clarifies that TNSALP acts on natural substrates at physiological pH despite the misleading &#39;alkaline phosphatase&#39; name.</div>
-                
-            </div>
-            
-            
-            <div class="evidence-more">+ 1 more reference</div>
-            
-        </div>
-    </details>
-    
-    
-	            </div>
-	            
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-pyridoxal-phosphate-accumulation">
-                <div class="item-name">Pyridoxal Phosphate Accumulation</div>
-                
-                <div class="item-desc">TNSALP also dephosphorylates pyridoxal 5&#39;-phosphate (PLP, the active form of vitamin B6) in the circulation. Accumulated PLP cannot cross the blood-brain barrier efficiently, leading to intracellular vitamin B6 deficiency in the CNS. This causes pyridoxine-responsive seizures in severe infantile HPP.
-</div>
-                
-                
-                
-                
-                
-                <div class="item-meta">
-                    
-                    <span class="tag tag-bio">
-                        Vitamin B6 Metabolism
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0042816" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                </div>
-                
-                
-                
-                
-                
-	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Rickets/Osteomalacia</span>
+	                            
+	                            <span class="crosslink-desc">Failed skeletal mineralization manifests as rickets in children and osteomalacia in adults.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Premature Loss of Deciduous Teeth</span>
+	                            
+	                            <span class="crosslink-desc">Dentoalveolar mineralization defects produce premature loss of primary teeth.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Fractures</span>
+	                            
+	                            <span class="crosslink-desc">Osteomalacia and impaired mineralization increase fracture and pseudofracture risk.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Craniosynostosis</span>
+	                            
+	                            <span class="crosslink-desc">Craniosynostosis is a severe skeletal manifestation of HPP, though the exact local mechanism is not fully resolved.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Respiratory Insufficiency</span>
+	                            
+	                            <span class="crosslink-desc">Severe skeletal hypomineralization with rib and thoracic involvement contributes to respiratory compromise in perinatal and infantile HPP.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Short Stature</span>
+	                            
+	                            <span class="crosslink-desc">Growth-plate defects and impaired growth follow childhood skeletal mineralization failure.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
 	                
 	                
     
@@ -2993,17 +3395,119 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20392236" target="_blank">PMID:20392236</a>
                     </span>
                     
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"Aberrations of vitamin B(6) metabolism in HPP revealed that TNSALP is an ectoenzyme"</div>
+                <div class="evidence-snippet">"The skeletal disease is due to PP(i) inhibition of hydroxyapatite crystal growth extracellularly so that crystals form within matrix vesicles but fail to enlarge after these structures rupture."</div>
                 
                 
-                <div class="evidence-explanation">Vitamin B6 metabolism abnormalities in HPP demonstrated TNSALP&#39;s ectoenzyme nature.</div>
+                <div class="evidence-explanation">Review explains how PPi blocks hydroxyapatite crystal growth in skeletal mineralization.</div>
                 
             </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/jbmrpl/ziae180" target="_blank">DOI:10.1093/jbmrpl/ziae180</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"TNAP plays a crucial role in biomineralization of bones and teeth, in part by reducing levels of inorganic pyrophosphate (PPi), an inhibitor of biomineralization."</div>
+                
+                
+                <div class="evidence-explanation">Dental review connects TNAP, PPi reduction, and bone/tooth biomineralization.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+	            </div>
+	            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-vitamin-b6-dependent-neurologic-vulnerability">
+                <div class="item-name">Vitamin B6-dependent neurologic vulnerability</div>
+                
+                <div class="item-desc">TNAP normally participates in vitamin B6 metabolism through extracellular PLP dephosphorylation. HPP disrupts this process, creating vitamin B6-dependent seizure susceptibility in severe infantile disease and contributing to delayed motor development in broader pediatric presentations.
+</div>
+                
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        vitamin B6 metabolic process
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0042816" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    <span class="tag tag-modifier">
+        ⚠ ABNORMAL
+    </span>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Seizures</span>
+	                            
+	                            <span class="crosslink-desc">Abnormal vitamin B6 metabolism contributes to vitamin B6-dependent seizures.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Motor Delay</span>
+	                            
+	                            <span class="crosslink-desc">Pediatric presentations can include delayed motor development alongside severe systemic disease.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
+	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
             
             <div class="evidence-item">
                 <div class="evidence-header">
@@ -3014,12 +3518,126 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
                 </div>
                 
-                <div class="evidence-snippet">"Increased extracellular levels of pyridoxal 5&#39;-phosphate and inorganic pyrophosphate (PP(i)) demonstrate that TNSALP is a phosphomonoester phosphohydrolase and a pyrophosphatase"</div>
+                <div class="evidence-snippet">"Aberrations of vitamin B(6) metabolism in HPP revealed that TNSALP is an ectoenzyme."</div>
                 
                 
-                <div class="evidence-explanation">Elevated PLP levels confirm TNSALP&#39;s role in PLP dephosphorylation.</div>
+                <div class="evidence-explanation">Review supports abnormal vitamin B6 metabolism as a TNAP-dependent HPP mechanism.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s00223-025-01356-y" target="_blank">DOI:10.1007/s00223-025-01356-y</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Disease manifestations encompass skeletal hypomineralization with rickets and lung hypoplasia, vitamin B6-dependent seizures, craniosynostosis, and premature loss of deciduous teeth."</div>
+                
+                
+                <div class="evidence-explanation">Review links HPP to vitamin B6-dependent seizures among core manifestations.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23479201" target="_blank">PMID:23479201</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"TNSALP is also necessary for proper vitamin B6 metabolism and its participation as a cofactor for neurotransmitters in the central nervous system."</div>
+                
+                
+                <div class="evidence-explanation">Human case report review supports the vitamin B6/neurotransmitter branch of severe infantile HPP.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+	            </div>
+	            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-pyrophosphate-crystal-arthropathy">
+                <div class="item-name">Pyrophosphate crystal arthropathy</div>
+                
+                <div class="item-desc">PPi excess can drive chondrocalcinosis and arthropathy. This branch connects the TNAP substrate abnormality to adult musculoskeletal pain and joint manifestations distinct from primary osteomalacia.
+</div>
+                
+                
+                
+                
+                
+                
+                
+                
+                
+	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Chondrocalcinosis</span>
+	                            
+	                            <span class="crosslink-desc">PPi excess causes chondrocalcinosis.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Pain</span>
+	                            
+	                            <span class="crosslink-desc">Arthropathy and adult musculoskeletal disease contribute to generalized pain.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
+	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20392236" target="_blank">PMID:20392236</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"PP(i) excesses cause chondrocalcinosis and sometimes arthropathy."</div>
+                
+                
+                <div class="evidence-explanation">Review directly supports a PPi excess, chondrocalcinosis, and arthropathy branch.</div>
                 
             </div>
             
@@ -3038,6 +3656,29 @@
 
         <!-- Causal Graph (Pathograph) -->
         
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
+                <h2 class="card-title">Pathograph</h2>
+            </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
+            
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for Hypophosphatasia</title>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
+            </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALPL Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"ALPL\"], \"association\": \"Causative\"}}, {\"id\": \"ALPL loss of function and TNAP deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss-of-function variants in ALPL reduce tissue-nonspecific alkaline phosphatase (TNAP) activity. Because TNAP functions as both an alkaline phosphatase and a pyrophosphatase at physiological pH, reduced activity lowers circulating alkaline phosphatase and prevents normal hydrolysis of mineralization and vitamin B6 substrates.\\n\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"alkaline phosphatase activity\", \"pyrophosphatase activity\"], \"genes\": [\"ALPL\"]}}, {\"id\": \"Asfotase Alfa (Strensiq)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Bone-targeted enzyme replacement therapy that substitutes TNAP activity. Human interventional evidence shows improved survival, respiratory outcomes, skeletal mineralization, rickets, and functional outcomes in severely affected pediatric patients.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Chondrocalcinosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"PPi excess predisposes to chondrocalcinosis and arthropathy in HPP.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000934\"}}, {\"id\": \"Craniosynostosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Premature cranial suture fusion occurs in severe infantile HPP despite generalized skeletal undermineralization.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001363\"}}, {\"id\": \"Fractures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent or poorly healing fractures and adult pseudofractures result from defective mineralization and osteomalacia.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002757\"}}, {\"id\": \"Inorganic pyrophosphate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"Low Alkaline Phosphatase\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistently low serum alkaline phosphatase activity is the biochemical and phenotypic hallmark, present even in mild adult disease.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003282\"}}, {\"id\": \"Motor Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pediatric HPP can include delayed motor development, hypotonia, and gait disturbance as part of the systemic disease presentation.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001270\"}}, {\"id\": \"Multidisciplinary Supportive Care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Supportive management is multimodal and tailored to disease manifestations, including metabolic and musculoskeletal care, dental care, neurologic and neurosurgical surveillance, pain management, physical therapy, and psychological support.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized musculoskeletal pain is increasingly recognized in adult and pediatric-onset adult HPP, reflecting skeletal disease and arthropathy.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012531\"}}, {\"id\": \"Premature Loss of Deciduous Teeth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Premature loss of primary teeth reflects defective dentoalveolar mineralization, especially cementum and supporting periodontal tissues, and can be the dominant manifestation in odontohypophosphatasia.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0006323\"}}, {\"id\": \"Pyridoxal 5\u0027-phosphate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"Pyridoxine Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pyridoxine can be used for vitamin B6-dependent seizures in severe infantile HPP, bypassing impaired PLP handling downstream of TNAP deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pyridoxine\"]}}, {\"id\": \"Pyrophosphate crystal arthropathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PPi excess can drive chondrocalcinosis and arthropathy. This branch connects the TNAP substrate abnormality to adult musculoskeletal pain and joint manifestations distinct from primary osteomalacia.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Respiratory Insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Perinatal and infantile HPP can cause respiratory failure through lung hypoplasia and poorly mineralized ribs/chest wall, making respiratory complications a major mortality driver.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002093\"}}, {\"id\": \"Rickets/Osteomalacia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Defective bone mineralization presents as rickets in children and osteomalacia in adults. Severity generally tracks residual TNAP activity.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002748\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe infantile HPP can include vitamin B6-dependent seizures from disrupted PLP handling and CNS vitamin B6 availability.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Serum alkaline phosphatase activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"DECREASED\"}}, {\"id\": \"Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Childhood-onset HPP can impair growth through rickets and growth-plate defects, resulting in short stature or poor linear growth.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004322\"}}, {\"id\": \"Skeletal and dentoalveolar mineralization failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess PPi inhibits hydroxyapatite crystal growth after matrix vesicle rupture, producing defective mineralization of bone, growth plates, teeth, and the dentoalveolar complex. This mechanism accounts for rickets or osteomalacia, impaired growth, fractures, premature tooth loss, and severe chest-wall disease.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Osteoblast\"], \"biological_processes\": [\"bone mineralization\", \"ossification\"]}}, {\"id\": \"TNAP substrate accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient TNAP causes accumulation of natural substrates, especially inorganic pyrophosphate (PPi), pyridoxal 5\u0027-phosphate (PLP), and urinary phosphoethanolamine (PEA). PPi blocks apatite crystal growth, whereas PLP accumulation reflects disrupted vitamin B6 handling.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"phosphate ion homeostasis\"]}}, {\"id\": \"Urine phosphoethanolamine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Vitamin B6-dependent neurologic vulnerability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TNAP normally participates in vitamin B6 metabolism through extracellular PLP dephosphorylation. HPP disrupts this process, creating vitamin B6-dependent seizure susceptibility in severe infantile disease and contributing to delayed motor development in broader pediatric presentations.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"vitamin B6 metabolic process\"]}}], \"edges\": [{\"source\": \"ALPL loss of function and TNAP deficiency\", \"target\": \"Serum alkaline phosphatase activity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ALPL loss of function and TNAP deficiency\", \"target\": \"Low Alkaline Phosphatase\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ALPL loss of function and TNAP deficiency\", \"target\": \"TNAP substrate accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TNAP substrate accumulation\", \"target\": \"Inorganic pyrophosphate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TNAP substrate accumulation\", \"target\": \"Pyridoxal 5\u0027-phosphate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TNAP substrate accumulation\", \"target\": \"Urine phosphoethanolamine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TNAP substrate accumulation\", \"target\": \"Skeletal and dentoalveolar mineralization failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TNAP substrate accumulation\", \"target\": \"Vitamin B6-dependent neurologic vulnerability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TNAP substrate accumulation\", \"target\": \"Pyrophosphate crystal arthropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and dentoalveolar mineralization failure\", \"target\": \"Rickets/Osteomalacia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and dentoalveolar mineralization failure\", \"target\": \"Premature Loss of Deciduous Teeth\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and dentoalveolar mineralization failure\", \"target\": \"Fractures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and dentoalveolar mineralization failure\", \"target\": \"Craniosynostosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and dentoalveolar mineralization failure\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and dentoalveolar mineralization failure\", \"target\": \"Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vitamin B6-dependent neurologic vulnerability\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vitamin B6-dependent neurologic vulnerability\", \"target\": \"Motor Delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Pyrophosphate crystal arthropathy\", \"target\": \"Chondrocalcinosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Pyrophosphate crystal arthropathy\", \"target\": \"Pain\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Asfotase Alfa (Strensiq)\", \"target\": \"ALPL loss of function and TNAP deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Asfotase Alfa (Strensiq)\", \"target\": \"Skeletal and dentoalveolar mineralization failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pyridoxine Supplementation\", \"target\": \"Vitamin B6-dependent neurologic vulnerability\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary Supportive Care\", \"target\": \"Skeletal and dentoalveolar mineralization failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary Supportive Care\", \"target\": \"Pyrophosphate crystal arthropathy\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ALPL Mutations\", \"target\": \"ALPL loss of function and TNAP deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
+        </div>
+        
 
         <!-- Phenotypes -->
         
@@ -3045,7 +3686,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">8</span>
+                <span class="card-count">13</span>
             </div>
             
             
@@ -3055,13 +3696,17 @@
                 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(1)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(3)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(2)</span></button>
                 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Respiratory<span class="pill-count">(1)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Constitutional<span class="pill-count">(2)</span></button>
+                
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(1)</span></button>
+                
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(1)</span></button>
                 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -3094,25 +3739,47 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26590809" target="_blank">PMID:26590809</a>
+                        <a href="https://bioregistry.io/DOI:10.1007/s00223-025-01356-y" target="_blank">DOI:10.1007/s00223-025-01356-y</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
                 </div>
                 
-                <div class="evidence-snippet">"HPP features rickets or osteomalacia and hypomineralization of teeth"</div>
+                <div class="evidence-snippet">"Disease manifestations encompass skeletal hypomineralization with rickets and lung hypoplasia, vitamin B6-dependent seizures, craniosynostosis, and premature loss of deciduous teeth."</div>
                 
                 
-                <div class="evidence-explanation">Dental hypomineralization leading to premature tooth loss is a cardinal HPP feature.</div>
+                <div class="evidence-explanation">Review lists premature loss of deciduous teeth among HPP manifestations.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/jbmrpl/ziae180" target="_blank">DOI:10.1093/jbmrpl/ziae180</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Premature tooth loss of fully rooted teeth is pathognomonic for HPP."</div>
+                
+                
+                <div class="evidence-explanation">Dental review supports premature tooth loss as a highly characteristic HPP finding.</div>
                 
             </div>
             
@@ -3146,9 +3813,29 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s00223-025-01356-y" target="_blank">DOI:10.1007/s00223-025-01356-y</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Disease manifestations encompass skeletal hypomineralization with rickets and lung hypoplasia, vitamin B6-dependent seizures, craniosynostosis, and premature loss of deciduous teeth."</div>
+                
+                
+                <div class="evidence-explanation">Review lists craniosynostosis among HPP manifestations.</div>
+                
+            </div>
             
             <div class="evidence-item">
                 <div class="evidence-header">
@@ -3159,12 +3846,14 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"craniosynostosis and muscle weakness when HPP is severe"</div>
                 
                 
-                <div class="evidence-explanation">Craniosynostosis is a recognized complication of severe HPP, with mechanism not yet fully understood.</div>
+                <div class="evidence-explanation">Review identifies craniosynostosis as a severe-HPP feature not fully understood.</div>
                 
             </div>
             
@@ -3207,9 +3896,29 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34884378" target="_blank">PMID:34884378</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Persistently low serum alkaline phosphatase is the cardinal biochemical feature of the disease."</div>
+                
+                
+                <div class="evidence-explanation">Review identifies low serum ALP as the cardinal biochemical feature.</div>
+                
+            </div>
             
             <div class="evidence-item">
                 <div class="evidence-header">
@@ -3220,12 +3929,14 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"mild HPP, characterized by low alkaline phosphatase and unspecific clinical signs, is dominantly inherited and very common"</div>
                 
                 
-                <div class="evidence-explanation">Low ALP is the defining biochemical feature, present even in the mildest HPP form.</div>
+                <div class="evidence-explanation">Cohort-based nosology identifies low alkaline phosphatase in mild dominant HPP.</div>
                 
             </div>
             
@@ -3245,7 +3956,7 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
                 
                 <div class="item-box phenotype-box">
@@ -3281,12 +3992,14 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
                 </div>
                 
-                <div class="evidence-snippet">"HPP features rickets or osteomalacia and hypomineralization of teeth"</div>
+                <div class="evidence-snippet">"Thus, HPP features rickets or osteomalacia and hypomineralization of teeth."</div>
                 
                 
-                <div class="evidence-explanation">Rickets and osteomalacia are the hallmark skeletal manifestations of HPP.</div>
+                <div class="evidence-explanation">Review identifies rickets or osteomalacia as hallmark HPP manifestations.</div>
                 
             </div>
             
@@ -3299,12 +4012,14 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"Hypophosphatasia (HPP) is the instructive rickets or osteomalacia caused by loss-of-function mutation(s) within TNSALP"</div>
                 
                 
-                <div class="evidence-explanation">Defines HPP as a form of rickets/osteomalacia caused by TNSALP mutations.</div>
+                <div class="evidence-explanation">Review defines HPP as rickets or osteomalacia caused by TNAP loss of function.</div>
                 
             </div>
             
@@ -3336,6 +4051,130 @@
                     
                     
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34884378" target="_blank">PMID:34884378</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"recurrent, poorly healing fractures, muscle weakness and arthropathy are common in adults."</div>
+                
+                
+                <div class="evidence-explanation">Review supports recurrent poorly healing fractures as adult HPP manifestations.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s00223-025-01356-y" target="_blank">DOI:10.1007/s00223-025-01356-y</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"In adults, pseudofractures are a characteristic indicator of severely compromised enzyme activity"</div>
+                
+                
+                <div class="evidence-explanation">Review supports pseudofractures as an adult indicator of severe enzyme deficiency.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Muscle Weakness
+                        
+                    
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank">
+                            Muscle weakness
+                        </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001324)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26590809" target="_blank">PMID:26590809</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"craniosynostosis and muscle weakness when HPP is severe"</div>
+                
+                
+                <div class="evidence-explanation">Review identifies muscle weakness as a feature of severe HPP.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34884378" target="_blank">PMID:34884378</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"recurrent, poorly healing fractures, muscle weakness and arthropathy are common in adults."</div>
+                
+                
+                <div class="evidence-explanation">Review supports muscle weakness among common adult HPP manifestations.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
                     
     
@@ -3348,7 +4187,7 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
                 
                 <div class="item-box phenotype-box">
@@ -3371,6 +4210,80 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s00223-025-01356-y" target="_blank">DOI:10.1007/s00223-025-01356-y</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Disease manifestations encompass skeletal hypomineralization with rickets and lung hypoplasia, vitamin B6-dependent seizures, craniosynostosis, and premature loss of deciduous teeth."</div>
+                
+                
+                <div class="evidence-explanation">Review directly supports vitamin B6-dependent seizures in HPP.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23479201" target="_blank">PMID:23479201</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Defective TNSALP activity in the brain can result in intractable seizures responsive to pyridoxine."</div>
+                
+                
+                <div class="evidence-explanation">Human infantile HPP case report directly supports pyridoxine-responsive seizures.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Motor Delay
+                        
+                    
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank">
+                            Motor delay
+                        </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001270)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
@@ -3378,18 +4291,20 @@
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20392236" target="_blank">PMID:20392236</a>
+                        <a href="https://bioregistry.io/DOI:10.1007/s00223-025-01356-y" target="_blank">DOI:10.1007/s00223-025-01356-y</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
                 </div>
                 
-                <div class="evidence-snippet">"Aberrations of vitamin B(6) metabolism in HPP revealed that TNSALP is an ectoenzyme"</div>
+                <div class="evidence-snippet">"The clinical presentation can comprise failure to thrive with muscular hypotonia, delayed motor development, and gait disturbances later in childhood."</div>
                 
                 
-                <div class="evidence-explanation">Vitamin B6 metabolism defects explain pyridoxine-responsive seizures in severe HPP.</div>
+                <div class="evidence-explanation">Review supports delayed motor development in childhood HPP.</div>
                 
             </div>
             
@@ -3432,7 +4347,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -3445,12 +4360,34 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
-                <div class="evidence-snippet">"in its most severe perinatal and infantile forms, results in 50-100% mortality, typically from respiratory complications"</div>
+                <div class="evidence-snippet">"in its most severe perinatal and infantile forms, results in 50-100% mortality, typically from respiratory complications."</div>
                 
                 
-                <div class="evidence-explanation">Respiratory complications are the primary cause of death in severe perinatal/infantile HPP.</div>
+                <div class="evidence-explanation">Human trial/natural-history comparison identifies respiratory complications as the typical mortality driver.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s00223-025-01356-y" target="_blank">DOI:10.1007/s00223-025-01356-y</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Disease manifestations encompass skeletal hypomineralization with rickets and lung hypoplasia"</div>
+                
+                
+                <div class="evidence-explanation">Review supports lung hypoplasia within severe HPP manifestations.</div>
                 
             </div>
             
@@ -3467,6 +4404,123 @@
             </details>
             
             <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Constitutional
+                    <span class="cat-count">2</span>
+                </summary>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Pain
+                        
+                    
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank">
+                            Pain
+                        </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0012531)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s00223-025-01356-y" target="_blank">DOI:10.1007/s00223-025-01356-y</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"generalized musculoskeletal pain, weakness, and fatigue"</div>
+                
+                
+                <div class="evidence-explanation">Review supports generalized musculoskeletal pain among key adult HPP findings.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Fatigue
+                        
+                    
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank">
+                            Fatigue
+                        </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0012378)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s11914-025-00906-5" target="_blank">DOI:10.1007/s11914-025-00906-5</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"non-skeletal impairments, such as pain and chronic fatigue."</div>
+                
+                
+                <div class="evidence-explanation">Review supports chronic fatigue as part of adult HPP disease burden.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+            </details>
+            
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -3490,6 +4544,99 @@
                     
                     
                     
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/jbmrpl/ziae180" target="_blank">DOI:10.1093/jbmrpl/ziae180</a>
+                    </span>
+                    
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"HPP onset in childhood contributes to rickets, including growth plate defects and impaired growth."</div>
+                
+                
+                <div class="evidence-explanation">Review supports impaired growth from childhood rickets, which is the basis for short-stature curation.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+            </details>
+            
+            <details class="phenotype-category-group" id="pheno-cat-8">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Chondrocalcinosis
+                        
+                    
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0000934" target="_blank">
+                            Chondrocalcinosis
+                        </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000934)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20392236" target="_blank">PMID:20392236</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"PP(i) excesses cause chondrocalcinosis and sometimes arthropathy."</div>
+                
+                
+                <div class="evidence-explanation">Review directly links PPi excess to chondrocalcinosis.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
                     
@@ -3548,7 +4695,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (4 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
             
@@ -3561,12 +4708,34 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
-                <div class="evidence-snippet">"We analyzed a cohort of 424 HPP patients from European geographic origin or ancestry. Using 3D modeling and results of functional tests we classified ALPL pathogenic variants according to their dominant negative effect (DNE) and their severity"</div>
+                <div class="evidence-snippet">"Hypophosphatasia (HPP) is caused by pathogenic variants in the ALPL gene."</div>
                 
                 
-                <div class="evidence-explanation">Large cohort study of 424 patients classifying ALPL variants by severity and dominant negative effect.</div>
+                <div class="evidence-explanation">Cohort paper directly states the ALPL causal relationship.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34884378" target="_blank">PMID:34884378</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"More than 400 ALPL mutations, mostly missense, are reported to date, transmitted by either autosomal dominant or recessive mode."</div>
+                
+                
+                <div class="evidence-explanation">Review supports mutation burden and dominant/recessive transmission.</div>
                 
             </div>
             
@@ -3579,35 +4748,17 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                </div>
-                
-                <div class="evidence-snippet">"Pathogenic variants with DNE were found in both recessive and dominant HPP"</div>
-                
-                
-                <div class="evidence-explanation">Dominant negative variants can cause disease in both heterozygous (dominant) and homozygous (recessive) states.</div>
-                
-            </div>
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32973344" target="_blank">PMID:32973344</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"Homozygosity was an aggravating factor of the severity and moderate alleles were rare both in number and frequency"</div>
+                <div class="evidence-snippet">"Homozygosity was an aggravating factor of the severity and moderate alleles were rare both in number and frequency."</div>
                 
                 
-                <div class="evidence-explanation">Homozygosity worsens phenotype; moderate alleles are uncommon.</div>
+                <div class="evidence-explanation">Cohort evidence supports genotype-severity correlation.</div>
                 
             </div>
             
-            
-            <div class="evidence-more">+ 1 more reference</div>
             
         </div>
     </details>
@@ -3632,21 +4783,58 @@
                     Asfotase Alfa (Strensiq)
                 </div>
                 
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                </div>
                 
                 
                 
                 
-                <div class="item-desc">Bone-targeted enzyme replacement therapy. Asfotase alfa is a fusion protein of TNSALP catalytic domain with an Fc fragment and deca-aspartate bone-targeting domain. FDA approved in 2015 for pediatric-onset HPP. Administered subcutaneously.
+                
+                <div class="item-desc">Bone-targeted enzyme replacement therapy that substitutes TNAP activity. Human interventional evidence shows improved survival, respiratory outcomes, skeletal mineralization, rickets, and functional outcomes in severely affected pediatric patients.
 </div>
                 
                 
-                
-                
-                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            RESTORES
+                        </span>
+                        <strong style="color: #5b21b6;">ALPL loss of function and TNAP deficiency</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Asfotase alfa substitutes deficient TNAP enzymatic activity.</span>
+                        
+                        
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (4 references)
+            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
             
@@ -3659,12 +4847,96 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
-                <div class="evidence-snippet">"Asfotase alfa was associated with improved survival in treated patients vs historical controls: 95% vs 42% at age 1 year and 84% vs 27% at age 5 years, respectively (P &lt; .0001, Kaplan-Meier log-rank test)"</div>
+                <div class="evidence-snippet">"treatment with asfotase alfa, a first-in-class enzyme replacement therapy"</div>
                 
                 
-                <div class="evidence-explanation">Dramatic survival improvement with asfotase alfa: 95% vs 42% at 1 year, demonstrating efficacy of enzyme replacement.</div>
+                <div class="evidence-explanation">Trial abstract identifies asfotase alfa as enzyme replacement therapy.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            RESTORES
+                        </span>
+                        <strong style="color: #5b21b6;">Skeletal and dentoalveolar mineralization failure</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Enzyme replacement improves skeletal mineralization and rib-related respiratory function.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26529632" target="_blank">PMID:26529632</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Asfotase alfa mineralizes the HPP skeleton, including the ribs, and improves respiratory function and survival in life-threatening perinatal and infantile HPP."</div>
+                
+                
+                <div class="evidence-explanation">Human clinical evidence directly supports skeletal and respiratory benefit.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26529632" target="_blank">PMID:26529632</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Asfotase alfa was associated with improved survival in treated patients vs historical controls: 95% vs 42% at age 1 year and 84% vs 27% at age 5 years, respectively (P &lt; .0001, Kaplan-Meier log-rank test)."</div>
+                
+                
+                <div class="evidence-explanation">Human interventional evidence shows improved survival with asfotase alfa.</div>
                 
             </div>
             
@@ -3677,35 +4949,37 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
-                <div class="evidence-snippet">"76% (16/21) of the ventilated and treated patients survived, among whom 75% (12/16) were weaned from ventilatory support"</div>
+                <div class="evidence-snippet">"76% (16/21) of the ventilated and treated patients survived, among whom 75% (12/16) were weaned from ventilatory support."</div>
                 
                 
-                <div class="evidence-explanation">Most ventilated patients survived and were weaned from ventilatory support with treatment.</div>
+                <div class="evidence-explanation">Human interventional evidence supports improved ventilatory outcomes.</div>
                 
             </div>
             
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26590809" target="_blank">PMID:26590809</a>
+                        <a href="https://bioregistry.io/DOI:10.1007/s11914-025-00906-5" target="_blank">DOI:10.1007/s11914-025-00906-5</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
                 </div>
                 
-                <div class="evidence-snippet">"Enzyme replacement using mineral-targeted TNAP from birth prevented severe HPP in TNAP-knockout mice and was then shown to rescue and substantially treat infants and young children with life-threatening HPP"</div>
+                <div class="evidence-snippet">"Treatment for HPP relies on the enzyme replacement asfotase alfa."</div>
                 
                 
-                <div class="evidence-explanation">Summarizes the preclinical-to-clinical development path of enzyme replacement therapy.</div>
+                <div class="evidence-explanation">Review summarizes asfotase alfa as the core enzyme-replacement treatment.</div>
                 
             </div>
             
-            
-            <div class="evidence-more">+ 1 more reference</div>
             
         </div>
     </details>
@@ -3718,37 +4992,244 @@
                     Pyridoxine Supplementation
                 </div>
                 
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                </div>
                 
                 
                 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        pyridoxine
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_16709" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
                 
-                <div class="item-desc">Vitamin B6 (pyridoxine) for management of seizures in infantile HPP, bypassing the PLP dephosphorylation defect.
+                
+                
+                <div class="item-desc">Pyridoxine can be used for vitamin B6-dependent seizures in severe infantile HPP, bypassing impaired PLP handling downstream of TNAP deficiency.
 </div>
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            BYPASSES
+                        </span>
+                        <strong style="color: #5b21b6;">Vitamin B6-dependent neurologic vulnerability</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Pyridoxine addresses the vitamin B6-dependent seizure branch rather than restoring TNAP.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23479201" target="_blank">PMID:23479201</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Defective TNSALP activity in the brain can result in intractable seizures responsive to pyridoxine."</div>
+                
+                
+                <div class="evidence-explanation">Human case report supports pyridoxine responsiveness in the seizure branch targeted by supplementation.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
                 
                 
                 
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23479201" target="_blank">PMID:23479201</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Empiric treatment with favorable response to pyridoxine"</div>
+                
+                
+                <div class="evidence-explanation">Human case report directly supports pyridoxine treatment responsiveness in infantile HPP seizures.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
             </div>
             
             <div class="item-box treatment-box">
                 <div class="item-name">
-                    Orthopedic Management
+                    Multidisciplinary Supportive Care
+                </div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">supportive care</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000950</a>
+                    
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
                 </div>
                 
                 
                 
                 
                 
-                <div class="item-desc">Fracture management, bracing, and surgical intervention as needed. Non-steroidal anti-inflammatory drugs for bone pain in adult HPP.
+                <div class="item-desc">Supportive management is multimodal and tailored to disease manifestations, including metabolic and musculoskeletal care, dental care, neurologic and neurosurgical surveillance, pain management, physical therapy, and psychological support.
 </div>
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+                        <strong style="color: #5b21b6;">Skeletal and dentoalveolar mineralization failure</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Dental, musculoskeletal, pain, and rehabilitation care address downstream skeletal and dental consequences.</span>
+                        
+                        
+    
+    
+                    </div>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+                        <strong style="color: #5b21b6;">Pyrophosphate crystal arthropathy</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Pain management and musculoskeletal care address arthropathy-related symptoms.</span>
+                        
+                        
+    
+    
+                    </div>
+                    
+                </div>
                 
                 
                 
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s00223-025-01356-y" target="_blank">DOI:10.1007/s00223-025-01356-y</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The multidisciplinary team for comprehensive management of HPP patients should include expertise to ensure disease state metabolic and musculoskeletal treatment, dental care, neurological and neurosurgical surveillance, pain management, physical therapy, and psychological care."</div>
+                
+                
+                <div class="evidence-explanation">Review supports multimodal supportive care across HPP manifestations.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
             </div>
@@ -3760,6 +5241,263 @@
         
 
         <!-- Biochemical Markers -->
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
+                <h2 class="card-title">Biochemical Markers</h2>
+                <span class="card-count">4</span>
+            </div>
+            
+            <div class="item-box biochemical-box">
+                <div class="item-name">
+                    Serum alkaline phosphatase activity
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(DECREASED)</span>
+                    
+                </div>
+                
+                <div class="item-desc">Context: Persistently low serum alkaline phosphatase activity is the cardinal diagnostic biochemical marker of HPP and reflects deficient TNAP activity.
+</div>
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34884378" target="_blank">PMID:34884378</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Persistently low serum alkaline phosphatase is the cardinal biochemical feature of the disease."</div>
+                
+                
+                <div class="evidence-explanation">Review identifies low serum ALP as the cardinal biochemical feature.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s00223-025-01356-y" target="_blank">DOI:10.1007/s00223-025-01356-y</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The diagnosis is based on clinical manifestations in combination with persistently low alkaline phosphatase (ALP) activity"</div>
+                
+                
+                <div class="evidence-explanation">Review lists persistently low ALP activity as a diagnostic criterion.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box biochemical-box">
+                <div class="item-name">
+                    Inorganic pyrophosphate
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(INCREASED)</span>
+                    
+                </div>
+                
+                <div class="item-desc">Context: Elevated inorganic pyrophosphate is a diagnostic TNAP substrate and the central inhibitor of hydroxyapatite crystal growth.
+</div>
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s00223-025-01356-y" target="_blank">DOI:10.1007/s00223-025-01356-y</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"elevated levels of ALP substrates, specifically inorganic pyrophosphate (PPi)"</div>
+                
+                
+                <div class="evidence-explanation">Review lists elevated PPi as an ALP substrate marker.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20392236" target="_blank">PMID:20392236</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Increased extracellular levels of pyridoxal 5&#39;-phosphate and inorganic pyrophosphate (PP(i)) demonstrate that TNSALP is a phosphomonoester phosphohydrolase and a pyrophosphatase"</div>
+                
+                
+                <div class="evidence-explanation">Review supports increased extracellular PPi as a biochemical consequence of TNAP loss.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box biochemical-box">
+                <div class="item-name">
+                    Pyridoxal 5&#39;-phosphate
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(INCREASED)</span>
+                    
+                </div>
+                
+                <div class="item-desc">Context: Elevated plasma PLP reflects impaired TNAP-mediated vitamin B6 metabolism and supports the seizure branch in severe infantile disease.
+</div>
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s00223-025-01356-y" target="_blank">DOI:10.1007/s00223-025-01356-y</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"elevated levels of ALP substrates, specifically inorganic pyrophosphate (PPi), pyridoxal 5&#39;-phosphate (PLP)"</div>
+                
+                
+                <div class="evidence-explanation">Review lists elevated PLP as an ALP substrate marker.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20392236" target="_blank">PMID:20392236</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Increased extracellular levels of pyridoxal 5&#39;-phosphate and inorganic pyrophosphate (PP(i)) demonstrate that TNSALP is a phosphomonoester phosphohydrolase and a pyrophosphatase"</div>
+                
+                
+                <div class="evidence-explanation">Review supports increased extracellular PLP as a biochemical consequence of TNAP loss.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box biochemical-box">
+                <div class="item-name">
+                    Urine phosphoethanolamine
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(INCREASED)</span>
+                    
+                </div>
+                
+                <div class="item-desc">Context: Urinary phosphoethanolamine is an additional ALP substrate that can be elevated in HPP and used as part of the diagnostic biochemical pattern.
+</div>
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s00223-025-01356-y" target="_blank">DOI:10.1007/s00223-025-01356-y</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"elevated levels of ALP substrates, specifically inorganic pyrophosphate (PPi), pyridoxal 5&#39;-phosphate (PLP) or urine phosphoethanolamine (PEA)"</div>
+                
+                
+                <div class="evidence-explanation">Review lists urine PEA among elevated ALP substrate markers.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+        </div>
         
 
         <!-- Differential Diagnoses -->
@@ -3790,7 +5528,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Hypophosphatasia
 creation_date: &#39;2026-02-13T00:31:42Z&#39;
-updated_date: &#39;2026-02-16T20:19:38Z&#39;
+updated_date: &#34;2026-05-05T06:00:31Z&#34;
 category: Mendelian
 description: &gt;
   Hypophosphatasia (HPP) is a rare inherited metabolic bone disease caused by
@@ -3816,6 +5554,7 @@ inheritance:
   - reference: PMID:32973344
     reference_title: &#34;Hypophosphatasia: a genetic-based nosology and new insights in genotype-phenotype correlation.&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       severe HPP is recessive and rare, moderate HPP is recessive or dominant and
       more common, and mild HPP, characterized by low alkaline phosphatase and
@@ -3829,18 +5568,12 @@ inheritance:
   - reference: PMID:32973344
     reference_title: &#34;Hypophosphatasia: a genetic-based nosology and new insights in genotype-phenotype correlation.&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      Adults with dominant HPP without DNE represent a new clinical entity mostly
-      diagnosed from 2010s, characterized by nonspecific signs of HPP and low alkaline
-      phosphatase, and for which a high prevalence is expected
-    explanation: &#34;Describes a newly recognized dominant mild HPP entity with high expected prevalence.&#34;
-  - reference: PMID:32973344
-    reference_title: &#34;Hypophosphatasia: a genetic-based nosology and new insights in genotype-phenotype correlation.&#34;
-    supports: SUPPORT
-    snippet: &gt;-
-      Sixty percent of the adults tested were heterozygous for a variant showing no
-      DNE, suggesting another mechanism of dominance like haploinsufficiency
-    explanation: &#34;Most dominant adult HPP cases involve haploinsufficiency rather than dominant negative effect.&#34;
+      severe HPP is recessive and rare, moderate HPP is recessive or dominant and
+      more common, and mild HPP, characterized by low alkaline phosphatase and
+      unspecific clinical signs, is dominantly inherited and very common
+    explanation: &#34;Establishes that mild HPP is commonly dominantly inherited while moderate disease can be recessive or dominant.&#34;
 prevalence:
 - population: Severe perinatal and infantile presentations
   percentage: 1 in 100,000 to 1 in 300,000 live births
@@ -3850,7 +5583,7 @@ prevalence:
   evidence:
   - reference: PMID:34884378
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;Severe disease is rare, with incidence ranging from 1:100,000 to 1:300,000 live births, while the estimated prevalence of the less severe adult form is estimated to be between 1:3100 to 1:508, in different countries in Europe.&#34;
     explanation: This review provides a standard incidence range for severe hypophosphatasia presentations.
 - population: Less severe adult forms in Europe
@@ -3862,99 +5595,334 @@ prevalence:
   evidence:
   - reference: PMID:34884378
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;Severe disease is rare, with incidence ranging from 1:100,000 to 1:300,000 live births, while the estimated prevalence of the less severe adult form is estimated to be between 1:3100 to 1:508, in different countries in Europe.&#34;
     explanation: The same review explicitly states a much higher estimated prevalence for milder adult hypophosphatasia in European populations.
 pathophysiology:
-- name: Defective Bone Mineralization
+- name: ALPL loss of function and TNAP deficiency
   description: &gt;
-    ALPL encodes tissue-nonspecific alkaline phosphatase (TNSALP),
-    which hydrolyzes inorganic pyrophosphate (PPi) at the osteoblast
-    surface. Loss of TNSALP activity leads to accumulation of PPi,
-    a potent inhibitor of hydroxyapatite crystal growth. This results
-    in defective mineralization of bone and teeth (rickets/osteomalacia).
-  biological_processes:
-  - preferred_term: Ossification
+    Loss-of-function variants in ALPL reduce tissue-nonspecific alkaline
+    phosphatase (TNAP) activity. Because TNAP functions as both an alkaline
+    phosphatase and a pyrophosphatase at physiological pH, reduced activity
+    lowers circulating alkaline phosphatase and prevents normal hydrolysis of
+    mineralization and vitamin B6 substrates.
+  genes:
+  - preferred_term: ALPL
     term:
-      id: GO:0001503
-      label: ossification
-  - preferred_term: Phosphate Ion Homeostasis
+      id: hgnc:438
+      label: ALPL
+  molecular_functions:
+  - preferred_term: alkaline phosphatase activity
+    term:
+      id: GO:0004035
+      label: alkaline phosphatase activity
+    modifier: DECREASED
+  - preferred_term: pyrophosphatase activity
+    term:
+      id: GO:0016462
+      label: pyrophosphatase activity
+    modifier: DECREASED
+  evidence:
+  - reference: DOI:10.1007/s00223-025-01356-y
+    reference_title: &#34;Diagnosis and Treatment of Hypophosphatasia&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Hypophosphatasia (HPP) is a rare inherited metabolic disorder characterized
+      by deficient activity of tissue-nonspecific alkaline phosphatase (TNAP)
+      caused by variants in the ALPL gene.
+    explanation: &gt;
+      Review evidence directly defines HPP as ALPL-variant disease with deficient
+      TNAP activity.
+  - reference: PMID:26590809
+    reference_title: &#34;Alkaline Phosphatase and Hypophosphatasia.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Hypophosphatasia (HPP) results from ALPL mutations leading to deficient
+      activity of the tissue-non-specific alkaline phosphatase isozyme (TNAP)
+    explanation: &gt;
+      Review evidence supports ALPL mutation-driven TNAP deficiency as the
+      initiating mechanism.
+  downstream:
+  - target: Serum alkaline phosphatase activity
+    description: Reduced TNAP activity is measured clinically as persistently low alkaline phosphatase activity.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: DOI:10.1007/s00223-025-01356-y
+      reference_title: &#34;Diagnosis and Treatment of Hypophosphatasia&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        The diagnosis is based on clinical manifestations in combination with
+        persistently low alkaline phosphatase (ALP) activity
+      explanation: Low ALP activity is the direct biochemical readout of TNAP deficiency.
+  - target: Low Alkaline Phosphatase
+    description: Reduced TNAP activity produces the hallmark decreased circulating alkaline phosphatase phenotype.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:34884378
+      reference_title: &#34;Hypophosphatasia.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        Persistently low serum alkaline phosphatase is the cardinal biochemical
+        feature of the disease.
+      explanation: Review identifies persistently low serum alkaline phosphatase as cardinal in HPP.
+  - target: TNAP substrate accumulation
+    description: Loss of TNAP enzyme activity leaves natural substrates extracellularly elevated.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:20392236
+      reference_title: &#34;Physiological role of alkaline phosphatase explored in hypophosphatasia.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        Increased extracellular levels of pyridoxal 5&#39;-phosphate and inorganic
+        pyrophosphate (PP(i)) demonstrate that TNSALP is a phosphomonoester
+        phosphohydrolase and a pyrophosphatase
+      explanation: Elevated PLP and PPi demonstrate impaired hydrolysis of TNAP natural substrates.
+- name: TNAP substrate accumulation
+  description: &gt;
+    Deficient TNAP causes accumulation of natural substrates, especially
+    inorganic pyrophosphate (PPi), pyridoxal 5&#39;-phosphate (PLP), and urinary
+    phosphoethanolamine (PEA). PPi blocks apatite crystal growth, whereas PLP
+    accumulation reflects disrupted vitamin B6 handling.
+  chemical_entities:
+  - preferred_term: inorganic pyrophosphate
+    term:
+      id: CHEBI:18361
+      label: diphosphate(4-)
+    modifier: INCREASED
+  - preferred_term: pyridoxal 5&#39;-phosphate
+    term:
+      id: CHEBI:18405
+      label: pyridoxal 5&#39;-phosphate
+    modifier: INCREASED
+  - preferred_term: phosphoethanolamine
+    term:
+      id: CHEBI:36711
+      label: phosphoethanolamine
+    modifier: INCREASED
+  biological_processes:
+  - preferred_term: phosphate ion homeostasis
     term:
       id: GO:0055062
       label: phosphate ion homeostasis
+    modifier: ABNORMAL
+  evidence:
+  - reference: DOI:10.1007/s00223-025-01356-y
+    reference_title: &#34;Diagnosis and Treatment of Hypophosphatasia&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      elevated levels of ALP substrates, specifically inorganic pyrophosphate
+      (PPi), pyridoxal 5&#39;-phosphate (PLP) or urine phosphoethanolamine (PEA)
+    explanation: &gt;
+      Diagnostic review identifies the three major elevated TNAP substrates in
+      HPP.
+  - reference: PMID:34884378
+    reference_title: &#34;Hypophosphatasia.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Reduced activity of TNAP leads to the accumulation of its substrates,
+      mainly inorganic pyrophosphate and pyridoxal-5&#39;-phosphate
+    explanation: Review links reduced TNAP activity to accumulation of PPi and PLP.
+  downstream:
+  - target: Inorganic pyrophosphate
+    description: PPi accumulates when TNAP pyrophosphatase activity is deficient.
+    causal_link_type: DIRECT
+  - target: Pyridoxal 5&#39;-phosphate
+    description: PLP accumulates extracellularly when TNAP phosphomonoesterase activity is deficient.
+    causal_link_type: DIRECT
+  - target: Urine phosphoethanolamine
+    description: PEA is another elevated ALP substrate used diagnostically.
+    causal_link_type: DIRECT
+  - target: Skeletal and dentoalveolar mineralization failure
+    description: PPi is a potent inhibitor of hydroxyapatite growth in bone and dental tissues.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:26590809
+      reference_title: &#34;Alkaline Phosphatase and Hypophosphatasia.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        extracellular accumulation of inorganic pyrophosphate (PPi), a natural
+        substrate of TNAP and potent inhibitor of mineralization.
+      explanation: Review directly links PPi accumulation to mineralization inhibition.
+  - target: Vitamin B6-dependent neurologic vulnerability
+    description: PLP accumulation marks abnormal vitamin B6 metabolism that contributes to seizure vulnerability.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - impaired extracellular PLP dephosphorylation
+  - target: Pyrophosphate crystal arthropathy
+    description: PPi excess can produce chondrocalcinosis and arthropathy.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:20392236
+      reference_title: &#34;Physiological role of alkaline phosphatase explored in hypophosphatasia.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        PP(i) excesses cause chondrocalcinosis and sometimes arthropathy.
+      explanation: Review directly links PPi excess to chondrocalcinosis and arthropathy.
+- name: Skeletal and dentoalveolar mineralization failure
+  description: &gt;
+    Excess PPi inhibits hydroxyapatite crystal growth after matrix vesicle
+    rupture, producing defective mineralization of bone, growth plates, teeth,
+    and the dentoalveolar complex. This mechanism accounts for rickets or
+    osteomalacia, impaired growth, fractures, premature tooth loss, and severe
+    chest-wall disease.
   cell_types:
   - preferred_term: Osteoblast
     term:
       id: CL:0000062
       label: osteoblast
-  evidence:
-  - reference: PMID:26590809
-    reference_title: &#34;Alkaline Phosphatase and Hypophosphatasia.&#34;
-    supports: PARTIAL
-    snippet: &gt;-
-      ALPL mutations leading to deficient activity of the tissue-non-specific alkaline
-      phosphatase isozyme (TNAP) and thereby extracellular accumulation of inorganic
-      pyrophosphate (PPi), a natural substrate of TNAP and potent inhibitor of
-      mineralization
-    explanation: &#34;Concise summary of the core HPP pathophysiology: ALPL mutations cause TNAP deficiency, PPi accumulation, and mineralization failure.&#34;
-  - reference: PMID:20392236
-    reference_title: &#34;Physiological role of alkaline phosphatase explored in hypophosphatasia.&#34;
-    supports: SUPPORT
-    snippet: &gt;-
-      PP(i) inhibition of hydroxyapatite crystal growth extracellularly so that
-      crystals form within matrix vesicles but fail to enlarge after these structures
-      rupture
-    explanation: &#34;Explains the precise mineralization defect: hydroxyapatite crystals form in matrix vesicles but cannot grow after vesicle rupture due to PPi inhibition.&#34;
-  - reference: PMID:20392236
-    reference_title: &#34;Physiological role of alkaline phosphatase explored in hypophosphatasia.&#34;
-    supports: SUPPORT
-    snippet: &gt;-
-      TNSALP is a phosphomonoester phosphohydrolase and a pyrophosphatase that
-      hydrolyzes much lower concentrations of natural substrates than the artificial
-      substrates of laboratory assays
-    explanation: &#34;Clarifies that TNSALP acts on natural substrates at physiological pH despite the misleading &#39;alkaline phosphatase&#39; name.&#34;
-  - reference: PMID:26590809
-    reference_title: &#34;Alkaline Phosphatase and Hypophosphatasia.&#34;
-    supports: PARTIAL
-    snippet: &gt;-
-      Enzyme replacement using mineral-targeted TNAP from birth prevented severe HPP
-      in TNAP-knockout mice and was then shown to rescue and substantially treat
-      infants and young children with life-threatening HPP
-    explanation: &#34;Demonstrates that the mineralization defect is reversible with enzyme replacement, confirming the causal mechanism.&#34;
-- name: Pyridoxal Phosphate Accumulation
-  description: &gt;
-    TNSALP also dephosphorylates pyridoxal 5&#39;-phosphate (PLP, the
-    active form of vitamin B6) in the circulation. Accumulated PLP
-    cannot cross the blood-brain barrier efficiently, leading to
-    intracellular vitamin B6 deficiency in the CNS. This causes
-    pyridoxine-responsive seizures in severe infantile HPP.
   biological_processes:
-  - preferred_term: Vitamin B6 Metabolism
+  - preferred_term: bone mineralization
+    term:
+      id: GO:0030282
+      label: bone mineralization
+    modifier: DECREASED
+  - preferred_term: ossification
+    term:
+      id: GO:0001503
+      label: ossification
+    modifier: ABNORMAL
+  chemical_entities:
+  - preferred_term: hydroxylapatite
+    term:
+      id: CHEBI:52255
+      label: hydroxylapatite
+    modifier: DECREASED
+  evidence:
+  - reference: PMID:20392236
+    reference_title: &#34;Physiological role of alkaline phosphatase explored in hypophosphatasia.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      The skeletal disease is due to PP(i) inhibition of hydroxyapatite crystal
+      growth extracellularly so that crystals form within matrix vesicles but fail
+      to enlarge after these structures rupture.
+    explanation: Review explains how PPi blocks hydroxyapatite crystal growth in skeletal mineralization.
+  - reference: DOI:10.1093/jbmrpl/ziae180
+    reference_title: &#34;Dental manifestations of hypophosphatasia: translational and clinical advances&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      TNAP plays a crucial role in biomineralization of bones and teeth, in part
+      by reducing levels of inorganic pyrophosphate (PPi), an inhibitor of
+      biomineralization.
+    explanation: Dental review connects TNAP, PPi reduction, and bone/tooth biomineralization.
+  downstream:
+  - target: Rickets/Osteomalacia
+    description: Failed skeletal mineralization manifests as rickets in children and osteomalacia in adults.
+    causal_link_type: DIRECT
+  - target: Premature Loss of Deciduous Teeth
+    description: Dentoalveolar mineralization defects produce premature loss of primary teeth.
+    causal_link_type: DIRECT
+  - target: Fractures
+    description: Osteomalacia and impaired mineralization increase fracture and pseudofracture risk.
+    causal_link_type: DIRECT
+  - target: Craniosynostosis
+    description: Craniosynostosis is a severe skeletal manifestation of HPP, though the exact local mechanism is not fully resolved.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+  - target: Respiratory Insufficiency
+    description: Severe skeletal hypomineralization with rib and thoracic involvement contributes to respiratory compromise in perinatal and infantile HPP.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - skeletal hypomineralization with chest-wall involvement
+  - target: Short Stature
+    description: Growth-plate defects and impaired growth follow childhood skeletal mineralization failure.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - growth plate defects
+- name: Vitamin B6-dependent neurologic vulnerability
+  description: &gt;
+    TNAP normally participates in vitamin B6 metabolism through extracellular PLP
+    dephosphorylation. HPP disrupts this process, creating vitamin B6-dependent
+    seizure susceptibility in severe infantile disease and contributing to
+    delayed motor development in broader pediatric presentations.
+  biological_processes:
+  - preferred_term: vitamin B6 metabolic process
     term:
       id: GO:0042816
       label: vitamin B6 metabolic process
+    modifier: ABNORMAL
+  chemical_entities:
+  - preferred_term: pyridoxal 5&#39;-phosphate
+    term:
+      id: CHEBI:18405
+      label: pyridoxal 5&#39;-phosphate
+    modifier: INCREASED
   evidence:
   - reference: PMID:20392236
     reference_title: &#34;Physiological role of alkaline phosphatase explored in hypophosphatasia.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
+    evidence_source: OTHER
     snippet: &gt;-
       Aberrations of vitamin B(6) metabolism in HPP revealed that TNSALP is an
-      ectoenzyme
-    explanation: &#34;Vitamin B6 metabolism abnormalities in HPP demonstrated TNSALP&#39;s ectoenzyme nature.&#34;
+      ectoenzyme.
+    explanation: Review supports abnormal vitamin B6 metabolism as a TNAP-dependent HPP mechanism.
+  - reference: DOI:10.1007/s00223-025-01356-y
+    reference_title: &#34;Diagnosis and Treatment of Hypophosphatasia&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Disease manifestations encompass skeletal hypomineralization with rickets
+      and lung hypoplasia, vitamin B6-dependent seizures, craniosynostosis, and
+      premature loss of deciduous teeth.
+    explanation: Review links HPP to vitamin B6-dependent seizures among core manifestations.
+  - reference: PMID:23479201
+    reference_title: &#34;Infantile hypophosphatasia secondary to a novel compound heterozygous mutation presenting with pyridoxine-responsive seizures.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      TNSALP is also necessary for proper vitamin B6 metabolism and its
+      participation as a cofactor for neurotransmitters in the central nervous
+      system.
+    explanation: Human case report review supports the vitamin B6/neurotransmitter branch of severe infantile HPP.
+  downstream:
+  - target: Seizures
+    description: Abnormal vitamin B6 metabolism contributes to vitamin B6-dependent seizures.
+    causal_link_type: DIRECT
+  - target: Motor Delay
+    description: Pediatric presentations can include delayed motor development alongside severe systemic disease.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+- name: Pyrophosphate crystal arthropathy
+  description: &gt;
+    PPi excess can drive chondrocalcinosis and arthropathy. This branch connects
+    the TNAP substrate abnormality to adult musculoskeletal pain and joint
+    manifestations distinct from primary osteomalacia.
+  chemical_entities:
+  - preferred_term: inorganic pyrophosphate
+    term:
+      id: CHEBI:18361
+      label: diphosphate(4-)
+    modifier: INCREASED
+  evidence:
   - reference: PMID:20392236
     reference_title: &#34;Physiological role of alkaline phosphatase explored in hypophosphatasia.&#34;
     supports: SUPPORT
+    evidence_source: OTHER
     snippet: &gt;-
-      Increased extracellular levels of pyridoxal 5&#39;-phosphate and inorganic
-      pyrophosphate (PP(i)) demonstrate that TNSALP is a phosphomonoester
-      phosphohydrolase and a pyrophosphatase
-    explanation: &#34;Elevated PLP levels confirm TNSALP&#39;s role in PLP dephosphorylation.&#34;
+      PP(i) excesses cause chondrocalcinosis and sometimes arthropathy.
+    explanation: Review directly supports a PPi excess, chondrocalcinosis, and arthropathy branch.
+  downstream:
+  - target: Chondrocalcinosis
+    description: PPi excess causes chondrocalcinosis.
+    causal_link_type: DIRECT
+  - target: Pain
+    description: Arthropathy and adult musculoskeletal disease contribute to generalized pain.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - chondrocalcinosis and arthropathy
 phenotypes:
 - name: Rickets/Osteomalacia
   description: &gt;
-    Defective bone mineralization presenting as rickets in children
-    and osteomalacia in adults. Severity correlates inversely with
-    residual TNSALP activity.
+    Defective bone mineralization presents as rickets in children and
+    osteomalacia in adults. Severity generally tracks residual TNAP activity.
   phenotype_term:
     preferred_term: Rickets
     term:
@@ -3964,97 +5932,155 @@ phenotypes:
   - reference: PMID:26590809
     reference_title: &#34;Alkaline Phosphatase and Hypophosphatasia.&#34;
     supports: SUPPORT
+    evidence_source: OTHER
     snippet: &gt;-
-      HPP features rickets or osteomalacia and hypomineralization of teeth
-    explanation: &#34;Rickets and osteomalacia are the hallmark skeletal manifestations of HPP.&#34;
+      Thus, HPP features rickets or osteomalacia and hypomineralization of teeth.
+    explanation: Review identifies rickets or osteomalacia as hallmark HPP manifestations.
   - reference: PMID:20392236
     reference_title: &#34;Physiological role of alkaline phosphatase explored in hypophosphatasia.&#34;
     supports: SUPPORT
+    evidence_source: OTHER
     snippet: &gt;-
       Hypophosphatasia (HPP) is the instructive rickets or osteomalacia caused by
       loss-of-function mutation(s) within TNSALP
-    explanation: &#34;Defines HPP as a form of rickets/osteomalacia caused by TNSALP mutations.&#34;
+    explanation: Review defines HPP as rickets or osteomalacia caused by TNAP loss of function.
 - name: Premature Loss of Deciduous Teeth
   description: &gt;
-    Premature loss of deciduous teeth (before age 5) with intact roots
-    due to defective cementum mineralization. May be the sole
-    manifestation in odontohypophosphatasia.
+    Premature loss of primary teeth reflects defective dentoalveolar
+    mineralization, especially cementum and supporting periodontal tissues, and
+    can be the dominant manifestation in odontohypophosphatasia.
   phenotype_term:
     preferred_term: Premature loss of primary teeth
     term:
       id: HP:0006323
       label: Premature loss of primary teeth
   evidence:
-  - reference: PMID:26590809
-    reference_title: &#34;Alkaline Phosphatase and Hypophosphatasia.&#34;
+  - reference: DOI:10.1007/s00223-025-01356-y
+    reference_title: &#34;Diagnosis and Treatment of Hypophosphatasia&#34;
     supports: SUPPORT
+    evidence_source: OTHER
     snippet: &gt;-
-      HPP features rickets or osteomalacia and hypomineralization of teeth
-    explanation: &#34;Dental hypomineralization leading to premature tooth loss is a cardinal HPP feature.&#34;
+      Disease manifestations encompass skeletal hypomineralization with rickets
+      and lung hypoplasia, vitamin B6-dependent seizures, craniosynostosis, and
+      premature loss of deciduous teeth.
+    explanation: Review lists premature loss of deciduous teeth among HPP manifestations.
+  - reference: DOI:10.1093/jbmrpl/ziae180
+    reference_title: &#34;Dental manifestations of hypophosphatasia: translational and clinical advances&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Premature tooth loss of fully rooted teeth is pathognomonic for HPP.
+    explanation: Dental review supports premature tooth loss as a highly characteristic HPP finding.
 - name: Low Alkaline Phosphatase
   description: &gt;
-    Low serum alkaline phosphatase activity is the biochemical hallmark.
-    This is one of very few conditions associated with low (rather than
-    high) ALP levels.
+    Persistently low serum alkaline phosphatase activity is the biochemical and
+    phenotypic hallmark, present even in mild adult disease.
   phenotype_term:
     preferred_term: Decreased circulating alkaline phosphatase activity
     term:
       id: HP:0003282
       label: Decreased circulating alkaline phosphatase activity
   evidence:
+  - reference: PMID:34884378
+    reference_title: &#34;Hypophosphatasia.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Persistently low serum alkaline phosphatase is the cardinal biochemical
+      feature of the disease.
+    explanation: Review identifies low serum ALP as the cardinal biochemical feature.
   - reference: PMID:32973344
     reference_title: &#34;Hypophosphatasia: a genetic-based nosology and new insights in genotype-phenotype correlation.&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       mild HPP, characterized by low alkaline phosphatase and unspecific clinical
       signs, is dominantly inherited and very common
-    explanation: &#34;Low ALP is the defining biochemical feature, present even in the mildest HPP form.&#34;
+    explanation: Cohort-based nosology identifies low alkaline phosphatase in mild dominant HPP.
 - name: Fractures
   description: &gt;
-    Recurrent fractures with poor healing due to defective
-    mineralization. Metatarsal stress fractures are common in adults.
+    Recurrent or poorly healing fractures and adult pseudofractures result from
+    defective mineralization and osteomalacia.
   phenotype_term:
     preferred_term: Recurrent fractures
     term:
       id: HP:0002757
       label: Recurrent fractures
+  evidence:
+  - reference: PMID:34884378
+    reference_title: &#34;Hypophosphatasia.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      recurrent, poorly healing fractures, muscle weakness and arthropathy are
+      common in adults.
+    explanation: Review supports recurrent poorly healing fractures as adult HPP manifestations.
+  - reference: DOI:10.1007/s00223-025-01356-y
+    reference_title: &#34;Diagnosis and Treatment of Hypophosphatasia&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      In adults, pseudofractures are a characteristic indicator of severely
+      compromised enzyme activity
+    explanation: Review supports pseudofractures as an adult indicator of severe enzyme deficiency.
 - name: Craniosynostosis
   description: &gt;
-    Premature cranial suture fusion in infantile HPP, paradoxically
-    occurring despite generalized undermineralization.
+    Premature cranial suture fusion occurs in severe infantile HPP despite
+    generalized skeletal undermineralization.
   phenotype_term:
     preferred_term: Craniosynostosis
     term:
       id: HP:0001363
       label: Craniosynostosis
   evidence:
+  - reference: DOI:10.1007/s00223-025-01356-y
+    reference_title: &#34;Diagnosis and Treatment of Hypophosphatasia&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Disease manifestations encompass skeletal hypomineralization with rickets
+      and lung hypoplasia, vitamin B6-dependent seizures, craniosynostosis, and
+      premature loss of deciduous teeth.
+    explanation: Review lists craniosynostosis among HPP manifestations.
   - reference: PMID:26590809
     reference_title: &#34;Alkaline Phosphatase and Hypophosphatasia.&#34;
     supports: SUPPORT
+    evidence_source: OTHER
     snippet: &gt;-
       craniosynostosis and muscle weakness when HPP is severe
-    explanation: &#34;Craniosynostosis is a recognized complication of severe HPP, with mechanism not yet fully understood.&#34;
+    explanation: Review identifies craniosynostosis as a severe-HPP feature not fully understood.
 - name: Seizures
   description: &gt;
-    Pyridoxine-responsive seizures in severe infantile HPP due to
-    impaired CNS vitamin B6 metabolism.
+    Severe infantile HPP can include vitamin B6-dependent seizures from disrupted
+    PLP handling and CNS vitamin B6 availability.
   phenotype_term:
     preferred_term: Seizure
     term:
       id: HP:0001250
       label: Seizure
   evidence:
-  - reference: PMID:20392236
-    reference_title: &#34;Physiological role of alkaline phosphatase explored in hypophosphatasia.&#34;
+  - reference: DOI:10.1007/s00223-025-01356-y
+    reference_title: &#34;Diagnosis and Treatment of Hypophosphatasia&#34;
     supports: SUPPORT
+    evidence_source: OTHER
     snippet: &gt;-
-      Aberrations of vitamin B(6) metabolism in HPP revealed that TNSALP is an
-      ectoenzyme
-    explanation: &#34;Vitamin B6 metabolism defects explain pyridoxine-responsive seizures in severe HPP.&#34;
+      Disease manifestations encompass skeletal hypomineralization with rickets
+      and lung hypoplasia, vitamin B6-dependent seizures, craniosynostosis, and
+      premature loss of deciduous teeth.
+    explanation: Review directly supports vitamin B6-dependent seizures in HPP.
+  - reference: PMID:23479201
+    reference_title: &#34;Infantile hypophosphatasia secondary to a novel compound heterozygous mutation presenting with pyridoxine-responsive seizures.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Defective TNSALP activity in the brain can result in intractable seizures
+      responsive to pyridoxine.
+    explanation: Human infantile HPP case report directly supports pyridoxine-responsive seizures.
 - name: Respiratory Insufficiency
   description: &gt;
-    Respiratory failure from chest wall deformity and hypoplastic
-    lungs in perinatal lethal form.
+    Perinatal and infantile HPP can cause respiratory failure through lung
+    hypoplasia and poorly mineralized ribs/chest wall, making respiratory
+    complications a major mortality driver.
   phenotype_term:
     preferred_term: Respiratory insufficiency
     term:
@@ -4064,104 +6090,379 @@ phenotypes:
   - reference: PMID:26529632
     reference_title: &#34;Asfotase Alfa Treatment Improves Survival for Perinatal and Infantile Hypophosphatasia.&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      in its most severe perinatal and infantile forms, results in 50-100% mortality,
-      typically from respiratory complications
-    explanation: &#34;Respiratory complications are the primary cause of death in severe perinatal/infantile HPP.&#34;
+      in its most severe perinatal and infantile forms, results in 50-100%
+      mortality, typically from respiratory complications.
+    explanation: Human trial/natural-history comparison identifies respiratory complications as the typical mortality driver.
+  - reference: DOI:10.1007/s00223-025-01356-y
+    reference_title: &#34;Diagnosis and Treatment of Hypophosphatasia&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Disease manifestations encompass skeletal hypomineralization with rickets
+      and lung hypoplasia
+    explanation: Review supports lung hypoplasia within severe HPP manifestations.
 - name: Short Stature
   description: &gt;
-    Short stature in childhood forms due to impaired skeletal growth.
+    Childhood-onset HPP can impair growth through rickets and growth-plate
+    defects, resulting in short stature or poor linear growth.
   phenotype_term:
     preferred_term: Short stature
     term:
       id: HP:0004322
       label: Short stature
-genetic:
-- name: ALPL Mutations
-  association: Causative
-  notes: &gt;
-    Mutations in ALPL encoding tissue-nonspecific alkaline phosphatase
-    (TNSALP). Over 400 mutations described including missense, nonsense,
-    splice-site, and small deletions. Severe forms result from
-    homozygous or compound heterozygous null alleles; milder forms
-    from dominant-negative missense mutations that disrupt the TNSALP
-    homodimer.
   evidence:
-  - reference: PMID:32973344
-    reference_title: &#34;Hypophosphatasia: a genetic-based nosology and new insights in genotype-phenotype correlation.&#34;
-    supports: SUPPORT
+  - reference: DOI:10.1093/jbmrpl/ziae180
+    reference_title: &#34;Dental manifestations of hypophosphatasia: translational and clinical advances&#34;
+    supports: PARTIAL
+    evidence_source: OTHER
     snippet: &gt;-
-      We analyzed a cohort of 424 HPP patients from European geographic origin or
-      ancestry. Using 3D modeling and results of functional tests we classified ALPL
-      pathogenic variants according to their dominant negative effect (DNE) and their
-      severity
-    explanation: &#34;Large cohort study of 424 patients classifying ALPL variants by severity and dominant negative effect.&#34;
-  - reference: PMID:32973344
-    reference_title: &#34;Hypophosphatasia: a genetic-based nosology and new insights in genotype-phenotype correlation.&#34;
-    supports: SUPPORT
-    snippet: &gt;-
-      Pathogenic variants with DNE were found in both recessive and dominant HPP
-    explanation: &#34;Dominant negative variants can cause disease in both heterozygous (dominant) and homozygous (recessive) states.&#34;
-  - reference: PMID:32973344
-    reference_title: &#34;Hypophosphatasia: a genetic-based nosology and new insights in genotype-phenotype correlation.&#34;
-    supports: SUPPORT
-    snippet: &gt;-
-      Homozygosity was an aggravating factor of the severity and moderate alleles were
-      rare both in number and frequency
-    explanation: &#34;Homozygosity worsens phenotype; moderate alleles are uncommon.&#34;
-  - reference: PMID:32973344
-    reference_title: &#34;Hypophosphatasia: a genetic-based nosology and new insights in genotype-phenotype correlation.&#34;
-    supports: SUPPORT
-    snippet: &gt;-
-      Adults with dominant HPP without DNE were found statistically less severely
-      affected than adults with DNE variants
-    explanation: &#34;Genotype-phenotype correlation: dominant negative variants cause more severe disease than haploinsufficiency.&#34;
-treatments:
-- name: Asfotase Alfa (Strensiq)
+      HPP onset in childhood contributes to rickets, including growth plate
+      defects and impaired growth.
+    explanation: Review supports impaired growth from childhood rickets, which is the basis for short-stature curation.
+- name: Muscle Weakness
   description: &gt;
-    Bone-targeted enzyme replacement therapy. Asfotase alfa is a
-    fusion protein of TNSALP catalytic domain with an Fc fragment
-    and deca-aspartate bone-targeting domain. FDA approved in 2015
-    for pediatric-onset HPP. Administered subcutaneously.
+    Muscle weakness occurs in severe pediatric and adult HPP and contributes to
+    functional limitation alongside skeletal disease.
+  phenotype_term:
+    preferred_term: Muscle weakness
+    term:
+      id: HP:0001324
+      label: Muscle weakness
   evidence:
-  - reference: PMID:26529632
-    reference_title: &#34;Asfotase Alfa Treatment Improves Survival for Perinatal and Infantile Hypophosphatasia.&#34;
-    supports: SUPPORT
-    snippet: &gt;-
-      Asfotase alfa was associated with improved survival in treated patients vs
-      historical controls: 95% vs 42% at age 1 year and 84% vs 27% at age 5 years,
-      respectively (P &lt; .0001, Kaplan-Meier log-rank test)
-    explanation: &#34;Dramatic survival improvement with asfotase alfa: 95% vs 42% at 1 year, demonstrating efficacy of enzyme replacement.&#34;
-  - reference: PMID:26529632
-    reference_title: &#34;Asfotase Alfa Treatment Improves Survival for Perinatal and Infantile Hypophosphatasia.&#34;
-    supports: SUPPORT
-    snippet: &gt;-
-      76% (16/21) of the ventilated and treated patients survived, among whom 75%
-      (12/16) were weaned from ventilatory support
-    explanation: &#34;Most ventilated patients survived and were weaned from ventilatory support with treatment.&#34;
   - reference: PMID:26590809
     reference_title: &#34;Alkaline Phosphatase and Hypophosphatasia.&#34;
     supports: SUPPORT
+    evidence_source: OTHER
     snippet: &gt;-
-      Enzyme replacement using mineral-targeted TNAP from birth prevented severe HPP
-      in TNAP-knockout mice and was then shown to rescue and substantially treat
-      infants and young children with life-threatening HPP
-    explanation: &#34;Summarizes the preclinical-to-clinical development path of enzyme replacement therapy.&#34;
+      craniosynostosis and muscle weakness when HPP is severe
+    explanation: Review identifies muscle weakness as a feature of severe HPP.
+  - reference: PMID:34884378
+    reference_title: &#34;Hypophosphatasia.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      recurrent, poorly healing fractures, muscle weakness and arthropathy are
+      common in adults.
+    explanation: Review supports muscle weakness among common adult HPP manifestations.
+- name: Chondrocalcinosis
+  description: &gt;
+    PPi excess predisposes to chondrocalcinosis and arthropathy in HPP.
+  phenotype_term:
+    preferred_term: Chondrocalcinosis
+    term:
+      id: HP:0000934
+      label: Chondrocalcinosis
+  evidence:
   - reference: PMID:20392236
     reference_title: &#34;Physiological role of alkaline phosphatase explored in hypophosphatasia.&#34;
     supports: SUPPORT
+    evidence_source: OTHER
     snippet: &gt;-
-      Trials of alkaline phosphatase replacement therapy for HPP suggest that TNSALP
-      functions at the level of skeletal tissues
-    explanation: &#34;Early trial evidence supporting enzyme replacement therapy approach.&#34;
+      PP(i) excesses cause chondrocalcinosis and sometimes arthropathy.
+    explanation: Review directly links PPi excess to chondrocalcinosis.
+- name: Motor Delay
+  description: &gt;
+    Pediatric HPP can include delayed motor development, hypotonia, and gait
+    disturbance as part of the systemic disease presentation.
+  phenotype_term:
+    preferred_term: Motor delay
+    term:
+      id: HP:0001270
+      label: Motor delay
+  evidence:
+  - reference: DOI:10.1007/s00223-025-01356-y
+    reference_title: &#34;Diagnosis and Treatment of Hypophosphatasia&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      The clinical presentation can comprise failure to thrive with muscular
+      hypotonia, delayed motor development, and gait disturbances later in
+      childhood.
+    explanation: Review supports delayed motor development in childhood HPP.
+- name: Pain
+  description: &gt;
+    Generalized musculoskeletal pain is increasingly recognized in adult and
+    pediatric-onset adult HPP, reflecting skeletal disease and arthropathy.
+  phenotype_term:
+    preferred_term: Musculoskeletal pain
+    term:
+      id: HP:0012531
+      label: Pain
+  evidence:
+  - reference: DOI:10.1007/s00223-025-01356-y
+    reference_title: &#34;Diagnosis and Treatment of Hypophosphatasia&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      generalized musculoskeletal pain, weakness, and fatigue
+    explanation: Review supports generalized musculoskeletal pain among key adult HPP findings.
+- name: Fatigue
+  description: &gt;
+    Chronic fatigue is a non-skeletal symptom that contributes to adult HPP
+    disease burden.
+  phenotype_term:
+    preferred_term: Fatigue
+    term:
+      id: HP:0012378
+      label: Fatigue
+  evidence:
+  - reference: DOI:10.1007/s11914-025-00906-5
+    reference_title: &#34;Medical Management of Hypophosphatasia: Review of Data on Asfotase Alfa&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      non-skeletal impairments, such as pain and chronic fatigue.
+    explanation: Review supports chronic fatigue as part of adult HPP disease burden.
+biochemical:
+- name: Serum alkaline phosphatase activity
+  presence: DECREASED
+  context: &gt;
+    Persistently low serum alkaline phosphatase activity is the cardinal
+    diagnostic biochemical marker of HPP and reflects deficient TNAP activity.
+  evidence:
+  - reference: PMID:34884378
+    reference_title: &#34;Hypophosphatasia.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Persistently low serum alkaline phosphatase is the cardinal biochemical
+      feature of the disease.
+    explanation: Review identifies low serum ALP as the cardinal biochemical feature.
+  - reference: DOI:10.1007/s00223-025-01356-y
+    reference_title: &#34;Diagnosis and Treatment of Hypophosphatasia&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      The diagnosis is based on clinical manifestations in combination with
+      persistently low alkaline phosphatase (ALP) activity
+    explanation: Review lists persistently low ALP activity as a diagnostic criterion.
+- name: Inorganic pyrophosphate
+  presence: INCREASED
+  context: &gt;
+    Elevated inorganic pyrophosphate is a diagnostic TNAP substrate and the
+    central inhibitor of hydroxyapatite crystal growth.
+  evidence:
+  - reference: DOI:10.1007/s00223-025-01356-y
+    reference_title: &#34;Diagnosis and Treatment of Hypophosphatasia&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      elevated levels of ALP substrates, specifically inorganic pyrophosphate
+      (PPi)
+    explanation: Review lists elevated PPi as an ALP substrate marker.
+  - reference: PMID:20392236
+    reference_title: &#34;Physiological role of alkaline phosphatase explored in hypophosphatasia.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Increased extracellular levels of pyridoxal 5&#39;-phosphate and inorganic
+      pyrophosphate (PP(i)) demonstrate that TNSALP is a phosphomonoester
+      phosphohydrolase and a pyrophosphatase
+    explanation: Review supports increased extracellular PPi as a biochemical consequence of TNAP loss.
+- name: Pyridoxal 5&#39;-phosphate
+  presence: INCREASED
+  context: &gt;
+    Elevated plasma PLP reflects impaired TNAP-mediated vitamin B6 metabolism
+    and supports the seizure branch in severe infantile disease.
+  evidence:
+  - reference: DOI:10.1007/s00223-025-01356-y
+    reference_title: &#34;Diagnosis and Treatment of Hypophosphatasia&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      elevated levels of ALP substrates, specifically inorganic pyrophosphate
+      (PPi), pyridoxal 5&#39;-phosphate (PLP)
+    explanation: Review lists elevated PLP as an ALP substrate marker.
+  - reference: PMID:20392236
+    reference_title: &#34;Physiological role of alkaline phosphatase explored in hypophosphatasia.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Increased extracellular levels of pyridoxal 5&#39;-phosphate and inorganic
+      pyrophosphate (PP(i)) demonstrate that TNSALP is a phosphomonoester
+      phosphohydrolase and a pyrophosphatase
+    explanation: Review supports increased extracellular PLP as a biochemical consequence of TNAP loss.
+- name: Urine phosphoethanolamine
+  presence: INCREASED
+  context: &gt;
+    Urinary phosphoethanolamine is an additional ALP substrate that can be
+    elevated in HPP and used as part of the diagnostic biochemical pattern.
+  evidence:
+  - reference: DOI:10.1007/s00223-025-01356-y
+    reference_title: &#34;Diagnosis and Treatment of Hypophosphatasia&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      elevated levels of ALP substrates, specifically inorganic pyrophosphate
+      (PPi), pyridoxal 5&#39;-phosphate (PLP) or urine phosphoethanolamine (PEA)
+    explanation: Review lists urine PEA among elevated ALP substrate markers.
+genetic:
+- name: ALPL Mutations
+  gene_term:
+    preferred_term: ALPL
+    term:
+      id: hgnc:438
+      label: ALPL
+  association: Causative
+  relationship_type: CAUSATIVE
+  notes: &gt;
+    Mutations in ALPL encoding tissue-nonspecific alkaline phosphatase
+    (TNSALP). More than 400 ALPL mutations have been reported, transmitted by
+    autosomal dominant or recessive modes. Severe disease is usually recessive,
+    while moderate and mild disease can be recessive or dominant depending on
+    allele severity, dominant-negative effects, and haploinsufficiency.
+  evidence:
+  - reference: PMID:32973344
+    reference_title: &#34;Hypophosphatasia: a genetic-based nosology and new insights in genotype-phenotype correlation.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Hypophosphatasia (HPP) is caused by pathogenic variants in the ALPL gene.
+    explanation: Cohort paper directly states the ALPL causal relationship.
+  - reference: PMID:34884378
+    reference_title: &#34;Hypophosphatasia.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      More than 400 ALPL mutations, mostly missense, are reported to date,
+      transmitted by either autosomal dominant or recessive mode.
+    explanation: Review supports mutation burden and dominant/recessive transmission.
+  - reference: PMID:32973344
+    reference_title: &#34;Hypophosphatasia: a genetic-based nosology and new insights in genotype-phenotype correlation.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Homozygosity was an aggravating factor of the severity and moderate alleles
+      were rare both in number and frequency.
+    explanation: Cohort evidence supports genotype-severity correlation.
+treatments:
+- name: Asfotase Alfa (Strensiq)
+  description: &gt;
+    Bone-targeted enzyme replacement therapy that substitutes TNAP activity.
+    Human interventional evidence shows improved survival, respiratory outcomes,
+    skeletal mineralization, rickets, and functional outcomes in severely
+    affected pediatric patients.
+  treatment_term:
+    preferred_term: pharmacotherapy
+    term:
+      id: MAXO:0000058
+      label: pharmacotherapy
+  target_mechanisms:
+  - target: ALPL loss of function and TNAP deficiency
+    treatment_effect: RESTORES
+    description: Asfotase alfa substitutes deficient TNAP enzymatic activity.
+    evidence:
+    - reference: PMID:26529632
+      reference_title: &#34;Asfotase Alfa Treatment Improves Survival for Perinatal and Infantile Hypophosphatasia.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        treatment with asfotase alfa, a first-in-class enzyme replacement therapy
+      explanation: Trial abstract identifies asfotase alfa as enzyme replacement therapy.
+  - target: Skeletal and dentoalveolar mineralization failure
+    treatment_effect: RESTORES
+    description: Enzyme replacement improves skeletal mineralization and rib-related respiratory function.
+    evidence:
+    - reference: PMID:26529632
+      reference_title: &#34;Asfotase Alfa Treatment Improves Survival for Perinatal and Infantile Hypophosphatasia.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Asfotase alfa mineralizes the HPP skeleton, including the ribs, and
+        improves respiratory function and survival in life-threatening perinatal
+        and infantile HPP.
+      explanation: Human clinical evidence directly supports skeletal and respiratory benefit.
+  evidence:
+  - reference: PMID:26529632
+    reference_title: &#34;Asfotase Alfa Treatment Improves Survival for Perinatal and Infantile Hypophosphatasia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Asfotase alfa was associated with improved survival in treated patients vs
+      historical controls: 95% vs 42% at age 1 year and 84% vs 27% at age 5
+      years, respectively (P &lt; .0001, Kaplan-Meier log-rank test).
+    explanation: Human interventional evidence shows improved survival with asfotase alfa.
+  - reference: PMID:26529632
+    reference_title: &#34;Asfotase Alfa Treatment Improves Survival for Perinatal and Infantile Hypophosphatasia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      76% (16/21) of the ventilated and treated patients survived, among whom 75%
+      (12/16) were weaned from ventilatory support.
+    explanation: Human interventional evidence supports improved ventilatory outcomes.
+  - reference: DOI:10.1007/s11914-025-00906-5
+    reference_title: &#34;Medical Management of Hypophosphatasia: Review of Data on Asfotase Alfa&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Treatment for HPP relies on the enzyme replacement asfotase alfa.
+    explanation: Review summarizes asfotase alfa as the core enzyme-replacement treatment.
 - name: Pyridoxine Supplementation
   description: &gt;
-    Vitamin B6 (pyridoxine) for management of seizures in infantile
-    HPP, bypassing the PLP dephosphorylation defect.
-- name: Orthopedic Management
+    Pyridoxine can be used for vitamin B6-dependent seizures in severe infantile
+    HPP, bypassing impaired PLP handling downstream of TNAP deficiency.
+  treatment_term:
+    preferred_term: pharmacotherapy
+    term:
+      id: MAXO:0000058
+      label: pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: pyridoxine
+      term:
+        id: CHEBI:16709
+        label: pyridoxine
+  target_mechanisms:
+  - target: Vitamin B6-dependent neurologic vulnerability
+    treatment_effect: BYPASSES
+    description: Pyridoxine addresses the vitamin B6-dependent seizure branch rather than restoring TNAP.
+    evidence:
+    - reference: PMID:23479201
+      reference_title: &#34;Infantile hypophosphatasia secondary to a novel compound heterozygous mutation presenting with pyridoxine-responsive seizures.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Defective TNSALP activity in the brain can result in intractable seizures
+        responsive to pyridoxine.
+      explanation: Human case report supports pyridoxine responsiveness in the seizure branch targeted by supplementation.
+  evidence:
+  - reference: PMID:23479201
+    reference_title: &#34;Infantile hypophosphatasia secondary to a novel compound heterozygous mutation presenting with pyridoxine-responsive seizures.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Empiric treatment with favorable response to pyridoxine
+    explanation: Human case report directly supports pyridoxine treatment responsiveness in infantile HPP seizures.
+- name: Multidisciplinary Supportive Care
   description: &gt;
-    Fracture management, bracing, and surgical intervention as needed.
-    Non-steroidal anti-inflammatory drugs for bone pain in adult HPP.
+    Supportive management is multimodal and tailored to disease manifestations,
+    including metabolic and musculoskeletal care, dental care, neurologic and
+    neurosurgical surveillance, pain management, physical therapy, and
+    psychological support.
+  treatment_term:
+    preferred_term: supportive care
+    term:
+      id: MAXO:0000950
+      label: supportive care
+  target_mechanisms:
+  - target: Skeletal and dentoalveolar mineralization failure
+    treatment_effect: MODULATES
+    description: Dental, musculoskeletal, pain, and rehabilitation care address downstream skeletal and dental consequences.
+  - target: Pyrophosphate crystal arthropathy
+    treatment_effect: MODULATES
+    description: Pain management and musculoskeletal care address arthropathy-related symptoms.
+  evidence:
+  - reference: DOI:10.1007/s00223-025-01356-y
+    reference_title: &#34;Diagnosis and Treatment of Hypophosphatasia&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      The multidisciplinary team for comprehensive management of HPP patients
+      should include expertise to ensure disease state metabolic and
+      musculoskeletal treatment, dental care, neurological and neurosurgical
+      surveillance, pain management, physical therapy, and psychological care.
+    explanation: Review supports multimodal supportive care across HPP manifestations.
 datasets: []
 </pre>
             </div>
@@ -4603,7 +6904,7 @@ HPP pathophysiology centers on deficient TNAP activity and consequent PPi accumu
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hypophosphatasia", "mondoId": "MONDO:0018570", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hypophosphatasia", "yamlRevision": "777e4a1fff9c"};
+        const OS_CONFIG = {"diseaseName": "Hypophosphatasia", "mondoId": "MONDO:0018570", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hypophosphatasia", "yamlRevision": "e5e249250f75"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

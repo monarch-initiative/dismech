@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2626,6 +2779,20 @@
             
             
             
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-value">3</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -3398,7 +3565,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Greig Cephalopolysyndactyly Syndrome
 creation_date: &#39;2026-02-13T00:31:42Z&#39;
-updated_date: &#39;2026-02-16T20:19:38Z&#39;
+updated_date: &#39;2026-05-09T03:15:56Z&#39;
 category: Mendelian
 description: &gt;
   Greig cephalopolysyndactyly syndrome (GCPS) is an autosomal dominant disorder
@@ -3442,8 +3609,7 @@ prevalence:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Greig cephalopolysyndactyly syndrome (GCPS) is a rare genetic disorder (about 200 cases reported), characterized by macrocephaly, hypertelorism, and polysyndactyly.&#34;
-    explanation: Contemporary review abstract documents the limited reported case
-      count and supports unknown but extremely low prevalence.
+    explanation: Contemporary review abstract documents the limited reported case count and supports unknown but extremely low prevalence.
 pathophysiology:
 - name: GLI3 Haploinsufficiency
   description: &gt;
@@ -3606,11 +3772,552 @@ treatments:
     abnormalities, particularly in patients with large deletions
     or contiguous gene involvement.
 datasets: []
+references:
+- reference: DOI:10.1136/jmg-2022-108753
+  title: Conclusion of diagnostic odysseys due to inversions disrupting &lt;i&gt;GLI3&lt;/i&gt; and &lt;i&gt;FBN1&lt;/i&gt;
+  found_in:
+  - Greig_Cephalopolysyndactyly-deep-research-falcon.md
+  findings:
+  - statement: Many genetic testing methodologies are biased towards picking up structural variants (SVs) that alter copy number.
+    supporting_text: Many genetic testing methodologies are biased towards picking up structural variants (SVs) that alter copy number.
+    evidence:
+    - reference: DOI:10.1136/jmg-2022-108753
+      reference_title: Conclusion of diagnostic odysseys due to inversions disrupting &lt;i&gt;GLI3&lt;/i&gt; and &lt;i&gt;FBN1&lt;/i&gt;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Many genetic testing methodologies are biased towards picking up structural variants (SVs) that alter copy number.
+      explanation: Deep research cited this publication as relevant literature for Greig Cephalopolysyndactyly.
+- reference: DOI:10.12996/gmj.2023.4053
+  title: &#39;A Rare Prenatal Case: Greig Cephalopolysyndactyly Syndrome&#39;
+  found_in:
+  - Greig_Cephalopolysyndactyly-deep-research-falcon.md
+  findings:
+  - statement: &#39;A Rare Prenatal Case: Greig Cephalopolysyndactyly Syndrome&#39;
+    supporting_text: &#39;A Rare Prenatal Case: Greig Cephalopolysyndactyly Syndrome&#39;
+- reference: DOI:10.3389/fphys.2012.00121
+  title: Loss-of-function of Gli3 in mice causes abnormal frontal bone morphology and premature synostosis of the interfrontal suture
+  found_in:
+  - Greig_Cephalopolysyndactyly-deep-research-falcon.md
+  findings:
+  - statement: Loss-of-function of Gli3 in mice causes abnormal frontal bone morphology and premature synostosis of the interfrontal suture
+    supporting_text: Loss-of-function of Gli3 in mice causes abnormal frontal bone morphology and premature synostosis of the interfrontal suture
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
+        
+        <div class="card reference-card" id="references-deep-research">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+            
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">3</span>
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1136/jmg-2022-108753" target="_blank">DOI:10.1136/jmg-2022-108753</a>
+                            </div>
+                            
+                            <div class="reference-title">Conclusion of diagnostic odysseys due to inversions disrupting &lt;i&gt;GLI3&lt;/i&gt; and &lt;i&gt;FBN1&lt;/i&gt;</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Many genetic testing methodologies are biased towards picking up structural variants (SVs) that alter copy number.</div>
+            
+            
+            <div class="reference-finding-supporting">"Many genetic testing methodologies are biased towards picking up structural variants (SVs) that alter copy number."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1136/jmg-2022-108753" target="_blank">DOI:10.1136/jmg-2022-108753</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Many genetic testing methodologies are biased towards picking up structural variants (SVs) that alter copy number."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Greig Cephalopolysyndactyly.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.12996/gmj.2023.4053" target="_blank">DOI:10.12996/gmj.2023.4053</a>
+                            </div>
+                            
+                            <div class="reference-title">A Rare Prenatal Case: Greig Cephalopolysyndactyly Syndrome</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">A Rare Prenatal Case: Greig Cephalopolysyndactyly Syndrome</div>
+            
+            
+            <div class="reference-finding-supporting">"A Rare Prenatal Case: Greig Cephalopolysyndactyly Syndrome"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3389/fphys.2012.00121" target="_blank">DOI:10.3389/fphys.2012.00121</a>
+                            </div>
+                            
+                            <div class="reference-title">Loss-of-function of Gli3 in mice causes abnormal frontal bone morphology and premature synostosis of the interfrontal suture</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Loss-of-function of Gli3 in mice causes abnormal frontal bone morphology and premature synostosis of the interfrontal suture</div>
+            
+            
+            <div class="reference-finding-supporting">"Loss-of-function of Gli3 in mice causes abnormal frontal bone morphology and premature synostosis of the interfrontal suture"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">Greig Cephalopolysyndactyly Syndrome (GCPS) — Disease Characteristics Research Report</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">14 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-08T18:55:34.785410</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <h1>Greig Cephalopolysyndactyly Syndrome (GCPS) — Disease Characteristics Research Report</h1>
+<h2>Executive summary</h2>
+<p>Greig cephalopolysyndactyly syndrome (GCPS) is a rare, pleiotropic multiple congenital anomaly syndrome classically defined by macrocephaly, widely spaced eyes (hypertelorism/increased interpupillary distance), and limb malformations dominated by preaxial polydactyly with variable syndactyly. It is primarily caused by <em>GLI3</em> haploinsufficiency with autosomal dominant inheritance, and shows clinically important genotype–phenotype correlations based on variant type/position and variant class (sequence variants vs copy-number/structural rearrangements). Recent genomic diagnostics (2023–2024) highlight that copy-neutral inversions disrupting <em>GLI3</em> can end long “diagnostic odysseys,” underscoring the need for whole-genome sequencing (WGS) structural-variant (SV) detection and clinician–analyst review in real-world health systems. (biesecker2025gli3relatedgreigcephalopolysyndactylya pages 1-3, pagnamenta2023conclusionofdiagnostic pages 1-1)</p>
+<table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Summary</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Core identifiers</td>
+<td>Disease: Greig cephalopolysyndactyly syndrome (GCPS); MONDO: MONDO:0008287; OMIM: 175700; Orphanet: ORPHA:380; primary causal gene: GLI3; inheritance: autosomal dominant</td>
+</tr>
+<tr>
+<td>Common synonyms / related names</td>
+<td>Greig syndrome; GLI3-related Greig cephalopolysyndactyly syndrome; GCPS; related/overlapping entities: preaxial polydactyly type IV (PPD-IV), GLI3-related Pallister-Hall syndrome</td>
+</tr>
+<tr>
+<td>Defining clinical pattern</td>
+<td>Classic triad: macrocephaly, widely spaced eyes/increased interpupillary distance, and limb malformations including preaxial polydactyly with or without postaxial polydactyly plus cutaneous syndactyly</td>
+</tr>
+<tr>
+<td>Key clinical features with reported frequencies</td>
+<td>Preaxial polydactyly ~90%; cutaneous syndactyly ~75%; macrocephaly ~50%; widely spaced eyes ~50%; postaxial polydactyly ~50%; broad thumb ~30%; broad hallux ~25%; corpus callosum hypoplasia/agenesis ~20%; developmental delay/intellectual disability/seizures uncommon (&lt;10%)</td>
+</tr>
+<tr>
+<td>Molecular mechanism / variant spectrum</td>
+<td>GLI3 haploinsufficiency; pathogenic variant classes include truncating, missense, splice, exonic deletions/duplications, large deletions, translocations, and inversions; GCPS generally associated with variants 5' of nucleotide 1998 and 3' of 3481, whereas Pallister-Hall syndrome is associated with truncating variants between nucleotides 1998 and 3481</td>
+</tr>
+<tr>
+<td>Routine molecular diagnostics</td>
+<td>Single-gene GLI3 sequencing with reflex deletion/duplication testing; multigene panels; exome sequencing; genome sequencing; chromosomal microarray (especially if developmental delay or larger deletion suspected); qPCR, long-range PCR, MLPA, targeted microarray, karyotype/FISH in selected structural cases</td>
+</tr>
+<tr>
+<td>Approximate diagnostic yield by modality class</td>
+<td>Sequence analysis identifies ~80% of pathogenic findings; gene-targeted deletion/duplication analysis identifies ~20%; karyotype-detectable rearrangements are rare</td>
+</tr>
+<tr>
+<td>Notable structural variant findings</td>
+<td>Copy-neutral inversions disrupting GLI3 identified by WGS in families with GCPS, including 1.2 Mb inversion chr7:42,051,297-43,254,780 and 14.8 Mb inversion chr7:27,245,456-42,072,394; one distal breakpoint lay ~45 kb from HOXA13; such findings resolved diagnostic odysseys of 9-20 years</td>
+</tr>
+<tr>
+<td>Epidemiology</td>
+<td>Rare disorder; prevalence/incidence generally reported as unknown in recent GeneReviews-based evidence; historical estimate range reported in review literature/definitions: ~1-9 per 1,000,000; approximately 300 affected individuals known to GeneReviews authors</td>
+</tr>
+<tr>
+<td>Prognosis</td>
+<td>Often favorable in typical GLI3-related GCPS, with mild forms, excellent general health, and normal longevity reported in large families; prognosis worsens with large (&gt;300 kb) deletions involving GLI3, which are associated with more severe neurodevelopmental/CNS phenotypes</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table compacts the main disease-knowledge-base facts for Greig cephalopolysyndactyly syndrome, including identifiers, phenotype frequencies, diagnostic strategy, structural variant findings, epidemiology, and prognosis. It is useful as a quick-reference scaffold for a fuller narrative report.</em></p>
+<hr />
+<h2>1. Disease information</h2>
+<h3>1.1 Definition / overview (current understanding)</h3>
+<p>GCPS is a “pleiotropic, multiple congenital anomaly syndrome.” (biesecker2024greigcephalopolysyndactylysyndrome pages 1-1)</p>
+<p>A consolidated clinical definition from a GeneReviews-style synthesis describes a classic triad of <strong>macrocephaly</strong>, <strong>widely spaced eyes/increased interpupillary distance</strong>, and <strong>preaxial polydactyly (± postaxial polydactyly) with cutaneous syndactyly</strong>. (biesecker2025gli3relatedgreigcephalopolysyndactylya pages 1-3, biesecker2025gli3relatedgreigcephalopolysyndactyly pages 1-3)</p>
+<p>A key expert clarification is that the term <strong>“Greig syndrome”</strong> has sometimes been used for the <em>nonspecific</em> dyad of macrocephaly + widely spaced eyes, and “should not be used as a synonym” for the full GLI3-related GCPS phenotype. (biesecker2025gli3relatedgreigcephalopolysyndactylya pages 6-8)</p>
+<h3>1.2 Key identifiers</h3>
+<ul>
+<li><strong>MONDO</strong>: <strong>MONDO:0008287</strong> (via OpenTargets disease entity) (OpenTargets Search: Greig cephalopolysyndactyly syndrome)</li>
+<li><strong>Orphanet</strong>: <strong>ORPHA:380</strong> (INSERM/Orphanet source excerpt) (biesecker2024greigcephalopolysyndactylysyndrome pages 1-1)</li>
+<li><strong>OMIM</strong>: <strong>175700</strong> is referenced as the GCPS entry in contemporary GLI3/GCPS literature (e.g., “GCPS, MIM: #175700”). (biesecker2025gli3relatedgreigcephalopolysyndactylya pages 3-6)</li>
+</ul>
+<p><strong>Not retrieved in the current tool run:</strong> ICD-10/ICD-11 codes and MeSH descriptors were not directly retrieved from authoritative sources using the available evidence/tools.</p>
+<h3>1.3 Synonyms / alternative names</h3>
+<p>Commonly used names in the retrieved evidence include:
+* <strong>Greig cephalopolysyndactyly syndrome (GCPS)</strong> (biesecker2025gli3relatedgreigcephalopolysyndactylya pages 1-3)
+* <strong>GLI3-related Greig cephalopolysyndactyly syndrome (GLI3-GCPS)</strong> (biesecker2025gli3relatedgreigcephalopolysyndactylya pages 1-3)
+* <strong>Greig syndrome</strong> (as a historical/colloquial term; not recommended as a synonym) (biesecker2025gli3relatedgreigcephalopolysyndactylya pages 6-8)</p>
+<p>Related/overlapping entities for differential purposes include:
+* <strong>GLI3-related Pallister–Hall syndrome (GLI3-PHS)</strong> (biesecker2025gli3relatedgreigcephalopolysyndactylya pages 6-8)
+* <strong>Preaxial polydactyly type IV (PPD-IV)</strong> as part of the GLI3 phenotypic spectrum (biesecker2025gli3relatedgreigcephalopolysyndactyly pages 6-8)</p>
+<h3>1.4 Evidence-source type</h3>
+<p>The information synthesized here is derived from:
+* <strong>Aggregated disease-level resources/synthesis</strong> (GeneReviews-style clinical genetics synthesis) (biesecker2025gli3relatedgreigcephalopolysyndactylya pages 1-3)
+* <strong>Primary human genomics/diagnostics studies</strong> (e.g., WGS SV inversions) (pagnamenta2023conclusionofdiagnostic pages 3-4)
+* <strong>Prenatal clinical case report (human)</strong> with cytogenetics + array-CGH confirmation (hakcıl2024arareprenatal pages 1-2)
+* <strong>Model organism evidence (mouse <em>Gli3</em> loss-of-function)</strong> supporting developmental mechanisms (veistinen2012lossoffunctionofgli3 pages 1-2)</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>2.1 Disease causal factors</h3>
+<p><strong>Primary cause:</strong> pathogenic variation affecting <em>GLI3</em> leading to <strong>haploinsufficiency</strong> (loss of one functional allele) in the typical GCPS mechanism. (biesecker2025gli3relatedgreigcephalopolysyndactyly pages 6-8, biesecker2025gli3relatedgreigcephalopolysyndactylya pages 1-3)</p>
+<p><strong>Inheritance:</strong> autosomal dominant with a 50% recurrence risk to offspring of an affected individual; apparent non-penetrance has been reported. (biesecker2025gli3relatedgreigcephalopolysyndactyly pages 6-8, biesecker2025gli3relatedgreigcephalopolysyndactylya pages 12-15)</p>
+<p><strong>Variant classes causing GCPS:</strong> sequence variants (including truncating/frameshift, splice, missense), intragenic deletions/duplications, larger deletions involving 7p14.1, and structural rearrangements including translocations/inversions. (biesecker2025gli3relatedgreigcephalopolysyndactylya pages 6-8, biesecker2025gli3relatedgreigcephalopolysyndactylya pages 1-3)</p>
+<h3>2.2 Risk factors</h3>
+<p><strong>Genetic risk factor (causal):</strong> carrying a heterozygous pathogenic/likely pathogenic <em>GLI3</em> variant or a heterozygous deletion encompassing 7p14.1/<em>GLI3</em>. In the GeneReviews-style synthesis, ~80% of affected individuals have a heterozygous pathogenic <em>GLI3</em> variant and ~20% have a heterozygous deletion involving 7p14.1/<em>GLI3</em>. (biesecker2025gli3relatedgreigcephalopolysyndactylya pages 1-3, biesecker2025gli3relatedgreigcephalopolysyndactyly pages 1-3)</p>
+<p><strong>Structural variant risk (underascertained class):</strong> copy-neutral inversions disrupting <em>GLI3</em> can cause GCPS-consistent skeletal phenotypes and are likely underdetected by CNV-biased pipelines. (pagnamenta2023conclusionofdiagnostic pages 1-1, pagnamenta2023conclusionofdiagnostic pages 4-4)</p>
+<p><strong>Environmental risk factors:</strong> none were identified in the retrieved evidence; GCPS is predominantly a Mendelian developmental disorder caused by <em>GLI3</em> disruption. (biesecker2025gli3relatedgreigcephalopolysyndactylya pages 1-3)</p>
+<h3>2.3 Protective factors and gene–environment interactions</h3>
+<p>No protective factors or gene–environment interactions were identified in the retrieved evidence.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>3.1 Major phenotype spectrum (with frequencies when available)</h3>
+<p>A GeneReviews-style synthesis provides quantitative frequencies for select features:
+* <strong>Preaxial polydactyly</strong> (~90%; more common in feet) (biesecker2025gli3relatedgreigcephalopolysyndactyly pages 3-6)
+* <strong>Cutaneous syndactyly</strong> (~75%) (biesecker2025gli3relatedgreigcephalopolysyndactyly pages 3-6)
+* <strong>Macrocephaly</strong> (~50%) (biesecker2025gli3relatedgreigcephalopolysyndactyly pages 3-6)
+* <strong>Widely spaced eyes / increased interpupillary distance</strong> (~50%) (biesecker2025gli3relatedgreigcephalopolysyndactyly pages 3-6)
+* <strong>Postaxial polydactyly</strong> (~50%; more common in hands) (biesecker2025gli3relatedgreigcephalopolysyndactyly pages 3-6)
+* <strong>Broad thumb</strong> (~30%) and <strong>broad hallux</strong> (~25%) (biesecker2025gli3relatedgreigcephalopolysyndactyly pages 3-6)
+* <strong>Corpus callosum hypoplasia/agenesis</strong> (~20%) (biesecker2025gli3relatedgreigcephalopolysyndactyly pages 1-3)
+* <strong>Developmental delay / intellectual disability / seizures</strong> uncommon (~&lt;10%), but risk increases with large deletions encompassing <em>GLI3</em>. (biesecker2025gli3relatedgreigcephalopolysyndactyly pages 1-3)</p>
+<p><strong>Visual evidence:</strong> The same synthesis includes (i) a mutational-spectrum schematic dividing GCPS vs Pallister–Hall regions and (ii) a feature-frequency table. (biesecker2025gli3relatedgreigcephalopolysyndactyly media 5cc46968, biesecker2025gli3relatedgreigcephalopolysyndactyly media 55afed63)</p>
+<h3>3.2 Example of prenatal phenotype (2024)</h3>
+<p>A 2024 prenatal GCPS case reported ultrasound findings including <strong>polydactyly</strong>, <strong>polyhydramnios</strong>, <strong>aortic valve stenosis</strong>, and nonvisualization of the <strong>vesica biliaris</strong>, prompting invasive testing and subsequent confirmation of a large 7p deletion encompassing <em>GLI3</em>. (hakcıl2024arareprenatal pages 2-4)</p>
+<h3>3.3 HPO term suggestions (non-exhaustive)</h3>
+<p>(ontology suggestions; not all are explicitly enumerated in the cited sources)
+* Macrocephaly — <strong>HP:0000256</strong>
+* Hypertelorism — <strong>HP:0000316</strong> / increased interpupillary distance
+* Preaxial polydactyly — <strong>HP:0100259</strong> (hand/foot subtypes may be used)
+* Postaxial polydactyly — <strong>HP:0100258</strong>
+* Cutaneous syndactyly — <strong>HP:0006101</strong>
+* Broad thumb — <strong>HP:0011304</strong>
+* Broad hallux — <strong>HP:0010055</strong>
+* Corpus callosum agenesis — <strong>HP:0001274</strong>
+* Developmental delay — <strong>HP:0001263</strong>
+* Seizures — <strong>HP:0001250</strong>
+* Craniosynostosis (metopic) — <strong>HP:0005464</strong> (metopic ridge/trigonocephaly terms may apply in subsets)</p>
+<h3>3.4 Quality-of-life impact (evidence availability)</h3>
+<p>The retrieved evidence supports that many individuals have mild disease and “excellent general health and normal longevity,” implying limited systemic morbidity in typical cases, but does not provide validated quality-of-life instrument data (e.g., SF-36/EQ-5D) specific to GCPS. (biesecker2025gli3relatedgreigcephalopolysyndactylya pages 3-6)</p>
+<hr />
+<h2>4. Genetic / molecular information</h2>
+<h3>4.1 Causal gene(s)</h3>
+<p><strong>Primary causal gene:</strong> <em>GLI3</em> (GLI family zinc finger 3). (biesecker2025gli3relatedgreigcephalopolysyndactylya pages 1-3)</p>
+<p>OpenTargets provides a strong disease–target association of GCPS with <em>GLI3</em> (association score reported; PubMed IDs listed in evidence). (OpenTargets Search: Greig cephalopolysyndactyly syndrome)</p>
+<h3>4.2 Variant spectrum and functional consequences</h3>
+<p><strong>Mechanism:</strong> Haploinsufficiency of <em>GLI3</em> in typical GCPS. (biesecker2025gli3relatedgreigcephalopolysyndactyly pages 6-8)</p>
+<p><strong>Genotype–phenotype correlation (variant position/type):</strong>
+* Frameshift/truncating variants in the <strong>first third</strong> of <em>GLI3</em> are reported as causing GCPS; truncations in the <strong>middle third</strong> generally cause Pallister–Hall syndrome (PHS) but can uncommonly produce GCPS; truncations in the <strong>final third</strong> cause GCPS. (biesecker2025gli3relatedgreigcephalopolysyndactyly pages 6-8)
+* A summarized regional model: “GCPS is primarily caused by <em>GLI3</em> pathogenic variants 5′ of nucleotide 1998 and 3′ of 3481, whereas PHS is exclusively caused by truncations between 1998 and 3481.” (biesecker2025gli3relatedgreigcephalopolysyndactylya pages 6-8, biesecker2025gli3relatedgreigcephalopolysyndactyly media 5cc46968)</p>
+<p><strong>Copy-number/structural mechanisms:</strong>
+* Large deletions (&gt;300 kb) encompassing <em>GLI3</em> are associated with a more severe phenotype (higher rates of intellectual disability, seizures, CNS anomalies). (biesecker2025gli3relatedgreigcephalopolysyndactylya pages 3-6)
+* Copy-neutral inversions disrupting <em>GLI3</em> can be diagnostic causes in families with GCPS-consistent skeletal phenotypes; examples include a <strong>1.2 Mb inversion</strong> (chr7:42,051,297–43,254,780) and a <strong>14.8 Mb inversion</strong> (chr7:27,245,456–42,072,394). (pagnamenta2023conclusionofdiagnostic pages 3-4)</p>
+<h3>4.3 Pathway context (molecular mechanism)</h3>
+<p><em>GLI3</em> is a Hedgehog (Hh) pathway transcription factor whose processing and the balance of activator vs repressor forms are critical in development; in a <em>Gli3</em> loss-of-function mouse model, loss of <em>Gli3</em> causes ectopic Hedgehog pathway activity in cranial sutural mesenchyme associated with abnormal osteogenic differentiation. (veistinen2012lossoffunctionofgli3 pages 1-2, veistinen2012lossoffunctionofgli3 pages 4-5)</p>
+<p><strong>GO term suggestions (mechanism-oriented):</strong>
+* Hedgehog signaling pathway — <strong>GO:0007224</strong>
+* Limb development — <strong>GO:0060173</strong> (and related patterning terms)
+* Osteoblast differentiation — <strong>GO:0001649</strong>
+* Cranial suture morphogenesis / skull development — (multiple GO options depending on curation scope)</p>
+<h3>4.4 Modifier genes / epigenetics</h3>
+<p>No GCPS-specific modifier genes or epigenetic signatures were identified in the retrieved evidence.</p>
+<hr />
+<h2>5. Environmental information</h2>
+<p>No non-genetic environmental contributors, lifestyle factors, or infectious triggers were identified in the retrieved evidence; GCPS is primarily a Mendelian disorder due to <em>GLI3</em> disruption. (biesecker2025gli3relatedgreigcephalopolysyndactylya pages 1-3)</p>
+<hr />
+<h2>6. Mechanism / pathophysiology</h2>
+<h3>6.1 Causal chain (developmental mechanism)</h3>
+<ol>
+<li><strong>Upstream trigger:</strong> germline loss-of-function variants or structural disruption/deletion of <em>GLI3</em> (including inversions) (pagnamenta2023conclusionofdiagnostic pages 3-4).</li>
+<li><strong>Molecular effect:</strong> reduced functional GLI3 dosage (haploinsufficiency) and/or altered GLI3 processing balance within Hedgehog signaling developmental programs. (biesecker2025gli3relatedgreigcephalopolysyndactyly pages 6-8, veistinen2012lossoffunctionofgli3 pages 1-2)</li>
+<li><strong>Cell/tissue effects:</strong> altered patterning and differentiation in limb bud anterior–posterior axis and in craniofacial/skull development programs, with CNS structural anomalies in a subset. (biesecker2025gli3relatedgreigcephalopolysyndactyly pages 1-3)</li>
+<li><strong>Clinical manifestations:</strong> preaxial polydactyly ± syndactyly, craniofacial features (macrocephaly, widely spaced eyes), and sometimes corpus callosum anomalies/neurodevelopmental issues; more severe outcomes can occur with large deletions encompassing <em>GLI3</em> and adjacent genes. (biesecker2025gli3relatedgreigcephalopolysyndactyly pages 1-3, biesecker2025gli3relatedgreigcephalopolysyndactylya pages 3-6)</li>
+</ol>
+<h3>6.2 Evidence from a mouse model for cranial mechanism (quantitative)</h3>
+<p>In <em>Gli3</em>Xt-J/Xt-J mice (loss-of-function), ectopic osteogenic markers appear early (e.g., ectopic alkaline phosphatase staining by E13.5), heterotopic ossification is present by E16.5–E18.5, and in severe cases the interfrontal suture fuses prior to birth. (veistinen2012lossoffunctionofgli3 pages 1-2, veistinen2012lossoffunctionofgli3 pages 2-4)</p>
+<p>Quantitatively, at E18.5 the mean width at the anterior interfrontal suture was increased in mutants (<strong>WT 2.8 ± 0.1 mm vs <em>Gli3</em>Xt-J/Xt-J 3.5 ± 0.2 mm; P &lt; 0.001</strong>). (veistinen2012lossoffunctionofgli3 pages 1-2)</p>
+<h3>6.3 Cell types and ontology suggestions</h3>
+<p><strong>Cell Ontology suggestions (typical developmental actors):</strong>
+* Osteoblast — <strong>CL:0000062</strong>
+* Osteoprogenitor cell — <strong>CL:0000058</strong>
+* Chondrocyte — <strong>CL:0000138</strong>
+* Cranial neural crest-derived mesenchymal cell (term selection depends on CL availability)</p>
+<hr />
+<h2>7. Anatomical structures affected</h2>
+<h3>7.1 Organ/system level</h3>
+<p>Primary systems involved include:
+* <strong>Limbs/autopod</strong> (polydactyly, syndactyly) (biesecker2025gli3relatedgreigcephalopolysyndactyly pages 3-6)
+* <strong>Craniofacial/skull</strong> (macrocephaly; cranial suture pathology in a subset; craniofacial dysmorphism) (biesecker2025gli3relatedgreigcephalopolysyndactyly pages 3-6, veistinen2012lossoffunctionofgli3 pages 1-2)
+* <strong>Central nervous system</strong> (corpus callosum hypoplasia/agenesis ~20%; DD/ID/seizures uncommon but present) (biesecker2025gli3relatedgreigcephalopolysyndactyly pages 1-3)</p>
+<h3>7.2 UBERON term suggestions (examples)</h3>
+<ul>
+<li>Hand — <strong>UBERON:0002398</strong>; Foot — <strong>UBERON:0002399</strong></li>
+<li>Skull — <strong>UBERON:0003129</strong></li>
+<li>Corpus callosum — <strong>UBERON:0001442</strong></li>
+</ul>
+<hr />
+<h2>8. Temporal development</h2>
+<p>GCPS is <strong>congenital</strong> with manifestations detectable prenatally (e.g., polydactyly on ultrasound in some cases) and present at birth. (hakcıl2024arareprenatal pages 2-4, biesecker2025gli3relatedgreigcephalopolysyndactylya pages 12-15)</p>
+<p>Course is typically <strong>non-progressive</strong> with respect to the congenital malformations; outcomes depend on severity, presence of CNS anomalies, and whether large deletions involve adjacent genes. (biesecker2025gli3relatedgreigcephalopolysyndactylya pages 3-6)</p>
+<hr />
+<h2>9. Inheritance and population</h2>
+<h3>9.1 Inheritance</h3>
+<p>Autosomal dominant inheritance is supported by the GeneReviews-style synthesis, with <strong>50% transmission risk</strong> to offspring of an affected individual. (biesecker2025gli3relatedgreigcephalopolysyndactylya pages 12-15)</p>
+<h3>9.2 Epidemiology</h3>
+<p>The GeneReviews-style synthesis states that prevalence is unknown and notes that “Approximately 300 affected individuals are known to the authors,” indicating ascertainment limitations and likely underdiagnosis of mild cases. (biesecker2025gli3relatedgreigcephalopolysyndactyly pages 6-8, biesecker2025gli3relatedgreigcephalopolysyndactylya pages 6-8)</p>
+<p><strong>Not retrieved in this tool run:</strong> robust population-based prevalence/incidence estimates from Orphanet/registry epidemiology fields. (The earlier “incidence range 1–9/1,000,000” is not present in the citeable evidence captured here.)</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>10.1 Clinical diagnosis</h3>
+<p>No consensus clinical diagnostic criteria are stated to exist in the GeneReviews-style synthesis, but typical GCPS is recognized by the triad of macrocephaly, widely spaced eyes, and preaxial polydactyly with syndactyly. (biesecker2025gli3relatedgreigcephalopolysyndactyly pages 1-3)</p>
+<h3>10.2 Genetic testing (real-world implementations)</h3>
+<p><strong>Testing modalities and approximate yields (from synthesis):</strong>
+* <em>GLI3</em> sequence analysis identifies ~80% of pathogenic variants; gene-targeted deletion/duplication testing identifies ~20%. (biesecker2025gli3relatedgreigcephalopolysyndactyly pages 3-6)
+* Comprehensive approaches include multigene panels, exome sequencing (noted as most commonly used), genome sequencing, and chromosomal microarray (CMA). (biesecker2025gli3relatedgreigcephalopolysyndactylya pages 1-3)</p>
+<p><strong>Structural rearrangements and “diagnostic odysseys” (2023):</strong>
+A 2023 Journal of Medical Genetics study demonstrated that copy-neutral inversions can disrupt <em>GLI3</em> and segregate with GCPS-consistent skeletal phenotypes; the authors report two inverted segments (1.2 Mb and 14.8 Mb) disrupting <em>GLI3</em> and state these findings “resolved lengthy diagnostic odysseys of 9–20 years.” (pagnamenta2023conclusionofdiagnostic pages 1-1, pagnamenta2023conclusionofdiagnostic pages 3-4)</p>
+<p><strong>Implementation lesson (quoted):</strong> the same study explicitly notes that “copy-neutral rearrangements such as inversions are therefore likely to suffer from underascertainment,” and that a CNV-focused SV pipeline can miss these events. (pagnamenta2023conclusionofdiagnostic pages 1-1, pagnamenta2023conclusionofdiagnostic pages 4-4)</p>
+<p><strong>Prenatal diagnostic workflow (2024 case):</strong> fetal ultrasound abnormalities led to amniocentesis; initial aneuploidy testing was normal, followed by cytogenetics/FISH and array-CGH that identified a <strong>17.4 Mb 7p12.3–14.3 deletion</strong> including <em>GLI3</em>, interpreted as de novo after normal parental karyotypes. (hakcıl2024arareprenatal pages 1-2)</p>
+<h3>10.3 Differential diagnosis</h3>
+<p>Differential diagnoses listed in the GeneReviews-style synthesis include multiple polydactyly/macrocephaly syndromes and <em>GLI3</em>-allelic disorders, including GLI3-related Pallister–Hall syndrome and PPD-IV as part of the phenotypic spectrum. (biesecker2025gli3relatedgreigcephalopolysyndactyly pages 6-8)</p>
+<hr />
+<h2>11. Outcome / prognosis</h2>
+<p>Typical GLI3-related GCPS can be mild: “several large families” are reported with “excellent general health and normal longevity,” while developmental delay/intellectual disability/seizures are uncommon (~&lt;10%). (biesecker2025gli3relatedgreigcephalopolysyndactylya pages 3-6)</p>
+<p>Prognosis worsens for individuals with <strong>large deletions (&gt;300 kb) encompassing <em>GLI3</em></strong>, associated with increased rates of intellectual disability, seizures, and CNS anomalies. (biesecker2025gli3relatedgreigcephalopolysyndactylya pages 3-6)</p>
+<hr />
+<h2>12. Treatment</h2>
+<p>No disease-specific pharmacotherapy was identified in the retrieved evidence; management is primarily <strong>symptomatic and surgical</strong>.</p>
+<h3>12.1 Surgical and interventional</h3>
+<p>The GeneReviews-style synthesis states that treatment is symptomatic, with <strong>plastic or orthopedic surgery</strong> indicated for significant limb malformations. (biesecker2025gli3relatedgreigcephalopolysyndactyly pages 3-6)</p>
+<h3>12.2 Supportive and rehabilitative</h3>
+<p>Supportive care is implied for neurodevelopmental issues when present (e.g., developmental assessment and services), but GCPS-specific rehabilitation outcome statistics were not found in the retrieved evidence.</p>
+<h3>12.3 MAXO term suggestions</h3>
+<ul>
+<li>Surgical correction of polydactyly — (MAXO term selection depends on the MAXO branch; candidate: “surgical excision” / “orthopedic surgery”)</li>
+<li>Syndactyly release surgery — (MAXO: surgical procedure term)</li>
+<li>Genetic counseling — (MAXO: genetic counseling)</li>
+<li>Prenatal diagnosis — (MAXO: prenatal genetic testing)</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<p>Primary prevention of de novo variants is not currently available; prevention in GCPS is largely <strong>reproductive risk reduction</strong> and <strong>early detection</strong>.</p>
+<ul>
+<li><strong>Genetic counseling</strong> and <strong>cascade testing</strong> for relatives when a familial <em>GLI3</em> alteration is identified are recommended by the inheritance model and family risk structure. (biesecker2025gli3relatedgreigcephalopolysyndactylya pages 12-15)</li>
+<li><strong>Prenatal diagnosis</strong> and <strong>preimplantation genetic testing</strong> are possible when the familial pathogenic variant is known; prenatal ultrasound may detect limb/CNS features but normal ultrasound does not exclude GCPS. (biesecker2025gli3relatedgreigcephalopolysyndactylya pages 12-15)</li>
+</ul>
+<hr />
+<h2>14. Other species / natural disease</h2>
+<p>No naturally occurring veterinary GCPS analogs were identified in the retrieved evidence.</p>
+<hr />
+<h2>15. Model organisms</h2>
+<h3>15.1 Mouse models (mechanistic relevance)</h3>
+<p>A <em>Gli3</em> loss-of-function mouse allele (<em>Gli3</em>Xt-J/Xt-J) is described as a model that largely phenocopies aspects of human GCPS and is used to study craniofacial suture pathology, including premature interfrontal (metopic-equivalent) synostosis with embryonic onset. (veistinen2012lossoffunctionofgli3 pages 1-2, veistinen2012lossoffunctionofgli3 pages 2-4)</p>
+<h3>15.2 Model limitations</h3>
+<p>A key limitation is that <em>Gli3</em>Xt-J/Xt-J mice die at birth, limiting postnatal phenotyping and long-term outcome studies. (veistinen2012lossoffunctionofgli3 pages 4-5)</p>
+<hr />
+<h2>Recent developments (2023–2024) — highlights</h2>
+<ol>
+<li><strong>WGS reveals diagnostic inversions disrupting <em>GLI3</em></strong>: Two families with GCPS-consistent skeletal phenotypes had large, copy-neutral inversions disrupting <em>GLI3</em> (1.2 Mb and 14.8 Mb), resolving “diagnostic odysseys of 9–20 years” and demonstrating the need to improve inversion/SV detection in clinical genomics pipelines. (pagnamenta2023conclusionofdiagnostic pages 1-1, pagnamenta2023conclusionofdiagnostic pages 3-4)</li>
+<li><strong>Prenatal GCPS confirmed via cytogenetics + array-CGH (2024)</strong>: A fetal case with polydactyly and other ultrasound findings was confirmed to have a 17.4 Mb 7p deletion including <em>GLI3</em>, illustrating real-world prenatal diagnostic workflows beyond single-gene testing. (hakcıl2024arareprenatal pages 1-2, hakcıl2024arareprenatal pages 2-4)</li>
+</ol>
+<hr />
+<h2>Evidence gaps / limitations of this report</h2>
+<ul>
+<li>ICD-10/ICD-11 and MeSH identifiers were not retrieved in the citeable evidence of this tool run.</li>
+<li>Robust population-based prevalence/incidence estimates were not retrieved; the synthesis primarily notes rarity and ascertainment-limited counts (~300 known to authors). (biesecker2025gli3relatedgreigcephalopolysyndactylya pages 6-8)</li>
+<li>No GCPS-specific quality-of-life instrument results or pharmacologic clinical trials were found in the retrieved evidence.</li>
+</ul>
+<hr />
+<h2>Key source URLs (as available in retrieved evidence)</h2>
+<ul>
+<li>OpenTargets disease–target association for GCPS–<em>GLI3</em> (MONDO:0008287): https://platform.opentargets.org/ (entity surfaced via tool output) (OpenTargets Search: Greig cephalopolysyndactyly syndrome)</li>
+<li>Pagnamenta et al., <em>Journal of Medical Genetics</em> (published 2023; evidence excerpt): https://doi.org/10.1136/jmg-2022-108753 (pagnamenta2023conclusionofdiagnostic pages 3-4)</li>
+<li>Hakçıl et al., <em>Gazi Medical Journal</em> (Apr 2024): https://doi.org/10.12996/gmj.2023.4053 (hakcıl2024arareprenatal pages 1-2)</li>
+<li>Veistinen et al., <em>Frontiers in Physiology</em> (Feb 2012): https://doi.org/10.3389/fphys.2012.00121 (veistinen2012lossoffunctionofgli3 pages 1-2)</li>
+</ul>
+<p>References</p>
+<ol>
+<li>
+<p>(biesecker2025gli3relatedgreigcephalopolysyndactylya pages 1-3): LG Biesecker and JJ Johnston. Gli3-related greig cephalopolysyndactyly syndrome. Unknown journal, 2025.</p>
+</li>
+<li>
+<p>(pagnamenta2023conclusionofdiagnostic pages 1-1): Alistair T Pagnamenta, Jing Yu, Julie Evans, Philip Twiss, Amaka C Offiah, Mohamed Wafik, Sarju G Mehta, Mohammed K Javaid, Sarah F Smithson, and Jenny C Taylor. Conclusion of diagnostic odysseys due to inversions disrupting gli3 and fbn1. Journal of Medical Genetics, 60:505-510, Nov 2023. URL: https://doi.org/10.1136/jmg-2022-108753, doi:10.1136/jmg-2022-108753. This article has 15 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(biesecker2024greigcephalopolysyndactylysyndrome pages 1-1): LG Biesecker and JJ Johnston. Greig cephalopolysyndactyly syndrome. Definitions, Feb 2024. URL: https://doi.org/10.1007/978-1-4614-1037-9_111, doi:10.1007/978-1-4614-1037-9_111. This article has 75 citations.</p>
+</li>
+<li>
+<p>(biesecker2025gli3relatedgreigcephalopolysyndactyly pages 1-3): LG Biesecker and JJ Johnston. Gli3-related greig cephalopolysyndactyly syndrome. Unknown journal, 2025.</p>
+</li>
+<li>
+<p>(biesecker2025gli3relatedgreigcephalopolysyndactylya pages 6-8): LG Biesecker and JJ Johnston. Gli3-related greig cephalopolysyndactyly syndrome. Unknown journal, 2025.</p>
+</li>
+<li>
+<p>(OpenTargets Search: Greig cephalopolysyndactyly syndrome): Open Targets Query (Greig cephalopolysyndactyly syndrome, 1 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.</p>
+</li>
+<li>
+<p>(biesecker2025gli3relatedgreigcephalopolysyndactylya pages 3-6): LG Biesecker and JJ Johnston. Gli3-related greig cephalopolysyndactyly syndrome. Unknown journal, 2025.</p>
+</li>
+<li>
+<p>(biesecker2025gli3relatedgreigcephalopolysyndactyly pages 6-8): LG Biesecker and JJ Johnston. Gli3-related greig cephalopolysyndactyly syndrome. Unknown journal, 2025.</p>
+</li>
+<li>
+<p>(pagnamenta2023conclusionofdiagnostic pages 3-4): Alistair T Pagnamenta, Jing Yu, Julie Evans, Philip Twiss, Amaka C Offiah, Mohamed Wafik, Sarju G Mehta, Mohammed K Javaid, Sarah F Smithson, and Jenny C Taylor. Conclusion of diagnostic odysseys due to inversions disrupting gli3 and fbn1. Journal of Medical Genetics, 60:505-510, Nov 2023. URL: https://doi.org/10.1136/jmg-2022-108753, doi:10.1136/jmg-2022-108753. This article has 15 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(hakcıl2024arareprenatal pages 1-2): Tilbe Hakçıl, Gülsüm Kayhan, Tuncay Nas, Pınar Telli Celtemen, and Meral Yirmibeş Karaoğuz. A rare prenatal case: greig cephalopolysyndactyly syndrome. Gazi Medical Journal, 35:208-211, Apr 2024. URL: https://doi.org/10.12996/gmj.2023.4053, doi:10.12996/gmj.2023.4053. This article has 0 citations.</p>
+</li>
+<li>
+<p>(veistinen2012lossoffunctionofgli3 pages 1-2): Lotta Veistinen, M. Takatalo, Y. Tanimoto, D. Kesper, A. Vortkamp, and D. Rice. Loss-of-function of gli3 in mice causes abnormal frontal bone morphology and premature synostosis of the interfrontal suture. Frontiers in Physiology, Feb 2012. URL: https://doi.org/10.3389/fphys.2012.00121, doi:10.3389/fphys.2012.00121. This article has 46 citations.</p>
+</li>
+<li>
+<p>(biesecker2025gli3relatedgreigcephalopolysyndactylya pages 12-15): LG Biesecker and JJ Johnston. Gli3-related greig cephalopolysyndactyly syndrome. Unknown journal, 2025.</p>
+</li>
+<li>
+<p>(pagnamenta2023conclusionofdiagnostic pages 4-4): Alistair T Pagnamenta, Jing Yu, Julie Evans, Philip Twiss, Amaka C Offiah, Mohamed Wafik, Sarju G Mehta, Mohammed K Javaid, Sarah F Smithson, and Jenny C Taylor. Conclusion of diagnostic odysseys due to inversions disrupting gli3 and fbn1. Journal of Medical Genetics, 60:505-510, Nov 2023. URL: https://doi.org/10.1136/jmg-2022-108753, doi:10.1136/jmg-2022-108753. This article has 15 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(biesecker2025gli3relatedgreigcephalopolysyndactyly pages 3-6): LG Biesecker and JJ Johnston. Gli3-related greig cephalopolysyndactyly syndrome. Unknown journal, 2025.</p>
+</li>
+<li>
+<p>(biesecker2025gli3relatedgreigcephalopolysyndactyly media 5cc46968): LG Biesecker and JJ Johnston. Gli3-related greig cephalopolysyndactyly syndrome. Unknown journal, 2025.</p>
+</li>
+<li>
+<p>(biesecker2025gli3relatedgreigcephalopolysyndactyly media 55afed63): LG Biesecker and JJ Johnston. Gli3-related greig cephalopolysyndactyly syndrome. Unknown journal, 2025.</p>
+</li>
+<li>
+<p>(hakcıl2024arareprenatal pages 2-4): Tilbe Hakçıl, Gülsüm Kayhan, Tuncay Nas, Pınar Telli Celtemen, and Meral Yirmibeş Karaoğuz. A rare prenatal case: greig cephalopolysyndactyly syndrome. Gazi Medical Journal, 35:208-211, Apr 2024. URL: https://doi.org/10.12996/gmj.2023.4053, doi:10.12996/gmj.2023.4053. This article has 0 citations.</p>
+</li>
+<li>
+<p>(veistinen2012lossoffunctionofgli3 pages 4-5): Lotta Veistinen, M. Takatalo, Y. Tanimoto, D. Kesper, A. Vortkamp, and D. Rice. Loss-of-function of gli3 in mice causes abnormal frontal bone morphology and premature synostosis of the interfrontal suture. Frontiers in Physiology, Feb 2012. URL: https://doi.org/10.3389/fphys.2012.00121, doi:10.3389/fphys.2012.00121. This article has 46 citations.</p>
+</li>
+<li>
+<p>(veistinen2012lossoffunctionofgli3 pages 2-4): Lotta Veistinen, M. Takatalo, Y. Tanimoto, D. Kesper, A. Vortkamp, and D. Rice. Loss-of-function of gli3 in mice causes abnormal frontal bone morphology and premature synostosis of the interfrontal suture. Frontiers in Physiology, Feb 2012. URL: https://doi.org/10.3389/fphys.2012.00121, doi:10.3389/fphys.2012.00121. This article has 46 citations.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </div>
         
 
         <footer class="page-footer">
@@ -3661,7 +4368,7 @@ datasets: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Greig Cephalopolysyndactyly Syndrome", "mondoId": "MONDO:0008287", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Greig_Cephalopolysyndactyly_Syndrome", "yamlRevision": "09fbe6ea3cce"};
+        const OS_CONFIG = {"diseaseName": "Greig Cephalopolysyndactyly Syndrome", "mondoId": "MONDO:0008287", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Greig_Cephalopolysyndactyly_Syndrome", "yamlRevision": "69298e54b62c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

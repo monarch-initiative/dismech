@@ -269,6 +269,43 @@ class TestExposureToEdge:
         }
         assert exposure_to_edge("MONDO:0004979", environmental) is None
 
+    def test_protective_effect_flips_predicate(self):
+        """Protective `effect` text should yield decreased-likelihood predicate (#2098).
+        Reproduces the Marfan Syndrome physical-activity-restriction case."""
+        environmental = {
+            "name": "Physical Activity Restrictions",
+            "effect": "Reduces risk of aortic dissection.",
+            "exposure_term": {"term": {"id": "XCO:0000059", "label": "physical activity"}},
+        }
+        edge = exposure_to_edge("MONDO:0007947", environmental)
+        assert edge is not None
+        assert edge.predicate == "biolink:associated_with_decreased_likelihood_of"
+
+    def test_protective_effect_decreased_odds(self):
+        """`decreased odds for developing X` is protective polarity."""
+        environmental = {
+            "effect": "Associated with decreased odds for developing rheumatoid vasculitis.",
+            "exposure_term": {"term": {"id": "ECTO:0000001"}},
+        }
+        edge = exposure_to_edge("MONDO:0004979", environmental)
+        assert edge.predicate == "biolink:associated_with_decreased_likelihood_of"
+
+    def test_causal_effect_keeps_default(self):
+        """Causal `effect` text keeps biolink:contributes_to."""
+        for effect in [
+            "TRIGGERS",
+            "Increases sensitization risk",
+            "Contributes to cardiovascular risk through reduced HDL and impaired endothelial function",
+            "Lower threshold for repair and heightened rupture-risk concern",
+            None,
+        ]:
+            environmental = {
+                "effect": effect,
+                "exposure_term": {"term": {"id": "ECTO:0000001"}},
+            }
+            edge = exposure_to_edge("MONDO:0004979", environmental)
+            assert edge.predicate == "biolink:contributes_to", f"got non-default for {effect!r}"
+
 
 class TestMolecularFunctionToEdge:
     """Tests for molecular_function_to_edge function."""
@@ -941,8 +978,9 @@ class TestExtractNodes:
         assert node_by_id["HP:0000001"].name == "Phenotype A"
         # Cell type uses preferred_term
         assert node_by_id["CL:0000001"].name == "Cell A"
-        # Treatment uses treatment name
-        assert node_by_id["MAXO:0000001"].name == "Treatment A"
+        # Treatment uses the canonical MAXO term label, not the free-text
+        # treatments[].name — see issue #1932.
+        assert node_by_id["MAXO:0000001"].name == "treatment a"
         # Gene uses gene name
         assert node_by_id["HGNC.SYMBOL:GENE1"].name == "GENE1"
 
@@ -1006,6 +1044,27 @@ class TestExtractNodes:
         assert "MONDO:0000001" in ids
         assert "HP:0000001" in ids
         assert len(nodes) == 2  # disease + 1 valid phenotype
+
+    def test_treatment_node_uses_canonical_maxo_label(self):
+        """Treatment node `name` must come from treatment_term.term.label,
+        not the free-text treatments[].name (issue #1932). Different disorders
+        share one MAXO CURIE under different free-text names; dedup must collapse
+        on the canonical ontology label."""
+        disorder = {
+            "name": "Test Disorder",
+            "disease_term": {"term": {"id": "MONDO:0000001"}},
+            "treatments": [
+                {
+                    "name": "Alpelisib (BYL719)",
+                    "treatment_term": {
+                        "term": {"id": "MAXO:0000648", "label": "enzyme inhibitor agent therapy"},
+                    },
+                },
+            ],
+        }
+        nodes = list(extract_nodes(disorder))
+        node_by_id = {n.id: n for n in nodes}
+        assert node_by_id["MAXO:0000648"].name == "enzyme inhibitor agent therapy"
 
     def test_gene_prefers_gene_term_id(self):
         """Test that gene nodes prefer gene_term.term.id over HGNC.SYMBOL."""

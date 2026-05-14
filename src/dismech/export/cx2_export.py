@@ -26,6 +26,7 @@ from ndex2.cx2 import CX2Network, CX2NetworkXFactory
 from dismech.graph import (
     _build_section_lookup,
     _gene_lookup_keys,
+    _genetic_item_infers_mechanism_edges,
     _iter_variant_items,
     _resolve_descriptor_target,
     build_causal_graph,
@@ -198,6 +199,12 @@ EDGE_STYLE_BY_PREDICATE = {
     ),
     "models": EdgeStyle(
         color="#0f766e",
+        line_style="dashed",
+        target_arrow_shape="triangle",
+        width=2,
+    ),
+    "readout": EdgeStyle(
+        color="#4f46e5",
         line_style="dashed",
         target_arrow_shape="triangle",
         width=2,
@@ -1009,11 +1016,38 @@ def _build_edge_detail_lookup(
                 },
             )
 
+    for item in disorder.get("biochemical", []) or []:
+        if not isinstance(item, dict):
+            continue
+        biomarker_name = item.get("name")
+        if not biomarker_name:
+            continue
+        parent_evidence = item.get("evidence")
+        for readout in item.get("readouts", []) or []:
+            if not isinstance(readout, dict) or "target" not in readout:
+                continue
+            add_detail(
+                str(readout["target"]),
+                biomarker_name,
+                "readout",
+                {
+                    "description": readout.get("description")
+                    or readout.get("interpretation"),
+                    "evidence": readout.get("evidence") or parent_evidence,
+                    "relationship": readout.get("relationship"),
+                    "direction": readout.get("direction"),
+                    "endpoint_context": readout.get("endpoint_context"),
+                    "regulatory_endpoint_refs": readout.get("regulatory_endpoint_refs"),
+                },
+            )
+
     for item in disorder.get("genetic", []) or []:
         if not isinstance(item, dict):
             continue
         source_name = item.get("name")
         if not source_name:
+            continue
+        if not _genetic_item_infers_mechanism_edges(item):
             continue
         mechanism_targets: set[str] = set()
         for gene_key in _gene_lookup_keys(item, allow_name_fallback=True):
@@ -1283,6 +1317,16 @@ def _edge_attributes(
     treatment_effect = detail.get("treatment_effect")
     if treatment_effect:
         attributes["treatment_effect"] = treatment_effect
+
+    for key in (
+        "relationship",
+        "direction",
+        "endpoint_context",
+        "regulatory_endpoint_refs",
+    ):
+        value = detail.get(key) or edge_payload.get(key)
+        if value:
+            attributes[key] = value
 
     hypothesis_groups = detail.get("hypothesis_groups")
     if hypothesis_groups:

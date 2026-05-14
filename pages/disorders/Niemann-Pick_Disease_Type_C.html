@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,7 +2570,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 12</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 42</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Lysosomal Storage Disorder</span>
@@ -2576,7 +2729,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">12</div>
+                <div class="stat-value">42</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3086,6 +3239,13 @@
 	                            
 	                        </div>
 	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Sphingosine Storage as Initiating Factor</span>
+	                            
+	                            <span class="crosslink-desc">NPC1/NPC2 trafficking failure is modeled upstream of early lysosomal sphingosine storage.</span>
+	                            
+	                        </div>
+	                        
 	                    </div>
 	                </div>
 	                
@@ -3203,6 +3363,70 @@
                 
                 
 	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Unesterified Cholesterol Accumulation</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Low Cholesterol Esterification Rate</span>
+	                            
+	                            <span class="crosslink-desc">Cholesterol trapped in lysosomes is unavailable for normal esterification in NPC fibroblasts.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Plasma 24(S)-Hydroxycholesterol</span>
+	                            
+	                            <span class="crosslink-desc">Disturbed neuronal cholesterol handling is reflected by oxysterol biomarker changes.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hepatosplenomegaly</span>
+	                            
+	                            <span class="crosslink-desc">Visceral cholesterol and lipid storage contribute to liver and spleen enlargement.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hepatomegaly</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Splenomegaly</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Neonatal Cholestasis</span>
+	                            
+	                            <span class="crosslink-desc">Infantile hepatic storage disease produces cholestatic liver involvement.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Jaundice</span>
+	                            
+	                            <span class="crosslink-desc">Neonatal cholestasis manifests clinically as prolonged jaundice.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Bone-Marrow Foam Cells</span>
+	                            
+	                            <span class="crosslink-desc">Stored lipids in tissue macrophages produce foam cells and sea-blue histiocytes.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
 	                
 	                
     
@@ -3343,6 +3567,27 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cerebellar Purkinje Cell Degeneration</span>
+	                            
+	                            <span class="crosslink-desc">Ganglioside and glycosphingolipid storage contributes to selective neuronal vulnerability in the cerebellum.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Progressive Neurological Dysfunction</span>
+	                            
+	                            <span class="crosslink-desc">Brain lipid storage drives the progressive neurologic syndrome in NPC.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
@@ -3437,6 +3682,25 @@
                 
                 
 	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cerebellar Ataxia</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Gait Disturbance</span>
+	                            
+	                            <span class="crosslink-desc">Purkinje cell loss produces cerebellar gait and coordination impairment.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
 	                
 	                
     
@@ -3548,6 +3812,11 @@
 	                            
 	                        </div>
 	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Sphingosine Accumulation</span>
+	                            
+	                        </div>
+	                        
 	                    </div>
 	                </div>
 	                
@@ -3649,6 +3918,27 @@
                 
                 
 	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Lysosomal Unesterified Cholesterol Accumulation</span>
+	                            
+	                            <span class="crosslink-desc">Altered lysosomal calcium homeostasis contributes to secondary cholesterol storage.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Glycosphingolipid and Ganglioside Accumulation in Brain</span>
+	                            
+	                            <span class="crosslink-desc">Altered lysosomal calcium homeostasis contributes to secondary sphingolipid and ganglioside storage.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
 	                
 	                
     
@@ -3753,6 +4043,20 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Progressive Neurological Dysfunction</span>
+	                            
+	                            <span class="crosslink-desc">Defective lysosomal autophagy contributes to neuronal dysfunction and disease progression.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
@@ -3823,9 +4127,67 @@
 	                        </div>
 	                        
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Progressive Dementia</span>
+	                            <span class="crosslink-meta">Progressive Mental Deterioration</span>
 	                            
-	                            <span class="crosslink-desc">Ongoing neurological dysfunction contributes to progressive dementia in NPC.</span>
+	                            <span class="crosslink-desc">Ongoing neurological dysfunction contributes to progressive dementia and mental deterioration in NPC.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Vertical Supranuclear Gaze Palsy</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Dysarthria</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Dystonia</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Gelastic Cataplexy</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Psychiatric Manifestations</span>
+	                            
+	                            <span class="crosslink-desc">Adult-onset NPC can present with psychiatric manifestations before or alongside neurologic decline.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hearing Impairment</span>
+	                            
+	                            <span class="crosslink-desc">Hearing impairment is a recurrent neurologic/sensory manifestation, but the proximal path in this graph is not separated.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Progressive Neurologic Deterioration</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cognitive Impairment</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Dysphonia</span>
+	                            
+	                            <span class="crosslink-desc">Bulbar neurologic dysfunction contributes to voice impairment.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Feeding Difficulties</span>
+	                            
+	                            <span class="crosslink-desc">Bulbar dysfunction and dysphagia contribute to feeding problems.</span>
 	                            
 	                        </div>
 	                        
@@ -3931,6 +4293,32 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Neurofibrillary Tangles</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Plasma Phosphorylated-Tau217</span>
+	                            
+	                            <span class="crosslink-desc">Plasma p-tau217 is modeled as a blood biomarker reflecting tau pathology, not as a causal downstream disease mechanism.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Progressive Mental Deterioration</span>
+	                            
+	                            <span class="crosslink-desc">Tau pathology is modeled as one contributor to cognitive decline in NPC.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
@@ -4001,16 +4389,6 @@
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
-            <div class="graph-warning">
-                <strong>Referential integrity issues (1):</strong>
-                <ul>
-                    
-                    <li>Target &#39;Progressive Dementia&#39; (from &#39;Progressive Neurological Dysfunction&#39;) not found in named elements</li>
-                    
-                    
-                </ul>
-            </div>
-            
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -4021,7 +4399,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Defective Cellular Autophagy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired autophagic handling is an additional downstream mechanism in NPC that likely contributes to cellular dysfunction and disease progression.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"autophagy\"]}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002015\"}}, {\"id\": \"Glycosphingolipid and Ganglioside Accumulation in Brain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"While cholesterol accumulates in peripheral tissues, the brain prominently accumulates glycosphingolipids including gangliosides GM2 and GM3. This ganglioside storage disrupts endosomal transport and is a major driver of neurodegeneration in NPC.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Purkinje Cell\", \"Neuron\"], \"biological_processes\": [\"Glycosphingolipid Catabolic Process\", \"Sphingolipid Catabolic Process\"]}}, {\"id\": \"Lysosomal Calcium Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NPC1-mutant cells have significantly reduced lysosomal calcium stores. This calcium depletion downstream of sphingosine accumulation causes secondary accumulation of cholesterol, sphingomyelin, and glycosphingolipids, linking calcium dysregulation to the broad lipid storage phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Intracellular Calcium Ion Homeostasis\"]}}, {\"id\": \"Lysosomal Unesterified Cholesterol Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Unesterified cholesterol accumulates in late endosomes and lysosomes as a defining storage abnormality in NPC.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Hepatocyte\", \"Neuron\"]}}, {\"id\": \"NPC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"NPC1\"], \"association\": \"Causative\"}}, {\"id\": \"NPC1/NPC2-Mediated Cholesterol Egress Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in NPC1 or NPC2 impair export of cholesterol from late endosomes and lysosomes.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Hepatocyte\", \"Neuron\"], \"biological_processes\": [\"Intracellular Cholesterol Transport\", \"Lipid Transport\"], \"molecular_functions\": [\"cholesterol transfer activity\"], \"genes\": [\"NPC1\", \"NPC2\"]}}, {\"id\": \"NPC2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NPC2\"], \"association\": \"Causative\"}}, {\"id\": \"Progressive Dementia\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Progressive Neurological Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NPC neurological disease produces a broad syndrome of progressive brain dysfunction with bulbar, oculomotor, seizure, and cognitive manifestations.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sphingosine Storage as Initiating Factor\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sphingosine accumulates in the acidic compartment of NPC1-mutant cells almost immediately upon NPC1 dysfunction, preceding cholesterol and other lipid storage. This sphingosine accumulation is proposed as an initiating factor in NPC pathogenesis that triggers secondary lipid storage.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Sphingolipid Catabolic Process\"]}}], \"edges\": [{\"source\": \"NPC1/NPC2-Mediated Cholesterol Egress Failure\", \"target\": \"Lysosomal Unesterified Cholesterol Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"NPC1/NPC2-Mediated Cholesterol Egress Failure\", \"target\": \"Glycosphingolipid and Ganglioside Accumulation in Brain\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"NPC1/NPC2-Mediated Cholesterol Egress Failure\", \"target\": \"Defective Cellular Autophagy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sphingosine Storage as Initiating Factor\", \"target\": \"Lysosomal Calcium Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Neurological Dysfunction\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Neurological Dysfunction\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Neurological Dysfunction\", \"target\": \"Progressive Dementia\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"NPC1\", \"target\": \"NPC1/NPC2-Mediated Cholesterol Egress Failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NPC2\", \"target\": \"NPC1/NPC2-Mediated Cholesterol Egress Failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": [\"Progressive Dementia\"]}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arimoclomol\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Co-inducer of heat shock proteins, approved for use in combination with miglustat for NPC. Enhances cellular stress response and may improve protein folding and lysosomal function.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"arimoclomol\"]}}, {\"id\": \"Bone-Marrow Foam Cells\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004333\"}}, {\"id\": \"Cerebellar Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002073\"}}, {\"id\": \"Cerebellar Purkinje Cell Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive loss of cerebellar Purkinje cells is a hallmark neuropathological feature of NPC. Purkinje cells are particularly vulnerable to lipid accumulation and are among the earliest neuronal populations to degenerate.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Purkinje Cell\"]}}, {\"id\": \"Cognitive Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100543\"}}, {\"id\": \"Defective Cellular Autophagy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired autophagic handling is an additional downstream mechanism in NPC that likely contributes to cellular dysfunction and disease progression.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"autophagy\"]}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002015\"}}, {\"id\": \"Dysphonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001618\"}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Gait Disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001288\"}}, {\"id\": \"Gelastic Cataplexy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002524\"}}, {\"id\": \"Glycosphingolipid and Ganglioside Accumulation in Brain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"While cholesterol accumulates in peripheral tissues, the brain prominently accumulates glycosphingolipids including gangliosides GM2 and GM3. This ganglioside storage disrupts endosomal transport and is a major driver of neurodegeneration in NPC.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Purkinje Cell\", \"Neuron\"], \"biological_processes\": [\"Glycosphingolipid Catabolic Process\", \"Sphingolipid Catabolic Process\"]}}, {\"id\": \"Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hepatosplenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001433\"}}, {\"id\": \"Intrathecal 2-Hydroxypropyl-Beta-Cyclodextrin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"HPbCD given by lumbar intrathecal injection mobilizes cholesterol from lysosomes. Phase 1-2 trial showed slowed neurological disease progression compared to natural history.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Jaundice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000952\"}}, {\"id\": \"Levacetylleucine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"FDA-approved standalone treatment for NPC.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"levacetylleucine\"]}}, {\"id\": \"Low Cholesterol Esterification Rate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Abnormal\"}}, {\"id\": \"Lysosomal Calcium Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NPC1-mutant cells have significantly reduced lysosomal calcium stores. This calcium depletion downstream of sphingosine accumulation causes secondary accumulation of cholesterol, sphingomyelin, and glycosphingolipids, linking calcium dysregulation to the broad lipid storage phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Intracellular Calcium Ion Homeostasis\"]}}, {\"id\": \"Lysosomal Unesterified Cholesterol Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Unesterified cholesterol accumulates in late endosomes and lysosomes as a defining storage abnormality in NPC.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Hepatocyte\", \"Neuron\"]}}, {\"id\": \"Miglustat\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Substrate reduction therapy approved in Europe and several other countries for treatment of neurological manifestations. Inhibits glucosylceramide synthase to reduce glycosphingolipid accumulation.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"miglustat\"]}}, {\"id\": \"NPC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"NPC1\"], \"association\": \"Causative\"}}, {\"id\": \"NPC1/NPC2-Mediated Cholesterol Egress Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in NPC1 or NPC2 impair export of cholesterol from late endosomes and lysosomes.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Hepatocyte\", \"Neuron\"], \"biological_processes\": [\"Intracellular Cholesterol Transport\", \"Lipid Transport\"], \"molecular_functions\": [\"cholesterol transfer activity\"], \"genes\": [\"NPC1\", \"NPC2\"]}}, {\"id\": \"NPC2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NPC2\"], \"association\": \"Causative\"}}, {\"id\": \"Neonatal Cholestasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0006566\"}}, {\"id\": \"Neurofibrillary Tangles\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002185\"}}, {\"id\": \"Plasma 24(S)-Hydroxycholesterol\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\"}}, {\"id\": \"Plasma Phosphorylated-Tau217\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\"}}, {\"id\": \"Progressive Mental Deterioration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001268\"}}, {\"id\": \"Progressive Neurologic Deterioration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002344\"}}, {\"id\": \"Progressive Neurological Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NPC neurological disease produces a broad syndrome of progressive brain dysfunction with bulbar, oculomotor, seizure, and cognitive manifestations.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Psychiatric Manifestations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000709\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sphingosine Accumulation\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\"}}, {\"id\": \"Sphingosine Storage as Initiating Factor\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sphingosine accumulates in the acidic compartment of NPC1-mutant cells almost immediately upon NPC1 dysfunction, preceding cholesterol and other lipid storage. This sphingosine accumulation is proposed as an initiating factor in NPC pathogenesis that triggers secondary lipid storage.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Sphingolipid Catabolic Process\"]}}, {\"id\": \"Splenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001744\"}}, {\"id\": \"Tau Hyperphosphorylation and Neurofibrillary Tangles\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NPC shares neuropathological features with Alzheimer disease including neurofibrillary tangle (NFT) formation from hyperphosphorylated tau protein. Plasma phosphorylated-tau217 is elevated in NPC and correlates with disease progression, suggesting tau pathology is an active disease marker.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Protein Phosphorylation\"]}}, {\"id\": \"Unesterified Cholesterol Accumulation\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\"}}, {\"id\": \"Vertical Supranuclear Gaze Palsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000511\"}}], \"edges\": [{\"source\": \"NPC1/NPC2-Mediated Cholesterol Egress Failure\", \"target\": \"Lysosomal Unesterified Cholesterol Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"NPC1/NPC2-Mediated Cholesterol Egress Failure\", \"target\": \"Glycosphingolipid and Ganglioside Accumulation in Brain\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"NPC1/NPC2-Mediated Cholesterol Egress Failure\", \"target\": \"Defective Cellular Autophagy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"NPC1/NPC2-Mediated Cholesterol Egress Failure\", \"target\": \"Sphingosine Storage as Initiating Factor\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lysosomal Unesterified Cholesterol Accumulation\", \"target\": \"Unesterified Cholesterol Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lysosomal Unesterified Cholesterol Accumulation\", \"target\": \"Low Cholesterol Esterification Rate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lysosomal Unesterified Cholesterol Accumulation\", \"target\": \"Plasma 24(S)-Hydroxycholesterol\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lysosomal Unesterified Cholesterol Accumulation\", \"target\": \"Hepatosplenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lysosomal Unesterified Cholesterol Accumulation\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lysosomal Unesterified Cholesterol Accumulation\", \"target\": \"Splenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lysosomal Unesterified Cholesterol Accumulation\", \"target\": \"Neonatal Cholestasis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lysosomal Unesterified Cholesterol Accumulation\", \"target\": \"Jaundice\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lysosomal Unesterified Cholesterol Accumulation\", \"target\": \"Bone-Marrow Foam Cells\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Glycosphingolipid and Ganglioside Accumulation in Brain\", \"target\": \"Cerebellar Purkinje Cell Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Glycosphingolipid and Ganglioside Accumulation in Brain\", \"target\": \"Progressive Neurological Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cerebellar Purkinje Cell Degeneration\", \"target\": \"Cerebellar Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cerebellar Purkinje Cell Degeneration\", \"target\": \"Gait Disturbance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sphingosine Storage as Initiating Factor\", \"target\": \"Lysosomal Calcium Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sphingosine Storage as Initiating Factor\", \"target\": \"Sphingosine Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lysosomal Calcium Dysregulation\", \"target\": \"Lysosomal Unesterified Cholesterol Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lysosomal Calcium Dysregulation\", \"target\": \"Glycosphingolipid and Ganglioside Accumulation in Brain\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Defective Cellular Autophagy\", \"target\": \"Progressive Neurological Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Neurological Dysfunction\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Neurological Dysfunction\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Neurological Dysfunction\", \"target\": \"Progressive Mental Deterioration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Neurological Dysfunction\", \"target\": \"Vertical Supranuclear Gaze Palsy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Neurological Dysfunction\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Neurological Dysfunction\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Neurological Dysfunction\", \"target\": \"Gelastic Cataplexy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Neurological Dysfunction\", \"target\": \"Psychiatric Manifestations\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Neurological Dysfunction\", \"target\": \"Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Neurological Dysfunction\", \"target\": \"Progressive Neurologic Deterioration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Neurological Dysfunction\", \"target\": \"Cognitive Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Neurological Dysfunction\", \"target\": \"Dysphonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Neurological Dysfunction\", \"target\": \"Feeding Difficulties\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tau Hyperphosphorylation and Neurofibrillary Tangles\", \"target\": \"Neurofibrillary Tangles\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tau Hyperphosphorylation and Neurofibrillary Tangles\", \"target\": \"Plasma Phosphorylated-Tau217\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tau Hyperphosphorylation and Neurofibrillary Tangles\", \"target\": \"Progressive Mental Deterioration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Miglustat\", \"target\": \"Glycosphingolipid and Ganglioside Accumulation in Brain\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intrathecal 2-Hydroxypropyl-Beta-Cyclodextrin\", \"target\": \"Lysosomal Unesterified Cholesterol Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intrathecal 2-Hydroxypropyl-Beta-Cyclodextrin\", \"target\": \"Progressive Neurological Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Levacetylleucine\", \"target\": \"Progressive Neurological Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Arimoclomol\", \"target\": \"Progressive Neurological Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"NPC1\", \"target\": \"NPC1/NPC2-Mediated Cholesterol Egress Failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NPC2\", \"target\": \"NPC1/NPC2-Mediated Cholesterol Egress Failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5854,11 +6232,41 @@
                 
                 
                 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        miglustat
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_50381" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
                 <div class="item-desc">Substrate reduction therapy approved in Europe and several other countries for treatment of neurological manifestations. Inhibits glucosylceramide synthase to reduce glycosphingolipid accumulation.
 </div>
                 
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Glycosphingolipid and Ganglioside Accumulation in Brain</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Miglustat inhibits glucosylceramide synthase to reduce glycosphingolipid substrate accumulation.</span>
+                        
+                        
+    
+    
+                    </div>
+                    
+                </div>
                 
                 
                 
@@ -5940,6 +6348,37 @@
 </div>
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+                        <strong style="color: #5b21b6;">Lysosomal Unesterified Cholesterol Accumulation</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Intrathecal HPbCD mobilizes cholesterol from lysosomes and modifies the core storage abnormality.</span>
+                        
+                        
+    
+    
+                    </div>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+                        <strong style="color: #5b21b6;">Progressive Neurological Dysfunction</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Clinical trial evidence supports slowed neurologic disease progression.</span>
+                        
+                        
+    
+    
+                    </div>
+                    
+                </div>
+                
                 
                 
                 
@@ -6014,11 +6453,41 @@
                 
                 
                 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        levacetylleucine
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_17786" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
                 <div class="item-desc">FDA-approved standalone treatment for NPC.
 </div>
                 
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+                        <strong style="color: #5b21b6;">Progressive Neurological Dysfunction</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Levacetylleucine is modeled as symptomatic neurologic therapy rather than correction of lysosomal lipid trafficking.</span>
+                        
+                        
+    
+    
+                    </div>
+                    
+                </div>
                 
                 
                 
@@ -6094,11 +6563,41 @@
                 
                 
                 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        arimoclomol
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_747211" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
                 <div class="item-desc">Co-inducer of heat shock proteins, approved for use in combination with miglustat for NPC. Enhances cellular stress response and may improve protein folding and lysosomal function.
 </div>
                 
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+                        <strong style="color: #5b21b6;">Progressive Neurological Dysfunction</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Arimoclomol is approved for neurologic manifestations in combination with miglustat.</span>
+                        
+                        
+    
+    
+                    </div>
+                    
+                </div>
                 
                 
                 
@@ -6320,6 +6819,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6364,6 +6864,7 @@
                 
                 <div class="item-desc">Context: Plasma 24(S)-hydroxycholesterol serves as a pharmacodynamic biomarker reflecting neuronal cholesterol homeostasis in NPC clinical trials.
 </div>
+                
                 
                 
     
@@ -6412,6 +6913,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6458,6 +6960,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6502,6 +7005,7 @@
                 
                 <div class="item-desc">Context: Plasma p-tau217 is elevated in NPC patients compared to controls and correlates with disease severity and rate of progression. Represents a potential blood-based biomarker for monitoring NPC.
 </div>
+                
                 
                 
     
@@ -6569,7 +7073,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Niemann-Pick Disease Type C
 creation_date: &#39;2026-03-14T00:00:00Z&#39;
-updated_date: &#39;2026-04-28T00:00:00Z&#39;
+updated_date: &#39;2026-05-06T23:30:45Z&#39;
 category: Genetic
 parents:
 - Lysosomal Storage Disorder
@@ -6741,6 +7245,9 @@ pathophysiology:
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Impaired cholesterol trafficking and unesterified cholesterol accumulation in the late endosomes and lysosomals, as a results of mutations in NPC1 or NPC2 genes, are initial for the disease, and defective cellular autophagy, defective lysosomal calcium homeostasis and oxidative stress may all play roles in the physiological processes.&#34;
       explanation: This review supports defective autophagy as a downstream consequence of the core NPC trafficking defect.
+  - target: Sphingosine Storage as Initiating Factor
+    description: NPC1/NPC2 trafficking failure is modeled upstream of early lysosomal sphingosine storage.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
   evidence:
   - reference: PMID:33445799
     supports: SUPPORT
@@ -6771,6 +7278,31 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Niemann-Pick type C (NP-C) disease, a fatal neurovisceral disorder, is characterized by lysosomal accumulation of low density lipoprotein (LDL)-derived cholesterol.&#34;
     explanation: The landmark NPC1 paper establishes lysosomal cholesterol accumulation as a defining disease abnormality.
+  downstream:
+  - target: Unesterified Cholesterol Accumulation
+    causal_link_type: DIRECT
+  - target: Low Cholesterol Esterification Rate
+    causal_link_type: DIRECT
+    description: Cholesterol trapped in lysosomes is unavailable for normal esterification in NPC fibroblasts.
+  - target: Plasma 24(S)-Hydroxycholesterol
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: Disturbed neuronal cholesterol handling is reflected by oxysterol biomarker changes.
+  - target: Hepatosplenomegaly
+    causal_link_type: DIRECT
+    description: Visceral cholesterol and lipid storage contribute to liver and spleen enlargement.
+  - target: Hepatomegaly
+    causal_link_type: DIRECT
+  - target: Splenomegaly
+    causal_link_type: DIRECT
+  - target: Neonatal Cholestasis
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: Infantile hepatic storage disease produces cholestatic liver involvement.
+  - target: Jaundice
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: Neonatal cholestasis manifests clinically as prolonged jaundice.
+  - target: Bone-Marrow Foam Cells
+    causal_link_type: DIRECT
+    description: Stored lipids in tissue macrophages produce foam cells and sea-blue histiocytes.
 - name: Glycosphingolipid and Ganglioside Accumulation in Brain
   description: &gt;
     While cholesterol accumulates in peripheral tissues, the brain prominently
@@ -6806,6 +7338,13 @@ pathophysiology:
     evidence_source: MODEL_ORGANISM
     snippet: &#34;High pressure liquid chromatography and mass spectrometric analysis of NPC1(-/-) mouse brain revealed large increases in GSL.&#34;
     explanation: Mass spectrometry of NPC1-null mouse brain confirms glycosphingolipid accumulation.
+  downstream:
+  - target: Cerebellar Purkinje Cell Degeneration
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: Ganglioside and glycosphingolipid storage contributes to selective neuronal vulnerability in the cerebellum.
+  - target: Progressive Neurological Dysfunction
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: Brain lipid storage drives the progressive neurologic syndrome in NPC.
 - name: Cerebellar Purkinje Cell Degeneration
   description: &gt;
     Progressive loss of cerebellar Purkinje cells is a hallmark neuropathological
@@ -6822,6 +7361,12 @@ pathophysiology:
     evidence_source: MODEL_ORGANISM
     snippet: &#34;In preclinical testing, 2-hydroxypropyl-β-cyclodextrins (HPβCD) significantly delayed cerebellar Purkinje cell loss, slowed progression of neurological manifestations, and increased lifespan in mouse and cat models of NPC1.&#34;
     explanation: Animal model data confirms that Purkinje cell loss is a central feature of NPC1 pathology that can be delayed with cyclodextrin treatment.
+  downstream:
+  - target: Cerebellar Ataxia
+    causal_link_type: DIRECT
+  - target: Gait Disturbance
+    causal_link_type: DIRECT
+    description: Purkinje cell loss produces cerebellar gait and coordination impairment.
 - name: Sphingosine Storage as Initiating Factor
   description: &gt;
     Sphingosine accumulates in the acidic compartment of NPC1-mutant cells
@@ -6848,6 +7393,8 @@ pathophysiology:
       evidence_source: IN_VITRO
       snippet: &#34;Sphingosine storage is therefore an initiating factor in NPC1 disease pathogenesis that causes altered calcium homeostasis, leading to the secondary storage of sphingolipids and cholesterol.&#34;
       explanation: This study directly links sphingosine accumulation to altered calcium homeostasis.
+  - target: Sphingosine Accumulation
+    causal_link_type: DIRECT
   evidence:
   - reference: PMID:18953351
     supports: SUPPORT
@@ -6876,6 +7423,13 @@ pathophysiology:
     evidence_source: IN_VITRO
     snippet: &#34;NPC1-mutant cells have a large reduction in the acidic compartment calcium store compared to wild-type cells.&#34;
     explanation: Lysosomal calcium stores are significantly reduced in NPC1-mutant cells, linking calcium dysregulation to lipid storage.
+  downstream:
+  - target: Lysosomal Unesterified Cholesterol Accumulation
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: Altered lysosomal calcium homeostasis contributes to secondary cholesterol storage.
+  - target: Glycosphingolipid and Ganglioside Accumulation in Brain
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: Altered lysosomal calcium homeostasis contributes to secondary sphingolipid and ganglioside storage.
 - name: Defective Cellular Autophagy
   description: &gt;
     Impaired autophagic handling is an additional downstream mechanism in NPC
@@ -6897,6 +7451,10 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Impaired cholesterol trafficking and unesterified cholesterol accumulation in the late endosomes and lysosomals, as a results of mutations in NPC1 or NPC2 genes, are initial for the disease, and defective cellular autophagy, defective lysosomal calcium homeostasis and oxidative stress may all play roles in the physiological processes.&#34;
     explanation: This review supports defective cellular autophagy as a secondary pathophysiologic mechanism in NPC downstream of the core cholesterol trafficking defect.
+  downstream:
+  - target: Progressive Neurological Dysfunction
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: Defective lysosomal autophagy contributes to neuronal dysfunction and disease progression.
 - name: Progressive Neurological Dysfunction
   description: &gt;
     NPC neurological disease produces a broad syndrome of progressive brain
@@ -6909,7 +7467,7 @@ pathophysiology:
     - reference: PMID:33924575
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;Affected patients are mainly characterized by neurological dysfunction and liver damage. Neurological dysfunction causes many identifiable symptoms, including vertical supranuclear ophthalmoplegia, cataplexy, dysarthria, dysphagia, seizures, speaking and swallowing difficulty, and dementia.&#34;
+      snippet: &#34;Affected patients are mainly characterized by neurological dysfunction and liver damage. Neurological dysfunction causes many identifiable symptoms, including vertical supranuclear ophthalmoplegia, cataplexy, dysarthria, dysphagia, seizures, speaking and swallowing difficulty, and dementia&#34;
       explanation: This review directly attributes dysphagia to NPC-related neurological dysfunction.
   - target: Seizures
     description: Progressive neurological dysfunction in NPC contributes directly to seizures.
@@ -6918,17 +7476,41 @@ pathophysiology:
     - reference: PMID:33924575
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;Affected patients are mainly characterized by neurological dysfunction and liver damage. Neurological dysfunction causes many identifiable symptoms, including vertical supranuclear ophthalmoplegia, cataplexy, dysarthria, dysphagia, seizures, speaking and swallowing difficulty, and dementia.&#34;
+      snippet: &#34;Affected patients are mainly characterized by neurological dysfunction and liver damage. Neurological dysfunction causes many identifiable symptoms, including vertical supranuclear ophthalmoplegia, cataplexy, dysarthria, dysphagia, seizures, speaking and swallowing difficulty, and dementia&#34;
       explanation: This review directly attributes seizures to NPC-related neurological dysfunction.
-  - target: Progressive Dementia
-    description: Ongoing neurological dysfunction contributes to progressive dementia in NPC.
+  - target: Progressive Mental Deterioration
+    description: Ongoing neurological dysfunction contributes to progressive dementia and mental deterioration in NPC.
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:33924575
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;Affected patients are mainly characterized by neurological dysfunction and liver damage. Neurological dysfunction causes many identifiable symptoms, including vertical supranuclear ophthalmoplegia, cataplexy, dysarthria, dysphagia, seizures, speaking and swallowing difficulty, and dementia.&#34;
+      snippet: &#34;Affected patients are mainly characterized by neurological dysfunction and liver damage. Neurological dysfunction causes many identifiable symptoms, including vertical supranuclear ophthalmoplegia, cataplexy, dysarthria, dysphagia, seizures, speaking and swallowing difficulty, and dementia&#34;
       explanation: This review directly attributes dementia to NPC-related neurological dysfunction.
+  - target: Vertical Supranuclear Gaze Palsy
+    causal_link_type: DIRECT
+  - target: Dysarthria
+    causal_link_type: DIRECT
+  - target: Dystonia
+    causal_link_type: DIRECT
+  - target: Gelastic Cataplexy
+    causal_link_type: DIRECT
+  - target: Psychiatric Manifestations
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: Adult-onset NPC can present with psychiatric manifestations before or alongside neurologic decline.
+  - target: Hearing Impairment
+    causal_link_type: UNKNOWN
+    description: Hearing impairment is a recurrent neurologic/sensory manifestation, but the proximal path in this graph is not separated.
+  - target: Progressive Neurologic Deterioration
+    causal_link_type: DIRECT
+  - target: Cognitive Impairment
+    causal_link_type: DIRECT
+  - target: Dysphonia
+    causal_link_type: DIRECT
+    description: Bulbar neurologic dysfunction contributes to voice impairment.
+  - target: Feeding Difficulties
+    causal_link_type: DIRECT
+    description: Bulbar dysfunction and dysphagia contribute to feeding problems.
   evidence:
   - reference: PMID:33924575
     supports: SUPPORT
@@ -6962,6 +7544,15 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Niemann-Pick disease type C and Alzheimer&#39;s disease are distinct neurodegenerative disorders that share the presence of neurofibrillary tangle pathology.&#34;
     explanation: Confirms shared NFT pathology between NPC and Alzheimer disease.
+  downstream:
+  - target: Neurofibrillary Tangles
+    causal_link_type: DIRECT
+  - target: Plasma Phosphorylated-Tau217
+    causal_link_type: UNKNOWN
+    description: Plasma p-tau217 is modeled as a blood biomarker reflecting tau pathology, not as a causal downstream disease mechanism.
+  - target: Progressive Mental Deterioration
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: Tau pathology is modeled as one contributor to cognitive decline in NPC.
 phenotypes:
 - name: Vertical Supranuclear Gaze Palsy
   category: Neurological
@@ -7492,6 +8083,15 @@ treatments:
     term:
       id: MAXO:0000058
       label: pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: miglustat
+      term:
+        id: CHEBI:50381
+        label: miglustat
+  target_mechanisms:
+  - target: Glycosphingolipid and Ganglioside Accumulation in Brain
+    treatment_effect: INHIBITS
+    description: Miglustat inhibits glucosylceramide synthase to reduce glycosphingolipid substrate accumulation.
   evidence:
   - reference: PMID:20525256
     supports: SUPPORT
@@ -7508,6 +8108,13 @@ treatments:
     term:
       id: MAXO:0000058
       label: pharmacotherapy
+  target_mechanisms:
+  - target: Lysosomal Unesterified Cholesterol Accumulation
+    treatment_effect: MODULATES
+    description: Intrathecal HPbCD mobilizes cholesterol from lysosomes and modifies the core storage abnormality.
+  - target: Progressive Neurological Dysfunction
+    treatment_effect: MODULATES
+    description: Clinical trial evidence supports slowed neurologic disease progression.
   evidence:
   - reference: PMID:28803710
     supports: SUPPORT
@@ -7522,6 +8129,15 @@ treatments:
     term:
       id: MAXO:0000058
       label: pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: levacetylleucine
+      term:
+        id: CHEBI:17786
+        label: N-acetyl-L-leucine
+  target_mechanisms:
+  - target: Progressive Neurological Dysfunction
+    treatment_effect: MODULATES
+    description: Levacetylleucine is modeled as symptomatic neurologic therapy rather than correction of lysosomal lipid trafficking.
   evidence:
   - reference: PMID:20301473
     supports: SUPPORT
@@ -7538,6 +8154,15 @@ treatments:
     term:
       id: MAXO:0000058
       label: pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: arimoclomol
+      term:
+        id: CHEBI:747211
+        label: arimoclomol
+  target_mechanisms:
+  - target: Progressive Neurological Dysfunction
+    treatment_effect: MODULATES
+    description: Arimoclomol is approved for neurologic manifestations in combination with miglustat.
   evidence:
   - reference: PMID:20301473
     supports: SUPPORT
@@ -8054,7 +8679,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Niemann-Pick Disease Type C", "mondoId": "MONDO:0018982", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Niemann-Pick_Disease_Type_C", "yamlRevision": "33b7f7e1041c"};
+        const OS_CONFIG = {"diseaseName": "Niemann-Pick Disease Type C", "mondoId": "MONDO:0018982", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Niemann-Pick_Disease_Type_C", "yamlRevision": "007e425d0909"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

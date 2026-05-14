@@ -1,0 +1,21 @@
+# Hereditary Angioedema Fallback Citations
+
+- ORPHA:528623 Hereditary angioedema with C1Inh deficiency.
+- ORPHA:528647 Hereditary angioedema with normal C1Inh.
+- ORPHA:100050 Hereditary angioedema type 1.
+- ORPHA:100051 Hereditary angioedema type 2.
+- ORPHA:100054 F12-related hereditary angioedema with normal C1Inh.
+- ORPHA:537072 PLG-related hereditary angioedema with normal C1Inh.
+- ORPHA:599418 Hereditary angioedema with normal C1Inh not related to F12 or PLG variant.
+- PMID:36609679 Hereditary Angioedema: Diagnosis, Clinical Implications, and Pathophysiology.
+- PMID:35442579 Hereditary Angioedema: A Review.
+- PMID:35006617 The international WAO/EAACI guideline for the management of hereditary angioedema-The 2021 revision and update.
+- PMID:40053270 Hereditary Angioedema with Normal C1 Inhibitor: an Updated International Consensus Paper on Diagnosis, Pathophysiology, and Treatment.
+- PMID:39827848 Worldwide Prevalence of Hereditary Angioedema: A Systematic Review and Meta-Analysis.
+- PMID:28328347 Prevention of Hereditary Angioedema Attacks with a Subcutaneous C1 Inhibitor.
+- PMID:20818888 Icatibant, a new bradykinin-receptor antagonist, in hereditary angioedema.
+- PMID:21481442 Ecallantide (DX-88) for acute hereditary angioedema attacks: integrated analysis of 2 double-blind, phase 3 studies.
+- PMID:40886933 Long-Term Safety and Effectiveness of Sebetralstat: Interim Analysis of KONFIDENT-S Open-label Extension.
+- PMID:30480729 Effect of Lanadelumab Compared With Placebo on Prevention of Hereditary Angioedema Attacks: A Randomized Clinical Trial.
+- PMID:33866032 Randomized Trial of the Efficacy and Safety of Berotralstat (BCX7353) as an Oral Prophylactic Therapy for Hereditary Angioedema: Results of APeX-2 Through 48 Weeks (Part 2).
+- PMID:41767175 Donidalorsen for Long-Term Prophylaxis of Hereditary Angioedema Attacks: Results from the OASISplus Open-Label Extension Cohort at Year 1.

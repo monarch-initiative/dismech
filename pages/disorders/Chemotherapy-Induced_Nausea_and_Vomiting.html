@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2623,6 +2776,20 @@
             
             
             
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-value">8</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -3933,18 +4100,21 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Chemotherapy-Induced Nausea and Vomiting
 creation_date: &#39;2026-04-03T00:00:00Z&#39;
-updated_date: &#39;2026-04-03T00:00:00Z&#39;
+updated_date: &#39;2026-05-08T20:47:43Z&#39;
 category: Iatrogenic
 description: &gt;-
   Chemotherapy-induced nausea and vomiting (CINV) is a prevalent and distressing
   adverse effect of cancer chemotherapy that significantly reduces patients&#39; quality
-  of life and can be treatment-limiting. CINV is classified into acute (within 24 hours
+  of life and can be treatment-limiting. CINV is classified into acute (within 24
+  hours
   of chemotherapy), delayed (after 24 hours), and anticipatory (conditioned response
   before treatment) forms. The pathophysiology involves serotonin release from
-  enterochromaffin cells activating vagal afferents via 5-HT3 receptors, substance P
+  enterochromaffin cells activating vagal afferents via 5-HT3 receptors, substance
+  P
   acting on NK1 receptors in the area postrema (chemoreceptor trigger zone), and
   central nervous system pathways. Modern antiemetic regimens combining 5-HT3 receptor
-  antagonists, NK1 receptor antagonists, and corticosteroids can prevent vomiting in
+  antagonists, NK1 receptor antagonists, and corticosteroids can prevent vomiting
+  in
   70-80% of patients, though control of nausea remains suboptimal.
 parents:
 - Gastrointestinal Disorder
@@ -4249,7 +4419,8 @@ treatments:
       Despite seemingly numerous options, such as antimuscarinic anticholinergics,
       antihistamines, 5-HT3 receptor antagonists, dopamine receptor antagonists, and
       neurokinin-1 receptor antagonists, preventative therapies are often inadequately
-      effective, particularly for &#34;delayed CINV&#34;-leaving an important unmet clinical need.
+      effective, particularly for &#34;delayed CINV&#34;-leaving an important unmet clinical
+      need.
     explanation: &gt;-
       Lists NK1 receptor antagonists among established antiemetic options while noting
       that delayed CINV remains an unmet need.
@@ -4361,11 +4532,1264 @@ notes: &gt;-
   antiemetics (nabilone, dronabinol) are approved for CINV and offer a unique
   mechanism of action, but current evidence does not support their use as first-line
   therapy over established 5-HT3/NK1 antagonist regimens.
+references:
+- reference: DOI:10.1007/s00520-023-08220-5
+  title: Emetic risk classification and evaluation of the emetogenicity of antineoplastic agents—updated MASCC/ESMO consensus recommendation
+  found_in:
+  - Chemotherapy_Induced_Nausea_and_Vomiting-deep-research-falcon.md
+  findings:
+  - statement: Our goal was to identify new anticancer agents approved by the US Food and Drug Administration (FDA) and the European Medical Agency (EMA) since the 2016 MASCC/ESMO antiemetic update and classify their emetic potential.
+    supporting_text: Our goal was to identify new anticancer agents approved by the US Food and Drug Administration (FDA) and the European Medical Agency (EMA) since the 2016 MASCC/ESMO antiemetic update and classify their emetic potential.
+    evidence:
+    - reference: DOI:10.1007/s00520-023-08220-5
+      reference_title: Emetic risk classification and evaluation of the emetogenicity of antineoplastic agents—updated MASCC/ESMO consensus recommendation
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Our goal was to identify new anticancer agents approved by the US Food and Drug Administration (FDA) and the European Medical Agency (EMA) since the 2016 MASCC/ESMO antiemetic update and classify their emetic potential.
+      explanation: Deep research cited this publication as relevant literature for Chemotherapy Induced Nausea and Vomiting.
+- reference: DOI:10.1007/s00520-023-08221-4
+  title: &#39;2023 updated MASCC/ESMO consensus recommendations: prevention of nausea and vomiting following high-emetic-risk antineoplastic agents&#39;
+  found_in:
+  - Chemotherapy_Induced_Nausea_and_Vomiting-deep-research-falcon.md
+  findings:
+  - statement: This systematic review updates the MASCC/ESMO recommendations for high-emetic-risk chemotherapy (HEC) published in 2016–2017.
+    supporting_text: This systematic review updates the MASCC/ESMO recommendations for high-emetic-risk chemotherapy (HEC) published in 2016–2017.
+    evidence:
+    - reference: DOI:10.1007/s00520-023-08221-4
+      reference_title: &#39;2023 updated MASCC/ESMO consensus recommendations: prevention of nausea and vomiting following high-emetic-risk antineoplastic agents&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: This systematic review updates the MASCC/ESMO recommendations for high-emetic-risk chemotherapy (HEC) published in 2016–2017.
+      explanation: Deep research cited this publication as relevant literature for Chemotherapy Induced Nausea and Vomiting.
+- reference: DOI:10.1007/s00520-023-08224-1
+  title: &#39;2023 updated MASCC/ESMO consensus recommendations: prevention of nausea and vomiting following multiple-day chemotherapy, high-dose chemotherapy, and breakthrough nausea and vomiting&#39;
+  found_in:
+  - Chemotherapy_Induced_Nausea_and_Vomiting-deep-research-falcon.md
+  findings:
+  - statement: This review is an update of the MASCC/ESMO 2015 recommendations for the prophylaxis of acute and delayed nausea and vomiting induced by multiple-day chemotherapy, high-dose chemotherapy, and breakthrough nausea and vomiting.
+    supporting_text: This review is an update of the MASCC/ESMO 2015 recommendations for the prophylaxis of acute and delayed nausea and vomiting induced by multiple-day chemotherapy, high-dose chemotherapy, and breakthrough nausea and vomiting.
+    evidence:
+    - reference: DOI:10.1007/s00520-023-08224-1
+      reference_title: &#39;2023 updated MASCC/ESMO consensus recommendations: prevention of nausea and vomiting following multiple-day chemotherapy, high-dose chemotherapy, and breakthrough nausea and vomiting&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: This review is an update of the MASCC/ESMO 2015 recommendations for the prophylaxis of acute and delayed nausea and vomiting induced by multiple-day chemotherapy, high-dose chemotherapy, and breakthrough nausea and vomiting.
+      explanation: Deep research cited this publication as relevant literature for Chemotherapy Induced Nausea and Vomiting.
+- reference: DOI:10.1007/s00520-024-08939-9
+  title: &#39;Antiemetic medications for preventing chemotherapy-induced nausea and vomiting in children: a systematic review and Bayesian network meta-analysis&#39;
+  found_in:
+  - Chemotherapy_Induced_Nausea_and_Vomiting-deep-research-falcon.md
+  findings:
+  - statement: Children continue to experience chemotherapy-induced nausea and vomiting (CINV), despite effective antiemetic medications.
+    supporting_text: Children continue to experience chemotherapy-induced nausea and vomiting (CINV), despite effective antiemetic medications.
+    evidence:
+    - reference: DOI:10.1007/s00520-024-08939-9
+      reference_title: &#39;Antiemetic medications for preventing chemotherapy-induced nausea and vomiting in children: a systematic review and Bayesian network meta-analysis&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Children continue to experience chemotherapy-induced nausea and vomiting (CINV), despite effective antiemetic medications.
+      explanation: Deep research cited this publication as relevant literature for Chemotherapy Induced Nausea and Vomiting.
+- reference: DOI:10.1007/s12254-025-01098-5
+  title: Antiemetic therapy
+  found_in:
+  - Chemotherapy_Induced_Nausea_and_Vomiting-deep-research-falcon.md
+  findings:
+  - statement: Chemotherapy-induced nausea and vomiting (CINV) remains one of the most distressing adverse effects of antineoplastic therapy despite major advances in antiemetic management.
+    supporting_text: Chemotherapy-induced nausea and vomiting (CINV) remains one of the most distressing adverse effects of antineoplastic therapy despite major advances in antiemetic management.
+    evidence:
+    - reference: DOI:10.1007/s12254-025-01098-5
+      reference_title: Antiemetic therapy
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Chemotherapy-induced nausea and vomiting (CINV) remains one of the most distressing adverse effects of antineoplastic therapy despite major advances in antiemetic management.
+      explanation: Deep research cited this publication as relevant literature for Chemotherapy Induced Nausea and Vomiting.
+- reference: DOI:10.1186/s40780-023-00293-y
+  title: &#39;Olanzapine treatment effectively relieves breakthrough chemotherapy-induced nausea and vomiting: a real-world experience&#39;
+  found_in:
+  - Chemotherapy_Induced_Nausea_and_Vomiting-deep-research-falcon.md
+  findings:
+  - statement: Olanzapine treatment prevents chemotherapy-induced nausea and vomiting (CINV) in patients receiving highly emetogenic chemotherapy (HEC).
+    supporting_text: Olanzapine treatment prevents chemotherapy-induced nausea and vomiting (CINV) in patients receiving highly emetogenic chemotherapy (HEC).
+    evidence:
+    - reference: DOI:10.1186/s40780-023-00293-y
+      reference_title: &#39;Olanzapine treatment effectively relieves breakthrough chemotherapy-induced nausea and vomiting: a real-world experience&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Olanzapine treatment prevents chemotherapy-induced nausea and vomiting (CINV) in patients receiving highly emetogenic chemotherapy (HEC).
+      explanation: Deep research cited this publication as relevant literature for Chemotherapy Induced Nausea and Vomiting.
+- reference: DOI:10.1186/s40780-024-00403-4
+  title: Pharmacist intervention and identification of adverse events related to treatment efficacy in cancer chemotherapy to improve clinical outcomes
+  found_in:
+  - Chemotherapy_Induced_Nausea_and_Vomiting-deep-research-falcon.md
+  findings:
+  - statement: Adverse events (AEs) induced by cancer chemotherapy reduce not only patient quality of life (QOL) but also the efficacy of treatment.
+    supporting_text: Adverse events (AEs) induced by cancer chemotherapy reduce not only patient quality of life (QOL) but also the efficacy of treatment.
+    evidence:
+    - reference: DOI:10.1186/s40780-024-00403-4
+      reference_title: Pharmacist intervention and identification of adverse events related to treatment efficacy in cancer chemotherapy to improve clinical outcomes
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Adverse events (AEs) induced by cancer chemotherapy reduce not only patient quality of life (QOL) but also the efficacy of treatment.
+      explanation: Deep research cited this publication as relevant literature for Chemotherapy Induced Nausea and Vomiting.
+- reference: DOI:10.18203/2320-6012.ijrms20251304
+  title: A retrospective drug utilization study in chemotherapy-induced nausea and vomiting
+  found_in:
+  - Chemotherapy_Induced_Nausea_and_Vomiting-deep-research-falcon.md
+  findings:
+  - statement: Chemotherapy-induced nausea and vomiting (CINV) significantly impacts patients&#39; quality of life.
+    supporting_text: Chemotherapy-induced nausea and vomiting (CINV) significantly impacts patients&#39; quality of life.
+    evidence:
+    - reference: DOI:10.18203/2320-6012.ijrms20251304
+      reference_title: A retrospective drug utilization study in chemotherapy-induced nausea and vomiting
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Chemotherapy-induced nausea and vomiting (CINV) significantly impacts patients&#39; quality of life.
+      explanation: Deep research cited this publication as relevant literature for Chemotherapy Induced Nausea and Vomiting.
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
+        
+        <div class="card reference-card" id="references-deep-research">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+            
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">8</span>
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s00520-023-08220-5" target="_blank">DOI:10.1007/s00520-023-08220-5</a>
+                            </div>
+                            
+                            <div class="reference-title">Emetic risk classification and evaluation of the emetogenicity of antineoplastic agents—updated MASCC/ESMO consensus recommendation</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Our goal was to identify new anticancer agents approved by the US Food and Drug Administration (FDA) and the European Medical Agency (EMA) since the 2016 MASCC/ESMO antiemetic update and classify their emetic potential.</div>
+            
+            
+            <div class="reference-finding-supporting">"Our goal was to identify new anticancer agents approved by the US Food and Drug Administration (FDA) and the European Medical Agency (EMA) since the 2016 MASCC/ESMO antiemetic update and classify their emetic potential."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s00520-023-08220-5" target="_blank">DOI:10.1007/s00520-023-08220-5</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Our goal was to identify new anticancer agents approved by the US Food and Drug Administration (FDA) and the European Medical Agency (EMA) since the 2016 MASCC/ESMO antiemetic update and classify their emetic potential."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Chemotherapy Induced Nausea and Vomiting.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s00520-023-08221-4" target="_blank">DOI:10.1007/s00520-023-08221-4</a>
+                            </div>
+                            
+                            <div class="reference-title">2023 updated MASCC/ESMO consensus recommendations: prevention of nausea and vomiting following high-emetic-risk antineoplastic agents</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">This systematic review updates the MASCC/ESMO recommendations for high-emetic-risk chemotherapy (HEC) published in 2016–2017.</div>
+            
+            
+            <div class="reference-finding-supporting">"This systematic review updates the MASCC/ESMO recommendations for high-emetic-risk chemotherapy (HEC) published in 2016–2017."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s00520-023-08221-4" target="_blank">DOI:10.1007/s00520-023-08221-4</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"This systematic review updates the MASCC/ESMO recommendations for high-emetic-risk chemotherapy (HEC) published in 2016–2017."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Chemotherapy Induced Nausea and Vomiting.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s00520-023-08224-1" target="_blank">DOI:10.1007/s00520-023-08224-1</a>
+                            </div>
+                            
+                            <div class="reference-title">2023 updated MASCC/ESMO consensus recommendations: prevention of nausea and vomiting following multiple-day chemotherapy, high-dose chemotherapy, and breakthrough nausea and vomiting</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">This review is an update of the MASCC/ESMO 2015 recommendations for the prophylaxis of acute and delayed nausea and vomiting induced by multiple-day chemotherapy, high-dose chemotherapy, and breakthrough nausea and vomiting.</div>
+            
+            
+            <div class="reference-finding-supporting">"This review is an update of the MASCC/ESMO 2015 recommendations for the prophylaxis of acute and delayed nausea and vomiting induced by multiple-day chemotherapy, high-dose chemotherapy, and breakthrough nausea and vomiting."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s00520-023-08224-1" target="_blank">DOI:10.1007/s00520-023-08224-1</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"This review is an update of the MASCC/ESMO 2015 recommendations for the prophylaxis of acute and delayed nausea and vomiting induced by multiple-day chemotherapy, high-dose chemotherapy, and breakthrough nausea and vomiting."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Chemotherapy Induced Nausea and Vomiting.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s00520-024-08939-9" target="_blank">DOI:10.1007/s00520-024-08939-9</a>
+                            </div>
+                            
+                            <div class="reference-title">Antiemetic medications for preventing chemotherapy-induced nausea and vomiting in children: a systematic review and Bayesian network meta-analysis</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Children continue to experience chemotherapy-induced nausea and vomiting (CINV), despite effective antiemetic medications.</div>
+            
+            
+            <div class="reference-finding-supporting">"Children continue to experience chemotherapy-induced nausea and vomiting (CINV), despite effective antiemetic medications."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s00520-024-08939-9" target="_blank">DOI:10.1007/s00520-024-08939-9</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Children continue to experience chemotherapy-induced nausea and vomiting (CINV), despite effective antiemetic medications."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Chemotherapy Induced Nausea and Vomiting.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s12254-025-01098-5" target="_blank">DOI:10.1007/s12254-025-01098-5</a>
+                            </div>
+                            
+                            <div class="reference-title">Antiemetic therapy</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Chemotherapy-induced nausea and vomiting (CINV) remains one of the most distressing adverse effects of antineoplastic therapy despite major advances in antiemetic management.</div>
+            
+            
+            <div class="reference-finding-supporting">"Chemotherapy-induced nausea and vomiting (CINV) remains one of the most distressing adverse effects of antineoplastic therapy despite major advances in antiemetic management."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s12254-025-01098-5" target="_blank">DOI:10.1007/s12254-025-01098-5</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Chemotherapy-induced nausea and vomiting (CINV) remains one of the most distressing adverse effects of antineoplastic therapy despite major advances in antiemetic management."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Chemotherapy Induced Nausea and Vomiting.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1186/s40780-023-00293-y" target="_blank">DOI:10.1186/s40780-023-00293-y</a>
+                            </div>
+                            
+                            <div class="reference-title">Olanzapine treatment effectively relieves breakthrough chemotherapy-induced nausea and vomiting: a real-world experience</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Olanzapine treatment prevents chemotherapy-induced nausea and vomiting (CINV) in patients receiving highly emetogenic chemotherapy (HEC).</div>
+            
+            
+            <div class="reference-finding-supporting">"Olanzapine treatment prevents chemotherapy-induced nausea and vomiting (CINV) in patients receiving highly emetogenic chemotherapy (HEC)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s40780-023-00293-y" target="_blank">DOI:10.1186/s40780-023-00293-y</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Olanzapine treatment prevents chemotherapy-induced nausea and vomiting (CINV) in patients receiving highly emetogenic chemotherapy (HEC)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Chemotherapy Induced Nausea and Vomiting.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1186/s40780-024-00403-4" target="_blank">DOI:10.1186/s40780-024-00403-4</a>
+                            </div>
+                            
+                            <div class="reference-title">Pharmacist intervention and identification of adverse events related to treatment efficacy in cancer chemotherapy to improve clinical outcomes</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Adverse events (AEs) induced by cancer chemotherapy reduce not only patient quality of life (QOL) but also the efficacy of treatment.</div>
+            
+            
+            <div class="reference-finding-supporting">"Adverse events (AEs) induced by cancer chemotherapy reduce not only patient quality of life (QOL) but also the efficacy of treatment."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s40780-024-00403-4" target="_blank">DOI:10.1186/s40780-024-00403-4</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Adverse events (AEs) induced by cancer chemotherapy reduce not only patient quality of life (QOL) but also the efficacy of treatment."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Chemotherapy Induced Nausea and Vomiting.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.18203/2320-6012.ijrms20251304" target="_blank">DOI:10.18203/2320-6012.ijrms20251304</a>
+                            </div>
+                            
+                            <div class="reference-title">A retrospective drug utilization study in chemotherapy-induced nausea and vomiting</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Chemotherapy-induced nausea and vomiting (CINV) significantly impacts patients&#39; quality of life.</div>
+            
+            
+            <div class="reference-finding-supporting">"Chemotherapy-induced nausea and vomiting (CINV) significantly impacts patients&#39; quality of life."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.18203/2320-6012.ijrms20251304" target="_blank">DOI:10.18203/2320-6012.ijrms20251304</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Chemotherapy-induced nausea and vomiting (CINV) significantly impacts patients&#39; quality of life."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Chemotherapy Induced Nausea and Vomiting.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">Chemotherapy-Induced Nausea and Vomiting (CINV): Comprehensive Disease Characteristics Report</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">30 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-08T12:50:52.421142</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <h1>Chemotherapy-Induced Nausea and Vomiting (CINV): Comprehensive Disease Characteristics Report</h1>
+<h2>Target disease metadata</h2>
+<ul>
+<li><strong>Disease name:</strong> Chemotherapy-induced nausea and vomiting (CINV)</li>
+<li><strong>Category:</strong> Iatrogenic (treatment-related adverse event)</li>
+<li><strong>MONDO ID / MeSH / ICD-10 / ICD-11:</strong> Not retrievable from the provided tool-derived corpus; therefore not asserted here.</li>
+<li><strong>Common synonyms/alternative names:</strong> CINV; acute CINV; delayed CINV; long-delayed/persistent CINV; anticipatory CINV; breakthrough CINV; refractory CINV. (jeryczynski2026antiemetictherapy pages 1-2, montes2026ttdexpertconsensus pages 3-5, rapoport20242023updatedmasccesmo pages 5-6)</li>
+<li><strong>Evidence source types used in this report:</strong> Aggregated guideline resources (MASCC/ESMO), expert consensus, randomized-trial synthesis, and real-world observational data. (herrstedt20242023updatedmasccesmo pages 1-2, rapoport20242023updatedmasccesmo pages 1-2, sun2024theevolvinglandscape pages 1-2, uchiike2023olanzapinetreatmenteffectively pages 1-2)</li>
+</ul>
+<h2>1. Disease information (overview and current understanding)</h2>
+<p>CINV is a common, distressing adverse effect of antineoplastic therapy characterized by nausea and/or vomiting that occurs temporally in relation to chemotherapy exposure, with clinically relevant subtypes defined by timing and response to prophylaxis. Acute CINV occurs in the first 24 hours, delayed CINV occurs from 24–120 hours, and some sources additionally describe long-delayed/persistent symptoms beyond 120 hours; these later phases remain a major clinical challenge. (jeryczynski2026antiemetictherapy pages 1-2)</p>
+<h3>Key contemporary definitions/classifications (clinical phenotypes)</h3>
+<p>Definitions supported by guideline and expert consensus sources include:
+- <strong>Acute CINV:</strong> within 0–24 h after chemotherapy. (jeryczynski2026antiemetictherapy pages 1-2, uchiike2023olanzapinetreatmenteffectively pages 1-2)
+- <strong>Delayed CINV:</strong> 24–120 h after chemotherapy; one consensus also highlights a common window of 24–72 h. (jeryczynski2026antiemetictherapy pages 1-2, montes2026ttdexpertconsensus pages 3-5)
+- <strong>Long-delayed/persistent CINV:</strong> &gt;120 h after chemotherapy. (jeryczynski2026antiemetictherapy pages 1-2)
+- <strong>Anticipatory CINV:</strong> conditioned response occurring before treatment (linked to prior negative experiences). (montes2026ttdexpertconsensus pages 3-5, dhabhar2025expertconsensusguidance pages 5-6)
+- <strong>Breakthrough CINV:</strong> nausea/vomiting occurring despite guideline-directed prophylaxis; MASCC/ESMO explicitly defines it as occurring “during chemotherapy regardless of prophylaxis with guideline-directed antiemetics.” (rapoport20242023updatedmasccesmo pages 5-6)
+- <strong>Refractory CINV:</strong> symptoms recurring in subsequent cycles despite management in prior cycles. (montes2026ttdexpertconsensus pages 3-5)</p>
+<p>A structured subtype table with suggested HPO mappings is provided in <strong>Artifact 00</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Phenotype/subtype</th>
+<th>Definition/time window</th>
+<th>Putative dominant mediator(s)</th>
+<th>Suggested HPO term(s)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Acute CINV</td>
+<td>Nausea/vomiting occurring within 0–24 h after chemotherapy; may peak at ~5–6 h (jeryczynski2026antiemetictherapy pages 1-2, montes2026ttdexpertconsensus pages 3-5)</td>
+<td>Predominantly serotonin signaling via 5-HT3 receptors (montes2026ttdexpertconsensus pages 3-5)</td>
+<td>Nausea (HP:0002018); Vomiting (HP:0002013)</td>
+</tr>
+<tr>
+<td>Delayed CINV</td>
+<td>Nausea/vomiting occurring 24–120 h after chemotherapy; Montes notes delayed phase commonly 24–72 h (jeryczynski2026antiemetictherapy pages 1-2, montes2026ttdexpertconsensus pages 3-5)</td>
+<td>Predominantly substance P signaling via NK1 receptors (montes2026ttdexpertconsensus pages 3-5)</td>
+<td>Nausea (HP:0002018); Vomiting (HP:0002013)</td>
+</tr>
+<tr>
+<td>Long-delayed / persistent CINV</td>
+<td>Symptoms persisting beyond 120 h after chemotherapy (jeryczynski2026antiemetictherapy pages 1-2)</td>
+<td>Not specifically assigned in provided snippets; likely mixed/uncertain</td>
+<td>Nausea (HP:0002018) candidate; Vomiting (HP:0002013) candidate</td>
+</tr>
+<tr>
+<td>Anticipatory CINV</td>
+<td>Conditioned nausea/vomiting occurring before treatment, typically in anticipation of chemotherapy (montes2026ttdexpertconsensus pages 3-5)</td>
+<td>Conditioned/behavioral response; specific neurotransmitter not defined in provided snippets</td>
+<td>Nausea (HP:0002018) candidate; Vomiting (HP:0002013) candidate; Anticipatory nausea candidate</td>
+</tr>
+<tr>
+<td>Breakthrough CINV</td>
+<td>Nausea/vomiting occurring despite guideline-directed prophylaxis during/after chemotherapy; one source also describes it as arising beyond the fifth day despite prophylaxis (rapoport20242023updatedmasccesmo pages 5-6, montes2026ttdexpertconsensus pages 3-5)</td>
+<td>Not specifically assigned in provided snippets; likely mixed/uncertain</td>
+<td>Nausea (HP:0002018) candidate; Vomiting (HP:0002013) candidate; Breakthrough vomiting candidate</td>
+</tr>
+<tr>
+<td>Refractory CINV</td>
+<td>Nausea/vomiting occurring in subsequent chemotherapy cycles despite prior antiemetic management (montes2026ttdexpertconsensus pages 3-5)</td>
+<td>Not specifically assigned in provided snippets; likely mixed/uncertain</td>
+<td>Nausea (HP:0002018) candidate; Vomiting (HP:0002013) candidate; Refractory nausea/vomiting candidate</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes the clinically recognized temporal and response-pattern subtypes of chemotherapy-induced nausea and vomiting, along with the dominant mediators supported by the cited evidence. It also suggests best-effort HPO mappings for structured phenotype annotation.</em></p>
+<h2>2. Etiology and risk/protective factors</h2>
+<h3>2.1 Primary causal factors (mechanistic)</h3>
+<p>CINV is caused by chemotherapy-triggered activation of peripheral and central emetic pathways, including gastrointestinal mucosal injury with neurotransmitter release and central chemoreceptor trigger zone/vomiting center activation. (aher2025aretrospectivedrug pages 1-3, montes2026ttdexpertconsensus pages 3-5)</p>
+<h3>2.2 Treatment-related risk factors</h3>
+<p><strong>Emetogenicity of the antineoplastic regimen</strong> is a key determinant.
+- High-emetic-risk chemotherapy (HEC) is defined as <strong>&gt;90% risk of vomiting in the first 24 h without prophylaxis</strong> and includes cisplatin and the anthracycline–cyclophosphamide (AC) combination (in women with breast cancer), among others. (herrstedt20242023updatedmasccesmo pages 1-2)
+- MASCC/ESMO updated the <strong>classification of newer antineoplastic agents</strong> (FDA/EMA approvals 2015–2023), revising oral-agent classification to <strong>two categories (minimal–low vs moderate–high)</strong> to align with ASCO, while retaining the four-category schema for IV agents; the panel emphasized large heterogeneity and imprecision for oral agents. (jordan2024emeticriskclassification pages 1-2)</p>
+<h3>2.3 Patient-related risk factors</h3>
+<p>Expert consensus and meta-analytic evidence highlight:
+- <strong>Female sex</strong> and <strong>younger age (e.g., &lt;50)</strong> as major risk factors. (montes2026ttdexpertconsensus pages 3-5)
+- <strong>Prior CINV</strong> predicting subsequent cycles; MASCC/ESMO notes prior history significantly predicts later-cycle CINV. (rapoport20242023updatedmasccesmo pages 5-6)
+- <strong>History of pregnancy emesis</strong> and <strong>motion sickness</strong> as additional risk factors. (montes2026ttdexpertconsensus pages 3-5)
+- <strong>Anxiety</strong> and <strong>fatigue</strong> as risk factors in platinum-based chemotherapy meta-analysis (OR 1.689 and OR 1.413, respectively). (suzukichiba2024comparisonofolanzapine pages 5-7)</p>
+<h3>2.4 Pharmacogenomics / genetic susceptibility</h3>
+<p>A clinically relevant pharmacogenomic point is that <strong>CYP2D6 ultra-rapid metabolizers may be undertreated with standard 5-HT3 receptor antagonist dosing</strong>, implying reduced antiemetic efficacy for some patients. (montes2026ttdexpertconsensus pages 3-5)</p>
+<h3>2.5 Environmental/clinical co-factors</h3>
+<p>Concomitant exposures and clinical context can modulate risk, including <strong>opioids/NSAIDs</strong> and <strong>radiotherapy site/dose</strong>. (montes2026ttdexpertconsensus pages 3-5)</p>
+<h3>2.6 Protective factors (evidence-supported)</h3>
+<p>Protective “factors” are largely iatrogenic/behavioral (preventive pharmacotherapy and implementation):
+- <strong>Guideline-concordant primary prophylaxis</strong> (prophylaxis before chemotherapy rather than rescue) is emphasized as key for preventing CINV and reducing later problems such as anticipatory CINV. (jeryczynski2026antiemetictherapy pages 1-2, dhabhar2025expertconsensusguidance pages 5-6)</p>
+<p>A structured risk/protective/implementation table is provided in <strong>Artifact 02</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Factor or metric</th>
+<th>Effect/notes</th>
+<th>Population/setting</th>
+<th>Source context IDs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Risk</td>
+<td>High emetogenic chemotherapy (HEC)</td>
+<td>Defined as &gt;90% risk of vomiting within 24 h without prophylaxis; includes cisplatin, carmustine, dacarbazine, mechlorethamine, streptozocin, high-dose cyclophosphamide, and anthracycline-cyclophosphamide in women with breast cancer</td>
+<td>Guideline classification for IV antineoplastic agents</td>
+<td>(herrstedt20242023updatedmasccesmo pages 1-2)</td>
+</tr>
+<tr>
+<td>Risk</td>
+<td>Moderate/low/minimal emetogenicity classification</td>
+<td>IV agents remain classified in 4 categories; oral agents revised to 2 categories (minimal-low, moderate-high); emetogenicity for oral agents is less precise and heterogeneous across studies</td>
+<td>MASCC/ESMO emetogenicity classification update</td>
+<td>(jordan2024emeticriskclassification pages 1-2, jordan2024emeticriskclassification pages 4-5)</td>
+</tr>
+<tr>
+<td>Risk</td>
+<td>Female sex</td>
+<td>Repeatedly identified as a major patient-related risk factor for CINV; meta-analysis in platinum-treated patients found OR 2.363 (95% CI 1.363-4.096)</td>
+<td>General CINV risk; platinum-based chemotherapy</td>
+<td>(montes2026ttdexpertconsensus pages 3-5, suzukichiba2024comparisonofolanzapine pages 5-7)</td>
+</tr>
+<tr>
+<td>Risk</td>
+<td>Younger age / age &lt;50</td>
+<td>Reported as a risk factor in expert guidance and risk models; younger age is repeatedly incorporated into prediction tools</td>
+<td>General adult oncology populations</td>
+<td>(montes2026ttdexpertconsensus pages 3-5, suzukichiba2024comparisonofolanzapine pages 5-7)</td>
+</tr>
+<tr>
+<td>Risk</td>
+<td>Prior CINV / prior vomiting during chemotherapy</td>
+<td>Strong predictor of subsequent-cycle CINV; prior history significantly predicts later-cycle events; history of vomiting during chemotherapy OR 2.728 in platinum meta-analysis</td>
+<td>Subsequent chemotherapy cycles; platinum-based chemotherapy</td>
+<td>(rapoport20242023updatedmasccesmo pages 5-6, suzukichiba2024comparisonofolanzapine pages 5-7)</td>
+</tr>
+<tr>
+<td>Risk</td>
+<td>History of pregnancy-related emesis</td>
+<td>Listed as a patient-related risk factor</td>
+<td>General CINV risk assessment</td>
+<td>(montes2026ttdexpertconsensus pages 3-5)</td>
+</tr>
+<tr>
+<td>Risk</td>
+<td>Motion sickness history</td>
+<td>Listed as a patient-related risk factor; platinum meta-analysis OR 1.816 (95% CI 1.266-2.605)</td>
+<td>General and platinum-based chemotherapy</td>
+<td>(montes2026ttdexpertconsensus pages 3-5, suzukichiba2024comparisonofolanzapine pages 5-7)</td>
+</tr>
+<tr>
+<td>Risk</td>
+<td>Anxiety</td>
+<td>Included in risk models and meta-analysis; platinum meta-analysis OR 1.689 (95% CI 1.057-2.700)</td>
+<td>General and platinum-based chemotherapy</td>
+<td>(suzukichiba2024comparisonofolanzapine pages 5-7)</td>
+</tr>
+<tr>
+<td>Risk</td>
+<td>Fatigue</td>
+<td>Associated with increased platinum-related CINV risk; meta-analysis OR 1.413 (95% CI 1.145-1.744)</td>
+<td>Platinum-based chemotherapy</td>
+<td>(suzukichiba2024comparisonofolanzapine pages 5-7)</td>
+</tr>
+<tr>
+<td>Risk</td>
+<td>Concomitant opioids, NSAIDs, radiotherapy site/dose</td>
+<td>Co-medications and concomitant radiotherapy may increase emesis burden and modify risk</td>
+<td>Clinical practice risk stratification</td>
+<td>(montes2026ttdexpertconsensus pages 3-5)</td>
+</tr>
+<tr>
+<td>Risk</td>
+<td>Gastric mucosa retained / no gastrectomy</td>
+<td>Review notes gastric mucosa as a primary site of toxicity and that patients without gastrectomy may have higher symptom burden</td>
+<td>Gastric cancer/supportive care context</td>
+<td>(jeryczynski2026antiemetictherapy pages 1-2)</td>
+</tr>
+<tr>
+<td>Risk</td>
+<td>CYP2D6 ultrarapid metabolizer status</td>
+<td>Pharmacogenomic risk factor: may be undertreated with standard 5-HT3 receptor antagonist dosing, implying reduced efficacy in some patients</td>
+<td>Precision antiemetic selection / dosing consideration</td>
+<td>(montes2026ttdexpertconsensus pages 3-5)</td>
+</tr>
+<tr>
+<td>Protective</td>
+<td>Lower-risk chemotherapy regimens</td>
+<td>Receiving lower or minimal emetogenic regimens confers lower baseline CINV risk compared with HEC/MEC</td>
+<td>Regimen-level protection by exposure class</td>
+<td>(jeryczynski2026antiemetictherapy pages 1-2, jordan2024emeticriskclassification pages 1-2)</td>
+</tr>
+<tr>
+<td>Protective</td>
+<td>Guideline-concordant primary prophylaxis</td>
+<td>Prevention before chemotherapy is emphasized as superior to rescue; using recommended 5-HT3 RA/NK1 RA/dexamethasone/olanzapine combinations reduces CINV burden</td>
+<td>Across emetogenic risk groups, especially HEC and multiple-day cisplatin</td>
+<td>(jeryczynski2026antiemetictherapy pages 1-2, herrstedt20242023updatedmasccesmo pages 1-2, rapoport20242023updatedmasccesmo pages 5-6, herrstedt20242023updatedmasccesmo media aa8b3b03)</td>
+</tr>
+<tr>
+<td>Protective</td>
+<td>Optimal control in cycle 1</td>
+<td>Good control of acute/delayed CINV in the first cycle may help prevent anticipatory CINV in later cycles</td>
+<td>Longitudinal supportive care strategy</td>
+<td>(dhabhar2025expertconsensusguidance pages 5-6)</td>
+</tr>
+<tr>
+<td>Implementation</td>
+<td>Guideline-consistent prophylaxis use</td>
+<td>Review reports only ~50% guideline-consistent use in more recent real-world data; older studies showed only 11-29% appropriate prophylaxis</td>
+<td>Real-world oncology practice</td>
+<td>(jeryczynski2026antiemetictherapy pages 1-2)</td>
+</tr>
+<tr>
+<td>Implementation</td>
+<td>Physician risk-factor assessment gaps</td>
+<td>11% of surveyed oncologists did not discuss additional personal CINV risk factors with patients</td>
+<td>Multinational THRIVE survey, 446 patients</td>
+<td>(jeryczynski2026antiemetictherapy pages 1-2)</td>
+</tr>
+<tr>
+<td>Implementation</td>
+<td>MEC prophylaxis underuse of NK1 RA</td>
+<td>In patients with additional risk factors on MEC, 39% of surveyed physicians did not include an NK1 RA</td>
+<td>Multinational THRIVE survey</td>
+<td>(jeryczynski2026antiemetictherapy pages 1-2)</td>
+</tr>
+<tr>
+<td>Implementation</td>
+<td>Delayed CINV assessment gap</td>
+<td>35% of physicians relied only on spontaneous patient reports for delayed CINV assessment</td>
+<td>Multinational THRIVE survey</td>
+<td>(jeryczynski2026antiemetictherapy pages 1-2)</td>
+</tr>
+<tr>
+<td>Implementation</td>
+<td>Pharmacist intervention</td>
+<td>Improved adherence to prophylaxis pharmacotherapy and significantly decreased CINV incidence after pharmacist intervention</td>
+<td>Practice-improvement / supportive oncology programs</td>
+<td>(suzukichiba2024comparisonofolanzapine pages 1-2)</td>
+</tr>
+<tr>
+<td>Effectiveness</td>
+<td>Breakthrough CINV prevalence despite prophylaxis</td>
+<td>Guideline review cites a prospective Japanese multicenter study in which almost half of 1,910 patients experienced breakthrough nausea/vomiting despite prophylactic antiemetics</td>
+<td>Patients receiving MEC or HEC</td>
+<td>(rapoport20242023updatedmasccesmo pages 5-6)</td>
+</tr>
+<tr>
+<td>Effectiveness</td>
+<td>Olanzapine for breakthrough CINV: overall response</td>
+<td>In 127 real-world patients, olanzapine 2.5/5/10 mg/day improved symptoms in 83% and achieved complete response in 33%</td>
+<td>Retrospective real-world breakthrough CINV cohort</td>
+<td>(uchiike2023olanzapinetreatmenteffectively pages 1-2)</td>
+</tr>
+<tr>
+<td>Effectiveness</td>
+<td>Olanzapine for breakthrough CINV: adverse effects</td>
+<td>27% had olanzapine-related adverse events, mainly somnolence; no grade &gt;=3 adverse events observed</td>
+<td>Same breakthrough cohort</td>
+<td>(uchiike2023olanzapinetreatmenteffectively pages 1-2)</td>
+</tr>
+<tr>
+<td>Effectiveness</td>
+<td>Olanzapine dose comparison in prophylaxis</td>
+<td>Nationwide Japanese database study found 2.5 mg associated with more additional antiemetic use than 5 mg (36% vs 31%, p&lt;0.001)</td>
+<td>Patients with lung cancer receiving HEC</td>
+<td>(suzukichiba2024comparisonofolanzapine pages 2-4)</td>
+</tr>
+<tr>
+<td>Effectiveness</td>
+<td>Dexamethasone-sparing in AC chemotherapy</td>
+<td>Network meta-analysis found essentially no difference in delayed-phase complete response between multiple vs single dexamethasone doses when combined with palonosetron and NK1 RA (difference 0.1%, 95% CI -12.4 to 12.5)</td>
+<td>Anthracycline-cyclophosphamide breast cancer regimens</td>
+<td>(suzukichiba2024comparisonofolanzapine pages 8-9, herrstedt20242023updatedmasccesmo pages 1-2)</td>
+</tr>
+<tr>
+<td>Effectiveness</td>
+<td>Pediatric antiemetic optimization</td>
+<td>In children, NK1 antagonists with ondansetron plus dexamethasone ranked highest for complete/partial response; post hoc analysis suggested added benefit from olanzapine</td>
+<td>Pediatric MEC/HEC, 16 RCTs and 3,115 patients</td>
+<td>(suzukichiba2024comparisonofolanzapine pages 7-8)</td>
+</tr>
+<tr>
+<td>Burden</td>
+<td>Persistent real-world burden despite advances</td>
+<td>Review states that despite advances, over 40% of patients in clinical practice still experience CINV</td>
+<td>Clinical practice, especially cisplatin-based settings</td>
+<td>(walker2024antiemeticmedicationsfor pages 1-2)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes evidence-backed CINV risk factors, limited protective factors, and real-world implementation/effectiveness findings, including pharmacogenomic risk, adherence gaps, and olanzapine outcomes. It is useful for knowledge-base curation and risk-stratified supportive care planning.</em></p>
+<h2>3. Phenotypes (symptoms/signs), frequencies, and QoL implications</h2>
+<h3>3.1 Core phenotypes</h3>
+<ul>
+<li><strong>Nausea</strong> and <strong>vomiting</strong> are the defining symptoms; nausea is repeatedly highlighted as the persistent unmet need even as emesis control improves. (herrstedt20242023updatedmasccesmo pages 7-8, rapoport20242023updatedmasccesmo pages 5-6)</li>
+<li>Suggested HPO:</li>
+<li>Nausea: <strong>HP:0002018</strong> (candidate mapping based on standard HPO usage)</li>
+<li>Vomiting: <strong>HP:0002013</strong> (candidate mapping)</li>
+</ul>
+<h3>3.2 Frequencies/data points from recent studies and guideline-cited cohorts</h3>
+<ul>
+<li><strong>Breakthrough CINV burden:</strong> MASCC/ESMO cites a prospective multicenter Japanese study (n=1910 MEC/HEC patients) in which <strong>“almost half of the patients experienced breakthrough nausea and vomiting despite prophylactic use of antiemetics.”</strong> (rapoport20242023updatedmasccesmo pages 5-6)</li>
+<li><strong>Real-world breakthrough treatment outcomes (olanzapine):</strong> In 127 patients treated for breakthrough CINV refractory to standard therapy, baseline severity was grade 1 (18%), grade 2 (69%), grade 3 (13%); after olanzapine (2.5/5/10 mg/day), <strong>improvement occurred in 83% and complete response in 33%</strong>, with somnolence the most common adverse effect (27%) and no grade ≥3 AEs. (uchiike2023olanzapinetreatmenteffectively pages 1-2)</li>
+</ul>
+<h3>3.3 Quality of life impact</h3>
+<p>CINV is described as one of the most distressing adverse effects of chemotherapy and a contributor to interruptions/discontinuation in cancer therapy; persistent nausea is emphasized as a key residual problem. (jeryczynski2026antiemetictherapy pages 1-2, herrstedt20242023updatedmasccesmo pages 7-8)</p>
+<h2>4. Genetic / molecular information</h2>
+<p>CINV is not a monogenic disorder and does not have “causal genes” in the Mendelian sense. Evidence in the provided corpus supports a <strong>pharmacogenomic modifier</strong> concept (e.g., CYP2D6 affecting 5-HT3 receptor antagonist exposure/effect), but does not provide specific variants/allele frequencies suitable for ClinVar-style annotation. (montes2026ttdexpertconsensus pages 3-5)</p>
+<h2>5. Environmental information</h2>
+<p>For CINV, “environmental” contributors are best conceptualized as <strong>clinical context exposures</strong>:
+- Concomitant medications (opioids, NSAIDs) and radiation parameters can influence emesis risk. (montes2026ttdexpertconsensus pages 3-5)</p>
+<h2>6. Mechanism / pathophysiology</h2>
+<h3>6.1 Causal chain (current mechanistic understanding)</h3>
+<ol>
+<li><strong>Chemotherapy exposure</strong> damages GI mucosa and/or activates central chemoreceptor pathways.</li>
+<li><strong>Peripheral neurotransmitter release</strong> (notably serotonin from enterochromaffin cells) activates vagal afferents and central pathways.</li>
+<li><strong>Central integration</strong> in brainstem/emetic circuitry produces nausea/vomiting.</li>
+</ol>
+<p>Specific mediator timing:
+- <strong>Acute CINV</strong>: linked to <strong>serotonin → 5-HT3 receptor</strong> signaling (GI tract and CNS), with vagal and splanchnic afferent involvement. (montes2026ttdexpertconsensus pages 3-5, aher2025aretrospectivedrug pages 1-3)
+- <strong>Delayed CINV</strong>: linked to <strong>substance P → NK1 receptor</strong> signaling. (montes2026ttdexpertconsensus pages 3-5, aher2025aretrospectivedrug pages 1-3)
+- <strong>Inflammation/cytokines:</strong> IL-1β, TNF-α, IL-6 can sensitize vagal afferents; IL-33 may stimulate serotonin release, connecting inflammation to emesis. (montes2026ttdexpertconsensus pages 3-5, montes2026ttdexpertconsensus pages 2-3)</p>
+<h3>6.2 Anatomical structures and cell types implicated</h3>
+<ul>
+<li><strong>GI tract / gastric mucosa</strong> (injury/toxicity site). (jeryczynski2026antiemetictherapy pages 1-2)</li>
+<li><strong>Enterochromaffin cells</strong> (serotonin source). (aher2025aretrospectivedrug pages 1-3, montes2026ttdexpertconsensus pages 2-3)</li>
+<li><strong>Vagus nerve / vagal afferents</strong>; <strong>afferent splanchnic pathways</strong>. (montes2026ttdexpertconsensus pages 3-5)</li>
+<li><strong>Chemoreceptor trigger zone (CTZ)</strong> in <strong>area postrema</strong> of the <strong>medulla</strong>; <strong>vomiting center/brainstem</strong>. (aher2025aretrospectivedrug pages 1-3, montes2026ttdexpertconsensus pages 2-3)</li>
+</ul>
+<p>Ontology suggestions (candidates; not exhaustively validated in this corpus):
+- <strong>UBERON:</strong> stomach, gastrointestinal tract, medulla oblongata, area postrema; vagus nerve.
+- <strong>CL:</strong> enterochromaffin cell.
+- <strong>GO biological process:</strong> emesis; regulation of neurotransmitter secretion; inflammatory response; vagus nerve signaling.</p>
+<h2>7. Anatomical structures affected</h2>
+<p>Primary “affected” systems are functional emesis circuits spanning:
+- <strong>Digestive system</strong> (gastric mucosa, GI tract). (aher2025aretrospectivedrug pages 1-3, jeryczynski2026antiemetictherapy pages 1-2)
+- <strong>Nervous system</strong> (vagus nerve, brainstem/medullary emetic circuitry). (aher2025aretrospectivedrug pages 1-3, montes2026ttdexpertconsensus pages 3-5)</p>
+<h2>8. Temporal development</h2>
+<ul>
+<li>Onset is <strong>acute/subacute</strong> and linked to chemotherapy dosing episodes.</li>
+<li>Time-anchored phases are central to management: acute (0–24 h), delayed (24–120 h), and long-delayed (&gt;120 h). (jeryczynski2026antiemetictherapy pages 1-2)</li>
+</ul>
+<h2>9. Inheritance and population</h2>
+<p>CINV is not inherited in a Mendelian pattern. Population differences may arise from treatment distributions and pharmacogenomics (e.g., CYP2D6 metabolizer phenotypes), but detailed population genetics are not present in the provided corpus. (montes2026ttdexpertconsensus pages 3-5)</p>
+<h2>10. Diagnostics / assessment</h2>
+<p>CINV is clinically diagnosed and monitored using symptom grading and patient-reported measures.</p>
+<h3>10.1 Clinical assessment tools and endpoints</h3>
+<ul>
+<li><strong>CTCAE grading</strong> is used to classify severity and define improvement (e.g., “downgrade in CINV symptoms”); used in real-world olanzapine study. (uchiike2023olanzapinetreatmenteffectively pages 1-2)</li>
+<li><strong>Complete response (CR)</strong> commonly defined as <strong>no emetic episodes and no rescue medication</strong>. (rapoport20242023updatedmasccesmo pages 5-6)</li>
+<li><strong>Visual analog scale (VAS) for nausea</strong>: 0 (no nausea) to 100 mm (worst possible nausea), used as an exploratory nausea endpoint in some studies. (rapoport20242023updatedmasccesmo pages 5-6)</li>
+</ul>
+<h3>10.2 Differential diagnosis (important in breakthrough/persistent symptoms)</h3>
+<p>MASCC/ESMO emphasizes considering non-chemotherapy causes of persistent nausea/vomiting, including:
+- Gastrointestinal: constipation, mucositis, hepatic metastases.
+- Neurological: CNS metastases.
+- Metabolic: electrolyte abnormalities.
+- Drug-related: narcotics, antibiotics.
+- Psychophysiological causes. (rapoport20242023updatedmasccesmo pages 5-6)</p>
+<h2>11. Outcomes / prognosis</h2>
+<p>CINV rarely affects long-term survival directly but substantially impacts tolerability and supportive-care burden.</p>
+<h3>11.1 Persistent burden despite prophylaxis</h3>
+<p>In clinical practice, <strong>“over 40%”</strong> of patients still experience CINV despite major antiemetic advances. (sun2024theevolvinglandscape pages 1-2)</p>
+<h3>11.2 Quantitative trial-level improvements (cisplatin RCT landscape)</h3>
+<p>A 2024 analysis of 156 cisplatin-based RCTs reported stepwise improvements in vomiting control aligned with major antiemetic eras:
+- No-vomiting improved from <strong>40.30% → 54.18%</strong> after 5-HT3RA-based doublets and then to <strong>66.01%</strong> after NK1RA-based triplets. (sun2024theevolvinglandscape pages 2-5)
+- Acute-phase no-vomiting improved from <strong>50.46% → 76.98%</strong> with 5-HT3RA+glucocorticoid vs 5-HT3RA alone, and to <strong>91.30%</strong> after adding an NK1RA. (sun2024theevolvinglandscape pages 2-5)
+However, nausea control improvements were modest and nausea outcomes were frequently underreported in antiemetic trials. (sun2024theevolvinglandscape pages 1-2, sun2024theevolvinglandscape pages 2-5)</p>
+<h2>12. Treatment (and real-world implementation)</h2>
+<h3>12.1 Guideline-based pharmacologic prophylaxis (2023 MASCC/ESMO updates; published online 2023, in 2024 journal issue)</h3>
+<p>The MASCC/ESMO 2023 update for high-emetic-risk chemotherapy emphasizes:
+- <strong>Olanzapine as a fixed component of a four-drug prophylactic regimen</strong> for both AC and non-AC HEC. (herrstedt20242023updatedmasccesmo pages 1-2)
+- <strong>Steroid-sparing for AC HEC:</strong> “no need to prescribe steroids (dexamethasone) beyond day 1 after AC HEC,” while non-AC HEC retains a multi-day dexamethasone regimen. (herrstedt20242023updatedmasccesmo pages 1-2, herrstedt20242023updatedmasccesmo pages 7-8)
+Visual evidence from the guideline summary table is provided in <strong>Table 2 image</strong> (MASCC/ESMO high-risk update). (herrstedt20242023updatedmasccesmo media aa8b3b03)</p>
+<p>A structured regimen summary is provided in <strong>Artifact 01</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Recommended prophylaxis/rescue regimen components</th>
+<th>Dexamethasone schedule notes</th>
+<th>Olanzapine notes</th>
+<th>Evidence/remarks</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>High-emetic-risk chemotherapy (HEC), anthracycline-cyclophosphamide (AC)</td>
+<td>4-drug prophylaxis: 5-HT3 receptor antagonist + NK1 receptor antagonist + dexamethasone + olanzapine (herrstedt20242023updatedmasccesmo pages 1-2, herrstedt20242023updatedmasccesmo media aa8b3b03)</td>
+<td>No need to prescribe dexamethasone beyond day 1 after AC HEC; day-1-only steroid approach supported in the 2023 update (herrstedt20242023updatedmasccesmo pages 1-2, herrstedt20242023updatedmasccesmo media aa8b3b03)</td>
+<td>Olanzapine is now a fixed part of the 4-drug regimen; Table 2 notes dosing before chemotherapy on day 1 then daily on days 2-4, with 5 mg a starting option if sedation is a concern (herrstedt20242023updatedmasccesmo pages 7-8, herrstedt20242023updatedmasccesmo media aa8b3b03)</td>
+<td>MASCC/ESMO 2023 high-risk update identified 46 relevant references and concluded olanzapine should be incorporated into both AC and non-AC HEC prophylaxis (herrstedt20242023updatedmasccesmo pages 1-2)</td>
+</tr>
+<tr>
+<td>High-emetic-risk chemotherapy (HEC), non-AC (e.g., cisplatin-based)</td>
+<td>4-drug prophylaxis: 5-HT3 receptor antagonist + NK1 receptor antagonist + dexamethasone + olanzapine (herrstedt20242023updatedmasccesmo pages 1-2, herrstedt20242023updatedmasccesmo media aa8b3b03)</td>
+<td>For non-AC HEC, a 4-day dexamethasone regimen is recommended; evidence for limiting dexamethasone after cisplatin/non-AC HEC was considered inconclusive (herrstedt20242023updatedmasccesmo pages 1-2, herrstedt20242023updatedmasccesmo pages 7-8, herrstedt20242023updatedmasccesmo media aa8b3b03)</td>
+<td>Olanzapine is recommended as a fixed part of prophylaxis; Table 2 indicates administration before chemotherapy on day 1 and daily on days 2-4, commonly 10 mg with 5 mg reasonable if sedation risk is important (herrstedt20242023updatedmasccesmo pages 7-8, herrstedt20242023updatedmasccesmo media aa8b3b03)</td>
+<td>The guideline found no major differences between 5-HT3 receptor antagonists or between NK1 receptor antagonists for HEC prophylaxis (herrstedt20242023updatedmasccesmo pages 1-2)</td>
+</tr>
+<tr>
+<td>Multiple-day cisplatin chemotherapy</td>
+<td>5-HT3 receptor antagonist once daily on chemotherapy days + dexamethasone once daily from day 1 until 2 days post-chemotherapy + aprepitant 125 mg day 1 then 80 mg daily from day 2 until 2 days post-chemotherapy + olanzapine 5 mg once daily from day 1 until 2 days post-chemotherapy (rapoport20242023updatedmasccesmo pages 1-2, rapoport20242023updatedmasccesmo pages 5-6)</td>
+<td>Continue dexamethasone daily from day 1 through 2 days after chemotherapy; concern about late corticosteroid toxicity is specifically noted in the discussion (rapoport20242023updatedmasccesmo pages 5-6)</td>
+<td>Olanzapine 5 mg once daily from day 1 until 2 days post-chemotherapy; note recommends giving olanzapine at bedtime (rapoport20242023updatedmasccesmo pages 5-6)</td>
+<td>Recommendation graded I/A overall, but II/B for number of days; palonosetron may be used on days 1, 3, and 5 if chemotherapy lasts 5 days (rapoport20242023updatedmasccesmo pages 5-6)</td>
+</tr>
+<tr>
+<td>High-dose chemotherapy with stem cell transplant / HSCT</td>
+<td>5-HT3 receptor antagonist + dexamethasone + aprepitant recommended; olanzapine may be considered as part of the regimen (rapoport20242023updatedmasccesmo pages 1-2)</td>
+<td>Specific dexamethasone day-by-day schedule not detailed in the extracted evidence; recommendation is to include dexamethasone in combination prophylaxis (rapoport20242023updatedmasccesmo pages 1-2)</td>
+<td>Olanzapine is not mandatory in the extracted wording but may be considered; guideline notes it as an important advance for improving prevention in high-dose chemotherapy/autologous transplant settings (rapoport20242023updatedmasccesmo pages 1-2)</td>
+<td>The 2023 update reviewed literature from 2015-2023 and updated recommendations for HDC/HSCT patients, emphasizing persistent clinical significance of nausea in this population (rapoport20242023updatedmasccesmo pages 1-2)</td>
+</tr>
+<tr>
+<td>Breakthrough CINV</td>
+<td>Use olanzapine if not used for primary prophylaxis; evidence supports a single daily dose for 3 days (rapoport20242023updatedmasccesmo pages 1-2, rapoport20242023updatedmasccesmo pages 5-6)</td>
+<td>No dexamethasone rescue schedule recommendation identified in the extracted guideline evidence (rapoport20242023updatedmasccesmo pages 1-2, rapoport20242023updatedmasccesmo pages 5-6)</td>
+<td>Some evidence supports olanzapine 10 mg once daily for 3 days; meta-analytic evidence favored olanzapine in the breakthrough setting, and 5 mg may be considered to reduce side effects although optimal dose remains unsettled (rapoport20242023updatedmasccesmo pages 1-2, rapoport20242023updatedmasccesmo pages 5-6)</td>
+<td>Breakthrough CINV is defined as nausea/vomiting during chemotherapy despite guideline-directed prophylaxis; guideline recommendation level reported as II/B (rapoport20242023updatedmasccesmo pages 5-6)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes the key 2023-2024 MASCC/ESMO guideline-update recommendations for major CINV settings supported by the retrieved evidence. It highlights regimen components, dexamethasone duration, and where olanzapine is fixed, optional, or recommended for rescue.</em></p>
+<h3>12.2 Multiple-day cisplatin prophylaxis (MASCC/ESMO 2023 update)</h3>
+<p>For multiple-day cisplatin, MASCC/ESMO recommends <strong>5-HT3RA + dexamethasone + aprepitant + olanzapine</strong>, with explicit dosing schedules and bedtime olanzapine suggested. (rapoport20242023updatedmasccesmo pages 5-6)</p>
+<h3>12.3 HSCT / high-dose chemotherapy</h3>
+<p>For high-dose chemotherapy with stem cell transplantation, MASCC/ESMO recommends <strong>5-HT3RA + dexamethasone + aprepitant</strong>, with olanzapine as a consideration. (rapoport20242023updatedmasccesmo pages 1-2)</p>
+<h3>12.4 Breakthrough CINV (rescue)</h3>
+<p>MASCC/ESMO recommends olanzapine for breakthrough CINV if it was not used in prophylaxis, with evidence supporting daily dosing for 3 days. (rapoport20242023updatedmasccesmo pages 1-2, rapoport20242023updatedmasccesmo pages 5-6)</p>
+<h3>12.5 Dose optimization and real-world effectiveness</h3>
+<ul>
+<li><strong>Breakthrough treatment effectiveness:</strong> real-world cohort showed 83% improvement and 33% complete response with olanzapine. (uchiike2023olanzapinetreatmenteffectively pages 1-2)</li>
+<li><strong>Prophylaxis dose comparison (Japan 2024):</strong> 2.5 mg olanzapine was associated with higher additional antiemetic use than 5 mg (36% vs 31%, p&lt;0.001) with similar length of stay (8 days) and similar hospitalization cost (5061 vs 5160 USD, p=0.07). (suzukichiba2024comparisonofolanzapine pages 1-2)</li>
+</ul>
+<h3>12.6 Pediatric antiemetics (2024 systematic review and Bayesian network meta-analysis)</h3>
+<p>A 2024 pediatric NMA (16 RCTs; 3115 patients) found that, when given with dexamethasone, <strong>NK1 antagonists with ondansetron ranked highest</strong> for several complete/partial response outcomes; palonosetron performed better than ondansetron for delayed/overall CR and nausea prevention; and post hoc analysis suggested benefit from <strong>adding olanzapine</strong> to aprepitant+ondansetron regimens. (walker2024antiemeticmedicationsfor pages 1-2)</p>
+<h3>12.7 Implementation science: adherence gaps and pharmacist interventions</h3>
+<ul>
+<li>Reviews note guideline adherence is often suboptimal (historically 11–29% appropriate prophylaxis; more recently ~50% guideline-consistent use). (jeryczynski2026antiemetictherapy pages 1-2)</li>
+<li>A pharmacist-led intervention increased delayed-phase guideline adherence from <strong>6.6% to 89%</strong> and improved delayed complete protection from <strong>54% to 74%</strong> (P&lt;0.05) in an mCRC MEC setting, illustrating real-world implementation gains. (fujii2024pharmacistinterventionand pages 2-5)</li>
+</ul>
+<h3>Suggested MAXO terms (candidates)</h3>
+<ul>
+<li>Antiemetic prophylaxis</li>
+<li>Administration of 5-HT3 receptor antagonist</li>
+<li>Administration of NK1 receptor antagonist</li>
+<li>Administration of corticosteroid therapy (dexamethasone)</li>
+<li>Administration of olanzapine</li>
+</ul>
+<h3>Suggested CHEBI entities (candidates)</h3>
+<ul>
+<li>Dexamethasone</li>
+<li>Olanzapine</li>
+<li>Aprepitant / fosaprepitant</li>
+<li>Palonosetron / ondansetron / granisetron</li>
+<li>Netupitant (as NEPA when combined with palonosetron)</li>
+</ul>
+<h2>13. Prevention</h2>
+<p>Primary prevention is largely <strong>pharmacologic prophylaxis matched to emetogenic risk</strong>, emphasizing correct upfront regimens over rescue therapy. (jeryczynski2026antiemetictherapy pages 1-2, rapoport20242023updatedmasccesmo pages 5-6)</p>
+<p>A key prevention concept is that optimal control in cycle 1 helps prevent <strong>anticipatory CINV</strong> in later cycles. (dhabhar2025expertconsensusguidance pages 5-6)</p>
+<h2>14. Other species / natural disease</h2>
+<p>Not applicable as a naturally occurring disease entity; this is iatrogenic and treatment-triggered.</p>
+<h2>15. Model organisms</h2>
+<p>Not represented in the retrieved corpus; mechanistic understanding in these sources is primarily human clinical/pharmacologic.</p>
+<hr />
+<h2>Direct abstract quotes supporting key statements (selected)</h2>
+<ul>
+<li>MASCC/ESMO multiple-day/high-dose/breakthrough update: “CINV, particularly nausea, remains a clinically significant side effect for patients receiving high-dose chemotherapy.” (rapoport20242023updatedmasccesmo pages 1-2)</li>
+<li>Sun 2024 cisplatin RCT landscape (abstract-level): “Despite the significant advancements in antiemetic regimens… over 40% of cancer patients undergoing chemotherapy still experience CINV in clinical practice.” (sun2024theevolvinglandscape pages 1-2)</li>
+<li>Pharmacist intervention review: “After intervention by pharmacists, the rate of adherence to prophylaxis pharmacotherapy for these AEs was significantly improved, and the incidence of CINV… was significantly decreased.” (fujii2024pharmacistinterventionand pages 1-2)</li>
+</ul>
+<hr />
+<h2>Notes on evidence limitations for knowledge-base population</h2>
+<ul>
+<li>Ontology identifiers (MONDO/MeSH/ICD) were not recoverable from the retrieved documents and should be sourced from dedicated ontology resources (e.g., MeSH Browser, ICD-10/ICD-11, MONDO) before final KB ingestion.</li>
+<li>Genetic variant-level annotations (ClinVar-style) are not supported by the current evidence set; only a high-level CYP2D6 pharmacogenomic effect is available.</li>
+</ul>
+<p>References</p>
+<ol>
+<li>
+<p>(jeryczynski2026antiemetictherapy pages 1-2): Georg Jeryczynski. Antiemetic therapy. memo - Magazine of European Medical Oncology, Jan 2026. URL: https://doi.org/10.1007/s12254-025-01098-5, doi:10.1007/s12254-025-01098-5. This article has 0 citations.</p>
+</li>
+<li>
+<p>(montes2026ttdexpertconsensus pages 3-5): Ana Fernández Montes, Ismael Macías Declara, Nieves Martínez Lago, Virginia Arrazubi, Beatriz García Paredes, and Paula Jiménez Fonseca. Ttd expert consensus on emesis in gastric cancer: evidence-based strategies for prevention and treatment. Clinical &amp; translational oncology : official publication of the Federation of Spanish Oncology Societies and of the National Cancer Institute of Mexico, Jul 2026. URL: https://doi.org/10.1007/s12094-025-03982-2, doi:10.1007/s12094-025-03982-2. This article has 0 citations.</p>
+</li>
+<li>
+<p>(rapoport20242023updatedmasccesmo pages 5-6): Bernardo Leon Rapoport, Jørn Herrstedt, Rebecca Clark Snow, Venkatraman Radhakrishnan, Mitsue Saito, Rudolph M. Navari, and Teresa Smit. 2023 updated mascc/esmo consensus recommendations: prevention of nausea and vomiting following multiple-day chemotherapy, high-dose chemotherapy, and breakthrough nausea and vomiting. Supportive Care in Cancer, Dec 2024. URL: https://doi.org/10.1007/s00520-023-08224-1, doi:10.1007/s00520-023-08224-1. This article has 23 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(herrstedt20242023updatedmasccesmo pages 1-2): J. Herrstedt, L. Celio, P. Hesketh, L. Zhang, R. Navari, A. Chan, M. Saito, R. Chow, and M. Aapro. 2023 updated mascc/esmo consensus recommendations: prevention of nausea and vomiting following high-emetic-risk antineoplastic agents. Supportive Care in Cancer, Dec 2024. URL: https://doi.org/10.1007/s00520-023-08221-4, doi:10.1007/s00520-023-08221-4. This article has 36 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(rapoport20242023updatedmasccesmo pages 1-2): Bernardo Leon Rapoport, Jørn Herrstedt, Rebecca Clark Snow, Venkatraman Radhakrishnan, Mitsue Saito, Rudolph M. Navari, and Teresa Smit. 2023 updated mascc/esmo consensus recommendations: prevention of nausea and vomiting following multiple-day chemotherapy, high-dose chemotherapy, and breakthrough nausea and vomiting. Supportive Care in Cancer, Dec 2024. URL: https://doi.org/10.1007/s00520-023-08224-1, doi:10.1007/s00520-023-08224-1. This article has 23 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(sun2024theevolvinglandscape pages 1-2): Ya Sun, Yalan Wang, Gang Chen, Yaxiong Zhang, Li Zhang, and Xi Chen. The evolving landscape of antiemetic prophylaxis for chemotherapy-induced nausea and vomiting: inspiration from cisplatin-based antiemetic and non-antiemetic trials. Supportive Care in Cancer, Nov 2024. URL: https://doi.org/10.1007/s00520-024-09035-8, doi:10.1007/s00520-024-09035-8. This article has 2 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(uchiike2023olanzapinetreatmenteffectively pages 1-2): Akihiro Uchiike, Haruka Kono, Katsuhiro Miura, Tatsuya Hayama, Daisuke Tsutsumi, Shinya Tsuboi, Susumu Ohtsuka, and Shinji Hidaka. Olanzapine treatment effectively relieves breakthrough chemotherapy-induced nausea and vomiting: a real-world experience. Journal of Pharmaceutical Health Care and Sciences, Aug 2023. URL: https://doi.org/10.1186/s40780-023-00293-y, doi:10.1186/s40780-023-00293-y. This article has 3 citations.</p>
+</li>
+<li>
+<p>(dhabhar2025expertconsensusguidance pages 5-6): Boman Dhabhar, Prabrajya N Mahapatra, Vamshi M Krishna, Jatin Sarin, Tara Chand Gupta, Aseem Samar, Bivas Biswas, Aditya Murli, Rajesh Kota, Suyash Bharat, and Richa Tripathi. Expert consensus guidance on the management of chemotherapy-induced nausea and vomiting: an indian perspective. Cureus, May 2025. URL: https://doi.org/10.7759/cureus.84070, doi:10.7759/cureus.84070. This article has 0 citations.</p>
+</li>
+<li>
+<p>(aher2025aretrospectivedrug pages 1-3): Ashwini A. Aher, S. U. Razvi, and M. S. Baig. A retrospective drug utilization study in chemotherapy-induced nausea and vomiting. International Journal of Research in Medical Sciences, 13:2010-2017, Apr 2025. URL: https://doi.org/10.18203/2320-6012.ijrms20251304, doi:10.18203/2320-6012.ijrms20251304. This article has 0 citations.</p>
+</li>
+<li>
+<p>(jordan2024emeticriskclassification pages 1-2): Karin Jordan, Alexandre Chan, Richard J. Gralla, Franziska Jahn, Bernardo Rapoport, Christina H. Ruhlmann, Paula Sayegh, and Paul J. Hesketh. Emetic risk classification and evaluation of the emetogenicity of antineoplastic agents—updated mascc/esmo consensus recommendation. Supportive Care in Cancer, Dec 2024. URL: https://doi.org/10.1007/s00520-023-08220-5, doi:10.1007/s00520-023-08220-5. This article has 32 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(suzukichiba2024comparisonofolanzapine pages 5-7): Hiroe Suzuki-Chiba, Takaaki Konishi, Shotaro Aso, Kanako Makito, Hiroki Matsui, Taisuke Jo, Kiyohide Fushimi, and Hideo Yasunaga. Comparison of olanzapine 2.5 mg and 5 mg in the prevention of chemotherapy-induced nausea and vomiting: a japanese nationwide database study. International Journal of Clinical Oncology, 29:1762-1773, Aug 2024. URL: https://doi.org/10.1007/s10147-024-02603-2, doi:10.1007/s10147-024-02603-2. This article has 2 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(jordan2024emeticriskclassification pages 4-5): Karin Jordan, Alexandre Chan, Richard J. Gralla, Franziska Jahn, Bernardo Rapoport, Christina H. Ruhlmann, Paula Sayegh, and Paul J. Hesketh. Emetic risk classification and evaluation of the emetogenicity of antineoplastic agents—updated mascc/esmo consensus recommendation. Supportive Care in Cancer, Dec 2024. URL: https://doi.org/10.1007/s00520-023-08220-5, doi:10.1007/s00520-023-08220-5. This article has 32 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(herrstedt20242023updatedmasccesmo media aa8b3b03): J. Herrstedt, L. Celio, P. Hesketh, L. Zhang, R. Navari, A. Chan, M. Saito, R. Chow, and M. Aapro. 2023 updated mascc/esmo consensus recommendations: prevention of nausea and vomiting following high-emetic-risk antineoplastic agents. Supportive Care in Cancer, Dec 2024. URL: https://doi.org/10.1007/s00520-023-08221-4, doi:10.1007/s00520-023-08221-4. This article has 36 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(suzukichiba2024comparisonofolanzapine pages 1-2): Hiroe Suzuki-Chiba, Takaaki Konishi, Shotaro Aso, Kanako Makito, Hiroki Matsui, Taisuke Jo, Kiyohide Fushimi, and Hideo Yasunaga. Comparison of olanzapine 2.5 mg and 5 mg in the prevention of chemotherapy-induced nausea and vomiting: a japanese nationwide database study. International Journal of Clinical Oncology, 29:1762-1773, Aug 2024. URL: https://doi.org/10.1007/s10147-024-02603-2, doi:10.1007/s10147-024-02603-2. This article has 2 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(suzukichiba2024comparisonofolanzapine pages 2-4): Hiroe Suzuki-Chiba, Takaaki Konishi, Shotaro Aso, Kanako Makito, Hiroki Matsui, Taisuke Jo, Kiyohide Fushimi, and Hideo Yasunaga. Comparison of olanzapine 2.5 mg and 5 mg in the prevention of chemotherapy-induced nausea and vomiting: a japanese nationwide database study. International Journal of Clinical Oncology, 29:1762-1773, Aug 2024. URL: https://doi.org/10.1007/s10147-024-02603-2, doi:10.1007/s10147-024-02603-2. This article has 2 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(suzukichiba2024comparisonofolanzapine pages 8-9): Hiroe Suzuki-Chiba, Takaaki Konishi, Shotaro Aso, Kanako Makito, Hiroki Matsui, Taisuke Jo, Kiyohide Fushimi, and Hideo Yasunaga. Comparison of olanzapine 2.5 mg and 5 mg in the prevention of chemotherapy-induced nausea and vomiting: a japanese nationwide database study. International Journal of Clinical Oncology, 29:1762-1773, Aug 2024. URL: https://doi.org/10.1007/s10147-024-02603-2, doi:10.1007/s10147-024-02603-2. This article has 2 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(suzukichiba2024comparisonofolanzapine pages 7-8): Hiroe Suzuki-Chiba, Takaaki Konishi, Shotaro Aso, Kanako Makito, Hiroki Matsui, Taisuke Jo, Kiyohide Fushimi, and Hideo Yasunaga. Comparison of olanzapine 2.5 mg and 5 mg in the prevention of chemotherapy-induced nausea and vomiting: a japanese nationwide database study. International Journal of Clinical Oncology, 29:1762-1773, Aug 2024. URL: https://doi.org/10.1007/s10147-024-02603-2, doi:10.1007/s10147-024-02603-2. This article has 2 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(walker2024antiemeticmedicationsfor pages 1-2): R. Walker, S. Dias, and R. S. Phillips. Antiemetic medications for preventing chemotherapy-induced nausea and vomiting in children: a systematic review and bayesian network meta-analysis. Supportive Care in Cancer, Oct 2024. URL: https://doi.org/10.1007/s00520-024-08939-9, doi:10.1007/s00520-024-08939-9. This article has 1 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(herrstedt20242023updatedmasccesmo pages 7-8): J. Herrstedt, L. Celio, P. Hesketh, L. Zhang, R. Navari, A. Chan, M. Saito, R. Chow, and M. Aapro. 2023 updated mascc/esmo consensus recommendations: prevention of nausea and vomiting following high-emetic-risk antineoplastic agents. Supportive Care in Cancer, Dec 2024. URL: https://doi.org/10.1007/s00520-023-08221-4, doi:10.1007/s00520-023-08221-4. This article has 36 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(montes2026ttdexpertconsensus pages 2-3): Ana Fernández Montes, Ismael Macías Declara, Nieves Martínez Lago, Virginia Arrazubi, Beatriz García Paredes, and Paula Jiménez Fonseca. Ttd expert consensus on emesis in gastric cancer: evidence-based strategies for prevention and treatment. Clinical &amp; translational oncology : official publication of the Federation of Spanish Oncology Societies and of the National Cancer Institute of Mexico, Jul 2026. URL: https://doi.org/10.1007/s12094-025-03982-2, doi:10.1007/s12094-025-03982-2. This article has 0 citations.</p>
+</li>
+<li>
+<p>(sun2024theevolvinglandscape pages 2-5): Ya Sun, Yalan Wang, Gang Chen, Yaxiong Zhang, Li Zhang, and Xi Chen. The evolving landscape of antiemetic prophylaxis for chemotherapy-induced nausea and vomiting: inspiration from cisplatin-based antiemetic and non-antiemetic trials. Supportive Care in Cancer, Nov 2024. URL: https://doi.org/10.1007/s00520-024-09035-8, doi:10.1007/s00520-024-09035-8. This article has 2 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(fujii2024pharmacistinterventionand pages 2-5): Hironori Fujii. Pharmacist intervention and identification of adverse events related to treatment efficacy in cancer chemotherapy to improve clinical outcomes. Journal of Pharmaceutical Health Care and Sciences, Dec 2024. URL: https://doi.org/10.1186/s40780-024-00403-4, doi:10.1186/s40780-024-00403-4. This article has 5 citations.</p>
+</li>
+<li>
+<p>(fujii2024pharmacistinterventionand pages 1-2): Hironori Fujii. Pharmacist intervention and identification of adverse events related to treatment efficacy in cancer chemotherapy to improve clinical outcomes. Journal of Pharmaceutical Health Care and Sciences, Dec 2024. URL: https://doi.org/10.1186/s40780-024-00403-4, doi:10.1186/s40780-024-00403-4. This article has 5 citations.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </div>
         
 
         <footer class="page-footer">
@@ -4416,7 +5840,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Chemotherapy-Induced Nausea and Vomiting", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chemotherapy-Induced_Nausea_and_Vomiting", "yamlRevision": "31ed509020ee"};
+        const OS_CONFIG = {"diseaseName": "Chemotherapy-Induced Nausea and Vomiting", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chemotherapy-Induced_Nausea_and_Vomiting", "yamlRevision": "0499f50cd543"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

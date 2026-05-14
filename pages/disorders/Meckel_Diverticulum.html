@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2621,6 +2774,20 @@
             
             
             
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-value">7</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -2969,10 +3136,10 @@
                         
                     
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/MONDO_0004235" target="_blank">
-                            diverticulitis
+                        <a href="http://purl.obolibrary.org/obo/HP_0004386" target="_blank">
+                            Gastrointestinal inflammation
                         </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(MONDO:0004235)</span>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0004386)</span>
                         </span>
                         
                     </div>
@@ -3061,10 +3228,10 @@
                         
                     
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/MONDO_0006807" target="_blank">
-                            intestinal perforation
+                        <a href="http://purl.obolibrary.org/obo/HP_0031368" target="_blank">
+                            Intestinal perforation
                         </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(MONDO:0006807)</span>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0031368)</span>
                         </span>
                         
                     </div>
@@ -3153,10 +3320,10 @@
                         
                     
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/MONDO_0007835" target="_blank">
-                            intussusception
+                        <a href="http://purl.obolibrary.org/obo/HP_0002576" target="_blank">
+                            Intussusception
                         </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(MONDO:0007835)</span>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002576)</span>
                         </span>
                         
                     </div>
@@ -3533,7 +3700,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Meckel Diverticulum
 creation_date: &#39;2026-01-07T22:29:33Z&#39;
-updated_date: &#39;2026-01-07T22:57:00Z&#39;
+updated_date: &#39;2026-05-09T19:42:12Z&#39;
 disease_term:
   preferred_term: Meckel diverticulum
   term:
@@ -3673,8 +3840,8 @@ phenotypes:
   phenotype_term:
     preferred_term: diverticulitis
     term:
-      id: MONDO:0004235
-      label: diverticulitis
+      id: HP:0004386
+      label: Gastrointestinal inflammation
   evidence:
   - reference: PMID:8506491
     reference_title: &#34;Surgical treatment of Meckel&#39;s diverticulum.&#34;
@@ -3698,8 +3865,8 @@ phenotypes:
   phenotype_term:
     preferred_term: intestinal perforation
     term:
-      id: MONDO:0006807
-      label: intestinal perforation
+      id: HP:0031368
+      label: Intestinal perforation
   evidence:
   - reference: PMID:17021300
     reference_title: &#34;Meckel&#39;s diverticulum: a systematic review.&#34;
@@ -3723,8 +3890,8 @@ phenotypes:
   phenotype_term:
     preferred_term: intussusception
     term:
-      id: MONDO:0007835
-      label: intussusception
+      id: HP:0002576
+      label: Intussusception
   evidence:
   - reference: PMID:17021300
     reference_title: &#34;Meckel&#39;s diverticulum: a systematic review.&#34;
@@ -3783,11 +3950,824 @@ treatments:
     supports: SUPPORT
     snippet: &#34;The use of stapling devices, with their ease of use and low complication rate, make it reasonable to remove any Meckel&#39;s diverticulum that easily fits in the device. If a diverticulum found incidentally is so broad-based or short that stapling cannot be done without difficulty, it is unlikely to become symptomatic and should be left undisturbed.&#34;
     explanation: This provides specific guidance on management of incidentally discovered Meckel diverticula using stapling devices.
+references:
+- reference: DOI:10.1007/s00247-022-05527-z
+  title: &#39;Meckel diverticulum scintigraphy: technique, findings and diagnostic pitfalls&#39;
+  found_in:
+  - Meckel_Diverticulum-deep-research-falcon.md
+  findings:
+  - statement: &#39;Meckel diverticulum scintigraphy: technique, findings and diagnostic pitfalls&#39;
+    supporting_text: &#39;Meckel diverticulum scintigraphy: technique, findings and diagnostic pitfalls&#39;
+- reference: DOI:10.1007/s00247-025-06284-5
+  title: &#39;Premedication in pediatric Meckel scintigraphy: pantoprazole versus ranitidine for optimizing scan quality&#39;
+  found_in:
+  - Meckel_Diverticulum-deep-research-falcon.md
+  findings:
+  - statement: The standard method for diagnosing Meckel diverticulum and identifying ectopic gastric mucosa is 99 mTc-pertechnetate imaging.
+    supporting_text: The standard method for diagnosing Meckel diverticulum and identifying ectopic gastric mucosa is 99 mTc-pertechnetate imaging.
+    evidence:
+    - reference: DOI:10.1007/s00247-025-06284-5
+      reference_title: &#39;Premedication in pediatric Meckel scintigraphy: pantoprazole versus ranitidine for optimizing scan quality&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The standard method for diagnosing Meckel diverticulum and identifying ectopic gastric mucosa is 99 mTc-pertechnetate imaging.
+      explanation: Deep research cited this publication as relevant literature for Meckel Diverticulum.
+- reference: DOI:10.1007/s00383-025-06197-2
+  title: &#39;Diverse clinical features of symptomatic Meckel’s diverticulum: a multicenter study of 151 consecutive pediatric patients from the Western Balkans&#39;
+  found_in:
+  - Meckel_Diverticulum-deep-research-falcon.md
+  findings:
+  - statement: Symptomatic Meckel’s diverticulum (MD) has various clinical presentations and can be easily misdiagnosed.
+    supporting_text: Symptomatic Meckel’s diverticulum (MD) has various clinical presentations and can be easily misdiagnosed.
+    evidence:
+    - reference: DOI:10.1007/s00383-025-06197-2
+      reference_title: &#39;Diverse clinical features of symptomatic Meckel’s diverticulum: a multicenter study of 151 consecutive pediatric patients from the Western Balkans&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Symptomatic Meckel’s diverticulum (MD) has various clinical presentations and can be easily misdiagnosed.
+      explanation: Deep research cited this publication as relevant literature for Meckel Diverticulum.
+- reference: DOI:10.1080/00015458.2022.2136047
+  title: Mechanical ileus of the small bowel due to an inflamed Meckel’s diverticulum with an enterolith – a case report with literature review
+  found_in:
+  - Meckel_Diverticulum-deep-research-falcon.md
+  findings:
+  - statement: Mechanical ileus of the small bowel due to an inflamed Meckel’s diverticulum with an enterolith – a case report with literature review
+    supporting_text: Mechanical ileus of the small bowel due to an inflamed Meckel’s diverticulum with an enterolith – a case report with literature review
+- reference: DOI:10.3389/fsurg.2023.1327545
+  title: &#34;Meckel&#39;s diverticulum: analysis of 27 cases in an adult population&#34;
+  found_in:
+  - Meckel_Diverticulum-deep-research-falcon.md
+  findings:
+  - statement: Meckel&#39;s diverticulum is a rare congenital pathology among newborns.
+    supporting_text: Meckel&#39;s diverticulum is a rare congenital pathology among newborns.
+    evidence:
+    - reference: DOI:10.3389/fsurg.2023.1327545
+      reference_title: &#34;Meckel&#39;s diverticulum: analysis of 27 cases in an adult population&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Meckel&#39;s diverticulum is a rare congenital pathology among newborns.
+      explanation: Deep research cited this publication as relevant literature for Meckel Diverticulum.
+- reference: DOI:10.47717/turkjsurg.2024.6446
+  title: &#39;The clinical presentation of Meckel’s diverticulum: Eight years experience&#39;
+  found_in:
+  - Meckel_Diverticulum-deep-research-falcon.md
+  findings:
+  - statement: Meckel’s diverticulum is the most common congenital anomaly of the gastrointestinal tract.
+    supporting_text: Meckel’s diverticulum is the most common congenital anomaly of the gastrointestinal tract.
+    evidence:
+    - reference: DOI:10.47717/turkjsurg.2024.6446
+      reference_title: &#39;The clinical presentation of Meckel’s diverticulum: Eight years experience&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Meckel’s diverticulum is the most common congenital anomaly of the gastrointestinal tract.
+      explanation: Deep research cited this publication as relevant literature for Meckel Diverticulum.
+- reference: DOI:10.1177/014107680609901011
+  title: &#34;Meckel&#39;s Diverticulum: a Systematic Review&#34;
+  found_in:
+  - Meckel_Diverticulum-deep-research-falcon.md
+  findings: []
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
+        
+        <div class="card reference-card" id="references-deep-research">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+            
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">7</span>
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s00247-022-05527-z" target="_blank">DOI:10.1007/s00247-022-05527-z</a>
+                            </div>
+                            
+                            <div class="reference-title">Meckel diverticulum scintigraphy: technique, findings and diagnostic pitfalls</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Meckel diverticulum scintigraphy: technique, findings and diagnostic pitfalls</div>
+            
+            
+            <div class="reference-finding-supporting">"Meckel diverticulum scintigraphy: technique, findings and diagnostic pitfalls"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s00247-025-06284-5" target="_blank">DOI:10.1007/s00247-025-06284-5</a>
+                            </div>
+                            
+                            <div class="reference-title">Premedication in pediatric Meckel scintigraphy: pantoprazole versus ranitidine for optimizing scan quality</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The standard method for diagnosing Meckel diverticulum and identifying ectopic gastric mucosa is 99 mTc-pertechnetate imaging.</div>
+            
+            
+            <div class="reference-finding-supporting">"The standard method for diagnosing Meckel diverticulum and identifying ectopic gastric mucosa is 99 mTc-pertechnetate imaging."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s00247-025-06284-5" target="_blank">DOI:10.1007/s00247-025-06284-5</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The standard method for diagnosing Meckel diverticulum and identifying ectopic gastric mucosa is 99 mTc-pertechnetate imaging."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Meckel Diverticulum.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s00383-025-06197-2" target="_blank">DOI:10.1007/s00383-025-06197-2</a>
+                            </div>
+                            
+                            <div class="reference-title">Diverse clinical features of symptomatic Meckel’s diverticulum: a multicenter study of 151 consecutive pediatric patients from the Western Balkans</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Symptomatic Meckel’s diverticulum (MD) has various clinical presentations and can be easily misdiagnosed.</div>
+            
+            
+            <div class="reference-finding-supporting">"Symptomatic Meckel’s diverticulum (MD) has various clinical presentations and can be easily misdiagnosed."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s00383-025-06197-2" target="_blank">DOI:10.1007/s00383-025-06197-2</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Symptomatic Meckel’s diverticulum (MD) has various clinical presentations and can be easily misdiagnosed."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Meckel Diverticulum.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1080/00015458.2022.2136047" target="_blank">DOI:10.1080/00015458.2022.2136047</a>
+                            </div>
+                            
+                            <div class="reference-title">Mechanical ileus of the small bowel due to an inflamed Meckel’s diverticulum with an enterolith – a case report with literature review</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Mechanical ileus of the small bowel due to an inflamed Meckel’s diverticulum with an enterolith – a case report with literature review</div>
+            
+            
+            <div class="reference-finding-supporting">"Mechanical ileus of the small bowel due to an inflamed Meckel’s diverticulum with an enterolith – a case report with literature review"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3389/fsurg.2023.1327545" target="_blank">DOI:10.3389/fsurg.2023.1327545</a>
+                            </div>
+                            
+                            <div class="reference-title">Meckel&#39;s diverticulum: analysis of 27 cases in an adult population</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Meckel&#39;s diverticulum is a rare congenital pathology among newborns.</div>
+            
+            
+            <div class="reference-finding-supporting">"Meckel&#39;s diverticulum is a rare congenital pathology among newborns."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fsurg.2023.1327545" target="_blank">DOI:10.3389/fsurg.2023.1327545</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Meckel&#39;s diverticulum is a rare congenital pathology among newborns."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Meckel Diverticulum.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.47717/turkjsurg.2024.6446" target="_blank">DOI:10.47717/turkjsurg.2024.6446</a>
+                            </div>
+                            
+                            <div class="reference-title">The clinical presentation of Meckel’s diverticulum: Eight years experience</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Meckel’s diverticulum is the most common congenital anomaly of the gastrointestinal tract.</div>
+            
+            
+            <div class="reference-finding-supporting">"Meckel’s diverticulum is the most common congenital anomaly of the gastrointestinal tract."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.47717/turkjsurg.2024.6446" target="_blank">DOI:10.47717/turkjsurg.2024.6446</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Meckel’s diverticulum is the most common congenital anomaly of the gastrointestinal tract."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Meckel Diverticulum.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1177/014107680609901011" target="_blank">DOI:10.1177/014107680609901011</a>
+                            </div>
+                            
+                            <div class="reference-title">Meckel&#39;s Diverticulum: a Systematic Review</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">Meckel Diverticulum (Congenital) — Disease Characteristics Research Report</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">23 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-09T11:56:13.950390</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <h1>Meckel Diverticulum (Congenital) — Disease Characteristics Research Report</h1>
+<h2>Scope, evidence base, and limitations</h2>
+<p>This report synthesizes evidence from recent peer‑reviewed clinical series and reviews retrieved via the provided tools, prioritizing 2023–2025 sources where available. Primary evidence includes: a 2023 <em>Pediatric Radiology</em> review of Meckel diverticulum (MD) scintigraphy and pitfalls; a 2024 hospital series describing presentation and operative management; a 2023 adult surgical series; a 2025 multicenter pediatric symptomatic cohort; and a 2025 paper comparing pantoprazole vs ranitidine premedication in MD scintigraphy. Where identifiers (e.g., MONDO, MeSH, ICD-10) are requested, the current tool session did <strong>not</strong> retrieve authoritative ontology/registry pages, so those identifiers are marked as <strong>not available from retrieved evidence</strong>.</p>
+<p><strong>Key sources (publication date; URL):</strong>
+- Aboughalia et al., Nov 2023, <em>Pediatric Radiology</em> — https://doi.org/10.1007/s00247-022-05527-z (aboughalia2023meckeldiverticulumscintigraphy pages 1-3)
+- Hernández et al., Dec 2023, <em>Frontiers in Surgery</em> — https://doi.org/10.3389/fsurg.2023.1327545 (hernandez2023meckelsdiverticulumanalysis pages 2-4, hernandez2023meckelsdiverticulumanalysis pages 1-2)
+- Jarboa et al., Dec 2024, <em>Turkish Journal of Surgery</em> — https://doi.org/10.47717/turkjsurg.2024.6446 (jarboa2024theclinicalpresentation pages 1-2)
+- Önner et al., Jun 2025, <em>Pediatric Radiology</em> — https://doi.org/10.1007/s00247-025-06284-5 (onner2025premedicationinpediatric pages 1-3, onner2025premedicationinpediatric pages 3-4, onner2025premedicationinpediatric pages 4-6, onner2025premedicationinpediatric media a6df16f3, onner2025premedicationinpediatric media 9c9d2a7f)
+- Zvizdic et al., Oct 2025, <em>Pediatric Surgery International</em> — https://doi.org/10.1007/s00383-025-06197-2 (zvizdic2025diverseclinicalfeatures pages 2-4)</p>
+<hr />
+<h2>1. Disease information</h2>
+<h3>1.1. Overview (definition; current understanding)</h3>
+<p>Meckel diverticulum is a <strong>congenital true diverticulum</strong> of the ileum caused by failed involution/obliteration of the <strong>omphalomesenteric (vitelline) duct</strong> during embryogenesis; the duct normally involutes during approximately the <strong>5th–9th week</strong> of gestation. (aboughalia2023meckeldiverticulumscintigraphy pages 1-3, dyn2023mechanicalileusof pages 1-3, hernandez2023meckelsdiverticulumanalysis pages 1-2)</p>
+<p><strong>Direct abstract-supported definition (recent):</strong> Aboughalia et al. describe MD as the “commonest congenital GI anomaly” resulting from aberrant involution of the omphalomesenteric duct, and emphasize that <strong>ectopic gastric mucosa</strong> is the scintigraphic target for Tc‑99m pertechnetate imaging. (aboughalia2023meckeldiverticulumscintigraphy pages 1-3)</p>
+<h3>1.2. Key identifiers</h3>
+<p>Not reliably extractable from the retrieved full-text evidence in this tool session:
+- <strong>MONDO ID:</strong> not available from retrieved evidence.
+- <strong>MeSH:</strong> not available from retrieved evidence.
+- <strong>ICD-10/ICD-11:</strong> not available from retrieved evidence.
+- <strong>OMIM/Orphanet:</strong> not available from retrieved evidence.</p>
+<h3>1.3. Synonyms / alternative names</h3>
+<p>Synonyms used across sources:
+- <strong>Meckel’s diverticulum</strong> (standard) (aboughalia2023meckeldiverticulumscintigraphy pages 1-3, jarboa2024theclinicalpresentation pages 1-2, zvizdic2025diverseclinicalfeatures pages 2-4)
+- <strong>Meckel diverticulum</strong> (without possessive) (aboughalia2023meckeldiverticulumscintigraphy pages 1-3)
+- <strong>Vitelline/omphalomesenteric duct remnant</strong> (conceptual synonym) (aboughalia2023meckeldiverticulumscintigraphy pages 1-3, dyn2023mechanicalileusof pages 1-3, hernandez2023meckelsdiverticulumanalysis pages 1-2)</p>
+<h3>1.4. Source granularity</h3>
+<p>The evidence base includes both:
+- <strong>Aggregated disease-level resources/reviews</strong> (e.g., imaging technique and pitfalls) (aboughalia2023meckeldiverticulumscintigraphy pages 1-3)
+- <strong>Institutional or multicenter clinical cohorts</strong> (adult and pediatric) (jarboa2024theclinicalpresentation pages 1-2, zvizdic2025diverseclinicalfeatures pages 2-4, hernandez2023meckelsdiverticulumanalysis pages 2-4)</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>2.1. Disease causal factors</h3>
+<p><strong>Primary cause:</strong> embryologic failure of regression/obliteration of the omphalomesenteric (vitelline) duct, yielding a persistent diverticulum in the distal ileum. (aboughalia2023meckeldiverticulumscintigraphy pages 1-3, dyn2023mechanicalileusof pages 1-3, hernandez2023meckelsdiverticulumanalysis pages 1-2)</p>
+<h3>2.2. Risk factors</h3>
+<p>In the retrieved evidence, “risk factors” are primarily <strong>demographic and anatomic correlates</strong> rather than genetic/environmental exposures:
+- <strong>Male sex</strong>: multiple cohorts show strong male predominance among symptomatic MD cases (e.g., 80.1% male in a pediatric symptomatic cohort; 88.5% male in an 8‑year mixed series; 81.4% male in an adult surgical cohort). (zvizdic2025diverseclinicalfeatures pages 2-4, jarboa2024theclinicalpresentation pages 1-2, hernandez2023meckelsdiverticulumanalysis pages 2-4)
+- <strong>Longer diverticulum length</strong>: Jarboa et al. conclude that “the longer Meckel's diverticulum is, the more prone it is to developing complications” (from abstract text). (jarboa2024theclinicalpresentation pages 1-2)</p>
+<p><strong>Environmental risk factors:</strong> not identified in the retrieved evidence.</p>
+<h3>2.3. Protective factors</h3>
+<p>No genetic or environmental protective factors were identified in the retrieved evidence.</p>
+<h3>2.4. Gene–environment interactions</h3>
+<p>No gene–environment interaction evidence was identified in the retrieved evidence.</p>
+<hr />
+<h2>3. Phenotypes (clinical manifestations)</h2>
+<h3>3.1. Core phenotype spectrum</h3>
+<p>MD can be asymptomatic/incidental or symptomatic with major presentations including <strong>painless lower GI bleeding</strong>, <strong>intestinal obstruction</strong>, <strong>diverticulitis/peritonitis</strong>, and less commonly <strong>perforation</strong>. (aboughalia2023meckeldiverticulumscintigraphy pages 1-3, zvizdic2025diverseclinicalfeatures pages 2-4, hernandez2023meckelsdiverticulumanalysis pages 1-2)</p>
+<p>Aboughalia et al. summarize major complications as: “painless bleeding, diverticulitis, perforation, bowel obstruction (from intussusception, volvulus, fibrous bands or Littre hernia) and rarely malignancy.” (aboughalia2023meckeldiverticulumscintigraphy pages 1-3)</p>
+<h3>3.2. Presentation frequencies (recent cohorts)</h3>
+<ul>
+<li><strong>Pediatric symptomatic multicenter cohort (n=151)</strong>: obstruction 38.4%, GI bleeding 37.8%, peritonitis 23.8%; 63.6% had multiple symptoms. (zvizdic2025diverseclinicalfeatures pages 2-4)</li>
+<li><strong>Mixed clinical series (n=104)</strong>: among emergency presentations: abdominal pain 42.5%, obstruction 25%, bleeding per rectum 15%, acute abdomen 11.3%, intussusception 6.2%. (jarboa2024theclinicalpresentation pages 1-2)</li>
+<li><strong>Adult surgical series (n=27)</strong>: symptom mechanisms included obstruction (13/27), inflammation (5/27), bleeding (3/27), perforation (1/27); abdominal pain was common (22/27). (hernandez2023meckelsdiverticulumanalysis pages 2-4)</li>
+</ul>
+<h3>3.3. Suggested HPO terms (non-exhaustive)</h3>
+<p>Based on the phenotype spectrum reported in the retrieved evidence:
+- GI bleeding/hematochezia: <strong>HP:0001892 (Gastrointestinal hemorrhage)</strong>; <strong>HP:0001903 (Hematochezia)</strong>
+- Abdominal pain/acute abdomen: <strong>HP:0002027 (Abdominal pain)</strong>; <strong>HP:0030654 (Acute abdomen)</strong>
+- Bowel obstruction/ileus: <strong>HP:0002583 (Intestinal obstruction)</strong>
+- Intussusception: <strong>HP:0002029 (Intussusception)</strong>
+- Vomiting: <strong>HP:0002013 (Vomiting)</strong>
+- Diarrhea: <strong>HP:0002014 (Diarrhea)</strong>
+- Peritonitis: <strong>HP:0002586 (Peritonitis)</strong>
+- Anemia (secondary to bleeding): <strong>HP:0001903 (Anemia)</strong></p>
+<p><strong>Frequency note:</strong> HPO mapping above is qualitative; frequencies should be taken from cohort data cited in Section 3.2. (jarboa2024theclinicalpresentation pages 1-2, zvizdic2025diverseclinicalfeatures pages 2-4, hernandez2023meckelsdiverticulumanalysis pages 2-4)</p>
+<h3>3.4. Quality of life impact</h3>
+<p>Formal patient-reported quality-of-life instruments (e.g., EQ‑5D/SF‑36) were not described in the retrieved evidence. Clinically, presentations such as GI bleeding, acute abdomen, and obstruction typically require emergency evaluation and surgery (pediatric and adult cohorts), implying substantial acute functional impact. (jarboa2024theclinicalpresentation pages 1-2, zvizdic2025diverseclinicalfeatures pages 2-4)</p>
+<hr />
+<h2>4. Genetic / molecular information</h2>
+<h3>4.1. Causal genes / pathogenic variants</h3>
+<p>No monogenic etiology, causal genes, or pathogenic variants were identified in the retrieved evidence, consistent with MD being primarily a <strong>developmental anatomic anomaly</strong> rather than a single-gene disorder in routine clinical characterization. (aboughalia2023meckeldiverticulumscintigraphy pages 1-3, hernandez2023meckelsdiverticulumanalysis pages 1-2)</p>
+<h3>4.2. Modifier genes / epigenetics / chromosomal abnormalities</h3>
+<p>No evidence identified in retrieved documents.</p>
+<hr />
+<h2>5. Environmental information</h2>
+<p>No specific environmental, lifestyle, or infectious causal contributors were identified in the retrieved evidence.</p>
+<hr />
+<h2>6. Mechanism / pathophysiology</h2>
+<h3>6.1. Core mechanistic chain (accepted clinical mechanism)</h3>
+<p>1) <strong>Embryologic persistence</strong> of the omphalomesenteric duct produces an ileal true diverticulum. (aboughalia2023meckeldiverticulumscintigraphy pages 1-3, dyn2023mechanicalileusof pages 1-3)
+2) Many MD contain <strong>ectopic mucosa</strong>, especially <strong>gastric mucosa</strong> (up to ~50–60% in an imaging-focused review; 55.6% ectopic tissue in a pediatric symptomatic cohort). (aboughalia2023meckeldiverticulumscintigraphy pages 1-3, zvizdic2025diverseclinicalfeatures pages 2-4)
+3) <strong>Ectopic gastric mucosa</strong> can drive ulceration and <strong>painless lower GI bleeding</strong>, particularly in pediatrics; Aboughalia et al. state MD with ectopic gastric mucosa account for “&gt;50% of unexplained pediatric lower GI bleeding.” (aboughalia2023meckeldiverticulumscintigraphy pages 1-3)
+4) Obstruction arises via <strong>intussusception, volvulus, fibrous bands, inflammation, or enteroliths</strong>, producing acute abdomen, vomiting, distention, and requiring surgical management. (aboughalia2023meckeldiverticulumscintigraphy pages 1-3, zvizdic2025diverseclinicalfeatures pages 2-4, dyn2023mechanicalileusof pages 1-3)</p>
+<h3>6.2. Suggested GO biological process terms (examples)</h3>
+<ul>
+<li><strong>GO:0002526</strong> acute inflammatory response (diverticulitis/peritonitis context)</li>
+<li><strong>GO:0006954</strong> inflammatory response</li>
+<li><strong>GO:0007596</strong> blood coagulation / hemostasis (bleeding context)</li>
+<li><strong>GO:0006950</strong> response to stress (acute hemorrhage/ischemia context)</li>
+</ul>
+<h3>6.3. Suggested cell types (Cell Ontology; examples)</h3>
+<p>Mechanism centers on mucosal epithelium and ectopic gastric tissue:
+- <strong>Gastric parietal cell</strong> (acid secretion; scintigraphic signal retention discussion in premedication paper) (onner2025premedicationinpediatric pages 4-6)
+- <strong>Intestinal epithelial cell</strong> (ileal mucosa)
+- <strong>Smooth muscle cell</strong> (bowel motility/obstruction context)</p>
+<h3>6.4. Advanced molecular profiling</h3>
+<p>No transcriptomic/proteomic/metabolomic or single-cell/spatial omics evidence was identified in retrieved documents.</p>
+<hr />
+<h2>7. Anatomical structures affected</h2>
+<h3>7.1. Organ / system level</h3>
+<ul>
+<li>Primary: <strong>small intestine (ileum)</strong>; classically antimesenteric border near the ileocecal valve. (jarboa2024theclinicalpresentation pages 1-2, dyn2023mechanicalileusof pages 1-3)</li>
+<li>Complication involvement: intestinal lumen (bleeding), peritoneum (peritonitis), mesentery/bands (obstruction/volvulus). (aboughalia2023meckeldiverticulumscintigraphy pages 1-3, zvizdic2025diverseclinicalfeatures pages 2-4)</li>
+</ul>
+<h3>7.2. Suggested UBERON terms (examples)</h3>
+<ul>
+<li><strong>UBERON:0002108</strong> small intestine</li>
+<li><strong>UBERON:0002116</strong> ileum</li>
+<li><strong>UBERON:0001155</strong> ileocecal valve</li>
+<li><strong>UBERON:0003688</strong> peritoneum</li>
+</ul>
+<hr />
+<h2>8. Temporal development</h2>
+<ul>
+<li><strong>Onset:</strong> congenital (anomaly present at birth), but symptomatic presentation is age-dependent.</li>
+<li>Pediatric symptomatic median age 6.7 years (IQR 1.5–10.8) in a multicenter cohort. (zvizdic2025diverseclinicalfeatures pages 2-4)</li>
+<li>Adult cohorts demonstrate presentations in adulthood with varied complications and frequent diagnostic uncertainty. (hernandez2023meckelsdiverticulumanalysis pages 2-4)</li>
+<li><strong>Course pattern:</strong> asymptomatic/incidental in many; episodic or acute presentations when complicated (bleeding, obstruction, diverticulitis/peritonitis). (aboughalia2023meckeldiverticulumscintigraphy pages 1-3, jarboa2024theclinicalpresentation pages 1-2)</li>
+</ul>
+<hr />
+<h2>9. Inheritance and population</h2>
+<h3>9.1. Epidemiology (prevalence/incidence; demographics)</h3>
+<ul>
+<li>Population prevalence estimates in retrieved evidence are typically around <strong>~1–3%</strong> and <strong>~2–3%</strong>. (dyn2023mechanicalileusof pages 1-3, aboughalia2023meckeldiverticulumscintigraphy pages 1-3)</li>
+<li>Sex ratio: male predominance among symptomatic presentations is repeatedly noted.</li>
+<li>Imaging review provides a male:female ratio around <strong>~2–3:1</strong>. (aboughalia2023meckeldiverticulumscintigraphy pages 1-3)</li>
+<li>Pediatric symptomatic cohort: <strong>80.1% male</strong>. (zvizdic2025diverseclinicalfeatures pages 2-4)</li>
+<li>Adult surgical cohort: <strong>81.4% male</strong>. (hernandez2023meckelsdiverticulumanalysis pages 2-4)</li>
+</ul>
+<h3>9.2. Inheritance pattern</h3>
+<p>No inheritance pattern was reported in retrieved evidence; MD is generally treated clinically as a sporadic congenital developmental anomaly (not demonstrated as Mendelian in the retrieved sources).</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>10.1. Imaging and endoscopic testing</h3>
+<p><strong>Tc‑99m pertechnetate Meckel scintigraphy (Meckel scan):</strong>
+- Aboughalia et al. describe Tc‑99m pertechnetate scintigraphy as emphasizing ectopic gastric mucosa and report <strong>~90% accuracy in children</strong> (review-level estimate). (aboughalia2023meckeldiverticulumscintigraphy pages 1-3)
+- In a large pediatric symptomatic cohort, Tc‑99m scan was <strong>positive in 80.7%</strong> of bleeding cases (46/57). (zvizdic2025diverseclinicalfeatures pages 2-4)
+- Limitations/pitfalls: the imaging review emphasizes attention to normal tracer biodistribution and labeling-agent effects (e.g., stannous ion persistence) to avoid misinterpretation. (aboughalia2023meckeldiverticulumscintigraphy pages 1-3)</p>
+<p><strong>Optimization of scintigraphy via premedication (recent development):</strong>
+- Önner et al. highlight that “H2 receptor antagonists enhance the sensitivity of Meckel scintigraphy… by delaying the luminal release of 99mTc‑pertechnetate from the parietal and mucus cells,” and compared ranitidine vs pantoprazole after ranitidine withdrawal. (onner2025premedicationinpediatric pages 4-6)
+- In 141 children, scan-quality categories were similar between pantoprazole and ranitidine (no significant differences), and positive scans were surgically confirmed; pantoprazole was “equivalent” to ranitidine in scan quality and lesion‑to‑background ratios. (onner2025premedicationinpediatric pages 1-3, onner2025premedicationinpediatric pages 3-4, onner2025premedicationinpediatric pages 4-6)</p>
+<p><strong>Ultrasound and CT (real-world yields in symptomatic pediatric cohort):</strong>
+- In Zvizdic et al., ultrasound detected no MD (0% yield in their cohort), while CT identified MD in <strong>11.9%</strong> (5/42). (zvizdic2025diverseclinicalfeatures pages 2-4)</p>
+<h3>10.2. Operative/pathology confirmation</h3>
+<p>Multiple cohorts emphasize that MD is often diagnosed definitively intraoperatively and confirmed by histopathology, including ectopic tissue assessment. (zvizdic2025diverseclinicalfeatures pages 2-4, hernandez2023meckelsdiverticulumanalysis pages 2-4)</p>
+<h3>10.3. Suggested differential diagnoses (from presentation overlap)</h3>
+<p>The retrieved evidence specifically emphasizes diagnostic challenge and underdiagnosis in non-bleeding cases, implying common differentials by syndrome (acute abdomen/bleeding/obstruction), including appendicitis-like presentations and other causes of pediatric lower GI bleeding. (aboughalia2023meckeldiverticulumscintigraphy pages 1-3, hernandez2023meckelsdiverticulumanalysis pages 1-2)</p>
+<hr />
+<h2>11. Outcome / prognosis</h2>
+<h3>11.1. Surgical outcomes (recent pediatric multicenter data)</h3>
+<p>In 151 pediatric symptomatic cases, postoperative complications occurred in <strong>~5.3%</strong> with <strong>no mortality</strong> reported during follow-up. (zvizdic2025diverseclinicalfeatures pages 2-4)</p>
+<h3>11.2. Adult outcomes</h3>
+<p>Adult series report variable hospital length of stay and high rates of diagnostic uncertainty before surgery; quantitative mortality was not extractable from the retrieved adult cohort snippets. (hernandez2023meckelsdiverticulumanalysis pages 2-4)</p>
+<hr />
+<h2>12. Treatment</h2>
+<h3>12.1. Standard of care (current practice)</h3>
+<p>Surgery is repeatedly described as the cornerstone/definitive management for symptomatic MD:
+- Adult cohort: all 27 cases underwent resection via diverticulectomy or segmental small bowel resection with anastomosis. (hernandez2023meckelsdiverticulumanalysis pages 2-4)
+- Pediatric multicenter cohort: segmental small-bowel resection (80.8%) was more common than simple diverticulectomy (19.2%), reflecting complicated presentations and need to resect adjacent bowel. (zvizdic2025diverseclinicalfeatures pages 2-4)</p>
+<h3>12.2. Surgical modalities (real-world implementations)</h3>
+<ul>
+<li>Pediatric cohort: laparotomy 72.2%, laparoscopy 23.2%, conversion 4.6%. (zvizdic2025diverseclinicalfeatures pages 2-4)</li>
+<li>Adult cohort: totally laparoscopic, laparoscopic-assisted, and open approaches were all used. (hernandez2023meckelsdiverticulumanalysis pages 2-4)</li>
+</ul>
+<h3>12.3. Incidental/asymptomatic MD resection (expert controversy)</h3>
+<p>Incidental MD management remains debated in practice; however, cohort data show incidental resections occur:
+- Jarboa et al.: 23% incidental findings; authors state that resection of incidental MD “does not increase the risk of morbidity” (from abstract conclusion). (jarboa2024theclinicalpresentation pages 1-2)
+- Hernández et al.: asymptomatic incidental diverticula were resected in 5 patients in their adult series. (hernandez2023meckelsdiverticulumanalysis pages 2-4)</p>
+<h3>12.4. MAXO suggestions (examples)</h3>
+<ul>
+<li><strong>Diverticulectomy / surgical excision of diverticulum</strong> (MAXO term: surgical excision procedure)</li>
+<li><strong>Segmental small bowel resection with anastomosis</strong> (MAXO: intestinal resection)</li>
+<li><strong>Laparoscopic surgery</strong> (MAXO: minimally invasive surgical procedure)</li>
+</ul>
+<h3>12.5. Pharmacotherapy</h3>
+<p>No disease-modifying pharmacotherapy exists for the anatomic lesion itself in the retrieved evidence. Acid suppression is used diagnostically to optimize scintigraphy rather than treat the diverticulum (premedication for imaging). (onner2025premedicationinpediatric pages 1-3, onner2025premedicationinpediatric pages 4-6)</p>
+<hr />
+<h2>13. Prevention</h2>
+<p>No primary prevention (preventing occurrence) strategies were identified; MD is congenital. Secondary/tertiary prevention in practice includes:
+- maintaining clinical suspicion and appropriate workup for unexplained pediatric lower GI bleeding (Tc‑99m pertechnetate scan) (aboughalia2023meckeldiverticulumscintigraphy pages 1-3, zvizdic2025diverseclinicalfeatures pages 2-4)
+- surgical management to prevent recurrent bleeding/obstruction once symptomatic and diagnosed (zvizdic2025diverseclinicalfeatures pages 2-4, hernandez2023meckelsdiverticulumanalysis pages 2-4)</p>
+<hr />
+<h2>14. Other species / natural disease</h2>
+<p>No evidence was retrieved in this tool session describing naturally occurring Meckel diverticulum in non-human species.</p>
+<hr />
+<h2>15. Model organisms</h2>
+<p>No specific animal or experimental model organism evidence for MD was retrieved in this tool session.</p>
+<hr />
+<h2>Recent developments (2023–2025) and expert analysis (authoritative sources)</h2>
+<p>1) <strong>Updated scintigraphy technique and pitfalls (2023):</strong> The <em>Pediatric Radiology</em> review emphasizes modern best practices and common interpretive pitfalls for Tc‑99m pertechnetate imaging, highlighting the continued central role of scintigraphy for suspected bleeding MD in children. (aboughalia2023meckeldiverticulumscintigraphy pages 1-3)
+2) <strong>Evidence on real-world diagnostic yields (2025 pediatric multicenter):</strong> Ultrasound and CT had low preoperative detection rates in symptomatic MD, while Tc‑99m scans were frequently positive in bleeding presentations (80.7%). This supports a bleeding‑phenotype–guided diagnostic pathway. (zvizdic2025diverseclinicalfeatures pages 2-4)
+3) <strong>Protocol adaptation after ranitidine withdrawal (2025):</strong> Önner et al. provide practical evidence that IV pantoprazole can substitute for ranitidine without degrading scan quality metrics, reflecting real-world protocol change driven by drug availability and safety considerations. (onner2025premedicationinpediatric pages 1-3, onner2025premedicationinpediatric pages 3-4, onner2025premedicationinpediatric pages 4-6, onner2025premedicationinpediatric media a6df16f3, onner2025premedicationinpediatric media 9c9d2a7f)</p>
+<hr />
+<h2>Evidence summary table</h2>
+<p>The following table consolidates quantitative findings extracted from the retrieved sources.</p>
+<table>
+<thead>
+<tr>
+<th>Study (year, journal)</th>
+<th>Population (pediatric/adult; n)</th>
+<th>Key epidemiology (prevalence/incidence/sex ratio)</th>
+<th>Presentation frequencies</th>
+<th>Ectopic mucosa frequencies</th>
+<th>Diagnostic performance stats</th>
+<th>Treatment approach stats</th>
+<th>Outcomes/complications</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Aboughalia 2023, <em>Pediatric Radiology</em></td>
+<td>Review; population-level</td>
+<td>Incidence/prevalence 2–3% of population; male:female ~2–3:1; “rule of 2s” includes ~2 ft from ileocecal valve and ~2 inches long (aboughalia2023meckeldiverticulumscintigraphy pages 1-3)</td>
+<td>Meckel diverticula with ectopic gastric mucosa account for &gt;50% of unexplained pediatric lower GI bleeding; complications listed include painless bleeding, diverticulitis, perforation, bowel obstruction, rare malignancy (aboughalia2023meckeldiverticulumscintigraphy pages 1-3)</td>
+<td>Gastric mucosa up to 50–60%; pancreatic mucosa up to 16% (aboughalia2023meckeldiverticulumscintigraphy pages 1-3)</td>
+<td>Tc-99m pertechnetate scintigraphy accuracy ~90% in children (aboughalia2023meckeldiverticulumscintigraphy pages 1-3)</td>
+<td>NR (aboughalia2023meckeldiverticulumscintigraphy pages 1-3)</td>
+<td>NR quantitatively in snippet (aboughalia2023meckeldiverticulumscintigraphy pages 1-3)</td>
+</tr>
+<tr>
+<td>Jarboa 2024, <em>Turkish Journal of Surgery</em></td>
+<td>Mixed clinical series; n=104</td>
+<td>Present in ~2–3% of population; male 92/104 (88.5%); symptomatic 80/104 (77%); incidental 24/104 (23%) (jarboa2024theclinicalpresentation pages 1-2)</td>
+<td>Abdominal pain 34/80 (42.5%); intestinal obstruction 20/80 (25%); bleeding per rectum 12/80 (15%); acute abdomen 9/80 (11.3%); intussusception 5/80 (6.2%) (jarboa2024theclinicalpresentation pages 1-2)</td>
+<td>Ectopic gastric mucosa 30/104 (28.8%); background review figures: gastric ~50%, pancreatic ~5% (jarboa2024theclinicalpresentation pages 1-2)</td>
+<td>Diagnostic workup used US, endoscopy/capsule, CT, MRI, enterography, Meckel scan; no sensitivity/specificity reported in snippet (jarboa2024theclinicalpresentation pages 1-2)</td>
+<td>Small bowel resection 41/91 (45.1%); stapled resection 44/91 (48.3%); ligation of base 6/91 (6.4%) (jarboa2024theclinicalpresentation pages 1-2)</td>
+<td>Authors state incidental resection did not increase morbidity; no numeric mortality in snippet (jarboa2024theclinicalpresentation pages 1-2)</td>
+</tr>
+<tr>
+<td>Hernández 2023, <em>Frontiers in Surgery</em></td>
+<td>Adult series; n=27</td>
+<td>Male 22/27 (81.4%); symptomatic group n=22 with 18 male and 4 female; mean diverticulum–ileocecal valve distance 63.4 cm (hernandez2023meckelsdiverticulumanalysis pages 2-4, hernandez2023meckelsdiverticulumanalysis pages 1-2)</td>
+<td>Abdominal pain 22/27 (85% in abstract; 22 cases in evidence table); vomiting 10/27; diarrhea 6/27; mechanisms: obstruction 13/27, inflammation 5/27, bleeding 3/27, perforation 1/27; 82% of symptomatic patients had ≥2 symptoms (hernandez2023meckelsdiverticulumanalysis pages 2-4, hernandez2023meckelsdiverticulumanalysis pages 1-2)</td>
+<td>Gastric ectopic mucosa 9/27; normal ileal mucosa 13/27 (hernandez2023meckelsdiverticulumanalysis pages 2-4)</td>
+<td>Positive perioperative 99mTc scan in 2/22 symptomatic patients (9%) (hernandez2023meckelsdiverticulumanalysis pages 2-4, hernandez2023meckelsdiverticulumanalysis pages 1-2)</td>
+<td>Totally laparoscopic 8/22; laparoscopic-assisted 8/22; laparotomy 6/22; diverticulectomy 6/27; small-bowel resection with end-to-end anastomosis 6/27; lateral-to-lateral anastomosis 15/27; incidental asymptomatic diverticula resected in 5 patients (hernandez2023meckelsdiverticulumanalysis pages 2-4, hernandez2023meckelsdiverticulumanalysis pages 1-2)</td>
+<td>Symptomatic group average hospital stay 7.3 days; no mortality figure in snippet (hernandez2023meckelsdiverticulumanalysis pages 1-2)</td>
+</tr>
+<tr>
+<td>Zvizdic 2025, <em>Pediatric Surgery International</em></td>
+<td>Pediatric symptomatic series; n=151</td>
+<td>Male 80.1%; median age 6.7 years (IQR 1.5–10.8); strong male predominance ~4:1 (zvizdic2025diverseclinicalfeatures pages 2-4)</td>
+<td>Intestinal obstruction 38.4%; GI bleeding 37.8%; peritonitis 23.8%; acute abdomen 62.3%; multiple symptoms 63.6%; obstruction due to intussusception 72.4%, with ileo-ileal invagination 64.3% of those (zvizdic2025diverseclinicalfeatures pages 2-4)</td>
+<td>Ectopic tissue 55.6%; gastric 48.3%; pancreatic 2.6%; both gastric and pancreatic 4.6% (zvizdic2025diverseclinicalfeatures pages 2-4)</td>
+<td>Tc-99m scan positive in 46/57 bleeding patients (80.7%); CT identified MD in 5/42 (11.9%); preoperative diagnosis in non-bleeding cases 3.2%; abdominal US detected no MD (0%) (zvizdic2025diverseclinicalfeatures pages 2-4)</td>
+<td>Laparotomy 72.2%; laparoscopy 23.2%; conversion 4.6%; segmental small-bowel resection with primary anastomosis 80.8%; diverticulectomy 19.2% (zvizdic2025diverseclinicalfeatures pages 2-4)</td>
+<td>Postoperative complications 5.3% in evidence summary / 3.2% in abstract text; no postoperative mortality; follow-up 3–12 years (zvizdic2025diverseclinicalfeatures pages 2-4)</td>
+</tr>
+<tr>
+<td>Kaka 2023, clinical cohort</td>
+<td>Pediatric series; n=25</td>
+<td>Mean age 4.604 ± 3.482 years (range 7 days–11 years); male 17/25 (68%), nearly 2:1 (kaka2023outcomesofdifferent pages 4-8)</td>
+<td>Vomiting 17/25 (68%); abdominal distention 16/25 (64%); rectal bleeding 14/25 (56%); abdominal pain 12/25 (48%) (kaka2023outcomesofdifferent pages 4-8)</td>
+<td>Isolated gastric mucosa 10/25 (40%); mixed gastric/pancreatic 7/25 (28%); isolated pancreatic 3/25 (12%); no ectopic mucosa 5/25 (20%) (kaka2023outcomesofdifferent pages 4-8)</td>
+<td>Preoperative diagnosis described as difficult; no scan sensitivity/specificity reported (kaka2023outcomesofdifferent pages 4-8)</td>
+<td>Emergency laparotomy 16/25 (64%); laparoscopy 9/25 (36%) (kaka2023outcomesofdifferent pages 4-8)</td>
+<td>No quantitative mortality/complication rate in snippet (kaka2023outcomesofdifferent pages 4-8)</td>
+</tr>
+<tr>
+<td>De Dyn 2023, <em>Acta Chirurgica Belgica</em></td>
+<td>Review/case-based adult-focused evidence</td>
+<td>Population prevalence 1–3%; symptomatic male:female 3:1; asymptomatic adults 1:1; typical adult location 60–90 cm from ileocecal valve (range 10–150 cm), neonates 30–50 cm (dyn2023mechanicalileusof pages 1-3)</td>
+<td>Common complications are hemorrhage and obstruction (dyn2023mechanicalileusof pages 1-3)</td>
+<td>Ectopic/dystopic mucosa 30–50%; gastric fundus/corpus 15.3%; antral/pyloric 3.06%; duodenal 4.08%; pancreatic 2.04%; mixed 3.06% (dyn2023mechanicalileusof pages 1-3)</td>
+<td>CT in reported case showed mechanical SBO with hyperdense lesion; no general sensitivity/specificity reported (dyn2023mechanicalileusof pages 1-3)</td>
+<td>Diagnostic/therapeutic laparoscopy used in reported case (dyn2023mechanicalileusof pages 1-3)</td>
+<td>One cited series reported complications in 41.5% of 3,032 surgically removed diverticula (dyn2023mechanicalileusof pages 1-3)</td>
+</tr>
+<tr>
+<td>Sagar 2021, <em>Journal of the Royal Society of Medicine</em></td>
+<td>Systematic review</td>
+<td>Present in 2–4% of population; most studies suggest incidence 0.6–4%; complications 3–4 times greater in males; historical complication rate 25%, more recent 4–16% (sagar2021meckelsdiverticuluma pages 1-2)</td>
+<td>Adult obstruction 14–53%; ulceration 54%; common presentations include bleeding, obstruction, intussusception, ulceration, diverticulitis, perforation (sagar2021meckelsdiverticuluma pages 1-2)</td>
+<td>NR quantitatively in snippet beyond relationship to ectopic gastric mucosa and bleeding (sagar2021meckelsdiverticuluma pages 1-2)</td>
+<td>Preoperative diagnosis improved with technetium-99m pertechnetate scan and diagnostic laparoscopy; no pooled sensitivity/specificity in snippet (sagar2021meckelsdiverticuluma pages 1-2)</td>
+<td>Narrow and long diverticula in young suggested for prophylactic excision in review snippet (sagar2021meckelsdiverticuluma pages 1-2)</td>
+<td>Complication rate range 4–16% in more recent literature (sagar2021meckelsdiverticuluma pages 1-2)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table compiles the main quantitative findings explicitly available from the retrieved evidence on Meckel diverticulum, including epidemiology, presentation patterns, ectopic mucosa frequencies, diagnostic yields, surgery, and outcomes. It is useful as a compact evidence summary for knowledge-base population and cross-study comparison.</em></p>
+<hr />
+<h2>Visual evidence (scintigraphy protocol update)</h2>
+<p>Önner et al. (2025) provide a graphical abstract and tabulated scan-quality outcomes comparing pantoprazole vs ranitidine premedication for pediatric Meckel scintigraphy; the retrieved figure/table images support equivalence in scan-quality categories used operationally in nuclear medicine protocols. (onner2025premedicationinpediatric media a6df16f3, onner2025premedicationinpediatric media 9c9d2a7f)</p>
+<p>References</p>
+<ol>
+<li>
+<p>(aboughalia2023meckeldiverticulumscintigraphy pages 1-3): Hassan A. Aboughalia, Safia H. E. Cheeney, Saeed Elojeimy, Lisa C. Blacklock, and Marguerite T. Parisi. Meckel diverticulum scintigraphy: technique, findings and diagnostic pitfalls. Pediatric Radiology, 53:493-508, Nov 2023. URL: https://doi.org/10.1007/s00247-022-05527-z, doi:10.1007/s00247-022-05527-z. This article has 21 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(hernandez2023meckelsdiverticulumanalysis pages 2-4): Juan David Hernández, Gustavo Valencia, Felipe Girón, Andrés Mauricio García Sierra, Ricardo E. Núñez-Rocha, Lina M. Rodríguez, Carlos Eduardo Rey Chaves, Eduardo Emilio Londoño, and Ricardo Nassar. Meckel's diverticulum: analysis of 27 cases in an adult population. Frontiers in Surgery, Dec 2023. URL: https://doi.org/10.3389/fsurg.2023.1327545, doi:10.3389/fsurg.2023.1327545. This article has 21 citations.</p>
+</li>
+<li>
+<p>(hernandez2023meckelsdiverticulumanalysis pages 1-2): Juan David Hernández, Gustavo Valencia, Felipe Girón, Andrés Mauricio García Sierra, Ricardo E. Núñez-Rocha, Lina M. Rodríguez, Carlos Eduardo Rey Chaves, Eduardo Emilio Londoño, and Ricardo Nassar. Meckel's diverticulum: analysis of 27 cases in an adult population. Frontiers in Surgery, Dec 2023. URL: https://doi.org/10.3389/fsurg.2023.1327545, doi:10.3389/fsurg.2023.1327545. This article has 21 citations.</p>
+</li>
+<li>
+<p>(jarboa2024theclinicalpresentation pages 1-2): Lutfi Jarboa, Ahmad Zarour, Sherif Mustafa, Salahaldeen Dawdi, Idress Suliman, Tejeswe Gutti, Salah Mansor, and Mohamed Said Ghali. The clinical presentation of meckel's diverticulum: eight years experience. Turkish journal of surgery, 40 4:343-348, Dec 2024. URL: https://doi.org/10.47717/turkjsurg.2024.6446, doi:10.47717/turkjsurg.2024.6446. This article has 4 citations.</p>
+</li>
+<li>
+<p>(onner2025premedicationinpediatric pages 1-3): Hasan Önner, Merve Ni̇da Calderon Tobar, Mehmet Sarıkaya, Fatma Özcan Sıkı, Fari̇se Yılmaz, Muslu Kazim Körez, and Gonca Kara Gedi̇k. Premedication in pediatric meckel scintigraphy: pantoprazole versus ranitidine for optimizing scan quality. Pediatric Radiology, 55:1713-1718, Jun 2025. URL: https://doi.org/10.1007/s00247-025-06284-5, doi:10.1007/s00247-025-06284-5. This article has 1 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(onner2025premedicationinpediatric pages 3-4): Hasan Önner, Merve Ni̇da Calderon Tobar, Mehmet Sarıkaya, Fatma Özcan Sıkı, Fari̇se Yılmaz, Muslu Kazim Körez, and Gonca Kara Gedi̇k. Premedication in pediatric meckel scintigraphy: pantoprazole versus ranitidine for optimizing scan quality. Pediatric Radiology, 55:1713-1718, Jun 2025. URL: https://doi.org/10.1007/s00247-025-06284-5, doi:10.1007/s00247-025-06284-5. This article has 1 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(onner2025premedicationinpediatric pages 4-6): Hasan Önner, Merve Ni̇da Calderon Tobar, Mehmet Sarıkaya, Fatma Özcan Sıkı, Fari̇se Yılmaz, Muslu Kazim Körez, and Gonca Kara Gedi̇k. Premedication in pediatric meckel scintigraphy: pantoprazole versus ranitidine for optimizing scan quality. Pediatric Radiology, 55:1713-1718, Jun 2025. URL: https://doi.org/10.1007/s00247-025-06284-5, doi:10.1007/s00247-025-06284-5. This article has 1 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(onner2025premedicationinpediatric media a6df16f3): Hasan Önner, Merve Ni̇da Calderon Tobar, Mehmet Sarıkaya, Fatma Özcan Sıkı, Fari̇se Yılmaz, Muslu Kazim Körez, and Gonca Kara Gedi̇k. Premedication in pediatric meckel scintigraphy: pantoprazole versus ranitidine for optimizing scan quality. Pediatric Radiology, 55:1713-1718, Jun 2025. URL: https://doi.org/10.1007/s00247-025-06284-5, doi:10.1007/s00247-025-06284-5. This article has 1 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(onner2025premedicationinpediatric media 9c9d2a7f): Hasan Önner, Merve Ni̇da Calderon Tobar, Mehmet Sarıkaya, Fatma Özcan Sıkı, Fari̇se Yılmaz, Muslu Kazim Körez, and Gonca Kara Gedi̇k. Premedication in pediatric meckel scintigraphy: pantoprazole versus ranitidine for optimizing scan quality. Pediatric Radiology, 55:1713-1718, Jun 2025. URL: https://doi.org/10.1007/s00247-025-06284-5, doi:10.1007/s00247-025-06284-5. This article has 1 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(zvizdic2025diverseclinicalfeatures pages 2-4): Zlatan Zvizdic, Blagoje Grujic, Asmir Jonuzi, Edin Husaric, Vlatka Martinovic, Aleksandar Brkovic, Nikola Rakocevic, Amir Halilbasic, Valentina Lasic, Denis Pasalic, Emir Begagic, and Semir Vranic. Diverse clinical features of symptomatic meckel’s diverticulum: a multicenter study of 151 consecutive pediatric patients from the western balkans. Pediatric Surgery International, Oct 2025. URL: https://doi.org/10.1007/s00383-025-06197-2, doi:10.1007/s00383-025-06197-2. This article has 4 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(dyn2023mechanicalileusof pages 1-3): Stephan De Dyn, Ilhan Demirci, Andreas Prescher, Andreas Kopp, Bernd Klosterhalfen, and Hermann Janßen. Mechanical ileus of the small bowel due to an inflamed meckel’s diverticulum with an enterolith – a case report with literature review. Acta Chirurgica Belgica, 123:699-706, Oct 2023. URL: https://doi.org/10.1080/00015458.2022.2136047, doi:10.1080/00015458.2022.2136047. This article has 1 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(kaka2023outcomesofdifferent pages 4-8): WAB Kaka and SY Salim. Outcomes of different presentations of complicated meckel's diverticulum in children. Unknown journal, 2023.</p>
+</li>
+<li>
+<p>(sagar2021meckelsdiverticuluma pages 1-2): J. Sagar, Vikas Kumar, and D. Shah. Meckel's diverticulum: a systematic review. Journal of the Royal Society of Medicine, 99:501-505, Oct 2021. URL: https://doi.org/10.1177/014107680609901011, doi:10.1177/014107680609901011. This article has 536 citations and is from a peer-reviewed journal.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </div>
         
 
         <footer class="page-footer">
@@ -3838,7 +4818,7 @@ treatments:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Meckel Diverticulum", "mondoId": "MONDO:0007955", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Meckel_Diverticulum", "yamlRevision": "be39fa1ed612"};
+        const OS_CONFIG = {"diseaseName": "Meckel Diverticulum", "mondoId": "MONDO:0007955", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Meckel_Diverticulum", "yamlRevision": "6b1a3c89bead"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

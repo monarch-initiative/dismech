@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,7 +2570,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 17</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Organic Acidemia</span>
@@ -2577,7 +2730,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">10</div>
+                <div class="stat-value">17</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -2954,10 +3107,21 @@
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Mitochondrial bioenergetic dysfunction and oxidative stress</span>
 	                            
+	                            <span class="crosslink-desc">D-2-HGDH impairment causes D-2-HG accumulation, which is linked to downstream cellular and organ pathology.</span>
+	                            
 	                        </div>
 	                        
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Epigenetic dysregulation via alpha-KG-dependent dioxygenase inhibition</span>
+	                            
+	                            <span class="crosslink-desc">Accumulated D-2-HG can act as an alpha-KG antagonist and inhibit alpha-KG-dependent dioxygenases.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">D-2-Hydroxyglutarate</span>
+	                            
+	                            <span class="crosslink-desc">Impaired D-2-HG clearance produces the diagnostic increase in D-2-hydroxyglutarate in body fluids.</span>
 	                            
 	                        </div>
 	                        
@@ -3179,10 +3343,21 @@
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Mitochondrial bioenergetic dysfunction and oxidative stress</span>
 	                            
+	                            <span class="crosslink-desc">IDH2-driven 2HG overproduction causes multisystem pathology that is reversible with mutant IDH2 inhibition in a type II model.</span>
+	                            
 	                        </div>
 	                        
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Epigenetic dysregulation via alpha-KG-dependent dioxygenase inhibition</span>
+	                            
+	                            <span class="crosslink-desc">IDH2 neomorphic production of D-2-HG provides the alpha-KG antagonist that can inhibit dioxygenases.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">D-2-Hydroxyglutarate</span>
+	                            
+	                            <span class="crosslink-desc">Neomorphic IDH2 activity produces the diagnostic D-2-HG excess in D-2-HGA type II.</span>
 	                            
 	                        </div>
 	                        
@@ -3339,6 +3514,48 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Dilated cardiomyopathy</span>
+	                            
+	                            <span class="crosslink-desc">Elevated 2HG-driven cellular pathology affects cardiomyocytes and can produce cardiomyopathy, especially in type II disease.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Epilepsy</span>
+	                            
+	                            <span class="crosslink-desc">D-2-HGA-associated neurometabolic dysfunction manifests with seizures.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Global developmental delay</span>
+	                            
+	                            <span class="crosslink-desc">D-2-HGA-associated neurometabolic dysfunction commonly causes developmental delay.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Muscular hypotonia</span>
+	                            
+	                            <span class="crosslink-desc">D-2-HGA-associated neurometabolic dysfunction commonly manifests as hypotonia.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cerebral white matter abnormalities</span>
+	                            
+	                            <span class="crosslink-desc">D-2-HGA-associated neurometabolic pathology includes multifocal cerebral white matter abnormalities.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
@@ -3473,7 +3690,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -3494,6 +3711,26 @@
                 
                 
                 <div class="evidence-explanation">Motivates investigation of D-2-HG role in epigenetic dysregulation; the mechanism is well-established in cancer but the snippet is aspirational rather than demonstrative.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21251613" target="_blank">PMID:21251613</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Here we demonstrate that 2-HG is a competitive inhibitor of multiple α-KG-dependent dioxygenases, including histone demethylases and the TET family of 5-methlycytosine (5mC) hydroxylases."</div>
+                
+                
+                <div class="evidence-explanation">Provides direct mechanistic evidence that 2-HG inhibits the alpha-KG-dependent dioxygenases represented by this node.</div>
                 
             </div>
             
@@ -3529,7 +3766,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"D2HGDH deficiency (type I)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"variant_count\": 1}}, {\"id\": \"D2HGDH molecular function deficiency (type I)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In D-2-HGA type I, autosomal recessive D2HGDH loss-of-function variants reduce mitochondrial D-2-hydroxyglutarate dehydrogenase catalytic activity.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"molecular_functions\": [\"catalytic activity\"], \"genes\": [\"D2HGDH\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Epigenetic dysregulation via alpha-KG-dependent dioxygenase inhibition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"D-2-HG competitively inhibits alpha-ketoglutarate/Fe(II)-dependent dioxygenases, including histone and DNA demethylases (TET family enzymes and Jumonji-domain histone demethylases). This creates aberrant epigenetic modifications including DNA and histone hypermethylation, which may contribute to transcriptional dysregulation and the neurodevelopmental phenotype. This mechanism is shared with IDH-mutant cancers.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"DNA demethylation\"], \"molecular_functions\": [\"histone demethylase activity\"], \"locations\": [\"nucleus\"]}}, {\"id\": \"IDH2 Arg140 substitutions\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Heterozygous mutations at Arg140 of IDH2 confer neomorphic enzymatic activity converting alpha-ketoglutarate to D-2-HG. Mosaicism for IDH2 mutations has also been reported.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"IDH2 gain-of-function mutations (type II)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"variant_count\": 1}}, {\"id\": \"IDH2 neomorphic molecular function gain (type II)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In D-2-HGA type II, heterozygous IDH2 gain-of-function variants (typically at Arg140) confer neomorphic catalytic activity.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"molecular_functions\": [\"catalytic activity\"], \"genes\": [\"IDH2\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Impaired D-2-hydroxyglutarate clearance (type I)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced D2HGDH activity impairs oxidation of D-2-HG back to alpha-ketoglutarate, causing progressive accumulation of D-2-HG in urine, plasma, and CSF.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"dicarboxylic acid metabolic process\"]}}, {\"id\": \"Mitochondrial bioenergetic dysfunction and oxidative stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated D-2-HG perturbs mitochondrial energy metabolism and redox homeostasis in both subtypes. The structural similarity of D-2-HG to alpha-ketoglutarate allows it to interfere with TCA cycle enzymes and mitochondrial respiratory chain function, leading to impaired energy production and increased oxidative stress, particularly affecting neurons and cardiomyocytes.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\", \"cardiac muscle cell\"], \"biological_processes\": [\"response to oxidative stress\", \"oxidative phosphorylation\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Neomorphic IDH2-driven D-2-HG overproduction (type II)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IDH2 neomorphic activity converts alpha-ketoglutarate to D-2-HG using NADPH, producing substantially higher D-2-HG levels than type I.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"tricarboxylic acid cycle\"]}}, {\"id\": \"Various D2HGDH pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Multiple pathogenic variants including missense, splice-site, and null alleles have been identified. Examples include p.Val444Ala, p.Ile147Ser, and IVS1-23A\u003eG. Mutations lead to marked reduction of D-2-hydroxyglutarate dehydrogenase activity.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"D2HGDH molecular function deficiency (type I)\", \"target\": \"Impaired D-2-hydroxyglutarate clearance (type I)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired D-2-hydroxyglutarate clearance (type I)\", \"target\": \"Mitochondrial bioenergetic dysfunction and oxidative stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired D-2-hydroxyglutarate clearance (type I)\", \"target\": \"Epigenetic dysregulation via alpha-KG-dependent dioxygenase inhibition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"IDH2 neomorphic molecular function gain (type II)\", \"target\": \"Neomorphic IDH2-driven D-2-HG overproduction (type II)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neomorphic IDH2-driven D-2-HG overproduction (type II)\", \"target\": \"Mitochondrial bioenergetic dysfunction and oxidative stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neomorphic IDH2-driven D-2-HG overproduction (type II)\", \"target\": \"Epigenetic dysregulation via alpha-KG-dependent dioxygenase inhibition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Various D2HGDH pathogenic variants\", \"target\": \"D2HGDH deficiency (type I)\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"IDH2 Arg140 substitutions\", \"target\": \"IDH2 gain-of-function mutations (type II)\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cerebral white matter abnormalities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"White matter abnormalities on brain MRI are frequently observed in D-2-HGA, reflecting impaired myelination and/or demyelination related to chronic metabolite toxicity.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002500\"}}, {\"id\": \"D-2-Hydroxyglutarate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:15801\", \"term_label\": \"(R)-2-hydroxyglutarate(2-)\"}}, {\"id\": \"D2HGDH deficiency (type I)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"D2HGDH\"], \"variant_count\": 1}}, {\"id\": \"D2HGDH molecular function deficiency (type I)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In D-2-HGA type I, autosomal recessive D2HGDH loss-of-function variants reduce mitochondrial D-2-hydroxyglutarate dehydrogenase catalytic activity.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"molecular_functions\": [\"catalytic activity\"], \"genes\": [\"D2HGDH\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Dilated cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiomyopathy, particularly dilated cardiomyopathy, is a distinguishing feature of D-2-HGA type II. It is attributed to the high mitochondrial dependence of cardiomyocytes and the higher D-2-HG burden in type II. Cardiomyopathy can be life-threatening and is a major driver of morbidity and mortality.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001644\"}}, {\"id\": \"Enasidenib (mutant IDH2 inhibitor)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Enasidenib is a selective mutant IDH2 enzyme inhibitor originally developed for IDH2-mutant acute myeloid leukemia, now being repurposed for D-2-HGA type II. In two children with D-2-HGA type II, enasidenib normalized D-2-HG concentrations in body fluids, improved cardiac function in the child with cardiomyopathy, and was associated with improved daily functioning and social interactions.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Epigenetic dysregulation via alpha-KG-dependent dioxygenase inhibition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"D-2-HG competitively inhibits alpha-ketoglutarate/Fe(II)-dependent dioxygenases, including histone and DNA demethylases (TET family enzymes and Jumonji-domain histone demethylases). This creates aberrant epigenetic modifications including DNA and histone hypermethylation, which may contribute to transcriptional dysregulation and the neurodevelopmental phenotype. This mechanism is shared with IDH-mutant cancers.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"DNA demethylation\"], \"molecular_functions\": [\"histone demethylase activity\"], \"locations\": [\"nucleus\"]}}, {\"id\": \"Epilepsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are a hallmark feature of D-2-HGA, occurring in both subtypes. Multiple seizure types are reported, likely related to D-2-HG-mediated disruption of GABA/glutamate balance and NMDA receptor activation.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Psychomotor retardation and global developmental delay are the most consistent clinical features across both D-2-HGA subtypes, reflecting chronic neuronal vulnerability under mitochondrial and neurotransmitter stress from D-2-HG accumulation.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"IDH2 Arg140 substitutions\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Heterozygous mutations at Arg140 of IDH2 confer neomorphic enzymatic activity converting alpha-ketoglutarate to D-2-HG. Mosaicism for IDH2 mutations has also been reported.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"IDH2 gain-of-function mutations (type II)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"IDH2\"], \"variant_count\": 1}}, {\"id\": \"IDH2 neomorphic molecular function gain (type II)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In D-2-HGA type II, heterozygous IDH2 gain-of-function variants (typically at Arg140) confer neomorphic catalytic activity.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"molecular_functions\": [\"catalytic activity\"], \"genes\": [\"IDH2\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Impaired D-2-hydroxyglutarate clearance (type I)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced D2HGDH activity impairs oxidation of D-2-HG back to alpha-ketoglutarate, causing progressive accumulation of D-2-HG in urine, plasma, and CSF.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"dicarboxylic acid metabolic process\"]}}, {\"id\": \"Mitochondrial bioenergetic dysfunction and oxidative stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated D-2-HG perturbs mitochondrial energy metabolism and redox homeostasis in both subtypes. The structural similarity of D-2-HG to alpha-ketoglutarate allows it to interfere with TCA cycle enzymes and mitochondrial respiratory chain function, leading to impaired energy production and increased oxidative stress, particularly affecting neurons and cardiomyocytes.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\", \"cardiac muscle cell\"], \"biological_processes\": [\"response to oxidative stress\", \"oxidative phosphorylation\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Muscular hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is one of the most common neurological findings in D-2-HGA, present in both type I and type II, reflecting generalized neurological impairment.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Neomorphic IDH2-driven D-2-HG overproduction (type II)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IDH2 neomorphic activity converts alpha-ketoglutarate to D-2-HG using NADPH, producing substantially higher D-2-HG levels than type I.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"tricarboxylic acid cycle\"]}}, {\"id\": \"Various D2HGDH pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Multiple pathogenic variants including missense, splice-site, and null alleles have been identified. Examples include p.Val444Ala, p.Ile147Ser, and IVS1-23A\u003eG. Mutations lead to marked reduction of D-2-hydroxyglutarate dehydrogenase activity.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"D2HGDH molecular function deficiency (type I)\", \"target\": \"Impaired D-2-hydroxyglutarate clearance (type I)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired D-2-hydroxyglutarate clearance (type I)\", \"target\": \"Mitochondrial bioenergetic dysfunction and oxidative stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired D-2-hydroxyglutarate clearance (type I)\", \"target\": \"Epigenetic dysregulation via alpha-KG-dependent dioxygenase inhibition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired D-2-hydroxyglutarate clearance (type I)\", \"target\": \"D-2-Hydroxyglutarate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"IDH2 neomorphic molecular function gain (type II)\", \"target\": \"Neomorphic IDH2-driven D-2-HG overproduction (type II)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neomorphic IDH2-driven D-2-HG overproduction (type II)\", \"target\": \"Mitochondrial bioenergetic dysfunction and oxidative stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neomorphic IDH2-driven D-2-HG overproduction (type II)\", \"target\": \"Epigenetic dysregulation via alpha-KG-dependent dioxygenase inhibition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neomorphic IDH2-driven D-2-HG overproduction (type II)\", \"target\": \"D-2-Hydroxyglutarate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial bioenergetic dysfunction and oxidative stress\", \"target\": \"Dilated cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial bioenergetic dysfunction and oxidative stress\", \"target\": \"Epilepsy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial bioenergetic dysfunction and oxidative stress\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial bioenergetic dysfunction and oxidative stress\", \"target\": \"Muscular hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial bioenergetic dysfunction and oxidative stress\", \"target\": \"Cerebral white matter abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Enasidenib (mutant IDH2 inhibitor)\", \"target\": \"Neomorphic IDH2-driven D-2-HG overproduction (type II)\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"D2HGDH deficiency (type I)\", \"target\": \"D2HGDH molecular function deficiency (type I)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IDH2 gain-of-function mutations (type II)\", \"target\": \"IDH2 neomorphic molecular function gain (type II)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Various D2HGDH pathogenic variants\", \"target\": \"D2HGDH deficiency (type I)\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"IDH2 Arg140 substitutions\", \"target\": \"IDH2 gain-of-function mutations (type II)\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4433,6 +4670,74 @@
 </div>
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Neomorphic IDH2-driven D-2-HG overproduction (type II)</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Enasidenib inhibits mutant IDH2-driven D-2-HG production in type II disease.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37248298" target="_blank">PMID:37248298</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"In both children, enasidenib treatment led to normalization of D-2-hydroxyglutarate (D-2-HG) concentrations in body fluids."</div>
+                
+                
+                <div class="evidence-explanation">Human treatment data support enasidenib inhibition of the D-2-HG overproduction mechanism.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27469509" target="_blank">PMID:27469509</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"AGI-026, a potent, selective inhibitor of the human IDH2R140Q-mutant enzyme, suppressed 2HG production, rescued cardiomyopathy, and provided a survival benefit in Idh2R140Q mice; treatment withdrawal resulted in deterioration of cardiac function."</div>
+                
+                
+                <div class="evidence-explanation">The type II mouse model supports mutant IDH2 inhibition as the mechanism for lowering 2HG.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
+                
                 
                 
                 
@@ -5007,6 +5312,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5073,6 +5379,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5119,6 +5426,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5163,6 +5471,7 @@
                 
                 <div class="item-desc">Context: Altered serum phospholipid levels have been identified in D-2-HGA type II patients treated with enasidenib, suggesting lipid metabolism perturbation as part of the disease mechanism. Therapy-coordinated changes in phospholipid levels were observed.
 </div>
+                
                 
                 
     
@@ -5231,7 +5540,7 @@
                 <pre class="yaml-preview">name: D-2-Hydroxyglutaric Aciduria
 category: Mendelian
 creation_date: &#39;2025-06-12T20:16:27Z&#39;
-updated_date: &#39;2026-04-22T20:13:21Z&#39;
+updated_date: &#39;2026-05-10T07:13:21Z&#39;
 synonyms:
 - D-2-HGA
 - D2HGA
@@ -5328,6 +5637,14 @@ pathophysiology:
   downstream:
   - target: Impaired D-2-hydroxyglutarate clearance (type I)
     description: Reduced D2HGDH activity decreases oxidation of D-2-HG to alpha-ketoglutarate.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:15609246
+      reference_title: &#34;Mutations in the D-2-hydroxyglutarate dehydrogenase gene cause D-2-hydroxyglutaric aciduria.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: Overexpression studies in HEK-293 cells of proteins containing the missense mutations showed a marked reduction of d-2-hydroxyglutarate dehydrogenase activity, proving that mutations in the d-2-hydroxyglutarate dehydrogenase gene cause d-2-hydroxyglutaric aciduria.
+      explanation: Functional overexpression studies directly link D2HGDH mutations to reduced D-2-HG dehydrogenase activity.
 - name: Impaired D-2-hydroxyglutarate clearance (type I)
   description: &#39;Reduced D2HGDH activity impairs oxidation of D-2-HG back to alpha-ketoglutarate, causing progressive accumulation of D-2-HG in urine, plasma, and CSF.
 
@@ -5346,7 +5663,52 @@ pathophysiology:
     explanation: Confirms D-2-HG accumulation as the downstream biochemical hallmark.
   downstream:
   - target: Mitochondrial bioenergetic dysfunction and oxidative stress
+    description: D-2-HGDH impairment causes D-2-HG accumulation, which is linked to downstream cellular and organ pathology.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - D-2-HG accumulation
+    evidence:
+    - reference: PMID:22391998
+      reference_title: &#34;Progress in understanding 2-hydroxyglutaric acidurias.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Both gene defects lead to supraphysiological accumulation of D-2-HG in urine, plasma and CSF, representing the biochemical hallmarks of the diseases.
+      explanation: Review of D-2-HGA types I and II supports D-2-HG accumulation as the shared biochemical intermediate.
+    - reference: PMID:27469509
+      reference_title: &#34;A small molecule inhibitor of mutant IDH2 rescues cardiomyopathy in a D-2-hydroxyglutaric aciduria type II mouse model.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: Idh2R140Q mice displayed significantly elevated 2HG levels and recapitulated multiple defects seen in patients.
+      explanation: Mouse-model data support elevated 2HG as sufficient to reproduce disease-relevant defects.
   - target: Epigenetic dysregulation via alpha-KG-dependent dioxygenase inhibition
+    description: Accumulated D-2-HG can act as an alpha-KG antagonist and inhibit alpha-KG-dependent dioxygenases.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - D-2-HG accumulation
+    - alpha-KG antagonism
+    evidence:
+    - reference: PMID:22391998
+      reference_title: &#34;Progress in understanding 2-hydroxyglutaric acidurias.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Both gene defects lead to supraphysiological accumulation of D-2-HG in urine, plasma and CSF, representing the biochemical hallmarks of the diseases.
+      explanation: The D-2-HGA review supports D-2-HG accumulation as the upstream metabolic intermediate.
+    - reference: PMID:21251613
+      reference_title: Oncometabolite 2-hydroxyglutarate is a competitive inhibitor of alpha-ketoglutarate-dependent dioxygenases.
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: Here we demonstrate that 2-HG is a competitive inhibitor of multiple α-KG-dependent dioxygenases, including histone demethylases and the TET family of 5-methlycytosine (5mC) hydroxylases.
+      explanation: Mechanistic cancer-cell and biochemical data support the D-2-HG alpha-KG-dependent dioxygenase inhibition mechanism.
+  - target: D-2-Hydroxyglutarate
+    description: Impaired D-2-HG clearance produces the diagnostic increase in D-2-hydroxyglutarate in body fluids.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:22391998
+      reference_title: &#34;Progress in understanding 2-hydroxyglutaric acidurias.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Both gene defects lead to supraphysiological accumulation of D-2-HG in urine, plasma and CSF, representing the biochemical hallmarks of the diseases.
+      explanation: The review directly supports increased D-2-HG as the biochemical endpoint of impaired clearance.
 - name: IDH2 neomorphic molecular function gain (type II)
   description: &#39;In D-2-HGA type II, heterozygous IDH2 gain-of-function variants (typically at Arg140) confer neomorphic catalytic activity.
 
@@ -5378,6 +5740,14 @@ pathophysiology:
   downstream:
   - target: Neomorphic IDH2-driven D-2-HG overproduction (type II)
     description: Mutant IDH2 directly generates D-2-HG from 2-ketoglutarate.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:20847235
+      reference_title: &#34;IDH2 mutations in patients with D-2-hydroxyglutaric aciduria.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#39;These mutations disable the enzymes&#39;&#39; normal ability to convert isocitrate to 2-ketoglutarate (2-KG) and confer on the enzymes a new function: the ability to convert 2-KG to d-2-hydroxyglutarate (D-2-HG).&#39;
+      explanation: The IDH2 patient report directly states the neomorphic conversion of 2-KG to D-2-HG.
 - name: Neomorphic IDH2-driven D-2-HG overproduction (type II)
   description: &#39;IDH2 neomorphic activity converts alpha-ketoglutarate to D-2-HG using NADPH, producing substantially higher D-2-HG levels than type I.
 
@@ -5396,7 +5766,47 @@ pathophysiology:
     explanation: Confirms pathogenic IDH2 Arg140 variants driving type II D-2-HGA.
   downstream:
   - target: Mitochondrial bioenergetic dysfunction and oxidative stress
+    description: IDH2-driven 2HG overproduction causes multisystem pathology that is reversible with mutant IDH2 inhibition in a type II model.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:27469509
+      reference_title: &#34;A small molecule inhibitor of mutant IDH2 rescues cardiomyopathy in a D-2-hydroxyglutaric aciduria type II mouse model.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: Idh2R140Q mice displayed significantly elevated 2HG levels and recapitulated multiple defects seen in patients.
+      explanation: The type II mouse model links IDH2-driven 2HG elevation to disease-relevant defects.
+    - reference: PMID:27469509
+      reference_title: &#34;A small molecule inhibitor of mutant IDH2 rescues cardiomyopathy in a D-2-hydroxyglutaric aciduria type II mouse model.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: AGI-026, a potent, selective inhibitor of the human IDH2R140Q-mutant enzyme, suppressed 2HG production, rescued cardiomyopathy, and provided a survival benefit in Idh2R140Q mice; treatment withdrawal resulted in deterioration of cardiac function.
+      explanation: Rescue by mutant IDH2 inhibition supports overproduced 2HG as a causal driver of downstream pathology.
   - target: Epigenetic dysregulation via alpha-KG-dependent dioxygenase inhibition
+    description: IDH2 neomorphic production of D-2-HG provides the alpha-KG antagonist that can inhibit dioxygenases.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:20847235
+      reference_title: &#34;IDH2 mutations in patients with D-2-hydroxyglutaric aciduria.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#39;These mutations disable the enzymes&#39;&#39; normal ability to convert isocitrate to 2-ketoglutarate (2-KG) and confer on the enzymes a new function: the ability to convert 2-KG to d-2-hydroxyglutarate (D-2-HG).&#39;
+      explanation: The IDH2 patient report supports D-2-HG production from mutant IDH2 as the upstream event.
+    - reference: PMID:21251613
+      reference_title: Oncometabolite 2-hydroxyglutarate is a competitive inhibitor of alpha-ketoglutarate-dependent dioxygenases.
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: Here we demonstrate that 2-HG is a competitive inhibitor of multiple α-KG-dependent dioxygenases, including histone demethylases and the TET family of 5-methlycytosine (5mC) hydroxylases.
+      explanation: Mechanistic data show that 2-HG inhibits the alpha-KG-dependent dioxygenases named in this mechanism.
+  - target: D-2-Hydroxyglutarate
+    description: Neomorphic IDH2 activity produces the diagnostic D-2-HG excess in D-2-HGA type II.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:20847235
+      reference_title: &#34;IDH2 mutations in patients with D-2-hydroxyglutaric aciduria.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: We have detected heterozygous germline mutations in IDH2 that alter enzyme residue Arg(140) in 15 unrelated patients with d-2-hydroxyglutaric aciduria (D-2-HGA), a rare neurometabolic disorder characterized by supraphysiological levels of D-2-HG.
+      explanation: The IDH2 cohort directly links IDH2 Arg140 mutations with supraphysiological D-2-HG levels.
 - name: Mitochondrial bioenergetic dysfunction and oxidative stress
   description: &#39;Elevated D-2-HG perturbs mitochondrial energy metabolism and redox homeostasis in both subtypes. The structural similarity of D-2-HG to alpha-ketoglutarate allows it to interfere with TCA cycle enzymes and mitochondrial respiratory chain function, leading to impaired energy production and increased oxidative stress, particularly affecting neurons and cardiomyocytes.
 
@@ -5437,6 +5847,66 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: The current review describes the knowledge gathered on 2-hydroxyglutaric acidurias (2-HGA), since the description of the first patients in 1980.
     explanation: Foundational review supporting mitochondrial dysfunction as a core mechanism.
+  downstream:
+  - target: Dilated cardiomyopathy
+    description: Elevated 2HG-driven cellular pathology affects cardiomyocytes and can produce cardiomyopathy, especially in type II disease.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - elevated 2HG
+    - cardiomyocyte dysfunction
+    evidence:
+    - reference: PMID:27469509
+      reference_title: &#34;A small molecule inhibitor of mutant IDH2 rescues cardiomyopathy in a D-2-hydroxyglutaric aciduria type II mouse model.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: AGI-026, a potent, selective inhibitor of the human IDH2R140Q-mutant enzyme, suppressed 2HG production, rescued cardiomyopathy, and provided a survival benefit in Idh2R140Q mice; treatment withdrawal resulted in deterioration of cardiac function.
+      explanation: Reversal of cardiomyopathy by lowering 2HG supports this downstream phenotype link.
+    - reference: PMID:37248298
+      reference_title: &#34;Enasidenib treatment in two individuals with D-2-hydroxyglutaric aciduria carrying a germline IDH2 mutation.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: For the child with cardiomyopathy, chronic D-2-HG inhibition was associated with improved cardiac function, and for both children, therapy was associated with improved daily functioning, global motility and social interactions.
+      explanation: Human enasidenib treatment supports cardiomyopathy as a D-2-HG-responsive downstream phenotype.
+  - target: Epilepsy
+    description: D-2-HGA-associated neurometabolic dysfunction manifests with seizures.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:22391998
+      reference_title: &#34;Progress in understanding 2-hydroxyglutaric acidurias.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Cardinal clinical manifestations for both disorders include developmental delay, hypotonia and seizures, although seizures occur with higher frequency in type II patients
+      explanation: Clinical questionnaire data support seizures downstream of the shared D-2-HGA disease process.
+  - target: Global developmental delay
+    description: D-2-HGA-associated neurometabolic dysfunction commonly causes developmental delay.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:22391998
+      reference_title: &#34;Progress in understanding 2-hydroxyglutaric acidurias.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Cardinal clinical manifestations for both disorders include developmental delay, hypotonia and seizures, although seizures occur with higher frequency in type II patients
+      explanation: Clinical questionnaire data support developmental delay downstream of the shared D-2-HGA disease process.
+  - target: Muscular hypotonia
+    description: D-2-HGA-associated neurometabolic dysfunction commonly manifests as hypotonia.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:22391998
+      reference_title: &#34;Progress in understanding 2-hydroxyglutaric acidurias.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Cardinal clinical manifestations for both disorders include developmental delay, hypotonia and seizures, although seizures occur with higher frequency in type II patients
+      explanation: Clinical questionnaire data support hypotonia downstream of the shared D-2-HGA disease process.
+  - target: Cerebral white matter abnormalities
+    description: D-2-HGA-associated neurometabolic pathology includes multifocal cerebral white matter abnormalities.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:22391998
+      reference_title: &#34;Progress in understanding 2-hydroxyglutaric acidurias.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Neuroimaging performed in D-2-HGA patients was predominantly instituted prior to knowledge of the underlying molecular defects. The clinical features in these undifferentiated patients included enlargement of the lateral ventricles, enlarged frontal subarachnoid spaces, subdural effusions, subependymal pseudocysts, signs of delayed cerebral maturation and multifocal cerebral white-matter abnormalities
+      explanation: The review directly documents white matter abnormalities in D-2-HGA patients, although the exact cellular-to-imaging intermediates remain unresolved.
 - name: Epigenetic dysregulation via alpha-KG-dependent dioxygenase inhibition
   description: &#39;D-2-HG competitively inhibits alpha-ketoglutarate/Fe(II)-dependent dioxygenases, including histone and DNA demethylases (TET family enzymes and Jumonji-domain histone demethylases). This creates aberrant epigenetic modifications including DNA and histone hypermethylation, which may contribute to transcriptional dysregulation and the neurodevelopmental phenotype. This mechanism is shared with IDH-mutant cancers.
 
@@ -5463,6 +5933,12 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: These findings provide additional impetus for investigating the role of D-2-HG in the pathophysiology of metabolic disease and cancer.
     explanation: Motivates investigation of D-2-HG role in epigenetic dysregulation; the mechanism is well-established in cancer but the snippet is aspirational rather than demonstrative.
+  - reference: PMID:21251613
+    reference_title: Oncometabolite 2-hydroxyglutarate is a competitive inhibitor of alpha-ketoglutarate-dependent dioxygenases.
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: Here we demonstrate that 2-HG is a competitive inhibitor of multiple α-KG-dependent dioxygenases, including histone demethylases and the TET family of 5-methlycytosine (5mC) hydroxylases.
+    explanation: Provides direct mechanistic evidence that 2-HG inhibits the alpha-KG-dependent dioxygenases represented by this node.
 phenotypes:
 - name: Epilepsy
   frequency: VERY_FREQUENT
@@ -5719,6 +6195,11 @@ biochemical:
     explanation: Documents altered phospholipid levels as a disease-relevant biomarker that responds to targeted therapy.
 genetic:
 - name: D2HGDH deficiency (type I)
+  gene_term:
+    preferred_term: D2HGDH
+    term:
+      id: hgnc:28358
+      label: D2HGDH
   inheritance:
   - name: Autosomal recessive
     evidence:
@@ -5751,6 +6232,11 @@ genetic:
     snippet: Presumed pathogenic mutations were detected in 24 of 50 patients in the D-2-hydroxyglutarate dehydrogenase (D2HGDH) gene, which encodes D-2-hydroxyglutarate dehydrogenase (D-2-HGDH). Enzyme assay of D-2-HGDH confirmed that all patients with mutations had impaired enzyme activity
     explanation: Confirms D2HGDH mutations as causal with functional enzyme assay validation.
 - name: IDH2 gain-of-function mutations (type II)
+  gene_term:
+    preferred_term: IDH2
+    term:
+      id: hgnc:5383
+      label: IDH2
   inheritance:
   - name: Autosomal dominant (de novo)
     evidence:
@@ -5804,6 +6290,23 @@ treatments:
     term:
       id: NCIT:C93352
       label: Targeted Therapy
+  target_mechanisms:
+  - target: Neomorphic IDH2-driven D-2-HG overproduction (type II)
+    treatment_effect: INHIBITS
+    description: Enasidenib inhibits mutant IDH2-driven D-2-HG production in type II disease.
+    evidence:
+    - reference: PMID:37248298
+      reference_title: &#34;Enasidenib treatment in two individuals with D-2-hydroxyglutaric aciduria carrying a germline IDH2 mutation.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: In both children, enasidenib treatment led to normalization of D-2-hydroxyglutarate (D-2-HG) concentrations in body fluids.
+      explanation: Human treatment data support enasidenib inhibition of the D-2-HG overproduction mechanism.
+    - reference: PMID:27469509
+      reference_title: &#34;A small molecule inhibitor of mutant IDH2 rescues cardiomyopathy in a D-2-hydroxyglutaric aciduria type II mouse model.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: AGI-026, a potent, selective inhibitor of the human IDH2R140Q-mutant enzyme, suppressed 2HG production, rescued cardiomyopathy, and provided a survival benefit in Idh2R140Q mice; treatment withdrawal resulted in deterioration of cardiac function.
+      explanation: The type II mouse model supports mutant IDH2 inhibition as the mechanism for lowering 2HG.
   evidence:
   - reference: PMID:37248298
     reference_title: &#34;Enasidenib treatment in two individuals with D-2-hydroxyglutaric aciduria carrying a germline IDH2 mutation.&#34;
@@ -6326,7 +6829,7 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "D-2-Hydroxyglutaric Aciduria", "mondoId": "MONDO:0010924", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "D-2-Hydroxyglutaric_Aciduria", "yamlRevision": "9219b800140b"};
+        const OS_CONFIG = {"diseaseName": "D-2-Hydroxyglutaric Aciduria", "mondoId": "MONDO:0010924", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "D-2-Hydroxyglutaric_Aciduria", "yamlRevision": "38a6ab8f9b8a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

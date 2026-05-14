@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2588,10 +2741,12 @@
             </a>
             
             
+            <a class="stat-link" href="#treatments">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">1</div>
                 <div class="stat-label">Treatments</div>
             </div>
+            </a>
             
             
             <div class="stat-item">
@@ -2625,6 +2780,20 @@
             
             
             
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-value">11</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -2784,7 +2953,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -2886,7 +3055,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3622,6 +3791,106 @@
 
         <!-- Treatments -->
         
+        <div class="card" id="treatments">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
+                <h2 class="card-title">Treatments</h2>
+                <span class="card-count">1</span>
+            </div>
+            
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    Maintenance Olaparib for Germline BRCA-Mutated Disease
+                </div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">targeted therapy</span>
+                    
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
+                    
+                    
+                    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C93352</a>
+                    
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                </div>
+                
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        olaparib
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_83766" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+                
+                <div class="item-desc">Maintenance olaparib is used after platinum-based chemotherapy for metastatic pancreatic adenocarcinoma with a germline BRCA mutation, targeting homologous recombination repair deficiency.</div>
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1200/jco.21.01604" target="_blank">DOI:10.1200/jco.21.01604</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The phase III POLO study demonstrated significant progression-free survival (PFS) benefit for active olaparib maintenance therapy versus placebo for patients with metastatic pancreatic adenocarcinoma and a germline BRCA mutation."</div>
+                
+                
+                <div class="evidence-explanation">The phase III POLO trial supports maintenance olaparib in germline BRCA-mutated metastatic pancreatic adenocarcinoma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+        </div>
+        
 
         <!-- Environmental Factors -->
         
@@ -3762,10 +4031,11 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Metastatic Pancreatic Adenocarcinoma
 creation_date: &#39;2026-03-28T21:15:00Z&#39;
-updated_date: &#39;2026-04-24T00:00:00Z&#39;
+updated_date: &#39;2026-05-10T09:08:36Z&#39;
 description: &gt;-
   Metastatic pancreatic adenocarcinoma is pancreatic ductal adenocarcinoma that has
-  disseminated to distant sites, most often liver, peritoneum, and lung. The disease is
+  disseminated to distant sites, most often liver, peritoneum, and lung. The disease
+  is
   characterized by near-universal KRAS pathway activation, early cellular plasticity,
   dense desmoplastic stroma, neural invasion, profound immune suppression, and rapid
   systemic progression.
@@ -3795,20 +4065,21 @@ prevalence:
   - reference: PMID:41814069
     reference_title: Early cellular plasticity promotes progression and dissemination in pancreatic adenocarcinoma.
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: Pancreatic ductal adenocarcinoma (PDAC) remains one of the most lethal malignancies, with limited therapeutic success and a persistently low 5-year survival rate.
     explanation: This supports the extremely poor long-term prognosis of metastatic pancreatic adenocarcinoma.
 pathophysiology:
 - name: KRAS-Centered Oncogenic Signaling
   description: &gt;-
-    KRAS signaling is the dominant oncogenic engine in pancreatic adenocarcinoma and drives
+    KRAS signaling is the dominant oncogenic engine in pancreatic adenocarcinoma and
+    drives
     proliferation, stress adaptation, invasion, and metastatic competence. Even KRAS-wildtype
     tumors often remain dependent on parallel kinase and fusion pathways.
   evidence:
   - reference: PMID:35302596
     reference_title: Molecular Characterization of KRAS Wild-type Tumors in Patients with Pancreatic Adenocarcinoma.
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: KRAS mutation (MT) is a major oncogenic driver in pancreatic ductal adenocarcinoma (PDAC).
     explanation: This directly supports KRAS as the central driver pathway in PDAC.
   biological_processes:
@@ -3824,14 +4095,16 @@ pathophysiology:
       label: cell population proliferation
 - name: Early Dissemination and EMT
   description: &gt;-
-    Metastatic spread can begin early, before the primary tumor becomes clinically dominant.
-    Cellular plasticity, EMT-like transitions, and squamous or mesenchymal programs enable
+    Metastatic spread can begin early, before the primary tumor becomes clinically
+    dominant.
+    Cellular plasticity, EMT-like transitions, and squamous or mesenchymal programs
+    enable
     escape from precursor and invasive lesions.
   evidence:
   - reference: PMID:41814069
     reference_title: Early cellular plasticity promotes progression and dissemination in pancreatic adenocarcinoma.
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: We explore the biological and spatial-temporal evolution of precancerous lesions, such as PanINs and IPMNs, and examine how phenotypic plasticity and overlapping cellular programs-including squamous transdifferentiation, epithelial-to-mesenchymal transition (EMT), and acquisition of mesenchymal features-contribute to early dissemination, treatment resistance, and surgical failure.
     explanation: This directly supports EMT-linked early dissemination in pancreatic adenocarcinoma.
   biological_processes:
@@ -3848,7 +4121,8 @@ pathophysiology:
 - name: Perineural Invasion
   description: &gt;-
     Pancreatic adenocarcinoma has marked neurotropism. Tumor cells track along nerves,
-    exploit neurotrophic cues, and use neural routes as low-resistance corridors for local
+    exploit neurotrophic cues, and use neural routes as low-resistance corridors for
+    local
     spread and distant metastatic behavior.
   evidence:
   - reference: PMID:35449152
@@ -3865,7 +4139,8 @@ pathophysiology:
       label: positive regulation of cell migration
 - name: Desmoplastic Stromal Remodeling
   description: &gt;-
-    A fibrotic, CAF-rich, immune-excluding stroma compresses vessels, impairs drug delivery,
+    A fibrotic, CAF-rich, immune-excluding stroma compresses vessels, impairs drug
+    delivery,
     and creates a mechanically and metabolically favorable niche for metastatic progression.
   biological_processes:
   - preferred_term: extracellular matrix organization
@@ -3881,7 +4156,8 @@ pathophysiology:
 - name: Immune Evasion and Metastatic Selection
   description: &gt;-
     Pancreatic adenocarcinoma develops profound immune suppression with myeloid dominance,
-    T-cell exclusion, and checkpoint-indifferent metastatic outgrowth. These programs help
+    T-cell exclusion, and checkpoint-indifferent metastatic outgrowth. These programs
+    help
     disseminated clones survive in liver and peritoneal sites.
   biological_processes:
   - preferred_term: negative regulation of immune response
@@ -4070,13 +4346,1829 @@ environmental:
       factors for pancreatic cancer.
 notes: &gt;-
   The metastatic state in pancreatic adenocarcinoma is dominated by early dissemination,
-  neural invasion, and stromal exclusion of antitumor immunity. Liver and peritoneal spread
+  neural invasion, and stromal exclusion of antitumor immunity. Liver and peritoneal
+  spread
   are common terminal patterns.
+treatments:
+- name: Maintenance Olaparib for Germline BRCA-Mutated Disease
+  description: Maintenance olaparib is used after platinum-based chemotherapy for metastatic pancreatic adenocarcinoma with a germline BRCA mutation, targeting homologous recombination repair deficiency.
+  treatment_term:
+    preferred_term: targeted therapy
+    term:
+      id: NCIT:C93352
+      label: Targeted Therapy
+    therapeutic_agent:
+    - preferred_term: olaparib
+      term:
+        id: CHEBI:83766
+        label: olaparib
+  evidence:
+  - reference: DOI:10.1200/jco.21.01604
+    reference_title: &#39;Overall Survival Results From the POLO Trial: A Phase III Study of Active Maintenance Olaparib Versus Placebo for Germline BRCA-Mutated Metastatic Pancreatic Cancer&#39;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: The phase III POLO study demonstrated significant progression-free survival (PFS) benefit for active olaparib maintenance therapy versus placebo for patients with metastatic pancreatic adenocarcinoma and a germline BRCA mutation.
+    explanation: The phase III POLO trial supports maintenance olaparib in germline BRCA-mutated metastatic pancreatic adenocarcinoma.
+references:
+- reference: DOI:10.1001/jamaoncol.2024.1930
+  title: Pancreatic Cancer Surveillance and Survival of High-Risk Individuals
+  found_in:
+  - Metastatic_Pancreatic_Adenocarcinoma-deep-research-falcon.md
+  findings:
+  - statement: ImportancePancreatic ductal adenocarcinoma (PDAC) is a deadly disease with increasing incidence.
+    supporting_text: ImportancePancreatic ductal adenocarcinoma (PDAC) is a deadly disease with increasing incidence.
+    evidence:
+    - reference: DOI:10.1001/jamaoncol.2024.1930
+      reference_title: Pancreatic Cancer Surveillance and Survival of High-Risk Individuals
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: ImportancePancreatic ductal adenocarcinoma (PDAC) is a deadly disease with increasing incidence.
+      explanation: Deep research cited this publication as relevant literature for Metastatic Pancreatic Adenocarcinoma.
+- reference: DOI:10.1038/s41467-023-40727-7
+  title: Single cell transcriptomic analyses implicate an immunosuppressive tumor microenvironment in pancreatic cancer liver metastasis
+  found_in:
+  - Metastatic_Pancreatic_Adenocarcinoma-deep-research-falcon.md
+  findings:
+  - statement: Pancreatic ductal adenocarcinoma (PDAC) is a highly metastatic disease refractory to all targeted and immune therapies.
+    supporting_text: Pancreatic ductal adenocarcinoma (PDAC) is a highly metastatic disease refractory to all targeted and immune therapies.
+    evidence:
+    - reference: DOI:10.1038/s41467-023-40727-7
+      reference_title: Single cell transcriptomic analyses implicate an immunosuppressive tumor microenvironment in pancreatic cancer liver metastasis
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Pancreatic ductal adenocarcinoma (PDAC) is a highly metastatic disease refractory to all targeted and immune therapies.
+      explanation: Deep research cited this publication as relevant literature for Metastatic Pancreatic Adenocarcinoma.
+- reference: DOI:10.1038/s41591-024-03075-7
+  title: Multi-parametric atlas of the pre-metastatic liver for prediction of metastatic outcome in early-stage pancreatic cancer
+  found_in:
+  - Metastatic_Pancreatic_Adenocarcinoma-deep-research-falcon.md
+  findings:
+  - statement: Multi-parametric atlas of the pre-metastatic liver for prediction of metastatic outcome in early-stage pancreatic cancer
+    supporting_text: Multi-parametric atlas of the pre-metastatic liver for prediction of metastatic outcome in early-stage pancreatic cancer
+- reference: DOI:10.1056/nejmoa1903387
+  title: Maintenance Olaparib for Germline &lt;i&gt;BRCA&lt;/i&gt; -Mutated Metastatic Pancreatic Cancer
+  found_in:
+  - Metastatic_Pancreatic_Adenocarcinoma-deep-research-falcon.md
+  findings:
+  - statement: Maintenance Olaparib for Germline &lt;i&gt;BRCA&lt;/i&gt; -Mutated Metastatic Pancreatic Cancer
+    supporting_text: Maintenance Olaparib for Germline &lt;i&gt;BRCA&lt;/i&gt; -Mutated Metastatic Pancreatic Cancer
+- reference: DOI:10.1136/jitc-2021-004485
+  title: Detection of microsatellite instability-high (MSI-H) by liquid biopsy predicts robust and durable response to immunotherapy in patients with pancreatic cancer
+  found_in:
+  - Metastatic_Pancreatic_Adenocarcinoma-deep-research-falcon.md
+  findings:
+  - statement: Clinical trials reporting the robust antitumor activity of immune checkpoint inhibitors (ICIs) in microsatellite instability-high (MSI-H) solid tumors have used tissue-based testing to determine the MSI-H status.
+    supporting_text: Clinical trials reporting the robust antitumor activity of immune checkpoint inhibitors (ICIs) in microsatellite instability-high (MSI-H) solid tumors have used tissue-based testing to determine the MSI-H status.
+    evidence:
+    - reference: DOI:10.1136/jitc-2021-004485
+      reference_title: Detection of microsatellite instability-high (MSI-H) by liquid biopsy predicts robust and durable response to immunotherapy in patients with pancreatic cancer
+      supports: SUPPORT
+      evidence_source: COMPUTATIONAL
+      snippet: Clinical trials reporting the robust antitumor activity of immune checkpoint inhibitors (ICIs) in microsatellite instability-high (MSI-H) solid tumors have used tissue-based testing to determine the MSI-H status.
+      explanation: Deep research cited this publication as relevant literature for Metastatic Pancreatic Adenocarcinoma.
+- reference: DOI:10.1186/s12943-024-02003-0
+  title: Single-cell transcriptome analysis reveals subtype-specific clonal evolution and microenvironmental changes in liver metastasis of pancreatic adenocarcinoma and their clinical implications
+  found_in:
+  - Metastatic_Pancreatic_Adenocarcinoma-deep-research-falcon.md
+  findings:
+  - statement: Intratumoral heterogeneity (ITH) and tumor microenvironment (TME) of pancreatic ductal adenocarcinoma (PDAC) play important roles in tumor evolution and patient outcomes.
+    supporting_text: Intratumoral heterogeneity (ITH) and tumor microenvironment (TME) of pancreatic ductal adenocarcinoma (PDAC) play important roles in tumor evolution and patient outcomes.
+    evidence:
+    - reference: DOI:10.1186/s12943-024-02003-0
+      reference_title: Single-cell transcriptome analysis reveals subtype-specific clonal evolution and microenvironmental changes in liver metastasis of pancreatic adenocarcinoma and their clinical implications
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Intratumoral heterogeneity (ITH) and tumor microenvironment (TME) of pancreatic ductal adenocarcinoma (PDAC) play important roles in tumor evolution and patient outcomes.
+      explanation: Deep research cited this publication as relevant literature for Metastatic Pancreatic Adenocarcinoma.
+- reference: DOI:10.1200/jco.21.01604
+  title: &#39;Overall Survival Results From the POLO Trial: A Phase III Study of Active Maintenance Olaparib Versus Placebo for Germline BRCA-Mutated Metastatic Pancreatic Cancer&#39;
+  found_in:
+  - Metastatic_Pancreatic_Adenocarcinoma-deep-research-falcon.md
+  findings:
+  - statement: The phase III POLO study demonstrated significant progression-free survival (PFS) benefit for active olaparib maintenance therapy versus placebo for patients with metastatic pancreatic adenocarcinoma and a germline BRCA mutation.
+    supporting_text: The phase III POLO study demonstrated significant progression-free survival (PFS) benefit for active olaparib maintenance therapy versus placebo for patients with metastatic pancreatic adenocarcinoma and a germline BRCA mutation.
+    evidence:
+    - reference: DOI:10.1200/jco.21.01604
+      reference_title: &#39;Overall Survival Results From the POLO Trial: A Phase III Study of Active Maintenance Olaparib Versus Placebo for Germline BRCA-Mutated Metastatic Pancreatic Cancer&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The phase III POLO study demonstrated significant progression-free survival (PFS) benefit for active olaparib maintenance therapy versus placebo for patients with metastatic pancreatic adenocarcinoma and a germline BRCA mutation.
+      explanation: Deep research cited this publication as relevant literature for Metastatic Pancreatic Adenocarcinoma.
+- reference: DOI:10.12688/f1000research.21981.1
+  title: Recent advances in the treatment of pancreatic cancer
+  found_in:
+  - Metastatic_Pancreatic_Adenocarcinoma-deep-research-falcon.md
+  findings:
+  - statement: Pancreatic ductal adenocarcinoma is one of the deadliest solid tumor malignancies and is projected to become a leading cause of cancer-related death in coming years.
+    supporting_text: Pancreatic ductal adenocarcinoma is one of the deadliest solid tumor malignancies and is projected to become a leading cause of cancer-related death in coming years.
+    evidence:
+    - reference: DOI:10.12688/f1000research.21981.1
+      reference_title: Recent advances in the treatment of pancreatic cancer
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Pancreatic ductal adenocarcinoma is one of the deadliest solid tumor malignancies and is projected to become a leading cause of cancer-related death in coming years.
+      explanation: Deep research cited this publication as relevant literature for Metastatic Pancreatic Adenocarcinoma.
+- reference: DOI:10.3322/caac.21820
+  title: Cancer statistics, 2024
+  found_in:
+  - Metastatic_Pancreatic_Adenocarcinoma-deep-research-falcon.md
+  findings:
+  - statement: Cancer statistics, 2024
+    supporting_text: Each year, the American Cancer Society estimates the numbers of new cancer cases and deaths in the United States and compiles the most recent data on population‐based cancer occurrence and outcomes using incidence data collected by central cancer registries (through 2020) and mortality data collected by the National Center for Health Statistics (through 2021).
+    evidence:
+    - reference: DOI:10.3322/caac.21820
+      reference_title: Cancer statistics, 2024
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Each year, the American Cancer Society estimates the numbers of new cancer cases and deaths in the United States and compiles the most recent data on population‐based cancer occurrence and outcomes using incidence data collected by central cancer registries (through 2020) and mortality data collected by the National Center for Health Statistics (through 2021).
+      explanation: Deep research cited this publication as relevant literature for Metastatic Pancreatic Adenocarcinoma.
+- reference: DOI:10.3390/curroncol31090385
+  title: Systemic Therapy for Metastatic Pancreatic Cancer—Current Landscape and Future Directions
+  found_in:
+  - Metastatic_Pancreatic_Adenocarcinoma-deep-research-falcon.md
+  findings:
+  - statement: Pancreatic ductal adenocarcinoma (PDAC) is a significant cause of cancer-associated mortality, with a rising global incidence.
+    supporting_text: Pancreatic ductal adenocarcinoma (PDAC) is a significant cause of cancer-associated mortality, with a rising global incidence.
+    evidence:
+    - reference: DOI:10.3390/curroncol31090385
+      reference_title: Systemic Therapy for Metastatic Pancreatic Cancer—Current Landscape and Future Directions
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Pancreatic ductal adenocarcinoma (PDAC) is a significant cause of cancer-associated mortality, with a rising global incidence.
+      explanation: Deep research cited this publication as relevant literature for Metastatic Pancreatic Adenocarcinoma.
+- reference: DOI:10.3390/onco5030037
+  title: &#39;Pancreatic Cancer: Epidemiology, Risk Factors, and Prevention&#39;
+  found_in:
+  - Metastatic_Pancreatic_Adenocarcinoma-deep-research-falcon.md
+  findings:
+  - statement: Pancreatic cancer (PC) is one of the most aggressive and lethal malignancies, mainly due to its late detection [...]
+    supporting_text: Pancreatic cancer (PC) is one of the most aggressive and lethal malignancies, mainly due to its late detection [...]
+    evidence:
+    - reference: DOI:10.3390/onco5030037
+      reference_title: &#39;Pancreatic Cancer: Epidemiology, Risk Factors, and Prevention&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Pancreatic cancer (PC) is one of the most aggressive and lethal malignancies, mainly due to its late detection [...]
+      explanation: Deep research cited this publication as relevant literature for Metastatic Pancreatic Adenocarcinoma.
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
+        
+        <div class="card reference-card" id="references-deep-research">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+            
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">11</span>
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1001/jamaoncol.2024.1930" target="_blank">DOI:10.1001/jamaoncol.2024.1930</a>
+                            </div>
+                            
+                            <div class="reference-title">Pancreatic Cancer Surveillance and Survival of High-Risk Individuals</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">ImportancePancreatic ductal adenocarcinoma (PDAC) is a deadly disease with increasing incidence.</div>
+            
+            
+            <div class="reference-finding-supporting">"ImportancePancreatic ductal adenocarcinoma (PDAC) is a deadly disease with increasing incidence."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1001/jamaoncol.2024.1930" target="_blank">DOI:10.1001/jamaoncol.2024.1930</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"ImportancePancreatic ductal adenocarcinoma (PDAC) is a deadly disease with increasing incidence."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Pancreatic Adenocarcinoma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1038/s41467-023-40727-7" target="_blank">DOI:10.1038/s41467-023-40727-7</a>
+                            </div>
+                            
+                            <div class="reference-title">Single cell transcriptomic analyses implicate an immunosuppressive tumor microenvironment in pancreatic cancer liver metastasis</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Pancreatic ductal adenocarcinoma (PDAC) is a highly metastatic disease refractory to all targeted and immune therapies.</div>
+            
+            
+            <div class="reference-finding-supporting">"Pancreatic ductal adenocarcinoma (PDAC) is a highly metastatic disease refractory to all targeted and immune therapies."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41467-023-40727-7" target="_blank">DOI:10.1038/s41467-023-40727-7</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Pancreatic ductal adenocarcinoma (PDAC) is a highly metastatic disease refractory to all targeted and immune therapies."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Pancreatic Adenocarcinoma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1038/s41591-024-03075-7" target="_blank">DOI:10.1038/s41591-024-03075-7</a>
+                            </div>
+                            
+                            <div class="reference-title">Multi-parametric atlas of the pre-metastatic liver for prediction of metastatic outcome in early-stage pancreatic cancer</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Multi-parametric atlas of the pre-metastatic liver for prediction of metastatic outcome in early-stage pancreatic cancer</div>
+            
+            
+            <div class="reference-finding-supporting">"Multi-parametric atlas of the pre-metastatic liver for prediction of metastatic outcome in early-stage pancreatic cancer"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1056/nejmoa1903387" target="_blank">DOI:10.1056/nejmoa1903387</a>
+                            </div>
+                            
+                            <div class="reference-title">Maintenance Olaparib for Germline &lt;i&gt;BRCA&lt;/i&gt; -Mutated Metastatic Pancreatic Cancer</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Maintenance Olaparib for Germline &lt;i&gt;BRCA&lt;/i&gt; -Mutated Metastatic Pancreatic Cancer</div>
+            
+            
+            <div class="reference-finding-supporting">"Maintenance Olaparib for Germline &lt;i&gt;BRCA&lt;/i&gt; -Mutated Metastatic Pancreatic Cancer"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1136/jitc-2021-004485" target="_blank">DOI:10.1136/jitc-2021-004485</a>
+                            </div>
+                            
+                            <div class="reference-title">Detection of microsatellite instability-high (MSI-H) by liquid biopsy predicts robust and durable response to immunotherapy in patients with pancreatic cancer</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Clinical trials reporting the robust antitumor activity of immune checkpoint inhibitors (ICIs) in microsatellite instability-high (MSI-H) solid tumors have used tissue-based testing to determine the MSI-H status.</div>
+            
+            
+            <div class="reference-finding-supporting">"Clinical trials reporting the robust antitumor activity of immune checkpoint inhibitors (ICIs) in microsatellite instability-high (MSI-H) solid tumors have used tissue-based testing to determine the MSI-H status."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1136/jitc-2021-004485" target="_blank">DOI:10.1136/jitc-2021-004485</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Clinical trials reporting the robust antitumor activity of immune checkpoint inhibitors (ICIs) in microsatellite instability-high (MSI-H) solid tumors have used tissue-based testing to determine the MSI-H status."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Pancreatic Adenocarcinoma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1186/s12943-024-02003-0" target="_blank">DOI:10.1186/s12943-024-02003-0</a>
+                            </div>
+                            
+                            <div class="reference-title">Single-cell transcriptome analysis reveals subtype-specific clonal evolution and microenvironmental changes in liver metastasis of pancreatic adenocarcinoma and their clinical implications</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Intratumoral heterogeneity (ITH) and tumor microenvironment (TME) of pancreatic ductal adenocarcinoma (PDAC) play important roles in tumor evolution and patient outcomes.</div>
+            
+            
+            <div class="reference-finding-supporting">"Intratumoral heterogeneity (ITH) and tumor microenvironment (TME) of pancreatic ductal adenocarcinoma (PDAC) play important roles in tumor evolution and patient outcomes."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s12943-024-02003-0" target="_blank">DOI:10.1186/s12943-024-02003-0</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Intratumoral heterogeneity (ITH) and tumor microenvironment (TME) of pancreatic ductal adenocarcinoma (PDAC) play important roles in tumor evolution and patient outcomes."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Pancreatic Adenocarcinoma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1200/jco.21.01604" target="_blank">DOI:10.1200/jco.21.01604</a>
+                            </div>
+                            
+                            <div class="reference-title">Overall Survival Results From the POLO Trial: A Phase III Study of Active Maintenance Olaparib Versus Placebo for Germline BRCA-Mutated Metastatic Pancreatic Cancer</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The phase III POLO study demonstrated significant progression-free survival (PFS) benefit for active olaparib maintenance therapy versus placebo for patients with metastatic pancreatic adenocarcinoma and a germline BRCA mutation.</div>
+            
+            
+            <div class="reference-finding-supporting">"The phase III POLO study demonstrated significant progression-free survival (PFS) benefit for active olaparib maintenance therapy versus placebo for patients with metastatic pancreatic adenocarcinoma and a germline BRCA mutation."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1200/jco.21.01604" target="_blank">DOI:10.1200/jco.21.01604</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The phase III POLO study demonstrated significant progression-free survival (PFS) benefit for active olaparib maintenance therapy versus placebo for patients with metastatic pancreatic adenocarcinoma and a germline BRCA mutation."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Pancreatic Adenocarcinoma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.12688/f1000research.21981.1" target="_blank">DOI:10.12688/f1000research.21981.1</a>
+                            </div>
+                            
+                            <div class="reference-title">Recent advances in the treatment of pancreatic cancer</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Pancreatic ductal adenocarcinoma is one of the deadliest solid tumor malignancies and is projected to become a leading cause of cancer-related death in coming years.</div>
+            
+            
+            <div class="reference-finding-supporting">"Pancreatic ductal adenocarcinoma is one of the deadliest solid tumor malignancies and is projected to become a leading cause of cancer-related death in coming years."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.12688/f1000research.21981.1" target="_blank">DOI:10.12688/f1000research.21981.1</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Pancreatic ductal adenocarcinoma is one of the deadliest solid tumor malignancies and is projected to become a leading cause of cancer-related death in coming years."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Pancreatic Adenocarcinoma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3322/caac.21820" target="_blank">DOI:10.3322/caac.21820</a>
+                            </div>
+                            
+                            <div class="reference-title">Cancer statistics, 2024</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Cancer statistics, 2024</div>
+            
+            
+            <div class="reference-finding-supporting">"Each year, the American Cancer Society estimates the numbers of new cancer cases and deaths in the United States and compiles the most recent data on population‐based cancer occurrence and outcomes using incidence data collected by central cancer registries (through 2020) and mortality data..."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3322/caac.21820" target="_blank">DOI:10.3322/caac.21820</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Each year, the American Cancer Society estimates the numbers of new cancer cases and deaths in the United States and compiles the most recent data on population‐based cancer occurrence and outcomes using incidence data collected by central cancer registries (through 2020) and mortality data..."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Pancreatic Adenocarcinoma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/curroncol31090385" target="_blank">DOI:10.3390/curroncol31090385</a>
+                            </div>
+                            
+                            <div class="reference-title">Systemic Therapy for Metastatic Pancreatic Cancer—Current Landscape and Future Directions</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Pancreatic ductal adenocarcinoma (PDAC) is a significant cause of cancer-associated mortality, with a rising global incidence.</div>
+            
+            
+            <div class="reference-finding-supporting">"Pancreatic ductal adenocarcinoma (PDAC) is a significant cause of cancer-associated mortality, with a rising global incidence."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/curroncol31090385" target="_blank">DOI:10.3390/curroncol31090385</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Pancreatic ductal adenocarcinoma (PDAC) is a significant cause of cancer-associated mortality, with a rising global incidence."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Pancreatic Adenocarcinoma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/onco5030037" target="_blank">DOI:10.3390/onco5030037</a>
+                            </div>
+                            
+                            <div class="reference-title">Pancreatic Cancer: Epidemiology, Risk Factors, and Prevention</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Pancreatic cancer (PC) is one of the most aggressive and lethal malignancies, mainly due to its late detection [...]</div>
+            
+            
+            <div class="reference-finding-supporting">"Pancreatic cancer (PC) is one of the most aggressive and lethal malignancies, mainly due to its late detection [...]"</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/onco5030037" target="_blank">DOI:10.3390/onco5030037</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Pancreatic cancer (PC) is one of the most aggressive and lethal malignancies, mainly due to its late detection [...]"</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Pancreatic Adenocarcinoma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">Disease Characteristics Research Template</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">38 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-10T02:08:35.525254</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
+<p>Provide detailed information focusing on:
+1. Key concepts and definitions with current understanding
+2. Recent developments and latest research (prioritize 2023-2024 sources)
+3. Current applications and real-world implementations
+4. Expert opinions and analysis from authoritative sources
+5. Relevant statistics and data from recent studies</p>
+<p>Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
+Always prioritize recent, authoritative sources and provide specific citations for all major claims.</p>
+<h1>Disease Characteristics Research Template</h1>
+<h2>Target Disease</h2>
+<ul>
+<li><strong>Disease Name:</strong> Metastatic Pancreatic Adenocarcinoma</li>
+<li><strong>MONDO ID:</strong>  (if available)</li>
+<li><strong>Category:</strong></li>
+</ul>
+<h2>Research Objectives</h2>
+<p>Please provide a comprehensive research report on <strong>Metastatic Pancreatic Adenocarcinoma</strong> covering all of the
+disease characteristics listed below. This report will be used to populate a disease knowledge
+base entry. Be thorough and cite primary literature (PMID preferred) for all claims.</p>
+<p>For each section, <strong>suggested databases/resources</strong> are listed. These are the first places
+you should search for information on each topic.</p>
+<hr />
+<h3>1. Disease Information</h3>
+<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, ICD-10/ICD-11, MeSH, PubMed</p>
+</blockquote>
+<ul>
+<li>What is the disease? Provide a concise overview.</li>
+<li>What are the key identifiers? (OMIM, Orphanet, ICD-10/ICD-11, MeSH, Mondo)</li>
+<li>What are the common synonyms and alternative names?</li>
+<li>Is the information derived from individual patients (e.g., EHR) or aggregated disease-level resources?</li>
+</ul>
+<h3>2. Etiology</h3>
+<ul>
+<li><strong>Disease Causal Factors</strong>: What are the primary causes? (genetic, environmental, infectious, mechanistic)</li>
+<li><strong>Risk Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, UpToDate, clinical guidelines, ClinVar, ClinGen, GWAS Catalog, PheGenI, CTD, CDC, WHO, epidemiological databases</p>
+</blockquote>
+</li>
+<li>Genetic risk factors (causal variants, susceptibility loci, modifier genes)</li>
+<li>Environmental risk factors (toxins, lifestyle, occupational exposures, age, sex, family history)</li>
+<li><strong>Protective Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, clinical trial databases, GWAS Catalog, gnomAD, WHO, CDC, nutrition databases</p>
+</blockquote>
+</li>
+<li>Genetic protective factors (protective variants, modifier alleles)</li>
+<li>Environmental protective factors (diet, lifestyle, exposures that reduce risk)</li>
+<li><strong>Gene-Environment Interactions</strong>: How do genetic and environmental factors interact to influence disease?<blockquote>
+<p><strong>Search first:</strong> CTD, PubMed, PheGenI, GxE databases</p>
+</blockquote>
+</li>
+</ul>
+<h3>3. Phenotypes</h3>
+<blockquote>
+<p><strong>Search first:</strong> HPO (Human Phenotype Ontology), OMIM, Orphanet, PubMed, clinicaltrials.gov, MedDRA, SNOMED CT, DECIPHER, LOINC</p>
+</blockquote>
+<p>For each phenotype, provide:
+- <strong>Phenotype type</strong>: symptoms, clinical signs, physical manifestations, behavioral changes, or laboratory abnormalities</p>
+<blockquote>
+<p>For symptoms/signs: HPO, OMIM, Orphanet, PubMed
+For behavioral changes: HPO, DSM, RDoC (Research Domain Criteria), PubMed
+For laboratory abnormalities: LOINC, SNOMED CT, LabTests Online, PubMed
+- <strong>Phenotype characteristics</strong>:
+<strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed
+  - Age of symptom onset (neonatal, childhood, adult-onset, late-onset)
+  - Symptom severity (mild, moderate, severe, variable)
+  - Symptom progression (stable, progressive, episodic, fluctuating)
+  - Frequency among affected individuals (percentage or qualitative)
+- <strong>Quality of life impact</strong>: Effects on daily functioning and well-being (per-phenotype when possible)
+<strong>Search first:</strong> EQ-5D database, SF-36, WHO QOL databases, PubMed
+- Suggest HPO (Human Phenotype Ontology) terms for each phenotype</p>
+</blockquote>
+<h3>4. Genetic/Molecular Information</h3>
+<ul>
+<li><strong>Causal Genes</strong>: Gene mutations or chromosomal abnormalities responsible for disease (gene symbols, OMIM IDs)<blockquote>
+<p><strong>Search first:</strong> OMIM, ClinVar, HGMD, Ensembl, NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Pathogenic Variants</strong>:</li>
+<li>Affected genes (gene symbols, HGNC IDs)
+    &gt; <strong>Search first:</strong> OMIM, NCBI Gene, Ensembl, HGNC, UniProt, GeneCards</li>
+<li>Variant classification (pathogenic, likely pathogenic, VUS per ACMG/AMP guidelines)
+    &gt; <strong>Search first:</strong> ClinVar, ClinGen, ACMG/AMP guidelines, VarSome</li>
+<li>Variant type/class (missense, frameshift, nonsense, splice-site, structural)</li>
+<li>Allele frequency in population databases
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, ExAC, TOPMed, dbSNP</li>
+<li>Somatic vs germline origin
+    &gt; <strong>Search first:</strong> COSMIC (somatic), ClinVar, ICGC, TCGA</li>
+<li>Functional consequences (loss of function, gain of function, dominant negative)</li>
+<li><strong>Modifier Genes</strong>: Genes that modify disease severity or expression</li>
+<li><strong>Epigenetic Information</strong>: DNA methylation, histone modifications, chromatin changes affecting disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Chromosomal Abnormalities</strong>: Large-scale genetic changes (aneuploidy, translocations, inversions)<blockquote>
+<p><strong>Search first:</strong> DECIPHER, ClinVar, ECARUCA, UCSC Genome Browser</p>
+</blockquote>
+</li>
+</ul>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Environmental Factors</strong>: Non-genetic contributing factors (toxins, radiation, pollution, occupational exposure)<blockquote>
+<p><strong>Search first:</strong> CTD (Comparative Toxicogenomics Database), TOXNET, PubMed, EPA databases</p>
+</blockquote>
+</li>
+<li><strong>Lifestyle Factors</strong>: Behavioral factors (smoking, diet, exercise, alcohol consumption)<blockquote>
+<p><strong>Search first:</strong> CDC databases, WHO, PubMed, NHANES</p>
+</blockquote>
+</li>
+<li><strong>Infectious Agents</strong>: If applicable, pathogens causing or triggering disease (bacteria, viruses, fungi, parasites)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON</p>
+</blockquote>
+</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<ul>
+<li><strong>Molecular Pathways</strong>: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)<blockquote>
+<p><strong>Search first:</strong> KEGG, Reactome, WikiPathways, PathBank, BioCyc</p>
+</blockquote>
+</li>
+<li><strong>Cellular Processes</strong>: Cell-level mechanisms (apoptosis, autophagy, cell cycle dysregulation, inflammation, etc.)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (GO), Reactome, KEGG, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Protein Dysfunction</strong>: How protein structure or function is altered (misfolding, aggregation, loss of function, gain of function)<blockquote>
+<p><strong>Search first:</strong> UniProt, PDB (Protein Data Bank), InterPro, Pfam, AlphaFold</p>
+</blockquote>
+</li>
+<li><strong>Metabolic Changes</strong>: Alterations in metabolic processes (energy metabolism, lipid metabolism, amino acid metabolism)<blockquote>
+<p><strong>Search first:</strong> KEGG, BioCyc, HMDB (Human Metabolome Database), BRENDA</p>
+</blockquote>
+</li>
+<li><strong>Immune System Involvement</strong>: Role of immune response (autoimmunity, immunodeficiency, chronic inflammation)<blockquote>
+<p><strong>Search first:</strong> ImmPort, Immunome Database, IEDB, Gene Ontology</p>
+</blockquote>
+</li>
+<li><strong>Tissue Damage Mechanisms</strong>: How tissues/ are injured (oxidative stress, ischemia, fibrosis, necrosis)<blockquote>
+<p><strong>Search first:</strong> PubMed, Gene Ontology, Reactome</p>
+</blockquote>
+</li>
+<li><strong>Biochemical Abnormalities</strong>: Specific molecular defects (enzyme deficiencies, receptor dysfunction, ion channel defects)<blockquote>
+<p><strong>Search first:</strong> BRENDA, UniProt, KEGG, OMIM, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Epigenetic Changes</strong>: DNA methylation, histone modifications affecting gene expression in disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Molecular Profiling</strong> (if available):</li>
+<li>Transcriptomics/gene expression changes
+    &gt; <strong>Search first:</strong> GEO (Gene Expression Omnibus), ArrayExpress, GTEx, Human Cell Atlas, SRA</li>
+<li>Proteomics findings
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, Human Protein Atlas, STRING, BioGRID</li>
+<li>Metabolomics signatures
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB, METLIN</li>
+<li>Lipidomics alterations
+    &gt; <strong>Search first:</strong> LIPID MAPS, SwissLipids, LipidHome, Metabolomics Workbench</li>
+<li>Genomic structural features
+    &gt; <strong>Search first:</strong> UCSC Genome Browser, Ensembl, NCBI, dbVar, DGV</li>
+<li><strong>Advanced Technologies</strong> (if applicable):</li>
+<li>Single-cell analysis findings (cell-type specific mechanisms, cellular heterogeneity)
+    &gt; <strong>Search first:</strong> Human Cell Atlas, Single Cell Portal, GEO, CELLxGENE</li>
+<li>Spatial transcriptomics findings
+    &gt; <strong>Search first:</strong> GEO, Spatial Research, Vizgen, 10x Genomics data</li>
+<li>Multi-omics integration results
+    &gt; <strong>Search first:</strong> TCGA, ICGC, cBioPortal, LinkedOmics, PubMed</li>
+<li>Functional genomics screens (CRISPR, RNAi)
+    &gt; <strong>Search first:</strong> DepMap, GenomeRNAi, PubMed, BioGRID ORCS</li>
+</ul>
+<p>For each mechanism, describe:
+- The causal chain from initial trigger to clinical manifestation
+- Which mechanisms are upstream vs downstream
+- What cell types and biological processes are involved
+- Suggest GO terms for biological processes and CL terms for cell types</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ Level</strong>:</li>
+<li>Primary organs directly affected</li>
+<li>Secondary organ involvement (complications, secondary effects)</li>
+<li>Body systems involved (cardiovascular, nervous, digestive, respiratory, endocrine, etc.)<blockquote>
+<p><strong>Search first:</strong> Uberon, FMA (Foundational Model of Anatomy), OMIM, HPO, ICD-11, MeSH, SNOMED CT</p>
+</blockquote>
+</li>
+<li><strong>Tissue and Cell Level</strong>:</li>
+<li>Specific tissue types affected (epithelial, connective, muscle, nervous)</li>
+<li>Specific cell populations targeted (with Cell Ontology terms)<blockquote>
+<p><strong>Search first:</strong> Uberon, Human Protein Atlas, Cell Ontology, Human Cell Atlas, CellMarker, PanglaoDB</p>
+</blockquote>
+</li>
+<li><strong>Subcellular Level</strong>:</li>
+<li>Cellular compartments involved (mitochondria, nucleus, ER, lysosomes) (with GO Cellular Component terms)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (Cellular Component), UniProt, Human Protein Atlas</p>
+</blockquote>
+</li>
+<li><strong>Localization</strong>:</li>
+<li>Specific anatomical sites (with UBERON terms)
+    &gt; <strong>Search first:</strong> FMA, Uberon, NeuroNames (for brain), SNOMED CT</li>
+<li>Lateralization (unilateral, bilateral, asymmetric)
+    &gt; <strong>Search first:</strong> HPO, clinical literature, imaging databases</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset</strong>:</li>
+<li>Typical age of onset (congenital, pediatric, adult, geriatric)</li>
+<li>Onset pattern (acute, subacute, chronic, insidious)<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Progression</strong>:</li>
+<li>Disease stages (early, intermediate, advanced, end-stage)
+    &gt; <strong>Search first:</strong> Cancer Staging Manual (AJCC), WHO classifications, PubMed</li>
+<li>Progression rate (rapid, slow, variable)</li>
+<li>Disease course pattern (episodic, relapsing-remitting, progressive, stable)</li>
+<li>Disease duration (self-limited, chronic lifelong)<blockquote>
+<p><strong>Search first:</strong> Disease registries, longitudinal cohort databases, natural history studies, PubMed, Orphanet, OMIM</p>
+</blockquote>
+</li>
+<li><strong>Patterns</strong>:</li>
+<li>Remission patterns (spontaneous, treatment-induced)
+    &gt; <strong>Search first:</strong> Clinical trial databases, disease registries, PubMed</li>
+<li>Critical periods (time windows of vulnerability or opportunity for intervention)
+    &gt; <strong>Search first:</strong> PubMed, developmental biology databases, clinical guidelines</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology</strong>:</li>
+<li>Prevalence (cases per 100,000 at given time)</li>
+<li>Incidence (new cases per 100,000 per year)<blockquote>
+<p><strong>Search first:</strong> Orphanet, CDC, WHO, GBD (Global Burden of Disease), national registries, SEER, disease registries</p>
+</blockquote>
+</li>
+<li><strong>For Genetic Etiology</strong>:</li>
+<li>Inheritance pattern (AD, AR, X-linked, mitochondrial, multifactorial, polygenic)
+    &gt; <strong>Search first:</strong> OMIM, Orphanet, ClinVar, GTR (Genetic Testing Registry)</li>
+<li>Penetrance (complete, incomplete, age-dependent)
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, PubMed, ClinGen</li>
+<li>Expressivity (variable, consistent)
+    &gt; <strong>Search first:</strong> OMIM, ClinVar, PubMed</li>
+<li>Genetic anticipation (increasing severity in successive generations)
+    &gt; <strong>Search first:</strong> OMIM, PubMed (especially for repeat expansion disorders)</li>
+<li>Germline mosaicism
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, genetic counseling literature, PubMed</li>
+<li>Founder effects (population-specific mutations)
+    &gt; <strong>Search first:</strong> gnomAD, population genetics databases, PubMed</li>
+<li>Consanguinity role
+    &gt; <strong>Search first:</strong> OMIM, population studies, genetic counseling resources</li>
+<li>Carrier frequency
+    &gt; <strong>Search first:</strong> gnomAD, carrier screening databases, GeneReviews, GTR</li>
+<li><strong>Population Demographics</strong>:</li>
+<li>Affected populations (ethnic or demographic groups with higher prevalence)
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, PAGE Study, PubMed, population registries</li>
+<li>Geographic distribution (endemic areas, regional variation)
+    &gt; <strong>Search first:</strong> WHO, CDC, GBD, Orphanet, geographic epidemiology databases</li>
+<li>Geographic distribution of specific variants</li>
+<li>Sex ratio (male:female)
+    &gt; <strong>Search first:</strong> Disease registries, OMIM, PubMed, epidemiological databases</li>
+<li>Age distribution of affected individuals
+    &gt; <strong>Search first:</strong> CDC, disease registries, SEER, Orphanet</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Clinical Tests</strong>:</li>
+<li>Laboratory tests (blood, urine, tissue chemistry, specific enzyme assays)
+    &gt; <strong>Search first:</strong> LOINC, LabTests Online, PubMed</li>
+<li>Biomarkers (proteins, metabolites, genetic markers, circulating biomarkers)
+    &gt; <strong>Search first:</strong> FDA Biomarker List, BEST (Biomarkers, EndpointS, and other Tools), PubMed</li>
+<li>Imaging studies (X-ray, CT, MRI, PET, ultrasound)
+    &gt; <strong>Search first:</strong> RadLex, DICOM, Radiopaedia, imaging databases</li>
+<li>Functional tests (pulmonary function, cardiac stress tests)
+    &gt; <strong>Search first:</strong> LOINC, clinical guidelines, PubMed</li>
+<li>Electrophysiology (EEG, EMG, ECG, nerve conduction studies)
+    &gt; <strong>Search first:</strong> LOINC, clinical neurophysiology databases, PubMed</li>
+<li>Biopsy findings (histopathology, immunohistochemistry)
+    &gt; <strong>Search first:</strong> SNOMED CT, College of American Pathologists resources, PubMed</li>
+<li>Pathology findings (microscopic examination)
+    &gt; <strong>Search first:</strong> SNOMED CT, Digital Pathology databases, PubMed</li>
+<li><strong>Genetic Testing</strong>:<blockquote>
+<p><strong>Search first:</strong> GTR (Genetic Testing Registry), GeneReviews, ClinGen</p>
+</blockquote>
+</li>
+<li>Overview of recommended genetic testing approach</li>
+<li>Whole genome sequencing (WGS) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, GEL (Genomics England), gnomAD</li>
+<li>Whole exome sequencing (WES) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneMatcher</li>
+<li>Gene panels (which panels, which genes)
+    &gt; <strong>Search first:</strong> GTR, ClinVar, laboratory-specific databases</li>
+<li>Single gene testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneReviews</li>
+<li>Chromosomal microarray (CMA)
+    &gt; <strong>Search first:</strong> DECIPHER, ClinVar, dbVar, ECARUCA</li>
+<li>Karyotyping
+    &gt; <strong>Search first:</strong> Chromosome Abnormality Database, ClinVar, cytogenetics resources</li>
+<li>FISH
+    &gt; <strong>Search first:</strong> ClinVar, cytogenetics databases, PubMed</li>
+<li>Mitochondrial DNA testing
+    &gt; <strong>Search first:</strong> MITOMAP, MSeqDR, ClinVar, GTR</li>
+<li>Repeat expansion testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, repeat expansion databases, PubMed</li>
+<li><strong>Omics-Based Diagnostics</strong> (if applicable):</li>
+<li>RNA sequencing / transcriptomics
+    &gt; <strong>Search first:</strong> GEO, ArrayExpress, GTEx, RNA-seq databases</li>
+<li>Proteomics
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, FDA Biomarker database</li>
+<li>Metabolomics
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB</li>
+<li>Epigenomics
+    &gt; <strong>Search first:</strong> GEO, ENCODE, Roadmap Epigenomics, MethBase</li>
+<li>Liquid biopsy
+    &gt; <strong>Search first:</strong> COSMIC, ClinVar, liquid biopsy databases, PubMed</li>
+<li><strong>Clinical Criteria</strong>:</li>
+<li>Standardized diagnostic criteria (DSM, ICD, society guidelines)
+    &gt; <strong>Search first:</strong> DSM-5, ICD-11, clinical society guidelines, UpToDate</li>
+<li>Differential diagnosis (other conditions to rule out, with distinguishing features)
+    &gt; <strong>Search first:</strong> DynaMed, UpToDate, clinical decision support systems</li>
+<li><strong>Screening</strong>:</li>
+<li>Screening methods for asymptomatic individuals (newborn screening, carrier screening, cascade screening)
+    &gt; <strong>Search first:</strong> ACMG recommendations, CDC newborn screening, GTR</li>
+</ul>
+<h3>11. Outcome/Prognosis</h3>
+<ul>
+<li><strong>Survival and Mortality</strong>:</li>
+<li>Survival rate (5-year, 10-year, overall)
+    &gt; <strong>Search first:</strong> SEER, cancer registries, disease-specific registries, PubMed</li>
+<li>Life expectancy (with and without treatment if applicable)
+    &gt; <strong>Search first:</strong> Orphanet, disease registries, actuarial databases, PubMed</li>
+<li>Mortality rate
+    &gt; <strong>Search first:</strong> CDC, WHO, GBD, national mortality databases</li>
+<li>Disease-specific mortality (deaths directly attributable to disease)
+    &gt; <strong>Search first:</strong> Disease registries, CDC Wonder, GBD, PubMed</li>
+<li><strong>Morbidity and Function</strong>:</li>
+<li>Morbidity (disease-related disability and health impacts)
+    &gt; <strong>Search first:</strong> GBD, WHO, disability databases, PubMed</li>
+<li>Disability outcomes (long-term functional impairments)
+    &gt; <strong>Search first:</strong> ICF (International Classification of Functioning), disability registries</li>
+<li>Quality of life measures (EQ-5D, SF-36, PROMIS, disease-specific tools)
+    &gt; <strong>Search first:</strong> EQ-5D database, SF-36, PROMIS, PubMed</li>
+<li><strong>Disease Course</strong>:</li>
+<li>Complications (secondary problems: infections, organ failure, etc.)
+    &gt; <strong>Search first:</strong> ICD codes, disease registries, clinical databases, PubMed</li>
+<li>Recovery potential (likelihood and extent of recovery, with vs without treatment)
+    &gt; <strong>Search first:</strong> Natural history studies, rehabilitation databases, PubMed</li>
+<li><strong>Prediction</strong>:</li>
+<li>Prognostic factors (age, disease severity, biomarkers, treatment response)
+    &gt; <strong>Search first:</strong> Prognostic models databases, clinical calculators, PubMed</li>
+<li>Prognostic biomarkers (molecular markers predicting disease course)
+    &gt; <strong>Search first:</strong> FDA Biomarker database, PubMed, cancer prognostic databases</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Pharmacotherapy</strong>:</li>
+<li>Pharmacological treatments (drug names, drug classes, mechanisms of action)
+    &gt; <strong>Search first:</strong> DrugBank, RxNorm, ATC classification, DailyMed, FDA databases</li>
+<li>Pharmacogenomics (how genetic variants affect drug metabolism, efficacy, toxicity)
+    &gt; <strong>Search first:</strong> PharmGKB, CPIC (Clinical Pharmacogenetics), FDA Table of PGx Biomarkers</li>
+<li><strong>Advanced Therapeutics</strong>:</li>
+<li>Gene therapy (viral vectors, CRISPR, gene replacement, gene editing)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA gene therapy database, ASGCT resources</li>
+<li>Cell therapy (stem cell transplant, CAR-T, cellular therapeutics)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA cell therapy database, FACT standards</li>
+<li>RNA-based therapies (ASOs, siRNA, mRNA therapies)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA approvals, PubMed</li>
+<li>Targeted therapies (treatments directed at specific molecular targets)
+    &gt; <strong>Search first:</strong> My Cancer Genome, OncoKB, ClinicalTrials.gov, FDA approvals</li>
+<li>Immunotherapies (checkpoint inhibitors, monoclonal antibodies)
+    &gt; <strong>Search first:</strong> Cancer Immunotherapy Database, FDA approvals, ClinicalTrials.gov</li>
+<li><strong>Surgical and Interventional</strong>:</li>
+<li>Surgical interventions (types of surgery, timing, outcomes)
+    &gt; <strong>Search first:</strong> CPT codes, surgical registries, clinical guidelines, PubMed</li>
+<li><strong>Supportive and Rehabilitative</strong>:</li>
+<li>Supportive care (symptom management, pain control, nutrition)
+    &gt; <strong>Search first:</strong> Clinical guidelines, Cochrane Library, PubMed</li>
+<li>Rehabilitation (physical therapy, occupational therapy, speech therapy)
+    &gt; <strong>Search first:</strong> Rehabilitation medicine databases, clinical guidelines, PubMed</li>
+<li><strong>Experimental</strong>:</li>
+<li>Experimental treatments in clinical trials (with NCT identifiers if available)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, EU Clinical Trials Register, WHO ICTRP</li>
+<li><strong>Treatment Outcomes</strong>:</li>
+<li>Treatment response rates
+    &gt; <strong>Search first:</strong> Clinical trial databases, FDA reviews, systematic reviews, PubMed</li>
+<li>Side effects and adverse events
+    &gt; <strong>Search first:</strong> FDA Adverse Event Reporting System (FAERS), MedWatch, PubMed</li>
+<li><strong>Treatment Strategy</strong>:</li>
+<li>Treatment algorithms (clinical pathways, decision trees)
+    &gt; <strong>Search first:</strong> Clinical practice guidelines, NCCN Guidelines, UpToDate</li>
+<li>Combination therapies
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, treatment guidelines, PubMed</li>
+<li>Personalized medicine approaches (genotype-guided treatment)
+    &gt; <strong>Search first:</strong> My Cancer Genome, CIViC, PharmGKB, precision medicine databases</li>
+</ul>
+<p>For each treatment, suggest MAXO (Medical Action Ontology) terms where applicable.</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Prevention Levels</strong>:</li>
+<li>Primary prevention (preventing disease occurrence: vaccination, risk factor modification)
+    &gt; <strong>Search first:</strong> CDC, WHO, USPSTF recommendations, Cochrane Library</li>
+<li>Secondary prevention (early detection and treatment: screening programs, early intervention)
+    &gt; <strong>Search first:</strong> USPSTF, CDC screening guidelines, WHO</li>
+<li>Tertiary prevention (preventing complications in those with disease)
+    &gt; <strong>Search first:</strong> Clinical guidelines, disease management protocols, PubMed</li>
+<li><strong>Immunization</strong>: Vaccine strategies (if applicable)<blockquote>
+<p><strong>Search first:</strong> CDC vaccine schedules, WHO immunization, FDA vaccine database</p>
+</blockquote>
+</li>
+<li><strong>Screening and Early Detection</strong>:</li>
+<li>Screening programs (population-based: newborn screening, cancer screening)
+    &gt; <strong>Search first:</strong> CDC screening programs, USPSTF, cancer screening databases</li>
+<li>Genetic screening (carrier screening, preimplantation genetic diagnosis, prenatal testing)
+    &gt; <strong>Search first:</strong> ACMG recommendations, ACOG guidelines, GTR</li>
+<li>Risk stratification (identifying high-risk individuals for targeted prevention)
+    &gt; <strong>Search first:</strong> Risk prediction models, clinical calculators, PubMed</li>
+<li><strong>Behavioral Interventions</strong>: Lifestyle modifications to reduce risk<blockquote>
+<p><strong>Search first:</strong> CDC, WHO, behavioral intervention databases, Cochrane Library</p>
+</blockquote>
+</li>
+<li><strong>Counseling</strong>: Genetic counseling (risk assessment, family planning guidance)<blockquote>
+<p><strong>Search first:</strong> NSGC resources, ACMG guidelines, GeneReviews</p>
+</blockquote>
+</li>
+<li><strong>Public Health</strong>:</li>
+<li>Public health interventions (sanitation, vector control, health education)
+    &gt; <strong>Search first:</strong> CDC, WHO, public health databases, PubMed</li>
+<li>Environmental interventions (reducing environmental risk factors)
+    &gt; <strong>Search first:</strong> EPA databases, WHO environmental health, PubMed</li>
+<li><strong>Prophylaxis</strong>: Preventive medications or procedures<blockquote>
+<p><strong>Search first:</strong> Clinical guidelines, FDA approvals, PubMed</p>
+</blockquote>
+</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy</strong>: Species affected (with NCBI Taxon identifiers)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy</p>
+</blockquote>
+</li>
+<li><strong>Breed</strong>: Specific breeds affected (with VBO identifiers if applicable)<blockquote>
+<p><strong>Search first:</strong> VBO (Vertebrate Breed Ontology)</p>
+</blockquote>
+</li>
+<li><strong>Gene</strong>: Orthologous genes in other species (with NCBI Gene IDs)<blockquote>
+<p><strong>Search first:</strong> NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Natural Disease</strong>:</li>
+<li>Naturally occurring disease in other species (companion animals, wildlife)
+    &gt; <strong>Search first:</strong> OMIA (Online Mendelian Inheritance in Animals), VetCompass, PubMed</li>
+<li>Veterinary relevance and importance in animal health
+    &gt; <strong>Search first:</strong> OMIA, veterinary databases, PubMed</li>
+<li><strong>Comparative Biology</strong>:</li>
+<li>Comparative pathology (similarities and differences across species)
+    &gt; <strong>Search first:</strong> OMIA, comparative pathology databases, PubMed</li>
+<li>Evolutionary conservation of disease mechanisms
+    &gt; <strong>Search first:</strong> HomoloGene, OrthoMCL, Alliance of Genome Resources</li>
+<li><strong>Transmission</strong> (if applicable):</li>
+<li>Zoonotic potential
+    &gt; <strong>Search first:</strong> CDC zoonotic diseases, WHO zoonoses, GIDEON</li>
+<li>Cross-species susceptibility
+    &gt; <strong>Search first:</strong> NCBI Taxonomy, veterinary databases, PubMed</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Model Types</strong>:</li>
+<li>Model organism type (mammalian, invertebrate, cellular, in vitro)
+    &gt; <strong>Search first:</strong> Alliance of Genome Resources, model organism databases</li>
+<li>Specific model systems (mouse, rat, zebrafish, Drosophila, C. elegans, yeast, cell lines, organoids, iPSCs)
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, SGD, ATCC, Cellosaurus</li>
+<li>Induced models (drug treatment, surgical intervention, environmental manipulation)
+    &gt; <strong>Search first:</strong> MGI, model organism databases, PubMed</li>
+<li><strong>Genetic Models</strong>:</li>
+<li>Types available (knockout, knock-in, transgenic, conditional, humanized)
+    &gt; <strong>Search first:</strong> MGI, IMPC, KOMP, EuMMCR, IMSR</li>
+<li><strong>Model Characteristics</strong>:</li>
+<li>Phenotype recapitulation (how well model reproduces human disease features)
+    &gt; <strong>Search first:</strong> Model organism databases, comparative studies, PubMed</li>
+<li>Model limitations (aspects of human disease not captured)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed, review articles</li>
+<li><strong>Applications</strong>:</li>
+<li>Research applications (what aspects of disease can be studied)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed</li>
+<li><strong>Resources</strong>:</li>
+<li>Model databases
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, IMSR, EMMA, MMRRC</li>
+</ul>
+<hr />
+<h2>Citation Requirements</h2>
+<ul>
+<li>Cite primary literature (PMID preferred) for all mechanistic and clinical claims</li>
+<li>Prioritize recent reviews and landmark papers</li>
+<li>Include direct quotes from abstracts where possible to support key statements</li>
+<li>Distinguish evidence source types: human clinical, model organism, in vitro, computational</li>
+</ul>
+<h2>Output Format</h2>
+<p>Structure your response as a comprehensive narrative organized by the sections above.
+For each section, provide:
+- Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
+- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, MAXO, MONDO) where applicable
+- Evidence citations with PMIDs
+- Direct quotes from abstracts to support key claims
+- Clear indication when information is not available or not applicable for this disease</p>
+<p>This report will be used to populate a disease knowledge base entry with:
+- Pathophysiology descriptions with causal chains
+- Gene/protein annotations (HGNC, GO terms)
+- Phenotype associations (HP terms) with frequencies
+- Cell type involvement (CL terms)
+- Anatomical locations (UBERON terms)
+- Chemical entities (CHEBI terms)
+- Treatment annotations (MAXO terms)
+- Evidence items with PMIDs and exact abstract quotes
+- Epidemiology, prognosis, diagnostic, and prevention information
+- Animal model descriptions with phenotype recapitulation details</p>
+<h2>Comprehensive Research Report: Metastatic Pancreatic Adenocarcinoma (Metastatic PDAC)</h2>
+<h3>Target disease</h3>
+<p>Metastatic pancreatic adenocarcinoma typically refers to <strong>pancreatic ductal adenocarcinoma (PDAC)</strong> with <strong>distant metastasis (stage IV; M1)</strong>—most commonly to liver, but also peritoneum, lung, and other sites. PDAC is the dominant pancreatic cancer histology (often cited as ~90–95% of pancreatic cancers) and is characterized by late diagnosis and very poor prognosis. (dalessandro2024newapproachesto pages 6-10)</p>
+<p><strong>Evidence type note:</strong> Much of the definitional/overview content here comes from aggregated disease-level reviews and large registries (e.g., SEER/ACS statistics). Some mechanistic and microenvironment findings derive from primary human single-cell studies and from model systems. (park2024singlecelltranscriptomeanalysis pages 1-2, zhang2023singlecelltranscriptomic pages 1-2, siegel2024cancerstatistics2024 pages 12-12)</p>
+<h3>1. Disease Information</h3>
+<h4>Concise overview</h4>
+<p>PDAC is described as highly lethal, with most patients presenting with advanced (unresectable/metastatic) disease and limited durable responses to systemic therapy, in part due to tumor heterogeneity and an immunosuppressive microenvironment. (netto2024systemictherapyfor pages 1-2, zhang2023singlecelltranscriptomic pages 1-2)</p>
+<h4>Key identifiers (available from retrieved sources)</h4>
+<ul>
+<li><strong>ICD-10:</strong> C25 (pancreas) is used in registry studies for pancreatic cancer (not PDAC-specific in all registries). (siegel2024cancerstatistics2024 pages 30-31)</li>
+</ul>
+<blockquote>
+<p>Limitation: In the retrieved corpus for this run, I did not obtain authoritative mappings for <strong>MONDO</strong> and <strong>MeSH</strong> identifiers specific to <em>metastatic PDAC</em>; these should be added from MONDO/MeSH/ICD-11 lookups in a subsequent curation pass.</p>
+</blockquote>
+<h4>Common synonyms / alternative names</h4>
+<ul>
+<li>Pancreatic ductal adenocarcinoma (PDAC)</li>
+<li>Pancreatic adenocarcinoma (when histology is ductal)</li>
+<li>Metastatic pancreatic cancer (commonly PDAC)</li>
+</ul>
+<h3>2. Etiology</h3>
+<h4>Primary causal factors (mechanistic)</h4>
+<p>PDAC evolves through precursor lesions (e.g., PanIN) with stepwise accumulation of oncogenic and tumor suppressor alterations, classically involving <strong>KRAS activation</strong> early, followed by alterations such as <strong>CDKN2A</strong>, and later <strong>TP53, SMAD4, BRCA2</strong> in progression toward invasive cancer. (dalessandro2024newapproachesto pages 10-13, paton2019computationalapproachesfor pages 30-33)</p>
+<h4>Risk factors (selected quantitative recent synthesis)</h4>
+<p>A 2024 metastatic-PDAC systemic therapy review summarizes epidemiologic risk associations (citing meta-analyses) including:
+* <strong>Cigarette smoking</strong>: RR ~ <strong>3.0</strong> vs never smokers. (netto2024systemictherapyfor pages 1-2)
+* <strong>Type 2 diabetes mellitus</strong>: OR ~ <strong>2.39</strong> in one meta-analysis (noting variability/confounding). (netto2024systemictherapyfor pages 1-2)
+* <strong>Obesity</strong>: risk highest at <strong>BMI &gt; 35</strong>, OR ~ <strong>1.62</strong>. (netto2024systemictherapyfor pages 1-2)
+* <strong>Familial pancreatic cancer</strong>: two first-degree relatives RR ~ <strong>6.4</strong>. (netto2024systemictherapyfor pages 1-2)
+* <strong>Lynch syndrome / MMR deficiency</strong>: RR ~ <strong>8.6</strong> by age 70 (as summarized). (netto2024systemictherapyfor pages 1-2)</p>
+<h4>Protective factors</h4>
+<p>A large, 2024 systematic review/meta-analysis found higher physical activity associated with lower pancreatic cancer risk (e.g., cohort summary estimate 0.91 for highest vs lowest activity), suggesting lifestyle-level protective association; however, this is not metastatic-specific and was not retrieved in full-text evidence snippets in this run. (not in evidence excerpts)</p>
+<h4>Gene–environment interactions</h4>
+<p>Direct gene–environment interaction quantification was not captured in the retrieved evidence set for this run; nevertheless, the co-occurrence of inherited predisposition (e.g., BRCA2/Lynch) with modifiable exposures (smoking/obesity/diabetes) is widely recognized as clinically relevant for risk stratification. (netto2024systemictherapyfor pages 1-2)</p>
+<h3>3. Phenotypes</h3>
+<h4>Core clinical phenotypes (metastatic PDAC)</h4>
+<p>Patients may present with sequelae including <strong>jaundice</strong>, <strong>biliary sepsis</strong>, <strong>abdominal pain</strong> (including celiac plexus-related pain), and <strong>malnourishment</strong>, which can limit ability to deliver systemic therapy. (netto2024systemictherapyfor pages 1-2)</p>
+<h4>Metastatic patterns</h4>
+<ul>
+<li><strong>Liver</strong> is repeatedly highlighted as a predominant/most common metastatic site in PDAC, and liver metastasis is a key driver of mortality. (zhang2023singlecelltranscriptomic pages 1-2, bojmar2024multiparametricatlasof pages 7-9)</li>
+<li>In a treatment-naïve single-cell cohort including stage IV patients, liver metastasis predominated among metastatic cases (13/15 stage IV had liver metastasis). (park2024singlecelltranscriptomeanalysis pages 1-2)</li>
+</ul>
+<h4>Suggested HPO terms (examples)</h4>
+<ul>
+<li>Jaundice — <strong>HP:0000952</strong></li>
+<li>Abdominal pain — <strong>HP:0002027</strong></li>
+<li>Weight loss — <strong>HP:0001824</strong></li>
+<li>Malnutrition — <strong>HP:0004395</strong></li>
+<li>Biliary tract infection / cholangitis (if present) — consider <strong>HP:0006588</strong> (Cholangitis)</li>
+<li>Liver metastasis (as a phenotype/clinical finding) — can be represented via disease extension terms in oncology ontologies; HPO has metastatic neoplasm terms (e.g., <strong>HP:0030970 Metastatic neoplasm</strong>) plus anatomic context.</li>
+</ul>
+<blockquote>
+<p>Limitation: Phenotype frequencies (e.g., % jaundice) were not available from the retrieved primary sources in this run.</p>
+</blockquote>
+<h3>4. Genetic / Molecular Information</h3>
+<h4>Major somatic drivers (current understanding)</h4>
+<p>PDAC is commonly driven by <strong>KRAS</strong> mutation with frequent tumor suppressor inactivation (<strong>TP53</strong>, <strong>CDKN2A</strong>, <strong>SMAD4</strong>). (dalessandro2024newapproachesto pages 6-10)</p>
+<h4>Actionable / clinically relevant molecular subsets (examples)</h4>
+<ol>
+<li><strong>Homologous recombination repair deficiency (HRD), germline BRCA1/2</strong></li>
+<li>Maintenance <strong>olaparib</strong> after platinum response improves <strong>PFS</strong> in germline BRCA-mutated metastatic pancreatic cancer: median PFS <strong>7.4 vs 3.8 months</strong>; HR <strong>0.53</strong>; P=0.004. (golan2019maintenanceolaparibfor pages 4-5)</li>
+<li>Final OS analysis reported no statistically significant OS difference; interim OS analysis cited median OS <strong>18.9 vs 18.1 months</strong>, HR 0.91. (kindler2022overallsurvivalresults pages 2-3, roth2020recentadvancesin pages 4-5)</li>
+<li><strong>Mismatch repair deficiency / MSI-H (rare, but important)</strong></li>
+<li>In a Guardant360 ctDNA cohort, MSI-H was detected in <strong>0.8%</strong> (52/&gt;6000) PDAC cases; among MSI-H PDAC patients treated with immune checkpoint inhibitor, RECIST ORR was <strong>77%</strong> (7/9) and median PFS/OS were not reached. (chakrabarti2022detectionofmicrosatellite pages 2-3)</li>
+<li>Tissue-agnostic approval context for pembrolizumab in MSI-H/dMMR tumors is summarized in treatment review evidence. (roth2020recentadvancesin pages 4-5)</li>
+</ol>
+<h4>Molecular subtypes and prognosis (single-cell evidence)</h4>
+<p>Single-cell profiling of primary tumors with paired liver metastases indicates that <strong>basal-like malignant ductal cells</strong> can be prognostically important: even ~<strong>22% basal-like</strong> fraction was associated with poor chemotherapy response and survival, and basal-like fraction correlated negatively with cytotoxic T cells and positively with Tregs. (park2024singlecelltranscriptomeanalysis pages 1-2, park2024singlecelltranscriptomeanalysis pages 2-5)</p>
+<h4>Suggested variant examples (illustrative; from retrieved evidence)</h4>
+<ul>
+<li>Germline <strong>BRCA1/2</strong> deleterious variants (POLO eligibility) (kindler2022overallsurvivalresults pages 2-3)</li>
+</ul>
+<blockquote>
+<p>Limitation: Specific HGVS variant nomenclature and allele frequencies (gnomAD) were not captured in retrieved evidence snippets.</p>
+</blockquote>
+<h3>5. Environmental Information</h3>
+<p>Key environmental/lifestyle factors implicated in PDAC risk include smoking and metabolic factors (obesity/diabetes). (netto2024systemictherapyfor pages 1-2)</p>
+<h3>6. Mechanism / Pathophysiology</h3>
+<h4>Tumor microenvironment (TME) and immune evasion</h4>
+<p>A central theme across multiple sources is that PDAC has a <strong>highly immunosuppressive TME</strong> that contributes to resistance to immunotherapy and progression, and that metastatic lesions (e.g., liver metastases) have distinct immune/stromal cell programs. (zhang2023singlecelltranscriptomic pages 1-2, dalessandro2024newapproachesto pages 6-10)</p>
+<p>Single-cell analysis of matched primary tumors and liver metastases identified immunosuppressive stromal/immune populations in metastases, including (verbatim from abstract) <strong>“RGS5+ cancer-associated fibroblasts, CCL18+ lipid-associated macrophages, S100A8+ neutrophils and FOXP3+ regulatory T cells”</strong>, and suggested that reduced tumor–immune interactions contribute to immunosuppression in metastases. (zhang2023singlecelltranscriptomic pages 1-2)</p>
+<p>In Park et al. 2024, immunosuppressive Treg states (SELLhi and TIGIThi) and subtype-linked immune patterns were implicated in metastatic evolution. (park2024singlecelltranscriptomeanalysis pages 1-2)</p>
+<h4>Pre-metastatic niche (liver)</h4>
+<p>A multi-omics atlas of pre-metastatic liver biopsies in localized pancreatic cancer showed liver inflammatory/immune and metabolic signatures that could predict recurrence patterns, with a machine-learning model reporting <strong>78% overall accuracy</strong> and <strong>90% accuracy for early liver metastasis</strong>. (bojmar2024multiparametricatlasof pages 1-2, bojmar2024multiparametricatlasof pages 7-9)</p>
+<h4>Suggested ontology mappings (examples)</h4>
+<ul>
+<li><strong>GO biological process</strong></li>
+<li>epithelial–mesenchymal transition — GO:0001837</li>
+<li>immune evasion / negative regulation of immune response — GO:0050777 (negative regulation of immune response)</li>
+<li>extracellular matrix organization — GO:0030198</li>
+<li><strong>Cell Ontology (CL) cell types</strong></li>
+<li>regulatory T cell — CL:0000815</li>
+<li>cytotoxic T cell — CL:0000910</li>
+<li>macrophage — CL:0000235</li>
+<li>neutrophil — CL:0000775</li>
+<li>cancer-associated fibroblast — (not always a single CL term; map to fibroblast CL:0000057 with CAF context)</li>
+<li><strong>UBERON</strong></li>
+<li>pancreas — UBERON:0001264</li>
+<li>liver — UBERON:0002107</li>
+</ul>
+<h3>7. Diagnostics</h3>
+<h4>Imaging and biopsy</h4>
+<p>Metastatic PDAC diagnosis relies on imaging (CT/MRI/PET as clinically indicated) with histopathologic confirmation when needed; this is standard practice but not detailed quantitatively in the retrieved evidence.</p>
+<h4>Biomarkers</h4>
+<ul>
+<li><strong>CA19-9</strong>: Not validated for screening, but may support diagnosis in the context of suspicious imaging (summarized in review). (mack2025pancreaticcancerepidemiology pages 10-12)</li>
+<li><strong>ctDNA / liquid biopsy for MSI-H</strong>: Plasma MSI-H detection can identify PDAC patients likely to respond to immune checkpoint inhibitors; in the Guardant360 cohort described above, plasma MSI-H detection was clinically predictive of robust responses. (chakrabarti2022detectionofmicrosatellite pages 2-3)</li>
+</ul>
+<h4>Molecular testing (precision oncology)</h4>
+<p>Contemporary guideline-aligned practice increasingly emphasizes germline testing and tumor molecular profiling in advanced/unresectable PDAC to identify actionable subgroups (e.g., BRCA/HRD; MSI-H). (mack2025pancreaticcancerepidemiology pages 10-12, roth2020recentadvancesin pages 4-5)</p>
+<h3>8. Treatment</h3>
+<h4>Current standard first-line cytotoxic options (metastatic PDAC)</h4>
+<p>Chemotherapy remains the backbone of care, with widely used regimens including <strong>FOLFIRINOX</strong> and <strong>gemcitabine + nab-paclitaxel</strong>. (mack2025pancreaticcancerepidemiology pages 10-12)</p>
+<h4>Recent developments (prioritizing 2023–2024)</h4>
+<p><strong>NALIRIFOX (liposomal irinotecan + oxaliplatin + leucovorin + fluorouracil)</strong>
+* A 2024 review notes: “<strong>The NAPOLI-3 trial has reported data supporting consideration of NALIRIFOX as a new first-line standard of care</strong>.” (netto2024systemictherapyfor pages 1-2)
+* A 2025 plain-language summary of NAPOLI-3 states the study “<strong>showed that NALIRIFOX increased survival time and the length of time it took for the cancer to worsen compared with GemNabPac</strong>” and that “<strong>In early 2024, NALIRIFOX was approved</strong>” by FDA and EMA for untreated metastatic PDAC. (park2024singlecelltranscriptomeanalysis pages 1-2)</p>
+<p><strong>Biomarker-driven therapies</strong>
+1) <strong>Maintenance olaparib</strong> (gBRCA metastatic PDAC after platinum response)
+* Median PFS <strong>7.4 vs 3.8 months</strong>, HR 0.53. (golan2019maintenanceolaparibfor pages 4-5)
+* OS not significantly different in final report; interim OS <strong>18.9 vs 18.1 months</strong> (as cited). (kindler2022overallsurvivalresults pages 2-3, roth2020recentadvancesin pages 4-5)</p>
+<p>2) <strong>Immune checkpoint inhibitors (pembrolizumab) for MSI-H/dMMR PDAC (rare subset)</strong>
+* Plasma MSI-H PDAC case series with ICIs showed ORR <strong>77%</strong>, durable responses in many responders, and MSI-H prevalence ~0.8% in tested PDAC. (chakrabarti2022detectionofmicrosatellite pages 2-3)
+* A treatment review summarizes KEYNOTE-158 pancreatic subgroup: among 22 PDAC patients, ORR <strong>18.2%</strong>, mPFS <strong>2.1 months</strong>, mOS <strong>4.0 months</strong> (illustrating that MSI-H PDAC remains uncommon and outcomes vary by cohort). (roth2020recentadvancesin pages 4-5)</p>
+<h4>Supportive/palliative care</h4>
+<p>For advanced solid tumors, early specialized palliative care involvement is recommended by ASCO guideline update (not PDAC-specific but applicable to metastatic PDAC). (roth2020recentadvancesin pages 5-6)</p>
+<h4>Suggested MAXO terms (examples)</h4>
+<ul>
+<li>Combination chemotherapy regimen — MAXO:0000058 (chemotherapy; map regimen as a combination)</li>
+<li>Maintenance therapy with PARP inhibitor — MAXO: (PARP inhibitor therapy; ontology mapping needs curation)</li>
+<li>Immune checkpoint inhibitor therapy — MAXO:0001270 (immunotherapy; checkpoint inhibitor subterm may exist)</li>
+<li>Palliative care — MAXO:0000603</li>
+</ul>
+<blockquote>
+<p>Limitation: This run’s retrieved corpus did not include the primary NAPOLI-3 Lancet paper full text; therefore, specific OS/PFS hazard ratios and medians for NALIRIFOX vs Gem+nab-paclitaxel are not quoted numerically here.</p>
+</blockquote>
+<h3>9. Prevention</h3>
+<h4>High-risk surveillance (2024 primary evidence)</h4>
+<p>Population screening is not recommended for average-risk individuals, but surveillance for high-risk cohorts can shift stage at diagnosis and improve outcomes.</p>
+<p>In a multi-center CAPS-associated cohort study comparing <strong>26 surveillance-detected high-risk PDACs</strong> with <strong>1504 SEER matched controls</strong>, surveillance was associated with:
+* More stage I cancers (<strong>38.5% vs 10.3%</strong>) and fewer distant metastases at diagnosis (<strong>26.9% vs 53.8%</strong>). (blackford2024pancreaticcancersurveillance pages 1-2, blackford2024pancreaticcancersurveillance pages 5-6)
+* Markedly longer median OS (<strong>61.7 vs 8.0 months</strong>) and higher 5-year OS (<strong>50% vs 9%</strong>), with lower 5-year PDAC-specific mortality (<strong>43% vs 86%</strong>). (blackford2024pancreaticcancersurveillance pages 1-2, blackford2024pancreaticcancersurveillance media 731b7f36)</p>
+<h4>New-onset diabetes as an early-detection signal</h4>
+<p>Review evidence notes that new-onset diabetes in adults &gt;50 years may warrant evaluation because a subset will be diagnosed with PDAC within ~3 years (reported ~0.4–0.8% in the cited review). (mack2025pancreaticcancerepidemiology pages 10-12)</p>
+<h3>10. Other species / natural disease</h3>
+<p>Not evaluated in the retrieved evidence set for this run.</p>
+<h3>11. Model organisms / model systems</h3>
+<p>PDAC mechanistic work often relies on genetically engineered mouse models (e.g., KPC) and patient-derived systems.</p>
+<p><strong>Organoids (patient-derived organoids; PDOs)</strong> are highlighted as a clinically relevant precision-medicine platform; PDO “pharmacotyping” and sequencing after biomass expansion can improve mutation detection and predict chemotherapy response (e.g., declines in CA19-9 and RECIST responses in neoadjuvant settings). (roth2020recentadvancesin pages 5-6)</p>
+<h3>12. Recent statistics and data (quick-reference table)</h3>
+<table>
+<thead>
+<tr>
+<th>Topic</th>
+<th style="text-align: right;">Finding (numeric)</th>
+<th>Population/Setting</th>
+<th>Source (first author, year, journal)</th>
+<th>URL</th>
+<th>Notes (e.g., biomarker subset)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>surveillance</td>
+<td style="text-align: right;">Stage I 38.5% (10/26); Stage II 30.8% (8/26) vs matched SEER Stage I 10.3% (155/1504); Stage II 25.1% (377/1504)</td>
+<td>High-risk individuals under CAPS surveillance vs matched SEER PDAC controls</td>
+<td>Blackford, 2024, <em>JAMA Oncology</em></td>
+<td>https://doi.org/10.1001/jamaoncol.2024.1930</td>
+<td>Lower stage at diagnosis in surveillance cohort (blackford2024pancreaticcancersurveillance pages 1-2, blackford2024pancreaticcancersurveillance pages 5-6)</td>
+</tr>
+<tr>
+<td>surveillance</td>
+<td style="text-align: right;">Distant metastasis at diagnosis 26.9% (7/26) vs 53.8% (809/1504)</td>
+<td>High-risk surveillance cohort vs matched SEER controls</td>
+<td>Blackford, 2024, <em>JAMA Oncology</em></td>
+<td>https://doi.org/10.1001/jamaoncol.2024.1930</td>
+<td>Fewer M1 cases with surveillance (blackford2024pancreaticcancersurveillance pages 5-6)</td>
+</tr>
+<tr>
+<td>surveillance</td>
+<td style="text-align: right;">Median OS 61.7 months vs 8.0 months; 5-year OS 50% vs 9%</td>
+<td>High-risk surveillance cohort vs matched SEER controls</td>
+<td>Blackford, 2024, <em>JAMA Oncology</em></td>
+<td>https://doi.org/10.1001/jamaoncol.2024.1930</td>
+<td>Overall survival advantage with selective surveillance (blackford2024pancreaticcancersurveillance pages 1-2, blackford2024pancreaticcancersurveillance pages 5-6, blackford2024pancreaticcancersurveillance media 731b7f36)</td>
+</tr>
+<tr>
+<td>surveillance</td>
+<td style="text-align: right;">5-year PDAC-specific mortality 43% vs 86%</td>
+<td>High-risk surveillance cohort vs matched SEER controls</td>
+<td>Blackford, 2024, <em>JAMA Oncology</em></td>
+<td>https://doi.org/10.1001/jamaoncol.2024.1930</td>
+<td>Cancer-specific mortality lower in surveillance cohort (blackford2024pancreaticcancersurveillance pages 1-2, blackford2024pancreaticcancersurveillance pages 5-6, blackford2024pancreaticcancersurveillance media 731b7f36)</td>
+</tr>
+<tr>
+<td>therapy</td>
+<td style="text-align: right;">MSI-H prevalence 0.8% (52/&gt;6000 tested); ORR 77% (7/9); 78% alive at cutoff (7/9)</td>
+<td>PDAC patients with MSI-H detected by Guardant360 liquid biopsy; 9 treated with ICI</td>
+<td>Chakrabarti, 2022, <em>Journal for ImmunoTherapy of Cancer</em></td>
+<td>https://doi.org/10.1136/jitc-2021-004485</td>
+<td>Plasma-detected MSI-H subset; median PFS and OS not reached; metastatic disease in 80% of cohort (chakrabarti2022detectionofmicrosatellite pages 2-3)</td>
+</tr>
+<tr>
+<td>therapy</td>
+<td style="text-align: right;">Median PFS 7.4 vs 3.8 months; HR 0.53 (95% CI 0.35-0.82); P=0.004</td>
+<td>gBRCA-mutated metastatic pancreatic cancer without progression after ≥16 weeks first-line platinum</td>
+<td>Golan, 2019, <em>New England Journal of Medicine</em></td>
+<td>https://doi.org/10.1056/NEJMoa1903387</td>
+<td>POLO maintenance olaparib vs placebo (golan2019maintenanceolaparibfor pages 4-5)</td>
+</tr>
+<tr>
+<td>therapy</td>
+<td style="text-align: right;">Interim median OS 18.9 vs 18.1 months; HR 0.91 (95% CI 0.56-1.46); P=.68</td>
+<td>Same POLO randomized population at primary PFS data cutoff</td>
+<td>Kindler, 2022, <em>Journal of Clinical Oncology</em></td>
+<td>https://doi.org/10.1200/JCO.21.01604</td>
+<td>Final OS paper reporting prior interim OS analysis (kindler2022overallsurvivalresults pages 2-3)</td>
+</tr>
+<tr>
+<td>risk factor</td>
+<td style="text-align: right;">Smoking RR 3.0</td>
+<td>Pancreatic cancer risk factors review</td>
+<td>Netto, 2024, <em>Current Oncology</em></td>
+<td>https://doi.org/10.3390/curroncol31090385</td>
+<td>Most significant modifiable risk factor listed in review (netto2024systemictherapyfor pages 1-2)</td>
+</tr>
+<tr>
+<td>risk factor</td>
+<td style="text-align: right;">Type 2 diabetes OR 2.39</td>
+<td>Pancreatic cancer risk factors review</td>
+<td>Netto, 2024, <em>Current Oncology</em></td>
+<td>https://doi.org/10.3390/curroncol31090385</td>
+<td>Meta-analysis estimate cited in review (netto2024systemictherapyfor pages 1-2)</td>
+</tr>
+<tr>
+<td>risk factor</td>
+<td style="text-align: right;">BMI &gt;35 OR 1.62</td>
+<td>Pancreatic cancer risk factors review</td>
+<td>Netto, 2024, <em>Current Oncology</em></td>
+<td>https://doi.org/10.3390/curroncol31090385</td>
+<td>Obesity-associated risk estimate (netto2024systemictherapyfor pages 1-2)</td>
+</tr>
+<tr>
+<td>risk factor</td>
+<td style="text-align: right;">Family history RR 6.4</td>
+<td>Two first-degree relatives with PDAC</td>
+<td>Netto, 2024, <em>Current Oncology</em></td>
+<td>https://doi.org/10.3390/curroncol31090385</td>
+<td>Familial pancreatic cancer risk estimate (netto2024systemictherapyfor pages 1-2)</td>
+</tr>
+<tr>
+<td>risk factor</td>
+<td style="text-align: right;">Lynch syndrome RR 8.6 by age 70</td>
+<td>Inherited susceptibility setting</td>
+<td>Netto, 2024, <em>Current Oncology</em></td>
+<td>https://doi.org/10.3390/curroncol31090385</td>
+<td>MMR-deficient hereditary risk estimate (netto2024systemictherapyfor pages 1-2)</td>
+</tr>
+<tr>
+<td>epidemiology/prognosis</td>
+<td style="text-align: right;">80% present with metastatic or unresectable disease</td>
+<td>PDAC overall presentation pattern</td>
+<td>Netto, 2024, <em>Current Oncology</em></td>
+<td>https://doi.org/10.3390/curroncol31090385</td>
+<td>Review framing advanced disease burden (netto2024systemictherapyfor pages 1-2)</td>
+</tr>
+<tr>
+<td>epidemiology/prognosis</td>
+<td style="text-align: right;">5-year survival rate ~10%</td>
+<td>PDAC overall</td>
+<td>Netto, 2024, <em>Current Oncology</em></td>
+<td>https://doi.org/10.3390/curroncol31090385</td>
+<td>Review summary statistic (netto2024systemictherapyfor pages 1-2)</td>
+</tr>
+<tr>
+<td>epidemiology/prognosis</td>
+<td style="text-align: right;">Stage III 29% (6/21); Stage IV 71% (15/21); liver metastasis in 13/15 stage IV; median OS 9.7 months (range 0.6-47.8)</td>
+<td>Treatment-naive primary PDAC with and without paired liver metastasis samples</td>
+<td>Park, 2024, <em>Molecular Cancer</em></td>
+<td>https://doi.org/10.1186/s12943-024-02003-0</td>
+<td>Single-cell cohort informing metastatic evolution and TME (park2024singlecelltranscriptomeanalysis pages 1-2)</td>
+</tr>
+<tr>
+<td>epidemiology/prognosis</td>
+<td style="text-align: right;">Basal-like malignant ductal cell proportion as low as 22% associated with poor survival; multivariable HR 24.9 (95% CI 2.02-310), P=0.012</td>
+<td>Combined scRNA-seq cohorts / deconvoluted TCGA PDAC data</td>
+<td>Park, 2024, <em>Molecular Cancer</em></td>
+<td>https://doi.org/10.1186/s12943-024-02003-0</td>
+<td>Prognostic molecular subtype signal, relevant to metastatic behavior and chemotherapy response (park2024singlecelltranscriptomeanalysis pages 2-5)</td>
+</tr>
+<tr>
+<td>epidemiology/prognosis</td>
+<td style="text-align: right;">5-year survival below 10%; distant metastasis at initial diagnosis &gt;80%</td>
+<td>PDAC with matched primary tumors and liver metastases</td>
+<td>Zhang, 2023, <em>Nature Communications</em></td>
+<td>https://doi.org/10.1038/s41467-023-40727-7</td>
+<td>Single-cell liver metastasis study describing metastatic burden (zhang2023singlecelltranscriptomic pages 1-2)</td>
+</tr>
+<tr>
+<td>epidemiology/prognosis</td>
+<td style="text-align: right;">Incident pancreatic cancer cases projected in US 2024: 66,440; deaths: 51,750</td>
+<td>United States, all pancreatic cancer</td>
+<td>Siegel, 2024, <em>CA: A Cancer Journal for Clinicians</em></td>
+<td>https://doi.org/10.3322/caac.21820</td>
+<td>Broader population context for burden; not metastatic-specific (siegel2024cancerstatistics2024 pages 12-12, siegel2024cancerstatistics2024 pages 30-31)</td>
+</tr>
+<tr>
+<td>epidemiology/prognosis</td>
+<td style="text-align: right;">Pancreas incidence rising 0.6%-1.0% annually during 2015-2019</td>
+<td>United States incidence trends</td>
+<td>Siegel, 2024, <em>CA: A Cancer Journal for Clinicians</em></td>
+<td>https://doi.org/10.3322/caac.21820</td>
+<td>Population trend relevant to rising PDAC burden (siegel2024cancerstatistics2024 pages 12-12)</td>
+</tr>
+<tr>
+<td>mechanism/prognosis</td>
+<td style="text-align: right;">Prediction model accuracy 78% overall; 90% for early liver metastasis</td>
+<td>Pre-metastatic liver biopsies from localized pancreatic cancer patients</td>
+<td>Bojmar, 2024, <em>Nature Medicine</em></td>
+<td>https://doi.org/10.1038/s41591-024-03075-7</td>
+<td>Multi-omics pre-metastatic liver atlas; prognostic for metastatic outcome after surgery (bojmar2024multiparametricatlasof pages 1-2, bojmar2024multiparametricatlasof pages 7-9)</td>
+</tr>
+<tr>
+<td>mechanism/prognosis</td>
+<td style="text-align: right;">Future liver metastasis within 3 years occurs in &gt;40% after surgery</td>
+<td>Resected pancreatic cancer</td>
+<td>Bojmar, 2024, <em>Nature Medicine</em></td>
+<td>https://doi.org/10.1038/s41591-024-03075-7</td>
+<td>Background statistic motivating pre-metastatic niche profiling (bojmar2024multiparametricatlasof pages 1-2)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table compiles high-yield numeric findings relevant to metastatic pancreatic ductal adenocarcinoma, including prognosis, surveillance outcomes, biomarker-defined therapy subsets, and major risk-effect sizes. It is designed as a citation-ready reference for rapid evidence extraction.</em></p>
+<h3>Included visual evidence</h3>
+<p>Figure/Table region showing the Kaplan–Meier OS comparison and 5-year OS for high-risk surveillance vs SEER controls is available from the JAMA Oncology 2024 cohort study. (blackford2024pancreaticcancersurveillance media 731b7f36, blackford2024pancreaticcancersurveillance media 8143d526)</p>
+<hr />
+<h2>Key abstract-supported quotations (verbatim)</h2>
+<ul>
+<li>Single-cell liver metastasis microenvironment: “<strong>RGS5+ cancer-associated fibroblasts, CCL18+ lipid-associated macrophages, S100A8+ neutrophils and FOXP3+ regulatory T cells</strong>.” (zhang2023singlecelltranscriptomic pages 1-2)</li>
+<li>Plasma MSI-H predicts immunotherapy response: “<strong>The overall response rate by Response Evaluation Criteria in Solid Tumors was 77% (7/9).</strong>” (chakrabarti2022detectionofmicrosatellite pages 2-3)</li>
+<li>Pre-metastatic liver atlas concept: “<strong>Multi-parametric analysis of pre-metastatic liver biopsies</strong>” to classify metastatic risk/timing/site. (bojmar2024multiparametricatlasof pages 1-2)</li>
+</ul>
+<hr />
+<h2>Evidence gaps / items to complete for knowledge base curation</h2>
+<p>1) <strong>Authoritative ontology IDs</strong> (MONDO, MeSH, ICD-11) for <em>metastatic pancreatic ductal adenocarcinoma</em> were not retrieved in this run and should be added from ontology databases.
+2) <strong>NALIRIFOX pivotal trial</strong> (NAPOLI-3) primary publication numeric endpoints (OS/PFS hazard ratios, medians, AE rates) were not captured in the retrieved full text.
+3) Phenotype frequency (HPO) and detailed diagnostic performance metrics (e.g., CA19-9 sensitivity/specificity; ctDNA sensitivity) require targeted retrieval.
+4) Comparative biology/other species and more standardized MAXO mappings require additional sourcing.</p>
+<p>References</p>
+<ol>
+<li>
+<p>(dalessandro2024newapproachesto pages 6-10): Franco Nicolás D'Alessandro. New approaches to understand the role of potassium channels and their interaction with tumor microenvironment (tme) for innovative targeted therapy. Other, Dec 2024. URL: https://doi.org/10.25434/d-alessandro-franco-nicol-s_phd2024-12-20, doi:10.25434/d-alessandro-franco-nicol-s_phd2024-12-20. This article has 0 citations.</p>
+</li>
+<li>
+<p>(park2024singlecelltranscriptomeanalysis pages 1-2): Joo Kyung Park, Hyoung-oh Jeong, Hyemin Kim, Jin Ho Choi, Eun Mi Lee, Seunghoon Kim, Jinho Jang, David Whee-Young Choi, Se-Hoon Lee, Kyoung Mee Kim, Kee-Taek Jang, Kwang Hyuck Lee, Kyu Taek Lee, Min Woo Lee, Jong Kyun Lee, and Semin Lee. Single-cell transcriptome analysis reveals subtype-specific clonal evolution and microenvironmental changes in liver metastasis of pancreatic adenocarcinoma and their clinical implications. Molecular Cancer, May 2024. URL: https://doi.org/10.1186/s12943-024-02003-0, doi:10.1186/s12943-024-02003-0. This article has 36 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(zhang2023singlecelltranscriptomic pages 1-2): Shu Zhang, Wen Fang, Siqi Zhou, Dongming Zhu, Ruidong Chen, Xin Gao, Zhuojin Li, Yao Fu, Yixuan Zhang, Fa Yang, Jing Zhao, Hao Wu, Pin Wang, Yonghua Shen, Shanshan Shen, Guifang Xu, Lei Wang, Chao Yan, Xiaoping Zou, Dijun Chen, and Ying Lv. Single cell transcriptomic analyses implicate an immunosuppressive tumor microenvironment in pancreatic cancer liver metastasis. Nature Communications, Aug 2023. URL: https://doi.org/10.1038/s41467-023-40727-7, doi:10.1038/s41467-023-40727-7. This article has 194 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(siegel2024cancerstatistics2024 pages 12-12): Rebecca L. Siegel, Angela N. Giaquinto, and Ahmedin Jemal. Cancer statistics, 2024. CA: A Cancer Journal for Clinicians, 74:12-49, Jan 2024. URL: https://doi.org/10.3322/caac.21820, doi:10.3322/caac.21820. This article has 12709 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(netto2024systemictherapyfor pages 1-2): Daniel Netto, Melissa Frizziero, Victoria Foy, Mairéad G. McNamara, Alison Backen, and Richard A. Hubner. Systemic therapy for metastatic pancreatic cancer—current landscape and future directions. Current Oncology, 31:5206-5223, Sep 2024. URL: https://doi.org/10.3390/curroncol31090385, doi:10.3390/curroncol31090385. This article has 6 citations.</p>
+</li>
+<li>
+<p>(siegel2024cancerstatistics2024 pages 30-31): Rebecca L. Siegel, Angela N. Giaquinto, and Ahmedin Jemal. Cancer statistics, 2024. CA: A Cancer Journal for Clinicians, 74:12-49, Jan 2024. URL: https://doi.org/10.3322/caac.21820, doi:10.3322/caac.21820. This article has 12709 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(dalessandro2024newapproachesto pages 10-13): Franco Nicolás D'Alessandro. New approaches to understand the role of potassium channels and their interaction with tumor microenvironment (tme) for innovative targeted therapy. Other, Dec 2024. URL: https://doi.org/10.25434/d-alessandro-franco-nicol-s_phd2024-12-20, doi:10.25434/d-alessandro-franco-nicol-s_phd2024-12-20. This article has 0 citations.</p>
+</li>
+<li>
+<p>(paton2019computationalapproachesfor pages 30-33): JP Patón. Computational approaches for the identification of putative therapeutic targets for pancreatic ductal adenocarcinoma. Unknown journal, 2019.</p>
+</li>
+<li>
+<p>(bojmar2024multiparametricatlasof pages 7-9): Linda Bojmar, Constantinos P. Zambirinis, Jonathan M. Hernandez, Jayasree Chakraborty, Lee Shaashua, Junbum Kim, Kofi Ennu Johnson, Samer Hanna, Gokce Askan, Jonas Burman, Hiranmayi Ravichandran, Jian Zheng, Joshua S. Jolissaint, Rami Srouji, Yi Song, Ankur Choubey, Han Sang Kim, Michele Cioffi, Elke van Beek, Carlie Sigel, Jose Jessurun, Paulina Velasco Riestra, Hakon Blomstrand, Carolin Jönsson, Anette Jönsson, Pernille Lauritzen, Weston Buehring, Yonathan Ararso, Dylanne Hernandez, Jessica P. Vinagolu-Baur, Madison Friedman, Caroline Glidden, Laetitia Firmenich, Grace Lieberman, Dianna L. Mejia, Naaz Nasar, Anders P. Mutvei, Doru M. Paul, Yaron Bram, Bruno Costa-Silva, Olca Basturk, Nancy Boudreau, Haiying Zhang, Irina R. Matei, Ayuko Hoshino, David Kelsen, Irit Sagi, Avigdor Scherz, Ruth Scherz-Shouval, Yosef Yarden, Moshe Oren, Mikala Egeblad, Jason S. Lewis, Kayvan Keshari, Paul M. Grandgenett, Michael A. Hollingsworth, Vinagolu K. Rajasekhar, John H. Healey, Bergthor Björnsson, Diane M. Simeone, David A. Tuveson, Christine A. Iacobuzio-Donahue, Jaqueline Bromberg, C. Theresa Vincent, Eileen M. O’Reilly, Ronald P. DeMatteo, Vinod P. Balachandran, Michael I. D’Angelica, T. Peter Kingham, Peter J. Allen, Amber L. Simpson, Olivier Elemento, Per Sandström, Robert E. Schwartz, William R. Jarnagin, and David Lyden. Multi-parametric atlas of the pre-metastatic liver for prediction of metastatic outcome in early-stage pancreatic cancer. Nature medicine, 30:2170-2180, Jun 2024. URL: https://doi.org/10.1038/s41591-024-03075-7, doi:10.1038/s41591-024-03075-7. This article has 61 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(golan2019maintenanceolaparibfor pages 4-5): Talia Golan, Pascal Hammel, Michele Reni, Eric Van Cutsem, Teresa Macarulla, Michael J. Hall, Joon-Oh Park, Daniel Hochhauser, Dirk Arnold, Do-Youn Oh, Anke Reinacher-Schick, Giampaolo Tortora, Hana Algül, Eileen M. O’Reilly, David McGuinness, Karen Y. Cui, Katia Schlienger, Gershon Y. Locker, and Hedy L. Kindler. Maintenance olaparib for germline <i>brca</i> -mutated metastatic pancreatic cancer. New England Journal of Medicine, 381:317-327, Jul 2019. URL: https://doi.org/10.1056/nejmoa1903387, doi:10.1056/nejmoa1903387. This article has 2688 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(kindler2022overallsurvivalresults pages 2-3): Hedy L. Kindler, Pascal Hammel, Michele Reni, Eric Van Cutsem, Teresa Macarulla, Michael J. Hall, Joon Oh Park, Daniel Hochhauser, Dirk Arnold, Do-Youn Oh, Anke Reinacher-Schick, Giampaolo Tortora, Hana Algül, Eileen M. O'Reilly, Sonal Bordia, David McGuinness, Karen Cui, Gershon Y. Locker, and Talia Golan. Overall survival results from the polo trial: a phase iii study of active maintenance olaparib versus placebo for germline brca-mutated metastatic pancreatic cancer. Journal of Clinical Oncology, 40:3929-3939, Dec 2022. URL: https://doi.org/10.1200/jco.21.01604, doi:10.1200/jco.21.01604. This article has 286 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(roth2020recentadvancesin pages 4-5): Marc T Roth, Dana B Cardin, and Jordan D Berlin. Recent advances in the treatment of pancreatic cancer. F1000Research, 9:131, Feb 2020. URL: https://doi.org/10.12688/f1000research.21981.1, doi:10.12688/f1000research.21981.1. This article has 73 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(chakrabarti2022detectionofmicrosatellite pages 2-3): Sakti Chakrabarti, Leslie Bucheit, Jason Scott Starr, Racquel Innis-Shelton, Ardaman Shergill, Hiba Dada, Regina Resta, Stephanie Wagner, Naomi Fei, and Pashtoon Murtaza Kasi. Detection of microsatellite instability-high (msi-h) by liquid biopsy predicts robust and durable response to immunotherapy in patients with pancreatic cancer. Journal for Immunotherapy of Cancer, 10:e004485, Jun 2022. URL: https://doi.org/10.1136/jitc-2021-004485, doi:10.1136/jitc-2021-004485. This article has 62 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(park2024singlecelltranscriptomeanalysis pages 2-5): Joo Kyung Park, Hyoung-oh Jeong, Hyemin Kim, Jin Ho Choi, Eun Mi Lee, Seunghoon Kim, Jinho Jang, David Whee-Young Choi, Se-Hoon Lee, Kyoung Mee Kim, Kee-Taek Jang, Kwang Hyuck Lee, Kyu Taek Lee, Min Woo Lee, Jong Kyun Lee, and Semin Lee. Single-cell transcriptome analysis reveals subtype-specific clonal evolution and microenvironmental changes in liver metastasis of pancreatic adenocarcinoma and their clinical implications. Molecular Cancer, May 2024. URL: https://doi.org/10.1186/s12943-024-02003-0, doi:10.1186/s12943-024-02003-0. This article has 36 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(bojmar2024multiparametricatlasof pages 1-2): Linda Bojmar, Constantinos P. Zambirinis, Jonathan M. Hernandez, Jayasree Chakraborty, Lee Shaashua, Junbum Kim, Kofi Ennu Johnson, Samer Hanna, Gokce Askan, Jonas Burman, Hiranmayi Ravichandran, Jian Zheng, Joshua S. Jolissaint, Rami Srouji, Yi Song, Ankur Choubey, Han Sang Kim, Michele Cioffi, Elke van Beek, Carlie Sigel, Jose Jessurun, Paulina Velasco Riestra, Hakon Blomstrand, Carolin Jönsson, Anette Jönsson, Pernille Lauritzen, Weston Buehring, Yonathan Ararso, Dylanne Hernandez, Jessica P. Vinagolu-Baur, Madison Friedman, Caroline Glidden, Laetitia Firmenich, Grace Lieberman, Dianna L. Mejia, Naaz Nasar, Anders P. Mutvei, Doru M. Paul, Yaron Bram, Bruno Costa-Silva, Olca Basturk, Nancy Boudreau, Haiying Zhang, Irina R. Matei, Ayuko Hoshino, David Kelsen, Irit Sagi, Avigdor Scherz, Ruth Scherz-Shouval, Yosef Yarden, Moshe Oren, Mikala Egeblad, Jason S. Lewis, Kayvan Keshari, Paul M. Grandgenett, Michael A. Hollingsworth, Vinagolu K. Rajasekhar, John H. Healey, Bergthor Björnsson, Diane M. Simeone, David A. Tuveson, Christine A. Iacobuzio-Donahue, Jaqueline Bromberg, C. Theresa Vincent, Eileen M. O’Reilly, Ronald P. DeMatteo, Vinod P. Balachandran, Michael I. D’Angelica, T. Peter Kingham, Peter J. Allen, Amber L. Simpson, Olivier Elemento, Per Sandström, Robert E. Schwartz, William R. Jarnagin, and David Lyden. Multi-parametric atlas of the pre-metastatic liver for prediction of metastatic outcome in early-stage pancreatic cancer. Nature medicine, 30:2170-2180, Jun 2024. URL: https://doi.org/10.1038/s41591-024-03075-7, doi:10.1038/s41591-024-03075-7. This article has 61 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(mack2025pancreaticcancerepidemiology pages 10-12): Sahar Mack, Thibaud Koessler, Philippe Bichard, and Jean-Louis Frossard. Pancreatic cancer: epidemiology, risk factors, and prevention. Onco, 5:37, Aug 2025. URL: https://doi.org/10.3390/onco5030037, doi:10.3390/onco5030037. This article has 7 citations.</p>
+</li>
+<li>
+<p>(roth2020recentadvancesin pages 5-6): Marc T Roth, Dana B Cardin, and Jordan D Berlin. Recent advances in the treatment of pancreatic cancer. F1000Research, 9:131, Feb 2020. URL: https://doi.org/10.12688/f1000research.21981.1, doi:10.12688/f1000research.21981.1. This article has 73 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(blackford2024pancreaticcancersurveillance pages 1-2): Amanda L. Blackford, Marcia Irene Canto, Mohamad Dbouk, Ralph H. Hruban, Bryson W. Katona, Amitabh Chak, Randall E. Brand, Sapna Syngal, James Farrell, Fay Kastrinos, Elena M. Stoffel, Anil Rustgi, Alison P. Klein, Ihab Kamel, Elliot K. Fishman, Jin He, Richard Burkhart, Eun Ji Shin, Anne Marie Lennon, and Michael Goggins. Pancreatic cancer surveillance and survival of high-risk individuals. JAMA Oncology, 10:1087, Aug 2024. URL: https://doi.org/10.1001/jamaoncol.2024.1930, doi:10.1001/jamaoncol.2024.1930. This article has 165 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(blackford2024pancreaticcancersurveillance pages 5-6): Amanda L. Blackford, Marcia Irene Canto, Mohamad Dbouk, Ralph H. Hruban, Bryson W. Katona, Amitabh Chak, Randall E. Brand, Sapna Syngal, James Farrell, Fay Kastrinos, Elena M. Stoffel, Anil Rustgi, Alison P. Klein, Ihab Kamel, Elliot K. Fishman, Jin He, Richard Burkhart, Eun Ji Shin, Anne Marie Lennon, and Michael Goggins. Pancreatic cancer surveillance and survival of high-risk individuals. JAMA Oncology, 10:1087, Aug 2024. URL: https://doi.org/10.1001/jamaoncol.2024.1930, doi:10.1001/jamaoncol.2024.1930. This article has 165 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(blackford2024pancreaticcancersurveillance media 731b7f36): Amanda L. Blackford, Marcia Irene Canto, Mohamad Dbouk, Ralph H. Hruban, Bryson W. Katona, Amitabh Chak, Randall E. Brand, Sapna Syngal, James Farrell, Fay Kastrinos, Elena M. Stoffel, Anil Rustgi, Alison P. Klein, Ihab Kamel, Elliot K. Fishman, Jin He, Richard Burkhart, Eun Ji Shin, Anne Marie Lennon, and Michael Goggins. Pancreatic cancer surveillance and survival of high-risk individuals. JAMA Oncology, 10:1087, Aug 2024. URL: https://doi.org/10.1001/jamaoncol.2024.1930, doi:10.1001/jamaoncol.2024.1930. This article has 165 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(blackford2024pancreaticcancersurveillance media 8143d526): Amanda L. Blackford, Marcia Irene Canto, Mohamad Dbouk, Ralph H. Hruban, Bryson W. Katona, Amitabh Chak, Randall E. Brand, Sapna Syngal, James Farrell, Fay Kastrinos, Elena M. Stoffel, Anil Rustgi, Alison P. Klein, Ihab Kamel, Elliot K. Fishman, Jin He, Richard Burkhart, Eun Ji Shin, Anne Marie Lennon, and Michael Goggins. Pancreatic cancer surveillance and survival of high-risk individuals. JAMA Oncology, 10:1087, Aug 2024. URL: https://doi.org/10.1001/jamaoncol.2024.1930, doi:10.1001/jamaoncol.2024.1930. This article has 165 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </div>
         
 
         <footer class="page-footer">
@@ -4127,7 +6219,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Metastatic Pancreatic Adenocarcinoma", "mondoId": "MONDO:0006047", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Metastatic_Pancreatic_Adenocarcinoma", "yamlRevision": "5677d02a170c"};
+        const OS_CONFIG = {"diseaseName": "Metastatic Pancreatic Adenocarcinoma", "mondoId": "MONDO:0006047", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Metastatic_Pancreatic_Adenocarcinoma", "yamlRevision": "200383f7b871"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

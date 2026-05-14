@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,7 +2570,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 14</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 18</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Mucopolysaccharidosis</span>
@@ -2586,16 +2739,18 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">14</div>
+                <div class="stat-value">18</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
             
+            <a class="stat-link" href="#genetic">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">1</div>
                 <div class="stat-label">Genes</div>
             </div>
+            </a>
             
             
             <a class="stat-link" href="#treatments">
@@ -2929,6 +3084,13 @@
 	                            <span class="crosslink-meta">Lysosomal dysfunction</span>
 	                            
 	                            <span class="crosslink-desc">Persistent substrate storage disrupts lysosomal homeostasis and produces broader cellular dysfunction.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hepatosplenomegaly</span>
+	                            
+	                            <span class="crosslink-desc">Visceral glycosaminoglycan storage contributes to enlarged liver and spleen volume.</span>
 	                            
 	                        </div>
 	                        
@@ -3274,6 +3436,20 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cognitive impairment</span>
+	                            
+	                            <span class="crosslink-desc">The severe neuronopathic form manifests clinically as progressive cognitive impairment.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
@@ -3368,6 +3544,27 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Joint stiffness</span>
+	                            
+	                            <span class="crosslink-desc">Joint and connective-tissue GAG storage manifests clinically as progressive joint stiffness.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Short stature</span>
+	                            
+	                            <span class="crosslink-desc">Skeletal and cartilage involvement contributes to growth impairment and short stature.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
@@ -3438,6 +3635,20 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Sleep apnea</span>
+	                            
+	                            <span class="crosslink-desc">Progressive airway disease evolves from rhinitis and noisy breathing to sleep apnea.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
@@ -3487,6 +3698,20 @@
                 
                 
 	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cardiac valve disease</span>
+	                            
+	                            <span class="crosslink-desc">Leaflet thickening and stiffening produce the structural cardiac valve phenotype.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
 	                
 	                
     
@@ -3568,7 +3793,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Airway soft-tissue disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive rhinitis, noisy breathing, and sleep apnea reflect glycosaminoglycan storage in upper-airway soft tissues and related ENT structures.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cardiac valve disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive valvular thickening causes clinically important regurgitation and stenosis in Hunter syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001654\"}}, {\"id\": \"Cardiac valvular thickening and dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dermatan-sulfate-rich valve extracellular matrix accumulates glycosaminoglycans, producing progressive leaflet thickening, regurgitation, and stenosis.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Connective tissue and skeletal-muscle dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulated glycosaminoglycans in joints, cartilage, and connective tissue drive progressive stiffness, growth impairment, and skeletal pathology.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"chondrocyte\"]}}, {\"id\": \"Hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss is common in severe disease and contributes to the ENT burden of Hunter syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000365\"}}, {\"id\": \"Heparan sulfate and dermatan sulfate lysosomal accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IDS insufficiency leads to excess heparan sulfate and dermatan sulfate within lysosomes across multiple tissues and organs, creating the primary storage burden that initiates downstream disease biology.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Iduronate-2-sulfatase deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic IDS variants reduce or abolish iduronate-2-sulfatase activity, blocking normal lysosomal degradation of dermatan sulfate and heparan sulfate.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"glycosaminoglycan catabolic process\"], \"genes\": [\"IDS\"]}}, {\"id\": \"Idursulfase enzyme replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intravenous recombinant iduronate-2-sulfatase is the standard disease-modifying therapy for peripheral somatic disease. It lowers urinary glycosaminoglycans, reduces organomegaly, and can improve endurance, but treatment effects are incomplete and CNS disease is not corrected.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"idursulfase\"]}}, {\"id\": \"Joint stiffness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive joint stiffness reflects glycosaminoglycan storage in joints and connective tissue.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001387\"}}, {\"id\": \"Lysosomal dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Storage burden progresses beyond primary glycosaminoglycan accumulation to broader lysosomal dysfunction, including glial lysosomal aggregation in IDS-deficient neural cells and evidence of abnormal lysosomal lipid burden in neuronopathic patients.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"astrocyte\"], \"biological_processes\": [\"autophagy\"]}}, {\"id\": \"Multidisciplinary supportive care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hunter syndrome remains a high-burden multisystem disease even in treated adults, so ongoing respiratory, ENT/audiologic, orthopedic, cardiology, and surgical management is required alongside disease-directed therapy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neuronopathic central nervous system dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe Hunter syndrome causes progressive central nervous system disease with decline in cognitive, language, adaptive, and motor functions rather than stable neurodevelopment.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\", \"astrocyte\"]}}, {\"id\": \"Secondary neuronal injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In neuronopathic MPS II, lysosomal dysfunction is accompanied by measurable biomarkers of neuronal damage and degeneration, establishing a distinct downstream neuroinjury step before overt clinical CNS decline.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"]}}, {\"id\": \"Sleep apnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive upper-airway disease commonly evolves into noisy breathing and sleep apnea.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010535\"}}], \"edges\": [{\"source\": \"Iduronate-2-sulfatase deficiency\", \"target\": \"Heparan sulfate and dermatan sulfate lysosomal accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Heparan sulfate and dermatan sulfate lysosomal accumulation\", \"target\": \"Lysosomal dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lysosomal dysfunction\", \"target\": \"Secondary neuronal injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lysosomal dysfunction\", \"target\": \"Connective tissue and skeletal-muscle dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lysosomal dysfunction\", \"target\": \"Airway soft-tissue disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lysosomal dysfunction\", \"target\": \"Cardiac valvular thickening and dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary neuronal injury\", \"target\": \"Neuronopathic central nervous system dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Idursulfase enzyme replacement therapy\", \"target\": \"Iduronate-2-sulfatase deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Idursulfase enzyme replacement therapy\", \"target\": \"Heparan sulfate and dermatan sulfate lysosomal accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive care\", \"target\": \"Hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive care\", \"target\": \"Sleep apnea\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive care\", \"target\": \"Cardiac valve disease\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive care\", \"target\": \"Joint stiffness\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Airway soft-tissue disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive rhinitis, noisy breathing, and sleep apnea reflect glycosaminoglycan storage in upper-airway soft tissues and related ENT structures.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cardiac valve disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive valvular thickening causes clinically important regurgitation and stenosis in Hunter syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001654\"}}, {\"id\": \"Cardiac valvular thickening and dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dermatan-sulfate-rich valve extracellular matrix accumulates glycosaminoglycans, producing progressive leaflet thickening, regurgitation, and stenosis.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Cognitive impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe neuronopathic disease causes progressive cognitive impairment, whereas attenuated forms may preserve cognition.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100543\"}}, {\"id\": \"Connective tissue and skeletal-muscle dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulated glycosaminoglycans in joints, cartilage, and connective tissue drive progressive stiffness, growth impairment, and skeletal pathology.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"chondrocyte\"]}}, {\"id\": \"Hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss is common in severe disease and contributes to the ENT burden of Hunter syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000365\"}}, {\"id\": \"Heparan sulfate and dermatan sulfate lysosomal accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IDS insufficiency leads to excess heparan sulfate and dermatan sulfate within lysosomes across multiple tissues and organs, creating the primary storage burden that initiates downstream disease biology.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hepatosplenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased liver and spleen volume is part of the multisystem visceral storage burden of Hunter syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001433\"}}, {\"id\": \"IDS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IDS\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Iduronate-2-sulfatase deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic IDS variants reduce or abolish iduronate-2-sulfatase activity, blocking normal lysosomal degradation of dermatan sulfate and heparan sulfate.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"glycosaminoglycan catabolic process\"], \"genes\": [\"IDS\"]}}, {\"id\": \"Idursulfase enzyme replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intravenous recombinant iduronate-2-sulfatase is the standard disease-modifying therapy for peripheral somatic disease. It lowers urinary glycosaminoglycans, reduces organomegaly, and can improve endurance, but treatment effects are incomplete and CNS disease is not corrected.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"idursulfase\"]}}, {\"id\": \"Joint stiffness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive joint stiffness reflects glycosaminoglycan storage in joints and connective tissue.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001387\"}}, {\"id\": \"Lysosomal dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Storage burden progresses beyond primary glycosaminoglycan accumulation to broader lysosomal dysfunction, including glial lysosomal aggregation in IDS-deficient neural cells and evidence of abnormal lysosomal lipid burden in neuronopathic patients.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"astrocyte\"], \"biological_processes\": [\"autophagy\"]}}, {\"id\": \"Multidisciplinary supportive care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hunter syndrome remains a high-burden multisystem disease even in treated adults, so ongoing respiratory, ENT/audiologic, orthopedic, cardiology, and surgical management is required alongside disease-directed therapy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neuronopathic central nervous system dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe Hunter syndrome causes progressive central nervous system disease with decline in cognitive, language, adaptive, and motor functions rather than stable neurodevelopment.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\", \"astrocyte\"]}}, {\"id\": \"Secondary neuronal injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In neuronopathic MPS II, lysosomal dysfunction is accompanied by measurable biomarkers of neuronal damage and degeneration, establishing a distinct downstream neuroinjury step before overt clinical CNS decline.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"]}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth failure develops as connective-tissue and skeletal disease progresses.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004322\"}}, {\"id\": \"Sleep apnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive upper-airway disease commonly evolves into noisy breathing and sleep apnea.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010535\"}}], \"edges\": [{\"source\": \"Iduronate-2-sulfatase deficiency\", \"target\": \"Heparan sulfate and dermatan sulfate lysosomal accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Heparan sulfate and dermatan sulfate lysosomal accumulation\", \"target\": \"Lysosomal dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Heparan sulfate and dermatan sulfate lysosomal accumulation\", \"target\": \"Hepatosplenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lysosomal dysfunction\", \"target\": \"Secondary neuronal injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lysosomal dysfunction\", \"target\": \"Connective tissue and skeletal-muscle dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lysosomal dysfunction\", \"target\": \"Airway soft-tissue disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lysosomal dysfunction\", \"target\": \"Cardiac valvular thickening and dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary neuronal injury\", \"target\": \"Neuronopathic central nervous system dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuronopathic central nervous system dysfunction\", \"target\": \"Cognitive impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Connective tissue and skeletal-muscle dysfunction\", \"target\": \"Joint stiffness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Connective tissue and skeletal-muscle dysfunction\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Airway soft-tissue disease\", \"target\": \"Sleep apnea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiac valvular thickening and dysfunction\", \"target\": \"Cardiac valve disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Idursulfase enzyme replacement therapy\", \"target\": \"Iduronate-2-sulfatase deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Idursulfase enzyme replacement therapy\", \"target\": \"Heparan sulfate and dermatan sulfate lysosomal accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive care\", \"target\": \"Hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive care\", \"target\": \"Sleep apnea\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive care\", \"target\": \"Cardiac valve disease\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive care\", \"target\": \"Joint stiffness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"IDS\", \"target\": \"Iduronate-2-sulfatase deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4119,6 +4344,58 @@
 
         <!-- Genetic Associations -->
         
+        <div class="card" id="genetic">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
+                <h2 class="card-title">Genetic Associations</h2>
+                <span class="card-count">1</span>
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    IDS
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_753ba7a6-cef5-4665-81e9-306e11c618c5-2018-02-21T110000.000Z" target="_blank">CGGV:assertion_753ba7a6-cef5-4665-81e9-306e11c618c5-2018-02-21T110000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"IDS | HGNC:5389 | mucopolysaccharidosis type 2 | MONDO:0010674 | XL | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the IDS-mucopolysaccharidosis type 2 gene-disease relationship as definitive with X-linked inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+        </div>
+        
 
         <!-- Treatments -->
         
@@ -4194,6 +4471,36 @@
                         
                         
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17185020" target="_blank">PMID:17185020</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"To evaluate the safety and explore the efficacy of idursulfase (recombinant human iduronate-2-sulfatase) treatment for mucopolysaccharidosis II (MPS II)."</div>
+                
+                
+                <div class="evidence-explanation">The clinical trial identifies idursulfase as recombinant human IDS, supporting treatment replacement of the deficient enzyme.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
                     </div>
                     
@@ -4206,6 +4513,36 @@
                         <span style="color: #7c3aed;"> &mdash; Enzyme replacement lowers peripheral glycosaminoglycan burden and reduces visceral storage.</span>
                         
                         
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17185020" target="_blank">PMID:17185020</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Urinary glycosaminoglycans were reduced within 2 weeks of initiating idursulfase and were decreased 49% after 48 weeks of treatment (P&lt;0.0001)."</div>
+                
+                
+                <div class="evidence-explanation">The trial directly shows that idursulfase lowers glycosaminoglycan burden, supporting inhibition of the storage mechanism.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
                     </div>
@@ -4436,7 +4773,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Hunter syndrome
 creation_date: &#39;2026-04-14T20:10:00Z&#39;
-updated_date: &#39;2026-04-14T20:10:00Z&#39;
+updated_date: &#39;2026-05-10T11:37:29Z&#39;
 category: Mendelian
 description: &gt;-
   Hunter syndrome, also called mucopolysaccharidosis type 2 (MPS II), is an
@@ -4534,6 +4871,18 @@ pathophysiology:
   - target: Heparan sulfate and dermatan sulfate lysosomal accumulation
     causal_link_type: DIRECT
     description: IDS deficiency directly causes progressive intracellular storage of its glycosaminoglycan substrates.
+    evidence:
+    - reference: PMID:25345092
+      reference_title: &#34;Mucopolysaccharidosis type II, Hunter&#39;s syndrome.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Hunter syndrome is caused by deficiency of the lysososmal enzyme
+        iduronate-2-sulphatase that cleaves O-linked sulphate moieties from
+        dermatan sulphate and heparan sulphate and leads to accumulation of GAGs.
+      explanation: &gt;-
+        The review abstract directly links the IDS enzymatic deficiency to
+        dermatan/heparan sulfate substrate accumulation.
 - name: Heparan sulfate and dermatan sulfate lysosomal accumulation
   description: &gt;-
     IDS insufficiency leads to excess heparan sulfate and dermatan sulfate
@@ -4561,6 +4910,37 @@ pathophysiology:
   - target: Lysosomal dysfunction
     causal_link_type: DIRECT
     description: Persistent substrate storage disrupts lysosomal homeostasis and produces broader cellular dysfunction.
+    evidence:
+    - reference: PMID:32707880
+      reference_title: &#34;Characterization of Fluid Biomarkers Reveals Lysosome Dysfunction and Neurodegeneration in Neuronopathic MPS II Patients.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        In addition to the accumulation of CSF GAGs, nMPS II patients show
+        elevated levels of lysosomal lipids, neurofilament light chain, and other
+        biomarkers of neuronal damage and degeneration.
+      explanation: &gt;-
+        Patient biomarker data support the edge from CSF GAG accumulation to
+        broader lysosomal lipid abnormalities and downstream cellular injury.
+  - target: Hepatosplenomegaly
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - visceral lysosomal storage and organ enlargement
+    description: Visceral glycosaminoglycan storage contributes to enlarged liver and spleen volume.
+    evidence:
+    - reference: PMID:17185020
+      reference_title: &#34;A phase I/II clinical trial of enzyme replacement therapy in mucopolysaccharidosis II (Hunter syndrome).&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Urinary glycosaminoglycans were reduced within 2 weeks of initiating
+        idursulfase and were decreased 49% after 48 weeks of treatment
+        (P&lt;0.0001). Both liver and spleen volume were decreased at 24 weeks
+        (P&lt;0.01) and 48 weeks (P&lt;0.001).
+      explanation: &gt;-
+        Clinical enzyme replacement data show that lowering the GAG burden is
+        accompanied by reduced liver and spleen volume, supporting the
+        storage-to-organomegaly edge.
 - name: Lysosomal dysfunction
   description: &gt;-
     Storage burden progresses beyond primary glycosaminoglycan accumulation to
@@ -4607,17 +4987,70 @@ pathophysiology:
   downstream:
   - target: Secondary neuronal injury
     causal_link_type: DIRECT
-    description: Persistent lysosomal dysfunction is associated with measurable
-      neuronal damage and degeneration in neuronopathic disease.
+    description: Persistent lysosomal dysfunction is associated with measurable neuronal damage and degeneration in neuronopathic disease.
+    evidence:
+    - reference: PMID:32707880
+      reference_title: &#34;Characterization of Fluid Biomarkers Reveals Lysosome Dysfunction and Neurodegeneration in Neuronopathic MPS II Patients.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        In addition to the accumulation of CSF GAGs, nMPS II patients show
+        elevated levels of lysosomal lipids, neurofilament light chain, and other
+        biomarkers of neuronal damage and degeneration.
+      explanation: &gt;-
+        The same patient samples link lysosomal lipid biomarkers with
+        neurofilament light chain and other neuronal injury biomarkers.
   - target: Connective tissue and skeletal-muscle dysfunction
     causal_link_type: DIRECT
     description: Storage-driven cellular dysfunction propagates into joints, cartilage, growth plates, and connective tissue.
+    evidence:
+    - reference: PMID:20354449
+      reference_title: &#34;Mucopolysaccharidosis type II: skeletal-muscle system involvement.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Lysosomal accumulation of these GAG molecules results in cell, tissue,
+        and organ dysfunction. The skeletal-muscle system involvement is because
+        of essential accumulated GAGs in joints and connective tissue.
+      explanation: &gt;-
+        This review explicitly links lysosomal GAG accumulation to joint and
+        connective-tissue skeletal-muscle involvement.
   - target: Airway soft-tissue disease
-    causal_link_type: DIRECT
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - glycosaminoglycan storage and thickening in upper-airway soft tissues
     description: Soft-tissue storage and thickening drive progressive upper airway disease.
+    evidence:
+    - reference: PMID:25345092
+      reference_title: &#34;Mucopolysaccharidosis type II, Hunter&#39;s syndrome.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Recurrent and prolonged rhinitis with persistent nasal discharge are the
+        first symptoms of airway disease that manifests itself as noisy breathing
+        and later sleep apnea.
+      explanation: &gt;-
+        The abstract supports progressive airway disease in Hunter syndrome;
+        the edge is marked indirect because the soft-tissue storage intermediate
+        is represented in the edge text rather than as a separate node.
   - target: Cardiac valvular thickening and dysfunction
-    causal_link_type: DIRECT
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - dermatan-sulfate-rich valve extracellular matrix
+    - lifetime glycosaminoglycan burden
     description: Persistent glycosaminoglycan burden disrupts valve extracellular matrix homeostasis and drives valvular disease.
+    evidence:
+    - reference: PMID:39440439
+      reference_title: &#34;Natural history of valve disease in patients with mucopolysaccharidosis II and the impact of enzyme replacement therapy.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Lifetime GAG burden (calculated from urinary GAG measurements)
+        correlated significantly with the degree of valve disease.
+      explanation: &gt;-
+        This natural-history cohort links cumulative glycosaminoglycan burden to
+        valve disease severity, supporting an indirect edge through valve matrix
+        storage.
 - name: Secondary neuronal injury
   description: &gt;-
     In neuronopathic MPS II, lysosomal dysfunction is accompanied by measurable
@@ -4644,6 +5077,18 @@ pathophysiology:
   - target: Neuronopathic central nervous system dysfunction
     causal_link_type: DIRECT
     description: Secondary neuronal injury contributes to progressive cognitive and motor decline in severe disease.
+    evidence:
+    - reference: PMID:21518713
+      reference_title: &#34;Natural progression of neurological disease in mucopolysaccharidosis type II.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        One subset of patients had normal cognitive, speech and language, and
+        adaptive functions whereas the other showed a dramatic decline in these
+        areas.
+      explanation: &gt;-
+        The natural-history cohort supports progression from neuronal injury
+        biology to measurable cognitive, language, and adaptive decline.
 - name: Neuronopathic central nervous system dysfunction
   description: &gt;-
     Severe Hunter syndrome causes progressive central nervous system disease
@@ -4681,6 +5126,21 @@ pathophysiology:
     explanation: &gt;-
       This large Hunter Outcome Survey review supports clinically meaningful
       severe neuronopathic disease with cognitive impairment and worse outcome.
+  downstream:
+  - target: Cognitive impairment
+    causal_link_type: DIRECT
+    description: The severe neuronopathic form manifests clinically as progressive cognitive impairment.
+    evidence:
+    - reference: PMID:19597960
+      reference_title: &#34;Mortality and cause of death in mucopolysaccharidosis type II-a historical review based on data from the Hunter Outcome Survey (HOS).&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Patients with the severe form of the disease have cognitive impairment
+        and typically die in the second decade of life.
+      explanation: &gt;-
+        This large observational Hunter Outcome Survey review directly connects
+        severe neuronopathic disease with cognitive impairment.
 - name: Connective tissue and skeletal-muscle dysfunction
   description: &gt;-
     Accumulated glycosaminoglycans in joints, cartilage, and connective tissue
@@ -4713,6 +5173,43 @@ pathophysiology:
       This MPS II model shows that cartilage remains a resistant downstream
       tissue compartment even when other peripheral pathology improves, matching
       the clinical stubbornness of skeletal disease.
+  downstream:
+  - target: Joint stiffness
+    causal_link_type: DIRECT
+    description: Joint and connective-tissue GAG storage manifests clinically as progressive joint stiffness.
+    evidence:
+    - reference: PMID:20354449
+      reference_title: &#34;Mucopolysaccharidosis type II: skeletal-muscle system involvement.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        The skeletal-muscle system involvement is because of essential
+        accumulated GAGs in joints and connective tissue.
+      explanation: &gt;-
+        The review links joint/connective-tissue GAG accumulation to the
+        musculoskeletal branch that produces joint stiffness.
+  - target: Short stature
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - skeletal changes and growth-plate/cartilage involvement
+    description: Skeletal and cartilage involvement contributes to growth impairment and short stature.
+    evidence:
+    - reference: PMID:25345092
+      reference_title: &#34;Mucopolysaccharidosis type II, Hunter&#39;s syndrome.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Children with severe form, diagnosed at 12-36 months, have coarse facial
+        feature, short stature, joint stiffness, short neck, broad chest, large
+        head circumference, watery diarrhea, skeletal changes, progressive and
+        profound mental retardation, retinal degeneration&#39; hearing loss,
+        cardiomyopathy, valvular involvement, with progressive thickening and
+        stiffening of the valve leaflets leading to mitral and aortic
+        regurgitation and stenosis .
+      explanation: &gt;-
+        The clinical review lists short stature alongside joint stiffness and
+        skeletal changes, supporting this endpoint from the musculoskeletal
+        disease branch.
 - name: Airway soft-tissue disease
   description: &gt;-
     Progressive rhinitis, noisy breathing, and sleep apnea reflect
@@ -4730,6 +5227,22 @@ pathophysiology:
     explanation: &gt;-
       This disease-specific review abstract directly supports progressive airway
       soft-tissue disease leading to noisy breathing and sleep apnea.
+  downstream:
+  - target: Sleep apnea
+    causal_link_type: DIRECT
+    description: Progressive airway disease evolves from rhinitis and noisy breathing to sleep apnea.
+    evidence:
+    - reference: PMID:25345092
+      reference_title: &#34;Mucopolysaccharidosis type II, Hunter&#39;s syndrome.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Recurrent and prolonged rhinitis with persistent nasal discharge are the
+        first symptoms of airway disease that manifests itself as noisy breathing
+        and later sleep apnea.
+      explanation: &gt;-
+        The abstract explicitly states that airway disease later manifests as
+        sleep apnea.
 - name: Cardiac valvular thickening and dysfunction
   description: &gt;-
     Dermatan-sulfate-rich valve extracellular matrix accumulates glycosaminoglycans,
@@ -4756,6 +5269,21 @@ pathophysiology:
     explanation: &gt;-
       This review abstract directly describes the downstream valvular phenotype
       produced by Hunter syndrome.
+  downstream:
+  - target: Cardiac valve disease
+    causal_link_type: DIRECT
+    description: Leaflet thickening and stiffening produce the structural cardiac valve phenotype.
+    evidence:
+    - reference: PMID:25345092
+      reference_title: &#34;Mucopolysaccharidosis type II, Hunter&#39;s syndrome.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        valvular involvement, with progressive thickening and stiffening of the
+        valve leaflets leading to mitral and aortic regurgitation and stenosis .
+      explanation: &gt;-
+        The review directly connects valvular thickening and stiffening to
+        clinically apparent regurgitation and stenosis.
 phenotypes:
 - name: Coarse facial features
   category: Craniofacial
@@ -4946,6 +5474,21 @@ phenotypes:
     explanation: &gt;-
       This Hunter Outcome Survey review directly supports cognitive impairment
       as a defining feature of severe neuronopathic Hunter syndrome.
+genetic:
+- name: IDS
+  gene_term:
+    preferred_term: IDS
+    term:
+      id: hgnc:5389
+      label: IDS
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_753ba7a6-cef5-4665-81e9-306e11c618c5-2018-02-21T110000.000Z
+    reference_title: &#34;IDS / mucopolysaccharidosis type 2 (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;IDS | HGNC:5389 | mucopolysaccharidosis type 2 | MONDO:0010674 | XL | Definitive&#34;
+    explanation: ClinGen classifies the IDS-mucopolysaccharidosis type 2 gene-disease relationship as definitive with X-linked inheritance.
 treatments:
 - name: Idursulfase enzyme replacement therapy
   description: &gt;-
@@ -4967,9 +5510,33 @@ treatments:
   - target: Iduronate-2-sulfatase deficiency
     treatment_effect: RESTORES
     description: Recombinant IDS supplements the deficient lysosomal enzyme in peripheral tissues.
+    evidence:
+    - reference: PMID:17185020
+      reference_title: &#34;A phase I/II clinical trial of enzyme replacement therapy in mucopolysaccharidosis II (Hunter syndrome).&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        To evaluate the safety and explore the efficacy of idursulfase
+        (recombinant human iduronate-2-sulfatase) treatment for
+        mucopolysaccharidosis II (MPS II).
+      explanation: &gt;-
+        The clinical trial identifies idursulfase as recombinant human IDS,
+        supporting treatment replacement of the deficient enzyme.
   - target: Heparan sulfate and dermatan sulfate lysosomal accumulation
     treatment_effect: INHIBITS
     description: Enzyme replacement lowers peripheral glycosaminoglycan burden and reduces visceral storage.
+    evidence:
+    - reference: PMID:17185020
+      reference_title: &#34;A phase I/II clinical trial of enzyme replacement therapy in mucopolysaccharidosis II (Hunter syndrome).&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Urinary glycosaminoglycans were reduced within 2 weeks of initiating
+        idursulfase and were decreased 49% after 48 weeks of treatment
+        (P&lt;0.0001).
+      explanation: &gt;-
+        The trial directly shows that idursulfase lowers glycosaminoglycan
+        burden, supporting inhibition of the storage mechanism.
   evidence:
   - reference: PMID:17185020
     reference_title: &#34;A phase I/II clinical trial of enzyme replacement therapy in mucopolysaccharidosis II (Hunter syndrome).&#34;
@@ -5363,7 +5930,7 @@ conservative treatment claims.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hunter syndrome", "mondoId": "MONDO:0010674", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hunter_syndrome", "yamlRevision": "8ebfb20bb58b"};
+        const OS_CONFIG = {"diseaseName": "Hunter syndrome", "mondoId": "MONDO:0010674", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hunter_syndrome", "yamlRevision": "0e53ed088667"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2626,6 +2779,20 @@
             
             
             
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-value">4</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -3509,7 +3676,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Brachydactyly Type A1
 creation_date: &#39;2026-02-13T00:31:42Z&#39;
-updated_date: &#39;2026-04-19T21:46:07Z&#39;
+updated_date: &#39;2026-05-08T18:54:20Z&#39;
 category: Mendelian
 description: &gt;
   Brachydactyly type A1 (BDA1) is the first recorded Mendelian autosomal dominant
@@ -3727,6 +3894,31 @@ genetic:
     supports: SUPPORT
     snippet: &#34;Heterozygous missense mutations in the Indian Hedgehog (IHH) gene have been identified as a cause of BDA1&#34;
     explanation: &#34;Confirms IHH missense mutations as the established cause of BDA1.&#34;
+diagnosis:
+- name: Clinical-radiographic and IHH molecular diagnosis
+  description: &gt;-
+    Diagnosis is supported by the characteristic clinical and radiographic
+    pattern of shortened or absent middle phalanges and confirmed by
+    identifying heterozygous IHH variants in affected families.
+  diagnosis_term:
+    preferred_term: genetic testing
+    term:
+      id: MAXO:0000127
+      label: genetic testing
+  results: IHH variant detection plus middle-phalanx shortening or absence.
+  evidence:
+  - reference: PMID:11455389
+    reference_title: &#34;Mutations in IHH, encoding Indian hedgehog, cause brachydactyly type A-1.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Brachydactyly type A-1 (BDA-1; MIM 112500) is characterized by shortening or missing of the middle phalanges&#34;
+    explanation: The defining skeletal pattern provides the clinical-radiographic basis for diagnosis.
+  - reference: PMID:11455389
+    reference_title: &#34;Mutations in IHH, encoding Indian hedgehog, cause brachydactyly type A-1.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Here we show that mutations in IHH, which encodes Indian hedgehog, cause BDA-1.&#34;
+    explanation: This supports IHH molecular testing as confirmatory for BDA1.
 treatments:
 - name: Genetic Counseling
   description: &gt;
@@ -3738,11 +3930,1213 @@ treatments:
     term:
       id: MAXO:0000079
       label: genetic counseling
+references:
+- reference: DOI:10.1002/ajmg.a.33761
+  title: Brachydactyly type A1 with short humerus and associated skeletal features
+  found_in:
+  - Brachydactyly_Type_A1-deep-research-falcon.md
+  findings:
+  - statement: We report on a three‐generation family affected with an osteochondrodysplasia transmitted as an autosomal dominant trait.
+    supporting_text: We report on a three‐generation family affected with an osteochondrodysplasia transmitted as an autosomal dominant trait.
+    evidence:
+    - reference: DOI:10.1002/ajmg.a.33761
+      reference_title: Brachydactyly type A1 with short humerus and associated skeletal features
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: We report on a three‐generation family affected with an osteochondrodysplasia transmitted as an autosomal dominant trait.
+      explanation: Deep research cited this publication as relevant literature for Brachydactyly Type A1.
+- reference: DOI:10.1177/1753193413514363
+  title: Embryology of familial (non-syndromic) brachydactyly of the hand
+  found_in:
+  - Brachydactyly_Type_A1-deep-research-falcon.md
+  findings:
+  - statement: Embryology of familial (non-syndromic) brachydactyly of the hand
+    supporting_text: Isolated familial non-syndromic brachydactyly is interesting from the embryological point of view because the phenotypes of isolated brachydactyly are frequently overlapping, yet they are caused by different gene mutations and the ring finger is frequently relatively preserved.
+    evidence:
+    - reference: DOI:10.1177/1753193413514363
+      reference_title: Embryology of familial (non-syndromic) brachydactyly of the hand
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Isolated familial non-syndromic brachydactyly is interesting from the embryological point of view because the phenotypes of isolated brachydactyly are frequently overlapping, yet they are caused by different gene mutations and the ring finger is frequently relatively preserved.
+      explanation: Deep research cited this publication as relevant literature for Brachydactyly Type A1.
+- reference: DOI:10.20381/ruor-2868
+  title: &#39;The Genetic Heterogeneity of Brachydactyly Type A1: Identifying the Molecular Pathways&#39;
+  found_in:
+  - Brachydactyly_Type_A1-deep-research-falcon.md
+  findings:
+  - statement: Brachydactyly type A1 (BDA1) is a rare autosomal dominant trait characterized by the shortening of the middle phalanges of digits 2-5 and of the proximal phalange of digit 1 in both hands and feet.
+    supporting_text: Brachydactyly type A1 (BDA1) is a rare autosomal dominant trait characterized by the shortening of the middle phalanges of digits 2-5 and of the proximal phalange of digit 1 in both hands and feet.
+    evidence:
+    - reference: DOI:10.20381/ruor-2868
+      reference_title: &#39;The Genetic Heterogeneity of Brachydactyly Type A1: Identifying the Molecular Pathways&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Brachydactyly type A1 (BDA1) is a rare autosomal dominant trait characterized by the shortening of the middle phalanges of digits 2-5 and of the proximal phalange of digit 1 in both hands and feet.
+      explanation: Deep research cited this publication as relevant literature for Brachydactyly Type A1.
+- reference: DOI:10.3389/fgene.2022.814786
+  title: &#39;Case Report: Brachydactyly Type A1 Induced by a Novel Variant of in-Frame Insertion in the IHH Gene&#39;
+  found_in:
+  - Brachydactyly_Type_A1-deep-research-falcon.md
+  findings:
+  - statement: Brachydactyly type A1 (BDA1) is an autosomal dominant inherited disease characterized by the shortness/absence of the middle phalanges, which can be induced by mutations in the Indian hedgehog gene (IHH).
+    supporting_text: Brachydactyly type A1 (BDA1) is an autosomal dominant inherited disease characterized by the shortness/absence of the middle phalanges, which can be induced by mutations in the Indian hedgehog gene (IHH).
+    evidence:
+    - reference: DOI:10.3389/fgene.2022.814786
+      reference_title: &#39;Case Report: Brachydactyly Type A1 Induced by a Novel Variant of in-Frame Insertion in the IHH Gene&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Brachydactyly type A1 (BDA1) is an autosomal dominant inherited disease characterized by the shortness/absence of the middle phalanges, which can be induced by mutations in the Indian hedgehog gene (IHH).
+      explanation: Deep research cited this publication as relevant literature for Brachydactyly Type A1.
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
+        
+        <div class="card reference-card" id="references-deep-research">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+            
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">4</span>
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1002/ajmg.a.33761" target="_blank">DOI:10.1002/ajmg.a.33761</a>
+                            </div>
+                            
+                            <div class="reference-title">Brachydactyly type A1 with short humerus and associated skeletal features</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">We report on a three‐generation family affected with an osteochondrodysplasia transmitted as an autosomal dominant trait.</div>
+            
+            
+            <div class="reference-finding-supporting">"We report on a three‐generation family affected with an osteochondrodysplasia transmitted as an autosomal dominant trait."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1002/ajmg.a.33761" target="_blank">DOI:10.1002/ajmg.a.33761</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"We report on a three‐generation family affected with an osteochondrodysplasia transmitted as an autosomal dominant trait."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Brachydactyly Type A1.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1177/1753193413514363" target="_blank">DOI:10.1177/1753193413514363</a>
+                            </div>
+                            
+                            <div class="reference-title">Embryology of familial (non-syndromic) brachydactyly of the hand</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Embryology of familial (non-syndromic) brachydactyly of the hand</div>
+            
+            
+            <div class="reference-finding-supporting">"Isolated familial non-syndromic brachydactyly is interesting from the embryological point of view because the phenotypes of isolated brachydactyly are frequently overlapping, yet they are caused by different gene mutations and the ring finger is frequently relatively preserved."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1177/1753193413514363" target="_blank">DOI:10.1177/1753193413514363</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Isolated familial non-syndromic brachydactyly is interesting from the embryological point of view because the phenotypes of isolated brachydactyly are frequently overlapping, yet they are caused by different gene mutations and the ring finger is frequently relatively preserved."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Brachydactyly Type A1.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.20381/ruor-2868" target="_blank">DOI:10.20381/ruor-2868</a>
+                            </div>
+                            
+                            <div class="reference-title">The Genetic Heterogeneity of Brachydactyly Type A1: Identifying the Molecular Pathways</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Brachydactyly type A1 (BDA1) is a rare autosomal dominant trait characterized by the shortening of the middle phalanges of digits 2-5 and of the proximal phalange of digit 1 in both hands and feet.</div>
+            
+            
+            <div class="reference-finding-supporting">"Brachydactyly type A1 (BDA1) is a rare autosomal dominant trait characterized by the shortening of the middle phalanges of digits 2-5 and of the proximal phalange of digit 1 in both hands and feet."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.20381/ruor-2868" target="_blank">DOI:10.20381/ruor-2868</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Brachydactyly type A1 (BDA1) is a rare autosomal dominant trait characterized by the shortening of the middle phalanges of digits 2-5 and of the proximal phalange of digit 1 in both hands and feet."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Brachydactyly Type A1.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3389/fgene.2022.814786" target="_blank">DOI:10.3389/fgene.2022.814786</a>
+                            </div>
+                            
+                            <div class="reference-title">Case Report: Brachydactyly Type A1 Induced by a Novel Variant of in-Frame Insertion in the IHH Gene</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Brachydactyly type A1 (BDA1) is an autosomal dominant inherited disease characterized by the shortness/absence of the middle phalanges, which can be induced by mutations in the Indian hedgehog gene (IHH).</div>
+            
+            
+            <div class="reference-finding-supporting">"Brachydactyly type A1 (BDA1) is an autosomal dominant inherited disease characterized by the shortness/absence of the middle phalanges, which can be induced by mutations in the Indian hedgehog gene (IHH)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fgene.2022.814786" target="_blank">DOI:10.3389/fgene.2022.814786</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Brachydactyly type A1 (BDA1) is an autosomal dominant inherited disease characterized by the shortness/absence of the middle phalanges, which can be induced by mutations in the Indian hedgehog gene (IHH)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Brachydactyly Type A1.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">Disease Characteristics Research Template</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">26 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-08T10:32:00.966624</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
+<p>Provide detailed information focusing on:
+1. Key concepts and definitions with current understanding
+2. Recent developments and latest research (prioritize 2023-2024 sources)
+3. Current applications and real-world implementations
+4. Expert opinions and analysis from authoritative sources
+5. Relevant statistics and data from recent studies</p>
+<p>Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
+Always prioritize recent, authoritative sources and provide specific citations for all major claims.</p>
+<h1>Disease Characteristics Research Template</h1>
+<h2>Target Disease</h2>
+<ul>
+<li><strong>Disease Name:</strong> Brachydactyly Type A1</li>
+<li><strong>MONDO ID:</strong>  (if available)</li>
+<li><strong>Category:</strong> Mendelian</li>
+</ul>
+<h2>Research Objectives</h2>
+<p>Please provide a comprehensive research report on <strong>Brachydactyly Type A1</strong> covering all of the
+disease characteristics listed below. This report will be used to populate a disease knowledge
+base entry. Be thorough and cite primary literature (PMID preferred) for all claims.</p>
+<p>For each section, <strong>suggested databases/resources</strong> are listed. These are the first places
+you should search for information on each topic.</p>
+<hr />
+<h3>1. Disease Information</h3>
+<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, ICD-10/ICD-11, MeSH, PubMed</p>
+</blockquote>
+<ul>
+<li>What is the disease? Provide a concise overview.</li>
+<li>What are the key identifiers? (OMIM, Orphanet, ICD-10/ICD-11, MeSH, Mondo)</li>
+<li>What are the common synonyms and alternative names?</li>
+<li>Is the information derived from individual patients (e.g., EHR) or aggregated disease-level resources?</li>
+</ul>
+<h3>2. Etiology</h3>
+<ul>
+<li><strong>Disease Causal Factors</strong>: What are the primary causes? (genetic, environmental, infectious, mechanistic)</li>
+<li><strong>Risk Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, UpToDate, clinical guidelines, ClinVar, ClinGen, GWAS Catalog, PheGenI, CTD, CDC, WHO, epidemiological databases</p>
+</blockquote>
+</li>
+<li>Genetic risk factors (causal variants, susceptibility loci, modifier genes)</li>
+<li>Environmental risk factors (toxins, lifestyle, occupational exposures, age, sex, family history)</li>
+<li><strong>Protective Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, clinical trial databases, GWAS Catalog, gnomAD, WHO, CDC, nutrition databases</p>
+</blockquote>
+</li>
+<li>Genetic protective factors (protective variants, modifier alleles)</li>
+<li>Environmental protective factors (diet, lifestyle, exposures that reduce risk)</li>
+<li><strong>Gene-Environment Interactions</strong>: How do genetic and environmental factors interact to influence disease?<blockquote>
+<p><strong>Search first:</strong> CTD, PubMed, PheGenI, GxE databases</p>
+</blockquote>
+</li>
+</ul>
+<h3>3. Phenotypes</h3>
+<blockquote>
+<p><strong>Search first:</strong> HPO (Human Phenotype Ontology), OMIM, Orphanet, PubMed, clinicaltrials.gov, MedDRA, SNOMED CT, DECIPHER, LOINC</p>
+</blockquote>
+<p>For each phenotype, provide:
+- <strong>Phenotype type</strong>: symptoms, clinical signs, physical manifestations, behavioral changes, or laboratory abnormalities</p>
+<blockquote>
+<p>For symptoms/signs: HPO, OMIM, Orphanet, PubMed
+For behavioral changes: HPO, DSM, RDoC (Research Domain Criteria), PubMed
+For laboratory abnormalities: LOINC, SNOMED CT, LabTests Online, PubMed
+- <strong>Phenotype characteristics</strong>:
+<strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed
+  - Age of symptom onset (neonatal, childhood, adult-onset, late-onset)
+  - Symptom severity (mild, moderate, severe, variable)
+  - Symptom progression (stable, progressive, episodic, fluctuating)
+  - Frequency among affected individuals (percentage or qualitative)
+- <strong>Quality of life impact</strong>: Effects on daily functioning and well-being (per-phenotype when possible)
+<strong>Search first:</strong> EQ-5D database, SF-36, WHO QOL databases, PubMed
+- Suggest HPO (Human Phenotype Ontology) terms for each phenotype</p>
+</blockquote>
+<h3>4. Genetic/Molecular Information</h3>
+<ul>
+<li><strong>Causal Genes</strong>: Gene mutations or chromosomal abnormalities responsible for disease (gene symbols, OMIM IDs)<blockquote>
+<p><strong>Search first:</strong> OMIM, ClinVar, HGMD, Ensembl, NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Pathogenic Variants</strong>:</li>
+<li>Affected genes (gene symbols, HGNC IDs)
+    &gt; <strong>Search first:</strong> OMIM, NCBI Gene, Ensembl, HGNC, UniProt, GeneCards</li>
+<li>Variant classification (pathogenic, likely pathogenic, VUS per ACMG/AMP guidelines)
+    &gt; <strong>Search first:</strong> ClinVar, ClinGen, ACMG/AMP guidelines, VarSome</li>
+<li>Variant type/class (missense, frameshift, nonsense, splice-site, structural)</li>
+<li>Allele frequency in population databases
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, ExAC, TOPMed, dbSNP</li>
+<li>Somatic vs germline origin
+    &gt; <strong>Search first:</strong> COSMIC (somatic), ClinVar, ICGC, TCGA</li>
+<li>Functional consequences (loss of function, gain of function, dominant negative)</li>
+<li><strong>Modifier Genes</strong>: Genes that modify disease severity or expression</li>
+<li><strong>Epigenetic Information</strong>: DNA methylation, histone modifications, chromatin changes affecting disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Chromosomal Abnormalities</strong>: Large-scale genetic changes (aneuploidy, translocations, inversions)<blockquote>
+<p><strong>Search first:</strong> DECIPHER, ClinVar, ECARUCA, UCSC Genome Browser</p>
+</blockquote>
+</li>
+</ul>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Environmental Factors</strong>: Non-genetic contributing factors (toxins, radiation, pollution, occupational exposure)<blockquote>
+<p><strong>Search first:</strong> CTD (Comparative Toxicogenomics Database), TOXNET, PubMed, EPA databases</p>
+</blockquote>
+</li>
+<li><strong>Lifestyle Factors</strong>: Behavioral factors (smoking, diet, exercise, alcohol consumption)<blockquote>
+<p><strong>Search first:</strong> CDC databases, WHO, PubMed, NHANES</p>
+</blockquote>
+</li>
+<li><strong>Infectious Agents</strong>: If applicable, pathogens causing or triggering disease (bacteria, viruses, fungi, parasites)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON</p>
+</blockquote>
+</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<ul>
+<li><strong>Molecular Pathways</strong>: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)<blockquote>
+<p><strong>Search first:</strong> KEGG, Reactome, WikiPathways, PathBank, BioCyc</p>
+</blockquote>
+</li>
+<li><strong>Cellular Processes</strong>: Cell-level mechanisms (apoptosis, autophagy, cell cycle dysregulation, inflammation, etc.)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (GO), Reactome, KEGG, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Protein Dysfunction</strong>: How protein structure or function is altered (misfolding, aggregation, loss of function, gain of function)<blockquote>
+<p><strong>Search first:</strong> UniProt, PDB (Protein Data Bank), InterPro, Pfam, AlphaFold</p>
+</blockquote>
+</li>
+<li><strong>Metabolic Changes</strong>: Alterations in metabolic processes (energy metabolism, lipid metabolism, amino acid metabolism)<blockquote>
+<p><strong>Search first:</strong> KEGG, BioCyc, HMDB (Human Metabolome Database), BRENDA</p>
+</blockquote>
+</li>
+<li><strong>Immune System Involvement</strong>: Role of immune response (autoimmunity, immunodeficiency, chronic inflammation)<blockquote>
+<p><strong>Search first:</strong> ImmPort, Immunome Database, IEDB, Gene Ontology</p>
+</blockquote>
+</li>
+<li><strong>Tissue Damage Mechanisms</strong>: How tissues/ are injured (oxidative stress, ischemia, fibrosis, necrosis)<blockquote>
+<p><strong>Search first:</strong> PubMed, Gene Ontology, Reactome</p>
+</blockquote>
+</li>
+<li><strong>Biochemical Abnormalities</strong>: Specific molecular defects (enzyme deficiencies, receptor dysfunction, ion channel defects)<blockquote>
+<p><strong>Search first:</strong> BRENDA, UniProt, KEGG, OMIM, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Epigenetic Changes</strong>: DNA methylation, histone modifications affecting gene expression in disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Molecular Profiling</strong> (if available):</li>
+<li>Transcriptomics/gene expression changes
+    &gt; <strong>Search first:</strong> GEO (Gene Expression Omnibus), ArrayExpress, GTEx, Human Cell Atlas, SRA</li>
+<li>Proteomics findings
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, Human Protein Atlas, STRING, BioGRID</li>
+<li>Metabolomics signatures
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB, METLIN</li>
+<li>Lipidomics alterations
+    &gt; <strong>Search first:</strong> LIPID MAPS, SwissLipids, LipidHome, Metabolomics Workbench</li>
+<li>Genomic structural features
+    &gt; <strong>Search first:</strong> UCSC Genome Browser, Ensembl, NCBI, dbVar, DGV</li>
+<li><strong>Advanced Technologies</strong> (if applicable):</li>
+<li>Single-cell analysis findings (cell-type specific mechanisms, cellular heterogeneity)
+    &gt; <strong>Search first:</strong> Human Cell Atlas, Single Cell Portal, GEO, CELLxGENE</li>
+<li>Spatial transcriptomics findings
+    &gt; <strong>Search first:</strong> GEO, Spatial Research, Vizgen, 10x Genomics data</li>
+<li>Multi-omics integration results
+    &gt; <strong>Search first:</strong> TCGA, ICGC, cBioPortal, LinkedOmics, PubMed</li>
+<li>Functional genomics screens (CRISPR, RNAi)
+    &gt; <strong>Search first:</strong> DepMap, GenomeRNAi, PubMed, BioGRID ORCS</li>
+</ul>
+<p>For each mechanism, describe:
+- The causal chain from initial trigger to clinical manifestation
+- Which mechanisms are upstream vs downstream
+- What cell types and biological processes are involved
+- Suggest GO terms for biological processes and CL terms for cell types</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ Level</strong>:</li>
+<li>Primary organs directly affected</li>
+<li>Secondary organ involvement (complications, secondary effects)</li>
+<li>Body systems involved (cardiovascular, nervous, digestive, respiratory, endocrine, etc.)<blockquote>
+<p><strong>Search first:</strong> Uberon, FMA (Foundational Model of Anatomy), OMIM, HPO, ICD-11, MeSH, SNOMED CT</p>
+</blockquote>
+</li>
+<li><strong>Tissue and Cell Level</strong>:</li>
+<li>Specific tissue types affected (epithelial, connective, muscle, nervous)</li>
+<li>Specific cell populations targeted (with Cell Ontology terms)<blockquote>
+<p><strong>Search first:</strong> Uberon, Human Protein Atlas, Cell Ontology, Human Cell Atlas, CellMarker, PanglaoDB</p>
+</blockquote>
+</li>
+<li><strong>Subcellular Level</strong>:</li>
+<li>Cellular compartments involved (mitochondria, nucleus, ER, lysosomes) (with GO Cellular Component terms)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (Cellular Component), UniProt, Human Protein Atlas</p>
+</blockquote>
+</li>
+<li><strong>Localization</strong>:</li>
+<li>Specific anatomical sites (with UBERON terms)
+    &gt; <strong>Search first:</strong> FMA, Uberon, NeuroNames (for brain), SNOMED CT</li>
+<li>Lateralization (unilateral, bilateral, asymmetric)
+    &gt; <strong>Search first:</strong> HPO, clinical literature, imaging databases</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset</strong>:</li>
+<li>Typical age of onset (congenital, pediatric, adult, geriatric)</li>
+<li>Onset pattern (acute, subacute, chronic, insidious)<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Progression</strong>:</li>
+<li>Disease stages (early, intermediate, advanced, end-stage)
+    &gt; <strong>Search first:</strong> Cancer Staging Manual (AJCC), WHO classifications, PubMed</li>
+<li>Progression rate (rapid, slow, variable)</li>
+<li>Disease course pattern (episodic, relapsing-remitting, progressive, stable)</li>
+<li>Disease duration (self-limited, chronic lifelong)<blockquote>
+<p><strong>Search first:</strong> Disease registries, longitudinal cohort databases, natural history studies, PubMed, Orphanet, OMIM</p>
+</blockquote>
+</li>
+<li><strong>Patterns</strong>:</li>
+<li>Remission patterns (spontaneous, treatment-induced)
+    &gt; <strong>Search first:</strong> Clinical trial databases, disease registries, PubMed</li>
+<li>Critical periods (time windows of vulnerability or opportunity for intervention)
+    &gt; <strong>Search first:</strong> PubMed, developmental biology databases, clinical guidelines</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology</strong>:</li>
+<li>Prevalence (cases per 100,000 at given time)</li>
+<li>Incidence (new cases per 100,000 per year)<blockquote>
+<p><strong>Search first:</strong> Orphanet, CDC, WHO, GBD (Global Burden of Disease), national registries, SEER, disease registries</p>
+</blockquote>
+</li>
+<li><strong>For Genetic Etiology</strong>:</li>
+<li>Inheritance pattern (AD, AR, X-linked, mitochondrial, multifactorial, polygenic)
+    &gt; <strong>Search first:</strong> OMIM, Orphanet, ClinVar, GTR (Genetic Testing Registry)</li>
+<li>Penetrance (complete, incomplete, age-dependent)
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, PubMed, ClinGen</li>
+<li>Expressivity (variable, consistent)
+    &gt; <strong>Search first:</strong> OMIM, ClinVar, PubMed</li>
+<li>Genetic anticipation (increasing severity in successive generations)
+    &gt; <strong>Search first:</strong> OMIM, PubMed (especially for repeat expansion disorders)</li>
+<li>Germline mosaicism
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, genetic counseling literature, PubMed</li>
+<li>Founder effects (population-specific mutations)
+    &gt; <strong>Search first:</strong> gnomAD, population genetics databases, PubMed</li>
+<li>Consanguinity role
+    &gt; <strong>Search first:</strong> OMIM, population studies, genetic counseling resources</li>
+<li>Carrier frequency
+    &gt; <strong>Search first:</strong> gnomAD, carrier screening databases, GeneReviews, GTR</li>
+<li><strong>Population Demographics</strong>:</li>
+<li>Affected populations (ethnic or demographic groups with higher prevalence)
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, PAGE Study, PubMed, population registries</li>
+<li>Geographic distribution (endemic areas, regional variation)
+    &gt; <strong>Search first:</strong> WHO, CDC, GBD, Orphanet, geographic epidemiology databases</li>
+<li>Geographic distribution of specific variants</li>
+<li>Sex ratio (male:female)
+    &gt; <strong>Search first:</strong> Disease registries, OMIM, PubMed, epidemiological databases</li>
+<li>Age distribution of affected individuals
+    &gt; <strong>Search first:</strong> CDC, disease registries, SEER, Orphanet</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Clinical Tests</strong>:</li>
+<li>Laboratory tests (blood, urine, tissue chemistry, specific enzyme assays)
+    &gt; <strong>Search first:</strong> LOINC, LabTests Online, PubMed</li>
+<li>Biomarkers (proteins, metabolites, genetic markers, circulating biomarkers)
+    &gt; <strong>Search first:</strong> FDA Biomarker List, BEST (Biomarkers, EndpointS, and other Tools), PubMed</li>
+<li>Imaging studies (X-ray, CT, MRI, PET, ultrasound)
+    &gt; <strong>Search first:</strong> RadLex, DICOM, Radiopaedia, imaging databases</li>
+<li>Functional tests (pulmonary function, cardiac stress tests)
+    &gt; <strong>Search first:</strong> LOINC, clinical guidelines, PubMed</li>
+<li>Electrophysiology (EEG, EMG, ECG, nerve conduction studies)
+    &gt; <strong>Search first:</strong> LOINC, clinical neurophysiology databases, PubMed</li>
+<li>Biopsy findings (histopathology, immunohistochemistry)
+    &gt; <strong>Search first:</strong> SNOMED CT, College of American Pathologists resources, PubMed</li>
+<li>Pathology findings (microscopic examination)
+    &gt; <strong>Search first:</strong> SNOMED CT, Digital Pathology databases, PubMed</li>
+<li><strong>Genetic Testing</strong>:<blockquote>
+<p><strong>Search first:</strong> GTR (Genetic Testing Registry), GeneReviews, ClinGen</p>
+</blockquote>
+</li>
+<li>Overview of recommended genetic testing approach</li>
+<li>Whole genome sequencing (WGS) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, GEL (Genomics England), gnomAD</li>
+<li>Whole exome sequencing (WES) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneMatcher</li>
+<li>Gene panels (which panels, which genes)
+    &gt; <strong>Search first:</strong> GTR, ClinVar, laboratory-specific databases</li>
+<li>Single gene testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneReviews</li>
+<li>Chromosomal microarray (CMA)
+    &gt; <strong>Search first:</strong> DECIPHER, ClinVar, dbVar, ECARUCA</li>
+<li>Karyotyping
+    &gt; <strong>Search first:</strong> Chromosome Abnormality Database, ClinVar, cytogenetics resources</li>
+<li>FISH
+    &gt; <strong>Search first:</strong> ClinVar, cytogenetics databases, PubMed</li>
+<li>Mitochondrial DNA testing
+    &gt; <strong>Search first:</strong> MITOMAP, MSeqDR, ClinVar, GTR</li>
+<li>Repeat expansion testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, repeat expansion databases, PubMed</li>
+<li><strong>Omics-Based Diagnostics</strong> (if applicable):</li>
+<li>RNA sequencing / transcriptomics
+    &gt; <strong>Search first:</strong> GEO, ArrayExpress, GTEx, RNA-seq databases</li>
+<li>Proteomics
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, FDA Biomarker database</li>
+<li>Metabolomics
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB</li>
+<li>Epigenomics
+    &gt; <strong>Search first:</strong> GEO, ENCODE, Roadmap Epigenomics, MethBase</li>
+<li>Liquid biopsy
+    &gt; <strong>Search first:</strong> COSMIC, ClinVar, liquid biopsy databases, PubMed</li>
+<li><strong>Clinical Criteria</strong>:</li>
+<li>Standardized diagnostic criteria (DSM, ICD, society guidelines)
+    &gt; <strong>Search first:</strong> DSM-5, ICD-11, clinical society guidelines, UpToDate</li>
+<li>Differential diagnosis (other conditions to rule out, with distinguishing features)
+    &gt; <strong>Search first:</strong> DynaMed, UpToDate, clinical decision support systems</li>
+<li><strong>Screening</strong>:</li>
+<li>Screening methods for asymptomatic individuals (newborn screening, carrier screening, cascade screening)
+    &gt; <strong>Search first:</strong> ACMG recommendations, CDC newborn screening, GTR</li>
+</ul>
+<h3>11. Outcome/Prognosis</h3>
+<ul>
+<li><strong>Survival and Mortality</strong>:</li>
+<li>Survival rate (5-year, 10-year, overall)
+    &gt; <strong>Search first:</strong> SEER, cancer registries, disease-specific registries, PubMed</li>
+<li>Life expectancy (with and without treatment if applicable)
+    &gt; <strong>Search first:</strong> Orphanet, disease registries, actuarial databases, PubMed</li>
+<li>Mortality rate
+    &gt; <strong>Search first:</strong> CDC, WHO, GBD, national mortality databases</li>
+<li>Disease-specific mortality (deaths directly attributable to disease)
+    &gt; <strong>Search first:</strong> Disease registries, CDC Wonder, GBD, PubMed</li>
+<li><strong>Morbidity and Function</strong>:</li>
+<li>Morbidity (disease-related disability and health impacts)
+    &gt; <strong>Search first:</strong> GBD, WHO, disability databases, PubMed</li>
+<li>Disability outcomes (long-term functional impairments)
+    &gt; <strong>Search first:</strong> ICF (International Classification of Functioning), disability registries</li>
+<li>Quality of life measures (EQ-5D, SF-36, PROMIS, disease-specific tools)
+    &gt; <strong>Search first:</strong> EQ-5D database, SF-36, PROMIS, PubMed</li>
+<li><strong>Disease Course</strong>:</li>
+<li>Complications (secondary problems: infections, organ failure, etc.)
+    &gt; <strong>Search first:</strong> ICD codes, disease registries, clinical databases, PubMed</li>
+<li>Recovery potential (likelihood and extent of recovery, with vs without treatment)
+    &gt; <strong>Search first:</strong> Natural history studies, rehabilitation databases, PubMed</li>
+<li><strong>Prediction</strong>:</li>
+<li>Prognostic factors (age, disease severity, biomarkers, treatment response)
+    &gt; <strong>Search first:</strong> Prognostic models databases, clinical calculators, PubMed</li>
+<li>Prognostic biomarkers (molecular markers predicting disease course)
+    &gt; <strong>Search first:</strong> FDA Biomarker database, PubMed, cancer prognostic databases</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Pharmacotherapy</strong>:</li>
+<li>Pharmacological treatments (drug names, drug classes, mechanisms of action)
+    &gt; <strong>Search first:</strong> DrugBank, RxNorm, ATC classification, DailyMed, FDA databases</li>
+<li>Pharmacogenomics (how genetic variants affect drug metabolism, efficacy, toxicity)
+    &gt; <strong>Search first:</strong> PharmGKB, CPIC (Clinical Pharmacogenetics), FDA Table of PGx Biomarkers</li>
+<li><strong>Advanced Therapeutics</strong>:</li>
+<li>Gene therapy (viral vectors, CRISPR, gene replacement, gene editing)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA gene therapy database, ASGCT resources</li>
+<li>Cell therapy (stem cell transplant, CAR-T, cellular therapeutics)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA cell therapy database, FACT standards</li>
+<li>RNA-based therapies (ASOs, siRNA, mRNA therapies)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA approvals, PubMed</li>
+<li>Targeted therapies (treatments directed at specific molecular targets)
+    &gt; <strong>Search first:</strong> My Cancer Genome, OncoKB, ClinicalTrials.gov, FDA approvals</li>
+<li>Immunotherapies (checkpoint inhibitors, monoclonal antibodies)
+    &gt; <strong>Search first:</strong> Cancer Immunotherapy Database, FDA approvals, ClinicalTrials.gov</li>
+<li><strong>Surgical and Interventional</strong>:</li>
+<li>Surgical interventions (types of surgery, timing, outcomes)
+    &gt; <strong>Search first:</strong> CPT codes, surgical registries, clinical guidelines, PubMed</li>
+<li><strong>Supportive and Rehabilitative</strong>:</li>
+<li>Supportive care (symptom management, pain control, nutrition)
+    &gt; <strong>Search first:</strong> Clinical guidelines, Cochrane Library, PubMed</li>
+<li>Rehabilitation (physical therapy, occupational therapy, speech therapy)
+    &gt; <strong>Search first:</strong> Rehabilitation medicine databases, clinical guidelines, PubMed</li>
+<li><strong>Experimental</strong>:</li>
+<li>Experimental treatments in clinical trials (with NCT identifiers if available)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, EU Clinical Trials Register, WHO ICTRP</li>
+<li><strong>Treatment Outcomes</strong>:</li>
+<li>Treatment response rates
+    &gt; <strong>Search first:</strong> Clinical trial databases, FDA reviews, systematic reviews, PubMed</li>
+<li>Side effects and adverse events
+    &gt; <strong>Search first:</strong> FDA Adverse Event Reporting System (FAERS), MedWatch, PubMed</li>
+<li><strong>Treatment Strategy</strong>:</li>
+<li>Treatment algorithms (clinical pathways, decision trees)
+    &gt; <strong>Search first:</strong> Clinical practice guidelines, NCCN Guidelines, UpToDate</li>
+<li>Combination therapies
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, treatment guidelines, PubMed</li>
+<li>Personalized medicine approaches (genotype-guided treatment)
+    &gt; <strong>Search first:</strong> My Cancer Genome, CIViC, PharmGKB, precision medicine databases</li>
+</ul>
+<p>For each treatment, suggest MAXO (Medical Action Ontology) terms where applicable.</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Prevention Levels</strong>:</li>
+<li>Primary prevention (preventing disease occurrence: vaccination, risk factor modification)
+    &gt; <strong>Search first:</strong> CDC, WHO, USPSTF recommendations, Cochrane Library</li>
+<li>Secondary prevention (early detection and treatment: screening programs, early intervention)
+    &gt; <strong>Search first:</strong> USPSTF, CDC screening guidelines, WHO</li>
+<li>Tertiary prevention (preventing complications in those with disease)
+    &gt; <strong>Search first:</strong> Clinical guidelines, disease management protocols, PubMed</li>
+<li><strong>Immunization</strong>: Vaccine strategies (if applicable)<blockquote>
+<p><strong>Search first:</strong> CDC vaccine schedules, WHO immunization, FDA vaccine database</p>
+</blockquote>
+</li>
+<li><strong>Screening and Early Detection</strong>:</li>
+<li>Screening programs (population-based: newborn screening, cancer screening)
+    &gt; <strong>Search first:</strong> CDC screening programs, USPSTF, cancer screening databases</li>
+<li>Genetic screening (carrier screening, preimplantation genetic diagnosis, prenatal testing)
+    &gt; <strong>Search first:</strong> ACMG recommendations, ACOG guidelines, GTR</li>
+<li>Risk stratification (identifying high-risk individuals for targeted prevention)
+    &gt; <strong>Search first:</strong> Risk prediction models, clinical calculators, PubMed</li>
+<li><strong>Behavioral Interventions</strong>: Lifestyle modifications to reduce risk<blockquote>
+<p><strong>Search first:</strong> CDC, WHO, behavioral intervention databases, Cochrane Library</p>
+</blockquote>
+</li>
+<li><strong>Counseling</strong>: Genetic counseling (risk assessment, family planning guidance)<blockquote>
+<p><strong>Search first:</strong> NSGC resources, ACMG guidelines, GeneReviews</p>
+</blockquote>
+</li>
+<li><strong>Public Health</strong>:</li>
+<li>Public health interventions (sanitation, vector control, health education)
+    &gt; <strong>Search first:</strong> CDC, WHO, public health databases, PubMed</li>
+<li>Environmental interventions (reducing environmental risk factors)
+    &gt; <strong>Search first:</strong> EPA databases, WHO environmental health, PubMed</li>
+<li><strong>Prophylaxis</strong>: Preventive medications or procedures<blockquote>
+<p><strong>Search first:</strong> Clinical guidelines, FDA approvals, PubMed</p>
+</blockquote>
+</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy</strong>: Species affected (with NCBI Taxon identifiers)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy</p>
+</blockquote>
+</li>
+<li><strong>Breed</strong>: Specific breeds affected (with VBO identifiers if applicable)<blockquote>
+<p><strong>Search first:</strong> VBO (Vertebrate Breed Ontology)</p>
+</blockquote>
+</li>
+<li><strong>Gene</strong>: Orthologous genes in other species (with NCBI Gene IDs)<blockquote>
+<p><strong>Search first:</strong> NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Natural Disease</strong>:</li>
+<li>Naturally occurring disease in other species (companion animals, wildlife)
+    &gt; <strong>Search first:</strong> OMIA (Online Mendelian Inheritance in Animals), VetCompass, PubMed</li>
+<li>Veterinary relevance and importance in animal health
+    &gt; <strong>Search first:</strong> OMIA, veterinary databases, PubMed</li>
+<li><strong>Comparative Biology</strong>:</li>
+<li>Comparative pathology (similarities and differences across species)
+    &gt; <strong>Search first:</strong> OMIA, comparative pathology databases, PubMed</li>
+<li>Evolutionary conservation of disease mechanisms
+    &gt; <strong>Search first:</strong> HomoloGene, OrthoMCL, Alliance of Genome Resources</li>
+<li><strong>Transmission</strong> (if applicable):</li>
+<li>Zoonotic potential
+    &gt; <strong>Search first:</strong> CDC zoonotic diseases, WHO zoonoses, GIDEON</li>
+<li>Cross-species susceptibility
+    &gt; <strong>Search first:</strong> NCBI Taxonomy, veterinary databases, PubMed</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Model Types</strong>:</li>
+<li>Model organism type (mammalian, invertebrate, cellular, in vitro)
+    &gt; <strong>Search first:</strong> Alliance of Genome Resources, model organism databases</li>
+<li>Specific model systems (mouse, rat, zebrafish, Drosophila, C. elegans, yeast, cell lines, organoids, iPSCs)
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, SGD, ATCC, Cellosaurus</li>
+<li>Induced models (drug treatment, surgical intervention, environmental manipulation)
+    &gt; <strong>Search first:</strong> MGI, model organism databases, PubMed</li>
+<li><strong>Genetic Models</strong>:</li>
+<li>Types available (knockout, knock-in, transgenic, conditional, humanized)
+    &gt; <strong>Search first:</strong> MGI, IMPC, KOMP, EuMMCR, IMSR</li>
+<li><strong>Model Characteristics</strong>:</li>
+<li>Phenotype recapitulation (how well model reproduces human disease features)
+    &gt; <strong>Search first:</strong> Model organism databases, comparative studies, PubMed</li>
+<li>Model limitations (aspects of human disease not captured)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed, review articles</li>
+<li><strong>Applications</strong>:</li>
+<li>Research applications (what aspects of disease can be studied)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed</li>
+<li><strong>Resources</strong>:</li>
+<li>Model databases
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, IMSR, EMMA, MMRRC</li>
+</ul>
+<hr />
+<h2>Citation Requirements</h2>
+<ul>
+<li>Cite primary literature (PMID preferred) for all mechanistic and clinical claims</li>
+<li>Prioritize recent reviews and landmark papers</li>
+<li>Include direct quotes from abstracts where possible to support key statements</li>
+<li>Distinguish evidence source types: human clinical, model organism, in vitro, computational</li>
+</ul>
+<h2>Output Format</h2>
+<p>Structure your response as a comprehensive narrative organized by the sections above.
+For each section, provide:
+- Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
+- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, MAXO, MONDO) where applicable
+- Evidence citations with PMIDs
+- Direct quotes from abstracts to support key claims
+- Clear indication when information is not available or not applicable for this disease</p>
+<p>This report will be used to populate a disease knowledge base entry with:
+- Pathophysiology descriptions with causal chains
+- Gene/protein annotations (HGNC, GO terms)
+- Phenotype associations (HP terms) with frequencies
+- Cell type involvement (CL terms)
+- Anatomical locations (UBERON terms)
+- Chemical entities (CHEBI terms)
+- Treatment annotations (MAXO terms)
+- Evidence items with PMIDs and exact abstract quotes
+- Epidemiology, prognosis, diagnostic, and prevention information
+- Animal model descriptions with phenotype recapitulation details</p>
+<h1>Disease Characteristics Research Report: Brachydactyly Type A1 (BDA1)</h1>
+<h2>Executive summary</h2>
+<p>Brachydactyly type A1 (BDA1) is a rare, typically autosomal-dominant, congenital digital malformation primarily characterized by hypoplasia/aplasia of the middle phalanges of digits 2–5, often with short proximal phalanges of the thumb and big toe and occasional symphalangism. (temtamy2008brachydactyly pages 2-5, david2015isolatedandsyndromic pages 1-3)
+The best-established causal gene is <strong>IHH</strong> (Indian hedgehog), with pathogenic variants clustering in the N-terminal signaling fragment (classically codons ~95–154) and recurrent hotspots at residues such as E95, D100, and E131. (racacho2015thegeneticheterogeneity pages 72-76, zeng2022casereportbrachydactyly pages 1-2)
+Recent case-level work (2024) underscores that some IHH-related families present with mild/non-classical BDA1 plus short stature and may be misclassified as idiopathic short stature; whole-exome sequencing (WES) can resolve diagnosis, and recombinant human growth hormone (rhGH) therapy improved height SDS in a small family case report. (chen2024shortstaturewith pages 1-2, chen2024shortstaturewith pages 2-4)</p>
+<h2>1. Disease information</h2>
+<h3>1.1 Overview / definition</h3>
+<p>BDA1 is an <strong>isolated brachydactyly</strong> subtype in which shortening is mainly confined to the <strong>middle phalanges</strong>: “middle phalanges of all digits are variably short or rudimentary and are occasionally fused with terminal phalanges,” and “the proximal phalanges of the thumbs and big toes are short.” (temtamy2008brachydactyly pages 2-5)
+Radiographically, classification relies on the selective pattern of middle phalanx hypoplasia/aplasia on standard postero-anterior (PA) hand radiographs. (temtamy2008brachydactyly pages 2-5, david2015isolatedandsyndromic pages 1-3)</p>
+<h3>1.2 Key identifiers</h3>
+<ul>
+<li><strong>OMIM (phenotype):</strong> 112500 (explicitly stated). (zeng2022casereportbrachydactyly pages 1-2)</li>
+<li><strong>Causal locus:</strong> IHH at <strong>2q35–36</strong>; a second locus (“BDA1B”) maps to <strong>5p13.3–p13.2</strong>. (temtamy2008brachydactyly pages 2-5)</li>
+<li><strong>MONDO / Orphanet / ICD-10/ICD-11 / MeSH:</strong> not directly retrievable from the provided tool evidence (evidence gap).</li>
+</ul>
+<h3>1.3 Synonyms / alternative names</h3>
+<ul>
+<li>“Brachydactyly type A1”</li>
+<li>“Brachymesophalangy” (middle phalanx shortening)</li>
+<li>“Isolated brachydactyly type A1” (used in radiology/clinical genetics contexts) (temtamy2008brachydactyly pages 2-5, david2015isolatedandsyndromic pages 1-3)</li>
+</ul>
+<h3>1.4 Evidence source type</h3>
+<p>The knowledge base content below integrates:
+* Aggregated disease-level resources/reviews (e.g., Orphanet Journal of Rare Diseases review). (temtamy2008brachydactyly pages 2-5)
+* Radiology review evidence for diagnostic imaging hallmarks. (david2015isolatedandsyndromic pages 1-3)
+* Family case reports/series and molecular diagnostics/functional follow-up reports. (zeng2022casereportbrachydactyly pages 1-2, chen2024shortstaturewith pages 2-4, zhu2025anovelheterozygous pages 1-2)</p>
+<h2>2. Etiology</h2>
+<h3>2.1 Disease causal factors</h3>
+<p>BDA1 is a <strong>Mendelian</strong> congenital limb malformation primarily caused by <strong>germline pathogenic variants</strong> affecting endochondral ossification signaling pathways—most prominently <strong>IHH</strong>. (temtamy2008brachydactyly pages 2-5, david2015isolatedandsyndromic pages 1-3)</p>
+<h3>2.2 Risk factors</h3>
+<p><strong>Genetic risk factors (causal variants):</strong>
+* <strong>IHH</strong> heterozygous variants are the canonical cause; classic reviews identify IHH mutations at 2q35–36. (temtamy2008brachydactyly pages 2-5, david2015isolatedandsyndromic pages 1-3)
+* Additional reported causal genes/loci include <strong>GDF5</strong> and <strong>BMPR1B</strong> in genetic synthesis work; these converge on BMP/TGF-β axis biology relevant to digit formation and can phenocopy/overlap BDA1. (racacho2015thegeneticheterogeneity pages 111-116, racacho2015thegeneticheterogeneity pages 98-102)</p>
+<p><strong>Environmental risk factors:</strong>
+No environmental, infectious, or lifestyle risk factors are established in the retrieved evidence, consistent with a primary Mendelian etiology.</p>
+<h3>2.3 Protective factors / gene–environment interaction</h3>
+<p>No protective factors or gene–environment interactions were identified in the retrieved evidence.</p>
+<h2>3. Phenotypes</h2>
+<h3>3.1 Core phenotypes and HPO suggestions</h3>
+<p><strong>Digital skeletal phenotypes</strong>
+* Middle phalanges of digits 2–5 are variably short/absent; can be fused to distal/terminal phalanges (symphalangism). (temtamy2008brachydactyly pages 2-5, david2015isolatedandsyndromic pages 1-3)
+* Thumb proximal phalanx and big toe proximal phalanx often short. (temtamy2008brachydactyly pages 2-5, david2015isolatedandsyndromic pages 1-3)
+* Metacarpals can be short with broad epiphyses; distal phalanges may be short; digit 2 and 5 often most affected. (david2015isolatedandsyndromic pages 1-3)</p>
+<p><strong>Suggested HPO terms (non-exhaustive)</strong>
+* Brachydactyly — <strong>HP:0001156</strong>
+* Brachydactyly, type A1 — (HPO term exists in many installations; not verified in retrieved evidence)
+* Symphalangism — <strong>HP:0001204</strong>
+* Clinodactyly — <strong>HP:0004209</strong>
+* Short stature (variable) — <strong>HP:0004322</strong> (lacombe2010brachydactylytypea1 pages 3-5, chen2024shortstaturewith pages 2-4)</p>
+<h3>3.2 Age of onset, severity, progression</h3>
+<ul>
+<li><strong>Onset:</strong> congenital (structural). (temtamy2008brachydactyly pages 2-5)</li>
+<li><strong>Course:</strong> generally stable/non-progressive as a malformation; functional impact varies with severity. (temtamy2008brachydactyly pages 2-5)</li>
+</ul>
+<h3>3.3 Quality of life impact</h3>
+<p>No validated QoL instrument data (e.g., SF-36/EQ-5D) were found in the retrieved evidence. Functional limitation is typically the driver of intervention decisions. (temtamy2008brachydactyly pages 2-5)</p>
+<h2>4. Genetic / molecular information</h2>
+<h3>4.1 Causal genes</h3>
+<p><strong>Primary causal gene:</strong>
+* <strong>IHH</strong> (Indian hedgehog). (temtamy2008brachydactyly pages 2-5, david2015isolatedandsyndromic pages 1-3)</p>
+<p><strong>Additional reported genes/loci (evidence in retrieved context but less canonical):</strong>
+* <strong>GDF5</strong>, <strong>BMPR1B</strong>, and a locus at <strong>5p13.3–p13.2 (BDA1B)</strong>. (temtamy2008brachydactyly pages 2-5, racacho2015thegeneticheterogeneity pages 111-116, racacho2015thegeneticheterogeneity pages 98-102)</p>
+<h3>4.2 Pathogenic variant spectrum and hotspots</h3>
+<p>A recurring theme is that BDA1-causing IHH variants cluster in the N-terminal signaling fragment. Genetic synthesis evidence states: “all of the BDA1-causing IHH mutations are missense and are limited to a 59 amino acid region… (codons 95–154).” (racacho2015thegeneticheterogeneity pages 72-76)
+Hotspots/recurrent residues include codons/residues <strong>E95</strong>, <strong>D100</strong>, and <strong>E131</strong>, among others; case reports add in-frame indels and frameshift examples. (racacho2015thegeneticheterogeneity pages 72-76, zeng2022casereportbrachydactyly pages 1-2, chen2024shortstaturewith pages 2-4)
+Examples in the retrieved evidence:
+* <strong>In-frame duplication:</strong> IHH NM_002181.4 c.383_415dup, p.(R128_H138dup). (zeng2022casereportbrachydactyly pages 1-2)
+* <strong>Frameshift (short stature + non-classical BDA1):</strong> IHH c.387_388insC, p.Thr130Hisfs<em>18. (chen2024shortstaturewith pages 1-2)
+* </em><em>In-frame deletion (prenatal case; functional maturation defect):</em>* IHH c.331_333delCTG, p.Leu111del. (zhu2025anovelheterozygous pages 1-2)</p>
+<p><strong>Allele frequency:</strong> population allele-frequency values (gnomAD/1000G) were not available in retrieved tool evidence (gap).</p>
+<h3>4.3 Functional consequences</h3>
+<p>A recent functional report highlights the importance of precursor processing and maturation: IHH is synthesized as a precursor and autocatalytically generates an active N-terminal signaling fragment; the p.Leu111del variant led to increased precursor with reduced mature functional IHH in HEK293T assays, consistent with “protein maturation failure.” (zhu2025anovelheterozygous pages 1-2)</p>
+<h2>5. Environmental information</h2>
+<p>No specific environmental/lifestyle/toxin/infectious contributors were identified in the retrieved evidence; the condition is primarily genetic.</p>
+<h2>6. Mechanism / pathophysiology</h2>
+<h3>6.1 Current mechanistic understanding</h3>
+<p>IHH is central to growth plate biology and endochondral ossification. The 2024 case report explicitly summarizes that IHH “regulates proliferation and differentiation of chondrocytes and is essential for bone formation,” and “coordinates endochondral bone growth and morphogenesis via parathyroid hormone related-protein-dependent and -independent pathways,” referencing the <strong>Ihh–PTHrP feedback loop</strong>. (chen2024shortstaturewith pages 8-8)
+Mechanistic chain (high-level):
+1. <strong>Upstream trigger:</strong> germline pathogenic variant in IHH (or related pathway genes). (temtamy2008brachydactyly pages 2-5, zeng2022casereportbrachydactyly pages 1-2)
+2. <strong>Molecular dysfunction:</strong> reduced functional IHH (maturation/secretion/binding defects) or altered hedgehog signaling output. (zhu2025anovelheterozygous pages 1-2)
+3. <strong>Cellular/tissue consequence:</strong> disrupted chondrocyte proliferation/differentiation gradients and growth plate signaling, altering cartilage template growth for phalanges/metacarpals. (chen2024shortstaturewith pages 8-8)
+4. <strong>Clinical phenotype:</strong> congenital shortening/aplasia of middle phalanges ± symphalangism and variable short stature. (temtamy2008brachydactyly pages 2-5, david2015isolatedandsyndromic pages 1-3)</p>
+<h3>6.2 Suggested GO / CL terms</h3>
+<ul>
+<li>Endochondral ossification — <strong>GO:0001958</strong></li>
+<li>Hedgehog signaling pathway — <strong>GO:0007224</strong></li>
+<li>Chondrocyte differentiation — <strong>GO:0002062</strong></li>
+<li>Chondrocyte (growth plate) — <strong>CL:0000138</strong>; hypertrophic chondrocyte — <strong>CL:0000218</strong>
+(ontology suggestions derived from mechanism described in retrieved evidence) (chen2024shortstaturewith pages 8-8)</li>
+</ul>
+<h2>7. Anatomical structures affected</h2>
+<p>Primary structures:
+* Middle phalanges (digits 2–5), thumb proximal phalanx, toe phalanges, and sometimes metacarpals/metatarsals. (temtamy2008brachydactyly pages 2-5, david2015isolatedandsyndromic pages 1-3)
+Growth plate cartilage is the key tissue context. (chen2024shortstaturewith pages 8-8)</p>
+<p>Suggested UBERON terms:
+* Phalanx — <strong>UBERON:0006002</strong>
+* Metacarpal bone — <strong>UBERON:0011137</strong>
+* Metatarsal bone — <strong>UBERON:0011138</strong>
+* Growth plate cartilage — <strong>UBERON:0004367</strong></p>
+<h2>8. Temporal development</h2>
+<p><strong>Typical onset:</strong> congenital. (temtamy2008brachydactyly pages 2-5)
+<strong>Critical periods:</strong> embryonic and postnatal growth plate development (implied by IHH growth plate function). (chen2024shortstaturewith pages 8-8)
+<strong>Progression:</strong> not a progressive systemic disorder; skeletal proportions are established developmentally and remain stable, though secondary issues (e.g., arthritis) have been reported in some families. (racacho2015thegeneticheterogeneity pages 72-76)</p>
+<h2>9. Inheritance and population</h2>
+<h3>9.1 Inheritance pattern</h3>
+<p>Classic descriptions indicate autosomal dominant inheritance (“denoting autosomal dominant inheritance”). (temtamy2008brachydactyly pages 2-5)</p>
+<h3>9.2 Penetrance and expressivity</h3>
+<p>Marked <strong>phenotypic heterogeneity</strong> and variable expressivity across families is documented; one synthesis notes “remarkable phenotypic heterogeneity.” (racacho2015thegeneticheterogeneity pages 72-76)</p>
+<h3>9.3 Epidemiology</h3>
+<p>A key knowledge-base limitation is the lack of formal epidemiology: “No epidemiological studies have been reported. It is a rare hand malformation with only few pedigrees reported.” (temtamy2008brachydactyly pages 2-5)</p>
+<h2>10. Diagnostics</h2>
+<h3>10.1 Clinical and imaging tests</h3>
+<p>Diagnosis relies on <strong>clinical exam + anthropometry + radiographs</strong>; “X-ray of hands on postero-anterior (PA) view show the selective distribution of the hypoplasia and aplasia of the middle phalanges.” (temtamy2008brachydactyly pages 2-5)
+A radiology review emphasizes that standard PA radiographs are first-line to classify subtype and localize shortening, and that BDA1 shows short/absent middle phalanges with occasional fusion and often short metacarpals with broad epiphyses. (david2015isolatedandsyndromic pages 1-3)</p>
+<h3>10.2 Genetic testing (real-world implementations)</h3>
+<p>Modern implementation is WES in families with mild skeletal signs and short stature:
+* In a 2024 family with short stature and non-classical BDA1, WES identified a heterozygous IHH frameshift (c.387_388insC; p.Thr130Hisfs*18) with Sanger confirmation. (chen2024shortstaturewith pages 2-4)
+Similarly, case reports identify novel in-frame IHH insertions in multi-generation pedigrees. (zeng2022casereportbrachydactyly pages 1-2)</p>
+<h3>10.3 Differential diagnosis</h3>
+<p>Differentials reported in a 2022 case report include <strong>Robinow syndrome</strong>, <strong>Feingold syndrome</strong>, and <strong>Temtamy preaxial brachydactyly syndrome</strong>, reflecting the need to distinguish isolated BDA1 from syndromic brachydactylies. (zeng2022casereportbrachydactyly pages 1-2)</p>
+<h2>11. Outcome / prognosis</h2>
+<p>BDA1 is generally compatible with normal life expectancy; morbidity is primarily functional/cosmetic. Surgical intervention is typically reserved for function/cosmesis. (temtamy2008brachydactyly pages 2-5)
+No quantitative mortality/survival statistics were found in the retrieved evidence (gap).</p>
+<h2>12. Treatment</h2>
+<h3>12.1 Standard management</h3>
+<p>A commonly cited management approach is conservative:
+* “Plastic surgery is only indicated if the brachydactyly affects hand function or for cosmetic reasons… Physical therapy and ergotherapy may ameliorate hand function.” (temtamy2008brachydactyly pages 2-5)
+A 2022 case report similarly notes most patients are treated only if function is affected or for cosmetic reasons. (zeng2022casereportbrachydactyly pages 1-2)</p>
+<p><strong>Suggested MAXO terms:</strong>
+* Surgical procedure — MAXO:0000004
+* Physical therapy — MAXO:0000011
+* Occupational therapy — MAXO:0000014</p>
+<h3>12.2 Recent developments (2023–2024 priority)</h3>
+<p><strong>rhGH in selected IHH-related short stature presentations:</strong>
+A 2024 report treated two siblings with rhGH (33 μg/kg/day) for 4 years, observing height SDS changes of <strong>+2.54</strong> (boy) and <strong>+1.86</strong> (girl), with “No noticeable adverse effect.” (chen2024shortstaturewith pages 1-2)
+Interpretation: this is not a corrective therapy for brachydactyly per se, but a real-world implementation relevant when BDA1 co-occurs with clinically significant short stature and growth hormone axis abnormalities. (chen2024shortstaturewith pages 2-4)</p>
+<h3>12.3 Experimental / targeted therapies</h3>
+<p>No BDA1-specific interventional clinical trials were retrieved; however, mechanistic literature referenced in a 2024 report notes Smoothened agonist (SAG) rescue in Ihh-deficiency models, suggesting pathway-modulation concepts in broader skeletal dysplasia research. (chen2024shortstaturewith pages 8-8)</p>
+<h2>13. Prevention</h2>
+<p>No primary prevention is applicable for this Mendelian condition. Prevention focuses on <strong>genetic counseling</strong>, cascade testing, and reproductive options when a familial variant is known. (temtamy2008brachydactyly pages 2-5)
+Prenatal phenotyping with ultrasound plus WES has been used in recent fetal IHH-related BDA1 diagnosis. (zhu2025anovelheterozygous pages 1-2)</p>
+<p><strong>Suggested MAXO terms:</strong> Genetic counseling — MAXO:0000055.</p>
+<h2>14. Other species / natural disease</h2>
+<p>No naturally occurring veterinary analogs were identified in the retrieved evidence.</p>
+<h2>15. Model organisms</h2>
+<p>Evidence supporting pathway relevance includes:
+* <strong>Bmpr1b-null mice</strong> exhibit phalange-restricted brachydactyly, supporting the role of BMP receptor biology in digit development. (racacho2015thegeneticheterogeneity pages 111-116)
+* Growth-plate models of Ihh deficiency and pharmacologic manipulation (e.g., SAG) are referenced in recent clinical mechanistic summaries. (chen2024shortstaturewith pages 8-8)
+Limitations: these models are not necessarily allele-matched to the common human BDA1 IHH hotspot variants.</p>
+<h2>Visual evidence</h2>
+<p>A schematic classification figure including a BDA1 panel is available in the Temtamy &amp; Aglan review. (temtamy2008brachydactyly media a1b197b0)</p>
+<h2>Data/statistics extracted from recent studies (2023–2024 priority)</h2>
+<ul>
+<li><strong>Height SDS gain with 4 years rhGH</strong> in an IHH-related short stature + non-classical BDA1 family: <strong>+2.54</strong> (boy) and <strong>+1.86</strong> (girl) at rhGH 33 μg/kg/day, no noticeable adverse effects (case report-level evidence). (chen2024shortstaturewith pages 1-2)</li>
+<li><strong>Epidemiology:</strong> “No epidemiological studies have been reported” for BDA1; rare with few pedigrees (evidence gap for prevalence/incidence). (temtamy2008brachydactyly pages 2-5)</li>
+</ul>
+<hr />
+<h2>Knowledge-base summary table</h2>
+<table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Key knowledge-base fields</th>
+<th>Suggested ontology terms</th>
+<th>Supporting citation IDs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease identifiers / names</td>
+<td><strong>Disease:</strong> Brachydactyly type A1 (BDA1); isolated brachydactyly / brachymesophalangy predominantly affecting middle phalanges; <strong>OMIM:</strong> 112500; historic alternate locus <strong>BDA1B</strong> at 5p13.3-p13.2; information here is derived from aggregated disease-level literature/reviews plus family case reports and case series.</td>
+<td>Suggested MONDO: <em>Brachydactyly type A1</em> (MONDO not confirmed in retrieved evidence); MeSH/ICD/Orphanet identifiers not directly confirmed in retrieved context.</td>
+<td>(temtamy2008brachydactyly pages 2-5, zeng2022casereportbrachydactyly pages 1-2, racacho2015thegeneticheterogeneity pages 84-88)</td>
+</tr>
+<tr>
+<td>Inheritance / population genetics</td>
+<td>Usually <strong>autosomal dominant</strong> with generally high/complete penetrance reported in classic descriptions; marked <strong>variable expressivity</strong> between and within families; rare evidence for <strong>semi-dominant</strong> behavior in some <strong>GDF5</strong>-related BDA1 presentations (milder heterozygotes, more severe homozygotes). Founder and recurrent hotspot mutations have been described for some <strong>IHH</strong> alleles.</td>
+<td>HP: Autosomal dominant inheritance <strong>HP:0000006</strong>; Variable expressivity <strong>HP:0003828</strong>.</td>
+<td>(temtamy2008brachydactyly pages 2-5, racacho2015thegeneticheterogeneity pages 84-88, racacho2015thegeneticheterogeneity pages 72-76, racacho2015thegeneticheterogeneity pages 98-102)</td>
+</tr>
+<tr>
+<td>Core phenotypes</td>
+<td>Congenital shortening/aplasia of <strong>middle phalanges of digits 2-5</strong>, often most severe in digits 2 and 5; short proximal phalanx of thumb and sometimes hallux; occasional fusion of middle and terminal phalanges (<strong>symphalangism</strong>); short/broad metacarpals; short toes; clinodactyly; absent distal finger creases; variable short stature and mild limb shortening in some families.</td>
+<td>HP: Brachydactyly <strong>HP:0001156</strong>; Aplasia/Hypoplasia of middle phalanges of the hand <strong>HP:0009843/HP:0009882</strong>; Short thumb <strong>HP:0009778</strong>; Toe brachydactyly <strong>HP:0001773</strong>; Symphalangism <strong>HP:0001204</strong>; Clinodactyly <strong>HP:0004209</strong>; Short stature <strong>HP:0004322</strong>.</td>
+<td>(temtamy2008brachydactyly pages 2-5, david2015isolatedandsyndromic pages 1-3, lacombe2010brachydactylytypea1 pages 3-5, zeng2022casereportbrachydactyly pages 1-2, chen2024shortstaturewith pages 2-4)</td>
+</tr>
+<tr>
+<td>Radiographic hallmarks</td>
+<td>Postero-anterior hand radiographs show selective hypoplasia/aplasia of middle phalanges; short or absent middle phalanges, occasional fusion with distal phalanges, short distal phalanges, short metacarpals with broad epiphyses; “chess pawn-shaped” distal bone described in classic BDA1; hand X-rays are central to subtype classification.</td>
+<td>HP: Abnormality of hand bone morphology <strong>HP:0011304</strong>; Short middle phalanx of the 2nd finger <strong>HP:0009871</strong>; Short middle phalanx of the 5th finger <strong>HP:0009175</strong>.</td>
+<td>(temtamy2008brachydactyly pages 2-5, david2015isolatedandsyndromic pages 1-3, racacho2015thegeneticheterogeneity pages 72-76, zhu2025anovelheterozygous pages 10-11, temtamy2008brachydactyly media a1b197b0)</td>
+</tr>
+<tr>
+<td>Causal genes / loci</td>
+<td><strong>Primary causal gene:</strong> <strong>IHH</strong> (Indian hedgehog signaling molecule); additional reported BDA1 genes/loci include <strong>GDF5</strong>, <strong>BMPR1B</strong>, and a mapped locus at <strong>5p13.3-p13.2</strong>. <strong>IHH</strong> explains a substantial fraction of molecularly solved cases (~40% cited in review-level evidence).</td>
+<td>HGNC: <strong>IHH</strong>, <strong>GDF5</strong>, <strong>BMPR1B</strong>.</td>
+<td>(racacho2015thegeneticheterogeneity pages 84-88, racacho2015thegeneticheterogeneity pages 111-116, racacho2015thegeneticheterogeneity pages 98-102, temtamy2008brachydactyly pages 2-5)</td>
+</tr>
+<tr>
+<td>Pathogenic variants / hotspots</td>
+<td><strong>IHH</strong> BDA1 variants cluster in the N-terminal active/signaling fragment, especially codons <strong>95-154</strong>; recurrent/hotspot residues include <strong>E95</strong> (e.g., p.Glu95del / p.Glu95Lys), <strong>D100</strong> (p.Asp100Asn/Glu), <strong>L111del</strong>, <strong>R128_H138dup</strong>, <strong>Thr130Hisfs*18</strong>, <strong>E131K</strong>. Variant classes include mostly <strong>missense</strong>, plus <strong>in-frame insertion/deletion</strong> and rare <strong>frameshift</strong> changes. <strong>GDF5</strong> BDA1 variants include cysteine-disrupting missense alleles affecting the mature domain; <strong>BMPR1B</strong> missense/splice variants also reported. Germline origin is implied/observed.</td>
+<td>Sequence Ontology suggestions: missense_variant, inframe_insertion, inframe_deletion, frameshift_variant, splice_acceptor_variant.</td>
+<td>(racacho2015thegeneticheterogeneity pages 72-76, zeng2022casereportbrachydactyly pages 1-2, chen2024shortstaturewith pages 2-4, zhu2025anovelheterozygous pages 1-2, zhu2025anovelheterozygous pages 10-11, racacho2015thegeneticheterogeneity pages 111-116, racacho2015thegeneticheterogeneity pages 98-102)</td>
+</tr>
+<tr>
+<td>Mechanism / pathways</td>
+<td>Disease reflects disturbed <strong>endochondral ossification</strong> and growth-plate signaling. <strong>IHH</strong> normally regulates chondrocyte proliferation/differentiation and couples chondrogenesis to osteogenesis through <strong>IHH–PTCH1–SMO–GLI</strong> signaling and the <strong>IHH–PTHrP feedback loop</strong>. BDA1-associated variants can reduce mature functional IHH, impair <strong>IHH-PTC/PTCH</strong> binding, alter secretion/maturation, and downstream perturb digit cartilage template growth. BDA1 genes converge on <strong>BMP-SMAD / GDF5-BMPR1B</strong> signaling interacting with IHH-PTHrP biology.</td>
+<td>GO: endochondral ossification <strong>GO:0001958</strong>; chondrocyte differentiation <strong>GO:0002062</strong>; regulation of chondrocyte differentiation <strong>GO:0032330</strong>; hedgehog signaling pathway <strong>GO:0007224</strong>; ossification <strong>GO:0001503</strong>. Key nodes: <strong>IHH, PTCH1, SMO, GLI1/2/3, PTHLH/PTHrP, PTH1R, GDF5, BMPR1B, SMADs</strong>.</td>
+<td>(chen2024shortstaturewith pages 8-8, zhu2025anovelheterozygous pages 1-2, racacho2015thegeneticheterogeneity pages 84-88, racacho2015thegeneticheterogeneity pages 111-116, racacho2015thegeneticheterogeneity pages 98-102, alqattan2014embryologyoffamilial pages 3-7)</td>
+</tr>
+<tr>
+<td>Anatomy / cell types</td>
+<td>Primarily affects <strong>phalanges, metacarpals, metatarsals</strong>, and growth-plate cartilage of hands/feet; in some families also short humerus/femur or ulna-related changes. Key cell type is the <strong>growth plate chondrocyte</strong>.</td>
+<td>UBERON: phalanx <strong>UBERON:0006002</strong>; metacarpal bone <strong>UBERON:0011137</strong>; metatarsal bone <strong>UBERON:0011138</strong>; growth plate cartilage <strong>UBERON:0004367</strong>. CL: chondrocyte <strong>CL:0000138</strong>; hypertrophic chondrocyte <strong>CL:0000218</strong>.</td>
+<td>(lacombe2010brachydactylytypea1 pages 3-5, david2015isolatedandsyndromic pages 1-3, chen2024shortstaturewith pages 8-8)</td>
+</tr>
+<tr>
+<td>Onset / course / prognosis</td>
+<td>Typically <strong>congenital</strong> and usually <strong>non-progressive/stable</strong> as a structural limb malformation; lifelong but generally compatible with normal lifespan. Functional impact is often mild, though dexterity/cosmetic concerns and short stature may prompt evaluation. Osteoarthritis/arthritis has occasionally been reported in some families.</td>
+<td>HP: Congenital onset <strong>HP:0003577</strong>; Abnormal hand morphology <strong>HP:0005922</strong>.</td>
+<td>(temtamy2008brachydactyly pages 2-5, racacho2015thegeneticheterogeneity pages 72-76, zeng2022casereportbrachydactyly pages 1-2)</td>
+</tr>
+<tr>
+<td>Epidemiology</td>
+<td>No robust prevalence/incidence estimates for <strong>BDA1</strong> were identified in the retrieved evidence. Reviews state brachydactylies are rare overall and specifically note that <strong>BDA1</strong> is a rare hand malformation with only a few pedigrees/case series reported; prevalence figures around ~2% apply to types <strong>A3</strong> and <strong>D</strong>, not A1.</td>
+<td>Rare disease designation appropriate; no disease-specific frequency ontology assignment supported by retrieved evidence.</td>
+<td>(temtamy2008brachydactyly pages 2-5, david2015isolatedandsyndromic pages 1-3, zeng2022casereportbrachydactyly pages 1-2)</td>
+</tr>
+<tr>
+<td>Diagnostics</td>
+<td>Diagnosis is primarily <strong>clinical + radiographic</strong> (PA hand/foot X-rays), followed by <strong>molecular confirmation</strong>. Current real-world testing uses <strong>WES</strong> with Sanger confirmation; targeted skeletal dysplasia / short stature / brachydactyly panels are reasonable when phenotype is suggestive. Differential diagnosis includes other isolated brachydactylies and syndromic entities such as <strong>Robinow syndrome</strong>, <strong>Feingold syndrome</strong>, and Temtamy preaxial brachydactyly syndrome; radiographs help subtype classification.</td>
+<td>MAXO not applicable here; HPO terms above support phenotyping. Testing methods: WES, Sanger sequencing, multigene panel.</td>
+<td>(temtamy2008brachydactyly pages 2-5, david2015isolatedandsyndromic pages 1-3, zeng2022casereportbrachydactyly pages 1-2, chen2024shortstaturewith pages 2-4, chen2024shortstaturewith pages 1-2)</td>
+</tr>
+<tr>
+<td>Management / treatment</td>
+<td>No disease-modifying therapy established for classic isolated BDA1. Management is usually <strong>conservative</strong>, with <strong>plastic/orthopedic surgery</strong> only if hand function or cosmesis is significantly affected; <strong>physical therapy/ergotherapy (occupational therapy)</strong> may improve function. In recent IHH-related short stature families, <strong>recombinant human growth hormone (rhGH)</strong> produced substantial height SDS gains over 4 years without major adverse effects, but evidence is limited to case-level reports and applies mainly to selected short-stature presentations rather than hand malformation correction.</td>
+<td>MAXO: physical therapy <strong>MAXO:0000011</strong>; occupational therapy <strong>MAXO:0000014</strong>; surgical procedure <strong>MAXO:0000004</strong>; growth hormone therapy <strong>MAXO:0010020</strong>.</td>
+<td>(temtamy2008brachydactyly pages 2-5, zeng2022casereportbrachydactyly pages 1-2, chen2024shortstaturewith pages 2-4, chen2024shortstaturewith pages 1-2, chen2024shortstaturewith pages 8-8)</td>
+</tr>
+<tr>
+<td>Prevention / counseling</td>
+<td>No primary environmental prevention known for this Mendelian malformation. Key preventive actions are <strong>genetic counseling</strong>, family segregation testing, and consideration of <strong>prenatal/preimplantation testing</strong> when a familial pathogenic variant is known.</td>
+<td>MAXO: genetic counseling <strong>MAXO:0000055</strong>; cascade genetic testing <strong>MAXO:0000127</strong>.</td>
+<td>(temtamy2008brachydactyly pages 2-5, chen2024shortstaturewith pages 2-4, chen2024shortstaturewith pages 1-2)</td>
+</tr>
+<tr>
+<td>Model organism / comparative evidence</td>
+<td>Mouse and developmental studies support pathway relevance: <strong>Bmpr1b-null mice</strong> show phalange-restricted brachydactyly; broader skeletal biology literature shows <strong>Ihh</strong> is essential for growth-plate homeostasis and chondrocyte hypertrophy/differentiation. Model evidence is mechanistically strong but does not perfectly recapitulate the full human BDA1 hand phenotype for every allele.</td>
+<td>GO as above; model organism: <em>Mus musculus</em>.</td>
+<td>(racacho2015thegeneticheterogeneity pages 111-116, chen2024shortstaturewith pages 8-8)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table condenses the main disease-knowledge fields for brachydactyly type A1, including phenotype, genetics, mechanism, diagnosis, and management. It is designed for rapid knowledge-base population and each row links to supporting evidence context IDs.</em></p>
+<hr />
+<h2>Key references (with URLs and publication dates)</h2>
+<ul>
+<li>Temtamy SA, Aglan MS. <strong>Brachydactyly.</strong> Orphanet Journal of Rare Diseases. <strong>2008-06</strong>. https://doi.org/10.1186/1750-1172-3-15 (temtamy2008brachydactyly pages 2-5)</li>
+<li>David A, et al. <strong>Isolated and syndromic brachydactylies: Diagnostic value of hand X-rays.</strong> Diagnostic and Interventional Imaging. <strong>2015-05</strong>. https://doi.org/10.1016/j.diii.2014.12.007 (david2015isolatedandsyndromic pages 1-3)</li>
+<li>Zeng F, et al. <strong>Case Report: Brachydactyly Type A1 Induced by a Novel Variant of in-Frame Insertion in the IHH Gene.</strong> Frontiers in Genetics. <strong>2022-05</strong>. https://doi.org/10.3389/fgene.2022.814786 (zeng2022casereportbrachydactyly pages 1-2)</li>
+<li>Chen Y, et al. <strong>Short stature with brachydactyly caused by a novel mutation in the IHH gene and response to 4-year growth hormone therapy: a case report.</strong> Translational Pediatrics. <strong>2024-05</strong>. https://doi.org/10.21037/tp-23-578 (chen2024shortstaturewith pages 1-2)</li>
+<li>Zhu T, et al. <strong>A Novel Heterozygous IHH c.331_333del Mutation… Causes IHH Protein Maturation Failure in HEK293T Cells.</strong> Phenomics. <strong>2025-12</strong>. https://doi.org/10.1007/s43657-024-00191-9 (zhu2025anovelheterozygous pages 1-2)</li>
+</ul>
+<h2>Notes on evidence gaps</h2>
+<p>Within the retrieved tool evidence, the following could not be confirmed and should be filled by targeted database queries (OMIM/Orphanet/MONDO/MeSH/GTR/ClinVar/gnomAD) in a subsequent pass: MONDO ID; Orphanet ORPHA code; ICD-10/ICD-11 codes; MeSH descriptor; ClinVar variant classifications and population allele frequencies; and validated QoL statistics.</p>
+<p>References</p>
+<ol>
+<li>
+<p>(temtamy2008brachydactyly pages 2-5): Samia A Temtamy and Mona S Aglan. Brachydactyly. Orphanet Journal of Rare Diseases, Jun 2008. URL: https://doi.org/10.1186/1750-1172-3-15, doi:10.1186/1750-1172-3-15. This article has 223 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(david2015isolatedandsyndromic pages 1-3): A. David, M. Vincent, M.-P. Quéré, T. Lefrançois, E. Frampas, and A. David. Isolated and syndromic brachydactylies: diagnostic value of hand x-rays. Diagnostic and interventional imaging, 96 5:443-8, May 2015. URL: https://doi.org/10.1016/j.diii.2014.12.007, doi:10.1016/j.diii.2014.12.007. This article has 27 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(racacho2015thegeneticheterogeneity pages 72-76): Lemuel Jean Racacho. The genetic heterogeneity of brachydactyly type a1: identifying the molecular pathways. ArXiv, Mar 2015. URL: https://doi.org/10.20381/ruor-2868, doi:10.20381/ruor-2868. This article has 0 citations.</p>
+</li>
+<li>
+<p>(zeng2022casereportbrachydactyly pages 1-2): Feier Zeng, Huan Liu, Xuyang Xia, Yang Shu, Wei Cheng, Heng Xu, Geng Yin, and Qibing Xie. Case report: brachydactyly type a1 induced by a novel variant of in-frame insertion in the ihh gene. Frontiers in Genetics, May 2022. URL: https://doi.org/10.3389/fgene.2022.814786, doi:10.3389/fgene.2022.814786. This article has 3 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(chen2024shortstaturewith pages 1-2): Yulin Chen, Mingyue Yin, Yiyi Lu, Zhiya Dong, Wenli Lu, Lin Lin, and Yuan Xiao. Short stature with brachydactyly caused by a novel mutation in the ihh gene and response to 4-year growth hormone therapy: a case report. Translational Pediatrics, 13:856-863, May 2024. URL: https://doi.org/10.21037/tp-23-578, doi:10.21037/tp-23-578. This article has 3 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(chen2024shortstaturewith pages 2-4): Yulin Chen, Mingyue Yin, Yiyi Lu, Zhiya Dong, Wenli Lu, Lin Lin, and Yuan Xiao. Short stature with brachydactyly caused by a novel mutation in the ihh gene and response to 4-year growth hormone therapy: a case report. Translational Pediatrics, 13:856-863, May 2024. URL: https://doi.org/10.21037/tp-23-578, doi:10.21037/tp-23-578. This article has 3 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(zhu2025anovelheterozygous pages 1-2): Ting Zhu, Lijie Guan, Dan Chen, Yi Luo, Mianmian Zhu, Rongyue Sun, Jiamin Shi, Qiu Wang, Yuan Chen, Yihong Wang, Hongwei Wang, Zhongqiu Lu, and Dan Wang. A novel heterozygous ihh c.331_333del mutation identified in a fetus with brachydactyly type a1 causes ihh protein maturation failure in hek293t cells. Phenomics, 5:123-136, Dec 2025. URL: https://doi.org/10.1007/s43657-024-00191-9, doi:10.1007/s43657-024-00191-9. This article has 1 citations.</p>
+</li>
+<li>
+<p>(racacho2015thegeneticheterogeneity pages 111-116): Lemuel Jean Racacho. The genetic heterogeneity of brachydactyly type a1: identifying the molecular pathways. ArXiv, Mar 2015. URL: https://doi.org/10.20381/ruor-2868, doi:10.20381/ruor-2868. This article has 0 citations.</p>
+</li>
+<li>
+<p>(racacho2015thegeneticheterogeneity pages 98-102): Lemuel Jean Racacho. The genetic heterogeneity of brachydactyly type a1: identifying the molecular pathways. ArXiv, Mar 2015. URL: https://doi.org/10.20381/ruor-2868, doi:10.20381/ruor-2868. This article has 0 citations.</p>
+</li>
+<li>
+<p>(lacombe2010brachydactylytypea1 pages 3-5): Didier Lacombe, Marie‐Ange Delrue, Caroline Rooryck, Fanny Morice‐Picard, Benoît Arveiler, Brigitte Maugey‐Laulom, Stefan Mundlos, Annick Toutain, and Jean‐François Chateil. Brachydactyly type a1 with short humerus and associated skeletal features. American Journal of Medical Genetics Part A, 152A:3016-3021, Dec 2010. URL: https://doi.org/10.1002/ajmg.a.33761, doi:10.1002/ajmg.a.33761. This article has 4 citations.</p>
+</li>
+<li>
+<p>(chen2024shortstaturewith pages 8-8): Yulin Chen, Mingyue Yin, Yiyi Lu, Zhiya Dong, Wenli Lu, Lin Lin, and Yuan Xiao. Short stature with brachydactyly caused by a novel mutation in the ihh gene and response to 4-year growth hormone therapy: a case report. Translational Pediatrics, 13:856-863, May 2024. URL: https://doi.org/10.21037/tp-23-578, doi:10.21037/tp-23-578. This article has 3 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(temtamy2008brachydactyly media a1b197b0): Samia A Temtamy and Mona S Aglan. Brachydactyly. Orphanet Journal of Rare Diseases, Jun 2008. URL: https://doi.org/10.1186/1750-1172-3-15, doi:10.1186/1750-1172-3-15. This article has 223 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(racacho2015thegeneticheterogeneity pages 84-88): Lemuel Jean Racacho. The genetic heterogeneity of brachydactyly type a1: identifying the molecular pathways. ArXiv, Mar 2015. URL: https://doi.org/10.20381/ruor-2868, doi:10.20381/ruor-2868. This article has 0 citations.</p>
+</li>
+<li>
+<p>(zhu2025anovelheterozygous pages 10-11): Ting Zhu, Lijie Guan, Dan Chen, Yi Luo, Mianmian Zhu, Rongyue Sun, Jiamin Shi, Qiu Wang, Yuan Chen, Yihong Wang, Hongwei Wang, Zhongqiu Lu, and Dan Wang. A novel heterozygous ihh c.331_333del mutation identified in a fetus with brachydactyly type a1 causes ihh protein maturation failure in hek293t cells. Phenomics, 5:123-136, Dec 2025. URL: https://doi.org/10.1007/s43657-024-00191-9, doi:10.1007/s43657-024-00191-9. This article has 1 citations.</p>
+</li>
+<li>
+<p>(alqattan2014embryologyoffamilial pages 3-7): M. M. Al-Qattan. Embryology of familial (non-syndromic) brachydactyly of the hand. Journal of Hand Surgery (European Volume), 39:926-933, Nov 2014. URL: https://doi.org/10.1177/1753193413514363, doi:10.1177/1753193413514363. This article has 12 citations.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </div>
         
 
         <footer class="page-footer">
@@ -3793,7 +5187,7 @@ treatments:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Brachydactyly Type A1", "mondoId": "MONDO:0007215", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Brachydactyly_Type_A1", "yamlRevision": "130105c4efbc"};
+        const OS_CONFIG = {"diseaseName": "Brachydactyly Type A1", "mondoId": "MONDO:0007215", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Brachydactyly_Type_A1", "yamlRevision": "67443df00b7e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

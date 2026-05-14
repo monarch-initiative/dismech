@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -4117,7 +4270,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Breast carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Breast carcinoma is part of the extra-GI malignancy spectrum in women with PJS.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003002\"}}, {\"id\": \"COX-2 / prostaglandin biosynthetic upregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PJS hamartomatous polyps overexpress COX-2/PTGS2 in epithelial and stromal compartments, increasing local prostaglandin biosynthesis. This supports an investigational chemoprevention rationale for COX-2 inhibition.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\", \"enteric smooth muscle cell\"], \"biological_processes\": [\"prostaglandin biosynthetic process\", \"cyclooxygenase pathway\"]}}, {\"id\": \"COX-2 inhibitor chemoprevention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"COX-2 inhibition with celecoxib is investigational for reducing PJS polyp burden, based on COX-2 overexpression in PJS hamartomas and preclinical rationale; it is not established standard care.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"celecoxib\"]}}, {\"id\": \"Cervix cancer\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Females with PJS are at risk for adenoma malignum of the cervix, a rare aggressive cervical cancer.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0030079\"}}, {\"id\": \"Gastrointestinal carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"PJS carries high risk of GI malignancies, including colorectal, gastric, pancreatic, small intestinal, and other epithelial cancers.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002672\"}}, {\"id\": \"Hamartomatous intestinal polyposis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Characteristic hamartomatous polyps throughout the GI tract, especially the small intestine, define the syndrome and cause bleeding, obstruction, and intussusception.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0030256\"}}, {\"id\": \"LKB1/AMPK pathway inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LKB1 normally activates AMPK-family kinases. In PJS polyp tissue, pathogenic STK11 variants reduce phosphorylated AMPK, weakening energy- and polarity-linked growth control and contributing to downstream mTORC1 hyperactivation.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"], \"biological_processes\": [\"activation of protein kinase activity\"], \"molecular_functions\": [\"AMP-activated protein kinase activity\"], \"genes\": [\"STK11\"]}}, {\"id\": \"Mucocutaneous melanocyte hyperpigmentation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PJS causes characteristic dark blue to brown macules around the mouth, eyes, nostrils, perianal area, buccal mucosa, lips, and extremities. The precise melanocyte-intrinsic mechanism remains incompletely defined, but pigmentation commonly appears in childhood before GI complications.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"melanocyte\"], \"biological_processes\": [\"pigmentation\", \"melanin biosynthetic process\"]}}, {\"id\": \"Mucocutaneous pigmentation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dark macules on the lips, oral mucosa, periorificial skin, and acral sites are a hallmark and often present early in childhood.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0100669\"}}, {\"id\": \"Pancreatic adenocarcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pancreatic adenocarcinoma is one of the GI and extra-intestinal cancers included in PJS surveillance recommendations.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0006725\"}}, {\"id\": \"STK11 germline loss-of-function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline heterozygous pathogenic variants in STK11, encoding the LKB1 serine/threonine kinase, initiate PJS. Loss of tumor-suppressor kinase function perturbs epithelial polarity, growth-control, and stromal paracrine signaling, creating the inherited background for hamartomatous polyposis, mucocutaneous pigmentation, and cancer susceptibility.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"intestinal epithelial cell\", \"stromal cell of small intestinal lamina propria\"], \"biological_processes\": [\"signal transduction\", \"regulation of cell proliferation\"], \"genes\": [\"STK11\"], \"locations\": [\"small intestine\", \"colon\"]}}, {\"id\": \"STK11 germline pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"STK11\"]}}, {\"id\": \"Sirolimus mTOR inhibition\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"mTOR inhibition is investigational in PJS. Mouse-model data show rapamycin suppression of preexisting GI polyps, supporting mechanism-directed interest in the LKB1/AMPK/mTORC1 axis.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"sirolimus\"]}}, {\"id\": \"Somatic STK11 second-hit and malignant transformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline STK11 pathogenic variants confer inherited susceptibility, while somatic loss of the remaining STK11 allele and cooperating oncogenic events drive the high lifetime risk of GI and extra-GI epithelial malignancies.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"], \"biological_processes\": [\"regulation of cell proliferation\"], \"genes\": [\"STK11\"]}}, {\"id\": \"Stromal TGF-beta signaling defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mesenchymal/stromal LKB1 loss can drive PJS-like GI polyposis by reducing stromal TGF-beta signaling to the epithelium. This paracrine defect removes a local growth-suppressive brake and helps explain the arborizing stromal architecture of PJS hamartomas.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"stromal cell of small intestinal lamina propria\", \"myofibroblast\"], \"biological_processes\": [\"TGF-beta receptor signaling\", \"epithelial cell proliferation\"], \"genes\": [\"STK11\"], \"locations\": [\"small intestine\"]}}, {\"id\": \"mTORC1 pathway hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LKB1-deficient PJS tissues show increased mTORC1 signaling with elevated HIF-1alpha and GLUT1, supporting proliferative polyp growth and providing a mechanism-directed rationale for investigational mTOR inhibition.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"], \"biological_processes\": [\"mTORC1 signaling\", \"cell proliferation\"]}}], \"edges\": [{\"source\": \"STK11 germline loss-of-function\", \"target\": \"LKB1/AMPK pathway inactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"STK11 germline loss-of-function\", \"target\": \"Stromal TGF-beta signaling defect\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"STK11 germline loss-of-function\", \"target\": \"Somatic STK11 second-hit and malignant transformation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"LKB1/AMPK pathway inactivation\", \"target\": \"mTORC1 pathway hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"mTORC1 pathway hyperactivation\", \"target\": \"Hamartomatous intestinal polyposis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Stromal TGF-beta signaling defect\", \"target\": \"Hamartomatous intestinal polyposis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"COX-2 / prostaglandin biosynthetic upregulation\", \"target\": \"Hamartomatous intestinal polyposis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Somatic STK11 second-hit and malignant transformation\", \"target\": \"Gastrointestinal carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Somatic STK11 second-hit and malignant transformation\", \"target\": \"Breast carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Somatic STK11 second-hit and malignant transformation\", \"target\": \"Pancreatic adenocarcinoma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Somatic STK11 second-hit and malignant transformation\", \"target\": \"Cervix cancer\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mucocutaneous melanocyte hyperpigmentation\", \"target\": \"Mucocutaneous pigmentation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"COX-2 inhibitor chemoprevention\", \"target\": \"COX-2 / prostaglandin biosynthetic upregulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sirolimus mTOR inhibition\", \"target\": \"mTORC1 pathway hyperactivation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"STK11 germline pathogenic variants\", \"target\": \"LKB1/AMPK pathway inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STK11 germline pathogenic variants\", \"target\": \"STK11 germline loss-of-function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STK11 germline pathogenic variants\", \"target\": \"Somatic STK11 second-hit and malignant transformation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STK11 germline pathogenic variants\", \"target\": \"Stromal TGF-beta signaling defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Breast carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Breast carcinoma is part of the extra-GI malignancy spectrum in women with PJS.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003002\"}}, {\"id\": \"COX-2 / prostaglandin biosynthetic upregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PJS hamartomatous polyps overexpress COX-2/PTGS2 in epithelial and stromal compartments, increasing local prostaglandin biosynthesis. This supports an investigational chemoprevention rationale for COX-2 inhibition.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\", \"enteric smooth muscle cell\"], \"biological_processes\": [\"prostaglandin biosynthetic process\", \"cyclooxygenase pathway\"]}}, {\"id\": \"COX-2 inhibitor chemoprevention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"COX-2 inhibition with celecoxib is investigational for reducing PJS polyp burden, based on COX-2 overexpression in PJS hamartomas and preclinical rationale; it is not established standard care.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"celecoxib\"]}}, {\"id\": \"Cervix cancer\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Females with PJS are at risk for adenoma malignum of the cervix, a rare aggressive cervical cancer.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0030079\"}}, {\"id\": \"Gastrointestinal carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"PJS carries high risk of GI malignancies, including colorectal, gastric, pancreatic, small intestinal, and other epithelial cancers.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002672\"}}, {\"id\": \"Hamartomatous intestinal polyposis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Characteristic hamartomatous polyps throughout the GI tract, especially the small intestine, define the syndrome and cause bleeding, obstruction, and intussusception.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0030256\"}}, {\"id\": \"LKB1/AMPK pathway inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LKB1 normally activates AMPK-family kinases. In PJS polyp tissue, pathogenic STK11 variants reduce phosphorylated AMPK, weakening energy- and polarity-linked growth control and contributing to downstream mTORC1 hyperactivation.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"], \"biological_processes\": [\"activation of protein kinase activity\"], \"molecular_functions\": [\"AMP-activated protein kinase activity\"], \"genes\": [\"STK11\"]}}, {\"id\": \"Mucocutaneous melanocyte hyperpigmentation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PJS causes characteristic dark blue to brown macules around the mouth, eyes, nostrils, perianal area, buccal mucosa, lips, and extremities. The precise melanocyte-intrinsic mechanism remains incompletely defined, but pigmentation commonly appears in childhood before GI complications.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"melanocyte\"], \"biological_processes\": [\"pigmentation\", \"melanin biosynthetic process\"]}}, {\"id\": \"Mucocutaneous pigmentation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dark macules on the lips, oral mucosa, periorificial skin, and acral sites are a hallmark and often present early in childhood.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0100669\"}}, {\"id\": \"Pancreatic adenocarcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pancreatic adenocarcinoma is one of the GI and extra-intestinal cancers included in PJS surveillance recommendations.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0006725\"}}, {\"id\": \"STK11 germline loss-of-function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline heterozygous pathogenic variants in STK11, encoding the LKB1 serine/threonine kinase, initiate PJS. Loss of tumor-suppressor kinase function perturbs epithelial polarity, growth-control, and stromal paracrine signaling, creating the inherited background for hamartomatous polyposis, mucocutaneous pigmentation, and cancer susceptibility.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"intestinal epithelial cell\", \"stromal cell of small intestinal lamina propria\"], \"biological_processes\": [\"signal transduction\", \"regulation of cell proliferation\"], \"genes\": [\"STK11\"], \"locations\": [\"small intestine\", \"colon\"]}}, {\"id\": \"STK11 germline pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"STK11\"]}}, {\"id\": \"Sirolimus mTOR inhibition\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"mTOR inhibition is investigational in PJS. Mouse-model data show rapamycin suppression of preexisting GI polyps, supporting mechanism-directed interest in the LKB1/AMPK/mTORC1 axis.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"sirolimus\"]}}, {\"id\": \"Somatic STK11 second-hit and malignant transformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline STK11 pathogenic variants confer inherited susceptibility, while somatic loss of the remaining STK11 allele and cooperating oncogenic events drive the high lifetime risk of GI and extra-GI epithelial malignancies.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"], \"biological_processes\": [\"regulation of cell proliferation\"], \"genes\": [\"STK11\"]}}, {\"id\": \"Stromal TGF-beta signaling defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mesenchymal/stromal LKB1 loss can drive PJS-like GI polyposis by reducing stromal TGF-beta signaling to the epithelium. This paracrine defect removes a local growth-suppressive brake and helps explain the arborizing stromal architecture of PJS hamartomas.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"stromal cell of small intestinal lamina propria\", \"myofibroblast\"], \"biological_processes\": [\"TGF-beta receptor signaling\", \"epithelial cell proliferation\"], \"genes\": [\"STK11\"], \"locations\": [\"small intestine\"]}}, {\"id\": \"mTORC1 pathway hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LKB1-deficient PJS tissues show increased mTORC1 signaling with elevated HIF-1alpha and GLUT1, supporting proliferative polyp growth and providing a mechanism-directed rationale for investigational mTOR inhibition.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"], \"biological_processes\": [\"mTORC1 signaling\", \"cell proliferation\"]}}], \"edges\": [{\"source\": \"STK11 germline loss-of-function\", \"target\": \"LKB1/AMPK pathway inactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"STK11 germline loss-of-function\", \"target\": \"Stromal TGF-beta signaling defect\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"STK11 germline loss-of-function\", \"target\": \"Somatic STK11 second-hit and malignant transformation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"LKB1/AMPK pathway inactivation\", \"target\": \"mTORC1 pathway hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"mTORC1 pathway hyperactivation\", \"target\": \"Hamartomatous intestinal polyposis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Stromal TGF-beta signaling defect\", \"target\": \"Hamartomatous intestinal polyposis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"COX-2 / prostaglandin biosynthetic upregulation\", \"target\": \"Hamartomatous intestinal polyposis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Somatic STK11 second-hit and malignant transformation\", \"target\": \"Gastrointestinal carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Somatic STK11 second-hit and malignant transformation\", \"target\": \"Breast carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Somatic STK11 second-hit and malignant transformation\", \"target\": \"Pancreatic adenocarcinoma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Somatic STK11 second-hit and malignant transformation\", \"target\": \"Cervix cancer\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mucocutaneous melanocyte hyperpigmentation\", \"target\": \"Mucocutaneous pigmentation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"COX-2 inhibitor chemoprevention\", \"target\": \"COX-2 / prostaglandin biosynthetic upregulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sirolimus mTOR inhibition\", \"target\": \"mTORC1 pathway hyperactivation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"STK11 germline pathogenic variants\", \"target\": \"LKB1/AMPK pathway inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STK11 germline pathogenic variants\", \"target\": \"STK11 germline loss-of-function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STK11 germline pathogenic variants\", \"target\": \"Somatic STK11 second-hit and malignant transformation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STK11 germline pathogenic variants\", \"target\": \"Stromal TGF-beta signaling defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5426,7 +5579,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
             
@@ -5490,6 +5643,8 @@
                 
             </div>
             
+            
+            <div class="evidence-more">+ 1 more reference</div>
             
         </div>
     </details>
@@ -6971,6 +7126,12 @@ genetic:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;PJS patients develop gastrointestinal hamartomas with 100% penetrance often in the second decade of life&#34;
     explanation: This paper summarizes the near-complete penetrance of GI hamartomas in PJS patients.
+  - reference: CGGV:assertion_89685102-ac40-4932-96e7-c2e9e9280858-2023-12-20T180000.000Z
+    reference_title: &#34;STK11 / Peutz-Jeghers syndrome (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;STK11 | HGNC:11389 | Peutz-Jeghers syndrome | MONDO:0008280 | AD | Definitive&#34;
+    explanation: ClinGen classifies the STK11-Peutz-Jeghers syndrome gene-disease relationship as definitive with autosomal dominant inheritance.
 treatments:
 - name: Endoscopic surveillance and polypectomy
   description: &gt;
@@ -7316,7 +7477,7 @@ base.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Peutz-Jeghers syndrome", "mondoId": "MONDO:0008280", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Peutz-Jeghers_syndrome", "yamlRevision": "db74d80f9967"};
+        const OS_CONFIG = {"diseaseName": "Peutz-Jeghers syndrome", "mondoId": "MONDO:0008280", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Peutz-Jeghers_syndrome", "yamlRevision": "e91bff3d0222"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

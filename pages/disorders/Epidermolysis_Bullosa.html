@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2649,11 +2802,18 @@
             
             <a class="stat-link" href="#references">
             <div class="stat-item">
-                <div class="stat-value">4</div>
+                <div class="stat-value">15</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
             
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -5885,6 +6045,7 @@
                 <div class="item-desc">Context: Reduced or absent in dystrophic EB due to COL7A1 mutations; assessed by immunofluorescence mapping</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5930,6 +6091,7 @@
                 <div class="item-desc">Context: Reduced or absent in junctional EB due to LAMA3, LAMB3, or LAMC2 mutations</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5973,6 +6135,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Abnormal intermediate filament network in EB simplex due to KRT5 or KRT14 mutations</div>
+                
                 
                 
     
@@ -6284,7 +6447,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Epidermolysis Bullosa
 creation_date: &#39;2026-03-10T12:00:00Z&#39;
-updated_date: &#39;2026-03-16T01:13:18Z&#39;
+updated_date: &#39;2026-05-08T23:53:01Z&#39;
 category: Mendelian
 description: &gt;-
   Epidermolysis bullosa (EB) is an inherited, heterogeneous group of rare genetic
@@ -6323,9 +6486,7 @@ classifications:
       reference_title: &#34;Epidermolysis bullosa.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;Epidermolysis bullosa (EB) is an inherited, heterogeneous group of
-        rare genetic dermatoses characterized by mucocutaneous fragility and
-        blister formation&#34;
+      snippet: &#34;Epidermolysis bullosa (EB) is an inherited, heterogeneous group of rare genetic dermatoses characterized by mucocutaneous fragility and blister formation&#34;
       explanation: Supports placing EB within skin disorders because it is explicitly described as a genetic dermatosis with mucocutaneous fragility.
   - classification_value: hereditary disease
     evidence:
@@ -6333,8 +6494,7 @@ classifications:
       reference_title: &#34;Epidermolysis bullosa.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;Epidermolysis bullosa (EB) is an inherited, heterogeneous group of
-        rare genetic dermatoses&#34;
+      snippet: &#34;Epidermolysis bullosa (EB) is an inherited, heterogeneous group of rare genetic dermatoses&#34;
       explanation: Supports classification of EB as a hereditary disease because the core disorder group is explicitly inherited and genetic.
 parents:
 - Dermatological Disease
@@ -6365,8 +6525,7 @@ has_subtypes:
     reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Broad classification of JEB includes JEB generalized severe and
-      JEB generalized intermediate&#34;
+    snippet: &#34;Broad classification of JEB includes JEB generalized severe and JEB generalized intermediate&#34;
     explanation: Supports junctional epidermolysis bullosa as a major EB subtype with severe and intermediate generalized forms.
 - name: Dystrophic Epidermolysis Bullosa
   description: &gt;
@@ -6380,9 +6539,7 @@ has_subtypes:
     reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;DEB is divided into two major types depending on inheritance
-      pattern: recessive dystrophic epidermolysis bullosa (RDEB) and dominant
-      dystrophic epidermolysis bullosa (DDEB)&#34;
+    snippet: &#34;DEB is divided into two major types depending on inheritance pattern: recessive dystrophic epidermolysis bullosa (RDEB) and dominant dystrophic epidermolysis bullosa (DDEB)&#34;
     explanation: Supports dystrophic epidermolysis bullosa as a major EB category with dominant and recessive forms.
 - name: Kindler Epidermolysis Bullosa
   description: &gt;
@@ -6395,8 +6552,7 @@ has_subtypes:
     reference_title: &#34;Kindler Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Kindler syndrome (KS), a rare subtype of inherited epidermolysis
-      bullosa&#34;
+    snippet: &#34;Kindler syndrome (KS), a rare subtype of inherited epidermolysis bullosa&#34;
     explanation: Supports Kindler EB as a recognized subtype within the inherited EB spectrum.
 prevalence:
 - population: United States
@@ -6410,19 +6566,14 @@ prevalence:
     reference_title: &#34;Inherited epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;the overall incidence and prevalence of the disease within the
-      United States is approximately 19 per one million live births and 8 per one
-      million population, respectively&#34;
-    explanation: Confirms the approximate incidence of ~19 per million live births
-      in the US from the National EB Registry data.
+    snippet: &#34;the overall incidence and prevalence of the disease within the United States is approximately 19 per one million live births and 8 per one million population, respectively&#34;
+    explanation: Confirms the approximate incidence of ~19 per million live births in the US from the National EB Registry data.
   - reference: PMID:27463098
     reference_title: &#34;Epidemiology of Inherited Epidermolysis Bullosa Based on Incidence and Prevalence Estimates From the National Epidermolysis Bullosa Registry.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;the overall incidence and prevalence of inherited EB were 19.60
-      and 8.22 per 1 million live births, respectively&#34;
-    explanation: Updated NEBR data confirms incidence of approximately 19.6 per
-      million live births and prevalence of 8.2 per million.
+    snippet: &#34;the overall incidence and prevalence of inherited EB were 19.60 and 8.22 per 1 million live births, respectively&#34;
+    explanation: Updated NEBR data confirms incidence of approximately 19.6 per million live births and prevalence of 8.2 per million.
 - population: Worldwide
   notes: &gt;
     An estimated 500,000 people worldwide are affected by epidermolysis bullosa.
@@ -6434,10 +6585,8 @@ prevalence:
     reference_title: &#34;Raising Awareness Among Healthcare Providers about Epidermolysis Bullosa and Advancing Toward a Cure.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Epidermolysis bullosa (EB) is an orphan disease that affects about
-      half a million people worldwide, but may not be familiar to all clinicians&#34;
-    explanation: Confirms the estimated global burden of approximately 500,000
-      affected individuals worldwide.
+    snippet: &#34;Epidermolysis bullosa (EB) is an orphan disease that affects about half a million people worldwide, but may not be familiar to all clinicians&#34;
+    explanation: Confirms the estimated global burden of approximately 500,000 affected individuals worldwide.
 - population: Germany
   percentage: 0.0054
   notes: &gt;
@@ -6450,11 +6599,8 @@ prevalence:
     reference_title: &#34;Epidemiology of inherited epidermolysis bullosa in Germany.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Using log-linear models, we estimated a prevalence of 54 per
-      million for all EB types, 2.44 for junctional EB, 12.16 for dystrophic
-      EB and 28.44 per million for EB simplex&#34;
-    explanation: German EB registry data providing prevalence of 54 per million
-      population overall, higher than some prior estimates.
+    snippet: &#34;Using log-linear models, we estimated a prevalence of 54 per million for all EB types, 2.44 for junctional EB, 12.16 for dystrophic EB and 28.44 per million for EB simplex&#34;
+    explanation: German EB registry data providing prevalence of 54 per million population overall, higher than some prior estimates.
 - population: England and Wales
   notes: &gt;
     Data from the National EB Database (2002-2021) covering 2,594 registered
@@ -6467,12 +6613,8 @@ prevalence:
     reference_title: &#34;The epidemiology of epidermolysis bullosa in England and Wales: data from the national epidermolysis bullosa database.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;The average incidence per million live births for EBS, DEB, JEB
-      and Kindler EB was 32·5, 26·1, 8·9 and 0·9, respectively (total incidence
-      for all types of EB was 67·8 per million)&#34;
-    explanation: England and Wales EB registry data shows incidence of 67.8 per
-      million live births, significantly higher than US estimates, likely
-      reflecting more complete case ascertainment.
+    snippet: &#34;The average incidence per million live births for EBS, DEB, JEB and Kindler EB was 32·5, 26·1, 8·9 and 0·9, respectively (total incidence for all types of EB was 67·8 per million)&#34;
+    explanation: England and Wales EB registry data shows incidence of 67.8 per million live births, significantly higher than US estimates, likely reflecting more complete case ascertainment.
 - population: Netherlands
   notes: &gt;
     Dutch EB Registry data (1988-2018) from the single national expertise
@@ -6485,11 +6627,8 @@ prevalence:
     reference_title: &#34;Novel insights into the epidemiology of epidermolysis bullosa (EB) from the Dutch EB Registry: EB more common than previously assumed?&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;The incidence and point-prevalence of EB in the Netherlands were
-      41.3 per million live births and 22.4 per million population, respectively&#34;
-    explanation: Dutch EB Registry data with molecularly confirmed diagnoses
-      in 90.5% of patients, indicating EB is more common than older estimates
-      suggest.
+    snippet: &#34;The incidence and point-prevalence of EB in the Netherlands were 41.3 per million live births and 22.4 per million population, respectively&#34;
+    explanation: Dutch EB Registry data with molecularly confirmed diagnoses in 90.5% of patients, indicating EB is more common than older estimates suggest.
 inheritance:
 - name: Autosomal dominant
   evidence:
@@ -6497,20 +6636,16 @@ inheritance:
     reference_title: &#34;Epidermolysis Bullosa: Pediatric Perspectives.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;some types are autosomal dominant while others are autosomal
-      recessive&#34;
-    explanation: Confirms that EB includes both autosomal dominant and autosomal
-      recessive forms depending on the type and subtype.
+    snippet: &#34;some types are autosomal dominant while others are autosomal recessive&#34;
+    explanation: Confirms that EB includes both autosomal dominant and autosomal recessive forms depending on the type and subtype.
 - name: Autosomal recessive
   evidence:
   - reference: PMID:34036913
     reference_title: &#34;Epidermolysis Bullosa: Pediatric Perspectives.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;some types are autosomal dominant while others are autosomal
-      recessive&#34;
-    explanation: Confirms autosomal recessive inheritance in multiple EB types
-      including junctional EB, recessive dystrophic EB, and Kindler EB.
+    snippet: &#34;some types are autosomal dominant while others are autosomal recessive&#34;
+    explanation: Confirms autosomal recessive inheritance in multiple EB types including junctional EB, recessive dystrophic EB, and Kindler EB.
 pathophysiology:
 - name: Basement Membrane Zone Structural Disruption
   description: &gt;
@@ -6591,28 +6726,21 @@ pathophysiology:
       reference_title: &#34;Treatment of Epidermolysis Bullosa and Future Directions: A Review.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;Epidermolysis bullosa (EB) comprises rare genetic disorders
-        characterized by skin and mucosal membrane blistering induced by
-        mechanical trauma. Molecularly, pathogenic variants affect genes
-        encoding proteins crucial for epidermal-dermal adhesion and stability&#34;
+      snippet: &#34;Epidermolysis bullosa (EB) comprises rare genetic disorders characterized by skin and mucosal membrane blistering induced by mechanical trauma. Molecularly, pathogenic variants affect genes encoding proteins crucial for epidermal-dermal adhesion and stability&#34;
       explanation: Directly supports the causal link between loss of adhesion/stability proteins and mechanically induced blistering.
   evidence:
   - reference: PMID:32973163
     reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;pathogenetic mutations in 16 distinct genes have been implicated
-      in EB, encoding proteins influencing cellular integrity and adhesion&#34;
-    explanation: Confirms that mutations in at least 16 genes encoding structural
-      and adhesion proteins underlie all forms of EB.
+    snippet: &#34;pathogenetic mutations in 16 distinct genes have been implicated in EB, encoding proteins influencing cellular integrity and adhesion&#34;
+    explanation: Confirms that mutations in at least 16 genes encoding structural and adhesion proteins underlie all forms of EB.
   - reference: PMID:32017015
     reference_title: &#34;Consensus reclassification of inherited epidermolysis bullosa and other disorders with skin fragility.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;we introduce the concept of genetic disorders with skin fragility,
-      of which classical EB represents the prototype&#34;
-    explanation: Confirms that EB is the prototypical genetic disorder with skin
-      fragility resulting from structural protein defects.
+    snippet: &#34;we introduce the concept of genetic disorders with skin fragility, of which classical EB represents the prototype&#34;
+    explanation: Confirms that EB is the prototypical genetic disorder with skin fragility resulting from structural protein defects.
 - name: Mechanical Fragility and Blister Formation
   description: &gt;
     Disruption of the structural proteins that anchor the epidermis to the
@@ -6641,8 +6769,7 @@ pathophysiology:
       reference_title: &#34;From Clinical Phenotype to Genotypic Modelling: Incidence and Prevalence of Recessive Dystrophic Epidermolysis Bullosa (RDEB).&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;Recessive dystrophic epidermolysis bullosa (RDEB) is an inherited
-        genetic disorder characterized by recurrent and chronic open wounds&#34;
+      snippet: &#34;Recessive dystrophic epidermolysis bullosa (RDEB) is an inherited genetic disorder characterized by recurrent and chronic open wounds&#34;
       explanation: Supports progression from recurrent blistering in severe EB to chronic open wounds and impaired healing.
   - target: Secondary Complications
     description: &gt;
@@ -6653,28 +6780,21 @@ pathophysiology:
       reference_title: &#34;Treatment of Epidermolysis Bullosa and Future Directions: A Review.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;Management of severe EB is multidisciplinary, focusing on wound
-        healing support, ensuring that patients thrive, and complication
-        treatment&#34;
+      snippet: &#34;Management of severe EB is multidisciplinary, focusing on wound healing support, ensuring that patients thrive, and complication treatment&#34;
       explanation: Supports that severe EB commonly progresses beyond blistering to complications requiring dedicated wound-healing and complication management.
   evidence:
   - reference: PMID:32973163
     reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;mucocutaneous fragility and blister formation, inducible by often
-      minimal trauma&#34;
-    explanation: Confirms that the cardinal feature of EB is blister formation
-      triggered by minimal trauma due to mucocutaneous fragility.
+    snippet: &#34;mucocutaneous fragility and blister formation, inducible by often minimal trauma&#34;
+    explanation: Confirms that the cardinal feature of EB is blister formation triggered by minimal trauma due to mucocutaneous fragility.
   - reference: PMID:34036913
     reference_title: &#34;Epidermolysis Bullosa: Pediatric Perspectives.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;a group of rare congenital genetic conditions that result in
-      painful blistering of the skin and mucous membranes, which occur with
-      minor trauma or friction&#34;
-    explanation: Confirms that blistering is triggered by minor trauma or friction
-      in EB.
+    snippet: &#34;a group of rare congenital genetic conditions that result in painful blistering of the skin and mucous membranes, which occur with minor trauma or friction&#34;
+    explanation: Confirms that blistering is triggered by minor trauma or friction in EB.
 - name: Wound Healing Impairment and Chronic Wounds
   description: &gt;
     Chronic and recurrent blister formation leads to impaired wound healing,
@@ -6704,28 +6824,21 @@ pathophysiology:
       reference_title: &#34;Epidermolysis bullosa.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;specific complications, the most feared of which - and also the
-        leading cause of mortality - is squamous cell carcinoma&#34;
+      snippet: &#34;specific complications, the most feared of which - and also the leading cause of mortality - is squamous cell carcinoma&#34;
       explanation: Supports that chronic wound burden in EB is linked to serious downstream complications, including malignant transformation.
   evidence:
   - reference: PMID:32973163
     reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;multidisciplinary care is targeted towards minimizing the risk
-      of blister formation, wound care, symptom relief and specific
-      complications, the most feared of which - and also the leading cause of
-      mortality - is squamous cell carcinoma&#34;
-    explanation: Confirms that chronic wound complications including squamous
-      cell carcinoma are major concerns in EB management.
+    snippet: &#34;multidisciplinary care is targeted towards minimizing the risk of blister formation, wound care, symptom relief and specific complications, the most feared of which - and also the leading cause of mortality - is squamous cell carcinoma&#34;
+    explanation: Confirms that chronic wound complications including squamous cell carcinoma are major concerns in EB management.
   - reference: PMID:25279494
     reference_title: &#34;Inherited epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;a specific attention to the fragile skin is required in order
-      to reduce pain, risk of trauma, ulceration and infection&#34;
-    explanation: Confirms that ulceration and impaired wound healing are
-      significant complications requiring specialized management.
+    snippet: &#34;a specific attention to the fragile skin is required in order to reduce pain, risk of trauma, ulceration and infection&#34;
+    explanation: Confirms that ulceration and impaired wound healing are significant complications requiring specialized management.
 - name: Secondary Complications
   description: &gt;
     Chronic skin barrier disruption in EB leads to a range of secondary
@@ -6755,19 +6868,14 @@ pathophysiology:
     reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;A broad phenotypic spectrum has been described, with potentially
-      severe extracutaneous manifestations, morbidity and mortality&#34;
-    explanation: Confirms that EB has severe extracutaneous complications
-      contributing to morbidity and mortality.
+    snippet: &#34;A broad phenotypic spectrum has been described, with potentially severe extracutaneous manifestations, morbidity and mortality&#34;
+    explanation: Confirms that EB has severe extracutaneous complications contributing to morbidity and mortality.
   - reference: PMID:20507631
     reference_title: &#34;Inherited epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Clinical manifestations range widely, from localized blistering
-      of the hands and feet to generalized blistering of the skin and oral
-      cavity, and injury to many internal organs&#34;
-    explanation: Confirms the broad range of secondary complications including
-      internal organ involvement.
+    snippet: &#34;Clinical manifestations range widely, from localized blistering of the hands and feet to generalized blistering of the skin and oral cavity, and injury to many internal organs&#34;
+    explanation: Confirms the broad range of secondary complications including internal organ involvement.
 phenotypes:
 - category: Integument
   name: Skin Fragility and Blistering
@@ -6787,19 +6895,14 @@ phenotypes:
     reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;mucocutaneous fragility and blister formation, inducible by often
-      minimal trauma&#34;
-    explanation: Confirms skin fragility and blister formation as the defining
-      feature of EB.
+    snippet: &#34;mucocutaneous fragility and blister formation, inducible by often minimal trauma&#34;
+    explanation: Confirms skin fragility and blister formation as the defining feature of EB.
   - reference: PMID:20507631
     reference_title: &#34;Inherited epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;a number of disorders characterized by recurrent blister formation
-      as the result of structural fragility within the skin and selected other
-      tissues&#34;
-    explanation: Confirms recurrent blistering due to structural skin fragility
-      across all EB types.
+    snippet: &#34;a number of disorders characterized by recurrent blister formation as the result of structural fragility within the skin and selected other tissues&#34;
+    explanation: Confirms recurrent blistering due to structural skin fragility across all EB types.
 - category: Integument
   name: Mucosal Involvement
   description: &gt;
@@ -6819,19 +6922,14 @@ phenotypes:
     reference_title: &#34;Inherited epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;generalized blistering of the skin and oral cavity, and injury to
-      many internal organs&#34;
-    explanation: Confirms oral cavity involvement as part of the generalized
-      disease spectrum.
+    snippet: &#34;generalized blistering of the skin and oral cavity, and injury to many internal organs&#34;
+    explanation: Confirms oral cavity involvement as part of the generalized disease spectrum.
   - reference: PMID:34036913
     reference_title: &#34;Epidermolysis Bullosa: Pediatric Perspectives.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Severe complications may arise in some EB types and subtypes
-      within the eye, ear, nose, upper airway, gastrointestinal and
-      genitourinary tracts&#34;
-    explanation: Confirms extracutaneous mucosal involvement across multiple
-      organ systems.
+    snippet: &#34;Severe complications may arise in some EB types and subtypes within the eye, ear, nose, upper airway, gastrointestinal and genitourinary tracts&#34;
+    explanation: Confirms extracutaneous mucosal involvement across multiple organ systems.
 - category: Integument
   name: Nail Dystrophy
   description: &gt;
@@ -6848,11 +6946,8 @@ phenotypes:
     reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Additional features shared by JEB and the other major forms of
-      epidermolysis bullosa (EB) include congenital localized absence of skin
-      (aplasia cutis congenita), milia, nail dystrophy, scarring alopecia&#34;
-    explanation: JEB GeneReviews confirms nail dystrophy as a shared feature
-      across all major forms of EB.
+    snippet: &#34;Additional features shared by JEB and the other major forms of epidermolysis bullosa (EB) include congenital localized absence of skin (aplasia cutis congenita), milia, nail dystrophy, scarring alopecia&#34;
+    explanation: JEB GeneReviews confirms nail dystrophy as a shared feature across all major forms of EB.
 - category: Integument
   name: Milia
   description: &gt;
@@ -6869,8 +6964,7 @@ phenotypes:
     reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;skin fragility manifested by blistering and erosions with minimal
-      trauma that heals with milia and scarring&#34;
+    snippet: &#34;skin fragility manifested by blistering and erosions with minimal trauma that heals with milia and scarring&#34;
     explanation: Supports milia as a characteristic healing outcome in dystrophic epidermolysis bullosa.
 - category: Integument
   name: Scarring
@@ -6889,10 +6983,8 @@ phenotypes:
     reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;skin fragility manifested by blistering and erosions with minimal
-      trauma that heals with milia and scarring&#34;
-    explanation: GeneReviews confirms that blisters in DEB heal with scarring,
-      a key distinguishing feature of dystrophic forms.
+    snippet: &#34;skin fragility manifested by blistering and erosions with minimal trauma that heals with milia and scarring&#34;
+    explanation: GeneReviews confirms that blisters in DEB heal with scarring, a key distinguishing feature of dystrophic forms.
 - category: Growth
   name: Failure to Thrive
   description: &gt;
@@ -6910,22 +7002,14 @@ phenotypes:
     reference_title: &#34;Inherited epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Optimal patient management requires a multidisciplinary approach,
-      and revolves around the protection of susceptible tissues against trauma,
-      use of sophisticated wound care dressings, aggressive nutritional support,
-      and early medical or surgical interventions to correct whenever possible
-      the extracutaneous complications&#34;
-    explanation: The need for aggressive nutritional support as a core
-      management pillar implies significant growth and nutritional challenges
-      in severe EB.
+    snippet: &#34;Optimal patient management requires a multidisciplinary approach, and revolves around the protection of susceptible tissues against trauma, use of sophisticated wound care dressings, aggressive nutritional support, and early medical or surgical interventions to correct whenever possible the extracutaneous complications&#34;
+    explanation: The need for aggressive nutritional support as a core management pillar implies significant growth and nutritional challenges in severe EB.
   - reference: PMID:34036913
     reference_title: &#34;Epidermolysis Bullosa: Pediatric Perspectives.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;involves wound care, pain control, controlling infections,
-      nutritional support, and prevention and treatment of complications&#34;
-    explanation: Nutritional support as a core management pillar confirms
-      failure to thrive as a significant clinical issue.
+    snippet: &#34;involves wound care, pain control, controlling infections, nutritional support, and prevention and treatment of complications&#34;
+    explanation: Nutritional support as a core management pillar confirms failure to thrive as a significant clinical issue.
 - category: Blood
   name: Anemia
   description: &gt;
@@ -6944,8 +7028,7 @@ phenotypes:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Anemia is treated with iron supplements and transfusions as needed&#34;
-    explanation: GeneReviews confirms anemia as a recognized complication of
-      DEB requiring treatment with iron supplementation and transfusions.
+    explanation: GeneReviews confirms anemia as a recognized complication of DEB requiring treatment with iron supplementation and transfusions.
 - category: Constitutional
   name: Pain
   description: &gt;
@@ -6964,8 +7047,7 @@ phenotypes:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;painful blistering of the skin and mucous membranes&#34;
-    explanation: Confirms pain as a cardinal symptom associated with blistering
-      in EB.
+    explanation: Confirms pain as a cardinal symptom associated with blistering in EB.
   - reference: PMID:25279494
     reference_title: &#34;Inherited epidermolysis bullosa.&#34;
     supports: SUPPORT
@@ -7001,14 +7083,12 @@ treatments:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;use of sophisticated wound care dressings&#34;
-    explanation: Confirms specialized wound care dressings as a key management
-      strategy.
+    explanation: Confirms specialized wound care dressings as a key management strategy.
   - reference: PMID:34036913
     reference_title: &#34;Epidermolysis Bullosa: Pediatric Perspectives.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;involves wound care, pain control, controlling infections,
-      nutritional support, and prevention and treatment of complications&#34;
+    snippet: &#34;involves wound care, pain control, controlling infections, nutritional support, and prevention and treatment of complications&#34;
     explanation: Confirms wound care as a core pillar of EB management.
   - reference: PMID:25279494
     reference_title: &#34;Inherited epidermolysis bullosa.&#34;
@@ -7031,8 +7111,7 @@ treatments:
     reference_title: &#34;Epidermolysis Bullosa: Pediatric Perspectives.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;involves wound care, pain control, controlling infections,
-      nutritional support, and prevention and treatment of complications&#34;
+    snippet: &#34;involves wound care, pain control, controlling infections, nutritional support, and prevention and treatment of complications&#34;
     explanation: Confirms pain control as a core component of EB management.
   - reference: PMID:25279494
     reference_title: &#34;Inherited epidermolysis bullosa.&#34;
@@ -7056,14 +7135,12 @@ treatments:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;aggressive nutritional support&#34;
-    explanation: Confirms aggressive nutritional support as essential in EB
-      management.
+    explanation: Confirms aggressive nutritional support as essential in EB management.
   - reference: PMID:34036913
     reference_title: &#34;Epidermolysis Bullosa: Pediatric Perspectives.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;involves wound care, pain control, controlling infections,
-      nutritional support, and prevention and treatment of complications&#34;
+    snippet: &#34;involves wound care, pain control, controlling infections, nutritional support, and prevention and treatment of complications&#34;
     explanation: Confirms nutritional support as a core management component.
 - name: Infection Prevention and Treatment
   description: &gt;
@@ -7080,15 +7157,13 @@ treatments:
     reference_title: &#34;Epidermolysis Bullosa: Pediatric Perspectives.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;involves wound care, pain control, controlling infections,
-      nutritional support, and prevention and treatment of complications&#34;
+    snippet: &#34;involves wound care, pain control, controlling infections, nutritional support, and prevention and treatment of complications&#34;
     explanation: Confirms infection control as a core pillar of EB management.
   - reference: PMID:25279494
     reference_title: &#34;Inherited epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;a specific attention to the fragile skin is required in order
-      to reduce pain, risk of trauma, ulceration and infection&#34;
+    snippet: &#34;a specific attention to the fragile skin is required in order to reduce pain, risk of trauma, ulceration and infection&#34;
     explanation: Confirms infection prevention as key in EB wound management.
 - name: Genetic Counseling
   description: &gt;
@@ -7105,10 +7180,8 @@ treatments:
     reference_title: &#34;Epidermolysis Bullosa: Pediatric Perspectives.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;The diagnosis is suspected based on symptoms and confirmed by
-      skin biopsy and definitive genetic testing&#34;
-    explanation: The role of genetic testing in diagnosis underscores the
-      importance of genetic counseling for families.
+    snippet: &#34;The diagnosis is suspected based on symptoms and confirmed by skin biopsy and definitive genetic testing&#34;
+    explanation: The role of genetic testing in diagnosis underscores the importance of genetic counseling for families.
 - name: Vyjuvek (Beremagene Geperpavec)
   description: &gt;
     FDA-approved topical gene therapy for dystrophic epidermolysis bullosa
@@ -7149,19 +7222,14 @@ treatments:
     reference_title: &#34;Trial of Beremagene Geperpavec (B-VEC) for Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Complete wound healing at 3 and 6 months in patients with
-      dystrophic epidermolysis bullosa was more likely with topical
-      administration of B-VEC than with placebo&#34;
-    explanation: Phase 3 NEJM trial demonstrating significant wound healing
-      benefit of beremagene geperpavec over placebo in dystrophic EB.
+    snippet: &#34;Complete wound healing at 3 and 6 months in patients with dystrophic epidermolysis bullosa was more likely with topical administration of B-VEC than with placebo&#34;
+    explanation: Phase 3 NEJM trial demonstrating significant wound healing benefit of beremagene geperpavec over placebo in dystrophic EB.
   - reference: PMID:37432558
     reference_title: &#34;Beremagene Geperpavec: First Approval.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;In May 2023, beremagene geperpavec received its first approval
-      in the US for the treatment of wounds in patients&#34;
-    explanation: Confirms FDA approval in May 2023 as the first topical gene
-      therapy for dystrophic EB.
+    snippet: &#34;In May 2023, beremagene geperpavec received its first approval in the US for the treatment of wounds in patients&#34;
+    explanation: Confirms FDA approval in May 2023 as the first topical gene therapy for dystrophic EB.
 - name: Filsuvez (Birch Triterpenes)
   description: &gt;
     FDA-approved topical gel for epidermolysis bullosa wound healing
@@ -7192,19 +7260,14 @@ treatments:
     reference_title: &#34;Efficacy and safety of Oleogel-S10 (birch triterpenes) for epidermolysis bullosa: results from the phase III randomized double-blind phase of the EASE study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Oleogel-S10 is the first therapy to demonstrate accelerated
-      wound healing in EB&#34;
-    explanation: Phase 3 EASE trial demonstrating Oleogel-S10 as the first
-      therapy to show accelerated wound healing in EB.
+    snippet: &#34;Oleogel-S10 is the first therapy to demonstrate accelerated wound healing in EB&#34;
+    explanation: Phase 3 EASE trial demonstrating Oleogel-S10 as the first therapy to show accelerated wound healing in EB.
   - reference: PMID:39748581
     reference_title: &#34;Filsuvez(®) (Birch Triterpenes) Topical Gel.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Filsuvez® (birch triterpenes) topical gel received approval in
-      2023 for the treatment of epidermolysis bullosa (EB) in pediatric
-      patients (aged ≥6 months) and adults&#34;
-    explanation: Confirms FDA approval of Filsuvez for treatment of EB
-      wounds in pediatric and adult patients.
+    snippet: &#34;Filsuvez® (birch triterpenes) topical gel received approval in 2023 for the treatment of epidermolysis bullosa (EB) in pediatric patients (aged ≥6 months) and adults&#34;
+    explanation: Confirms FDA approval of Filsuvez for treatment of EB wounds in pediatric and adult patients.
 - name: Zevaskyn (Prademagene Zamikeracel / pz-cel)
   description: &gt;
     FDA-approved autologous cell sheet-based gene therapy for recessive
@@ -7246,60 +7309,44 @@ treatments:
     reference_title: &#34;Prademagene Zamikeracel: First Approval.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Prademagene zamikeracel (ZEVASKYN™) is an autologous cell
-      sheet-based gene therapy developed by Abeona Therapeutics Inc. for the
-      treatment of wounds in patients with recessive dystrophic epidermolysis
-      bullosa&#34;
-    explanation: Confirms FDA approval of prademagene zamikeracel as the
-      first cell-based gene therapy for RDEB.
+    snippet: &#34;Prademagene zamikeracel (ZEVASKYN™) is an autologous cell sheet-based gene therapy developed by Abeona Therapeutics Inc. for the treatment of wounds in patients with recessive dystrophic epidermolysis bullosa&#34;
+    explanation: Confirms FDA approval of prademagene zamikeracel as the first cell-based gene therapy for RDEB.
   - reference: PMID:31578311
     reference_title: &#34;Phase 1/2a clinical trial of gene-corrected autologous cell therapy for recessive dystrophic epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Wound healing of 50% or greater by Investigator Global
-      Assessment was present in 95% (36 of 38) of treated wounds versus 0%
-      (0 of 6) of untreated control wounds at 6 months (P &lt; 0.0001)&#34;
-    explanation: Phase 1/2a trial demonstrating significant wound healing
-      with gene-corrected autologous cell therapy in RDEB patients.
+    snippet: &#34;Wound healing of 50% or greater by Investigator Global Assessment was present in 95% (36 of 38) of treated wounds versus 0% (0 of 6) of untreated control wounds at 6 months (P &lt; 0.0001)&#34;
+    explanation: Phase 1/2a trial demonstrating significant wound healing with gene-corrected autologous cell therapy in RDEB patients.
 biochemical:
 - name: Type VII Collagen
   presence: Decreased
-  context: Reduced or absent in dystrophic EB due to COL7A1 mutations;
-    assessed by immunofluorescence mapping
+  context: Reduced or absent in dystrophic EB due to COL7A1 mutations; assessed by immunofluorescence mapping
   evidence:
   - reference: PMID:31920360
     reference_title: &#34;From Clinical Phenotype to Genotypic Modelling: Incidence and Prevalence of Recessive Dystrophic Epidermolysis Bullosa (RDEB).&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;RDEB patients demonstrate reduction or structural alteration type
-      VII collagen (C7) owing to mutations in the gene COL7A1&#34;
+    snippet: &#34;RDEB patients demonstrate reduction or structural alteration type VII collagen (C7) owing to mutations in the gene COL7A1&#34;
     explanation: Supports decreased or abnormal type VII collagen in dystrophic EB caused by COL7A1 mutations.
 - name: Laminin-332
   presence: Decreased
-  context: Reduced or absent in junctional EB due to LAMA3, LAMB3, or LAMC2
-    mutations
+  context: Reduced or absent in junctional EB due to LAMA3, LAMB3, or LAMC2 mutations
   evidence:
   - reference: PMID:22512697
     reference_title: &#34;Long-term follow-up of patients with Herlitz-type junctional epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Junctional epidermolysis bullosa, type Herlitz (JEB-H) is a rare,
-      autosomal recessive disease caused by absence of the epidermal basement
-      membrane adhesion protein laminin-332&#34;
+    snippet: &#34;Junctional epidermolysis bullosa, type Herlitz (JEB-H) is a rare, autosomal recessive disease caused by absence of the epidermal basement membrane adhesion protein laminin-332&#34;
     explanation: Supports absent laminin-332 as a defining molecular abnormality in severe junctional epidermolysis bullosa.
 - name: Keratin 5 and Keratin 14
   presence: Variable
-  context: Abnormal intermediate filament network in EB simplex due to KRT5
-    or KRT14 mutations
+  context: Abnormal intermediate filament network in EB simplex due to KRT5 or KRT14 mutations
   evidence:
   - reference: PMID:22277943
     reference_title: &#34;Defining keratin protein function in skin epithelia: epidermolysis bullosa simplex and its aftermath.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Most cases of EBS are due to dominantly acting mutations in
-      keratin 14 (K14) or K5, the type I and II intermediate filament (IF)
-      proteins that copolymerize to form a pancytoplasmic network of 10 nm
-      filaments in basal keratinocytes of epidermis&#34;
+    snippet: &#34;Most cases of EBS are due to dominantly acting mutations in keratin 14 (K14) or K5, the type I and II intermediate filament (IF) proteins that copolymerize to form a pancytoplasmic network of 10 nm filaments in basal keratinocytes of epidermis&#34;
     explanation: Supports keratin 5 and keratin 14 as the intermediate filament proteins disrupted in EB simplex.
 diagnosis:
 - name: Clinical Assessment
@@ -7319,10 +7366,8 @@ diagnosis:
     reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;A broad phenotypic spectrum has been described, with potentially
-      severe extracutaneous manifestations, morbidity and mortality&#34;
-    explanation: Confirms the importance of clinical assessment given the
-      broad phenotypic spectrum of EB subtypes.
+    snippet: &#34;A broad phenotypic spectrum has been described, with potentially severe extracutaneous manifestations, morbidity and mortality&#34;
+    explanation: Confirms the importance of clinical assessment given the broad phenotypic spectrum of EB subtypes.
 - name: Immunofluorescence Mapping (IFM)
   description: &gt;
     Skin biopsy technique using a panel of antibodies against basement membrane
@@ -7342,20 +7387,14 @@ diagnosis:
     reference_title: &#34;A comparative study between transmission electron microscopy and immunofluorescence mapping in the diagnosis of epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;IFM sensitivities and specificities when compared with genetic
-      results were 97% and 100%, respectively&#34;
-    explanation: Landmark comparative study demonstrating IFM superiority over
-      TEM for EB diagnosis and subclassification, establishing IFM as the
-      preferred tissue-based diagnostic method.
+    snippet: &#34;IFM sensitivities and specificities when compared with genetic results were 97% and 100%, respectively&#34;
+    explanation: Landmark comparative study demonstrating IFM superiority over TEM for EB diagnosis and subclassification, establishing IFM as the preferred tissue-based diagnostic method.
   - reference: PMID:17012912
     reference_title: &#34;A comparative study between transmission electron microscopy and immunofluorescence mapping in the diagnosis of epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;TEM subclassified EB into its three major forms in 24/30 cases
-      (80%) and IFM in 29/30 cases (97%)&#34;
-    explanation: Demonstrates that IFM has substantially higher subtype
-      classification accuracy than TEM, supporting TEM being largely
-      superseded by IFM for routine diagnosis.
+    snippet: &#34;TEM subclassified EB into its three major forms in 24/30 cases (80%) and IFM in 29/30 cases (97%)&#34;
+    explanation: Demonstrates that IFM has substantially higher subtype classification accuracy than TEM, supporting TEM being largely superseded by IFM for routine diagnosis.
 - name: Next-Generation Sequencing Gene Panels
   description: &gt;
     Targeted NGS panels covering 18-26 EB-associated genes provide definitive
@@ -7374,18 +7413,14 @@ diagnosis:
     reference_title: &#34;Novel insights into the epidemiology of epidermolysis bullosa (EB) from the Dutch EB Registry: EB more common than previously assumed?&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;In 90.5% of the EB-patients the diagnosis was genetically
-      confirmed&#34;
-    explanation: Dutch EB Registry data confirms that genetic testing achieves
-      definitive diagnosis in the vast majority of EB patients.
+    snippet: &#34;In 90.5% of the EB-patients the diagnosis was genetically confirmed&#34;
+    explanation: Dutch EB Registry data confirms that genetic testing achieves definitive diagnosis in the vast majority of EB patients.
   - reference: PMID:34036913
     reference_title: &#34;Epidermolysis Bullosa: Pediatric Perspectives.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;The diagnosis is suspected based on symptoms and confirmed by
-      skin biopsy and definitive genetic testing&#34;
-    explanation: Confirms the sequential diagnostic approach from clinical
-      suspicion through skin biopsy to definitive genetic testing.
+    snippet: &#34;The diagnosis is suspected based on symptoms and confirmed by skin biopsy and definitive genetic testing&#34;
+    explanation: Confirms the sequential diagnostic approach from clinical suspicion through skin biopsy to definitive genetic testing.
 clinical_trials:
 - name: NCT04908215
   phase: PHASE_II
@@ -7433,8 +7468,7 @@ genetic:
       reference_title: &#34;Epidermolysis Bullosa Simplex.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;Autosomal dominant EBS is associated with either a heterozygous
-        dominant-negative variant in KRT5, KRT14, or PLEC&#34;
+      snippet: &#34;Autosomal dominant EBS is associated with either a heterozygous dominant-negative variant in KRT5, KRT14, or PLEC&#34;
       explanation: GeneReviews confirms autosomal dominant inheritance for KRT5.
   notes: &gt;
     Encodes keratin 5, a major intermediate filament protein of basal
@@ -7445,10 +7479,8 @@ genetic:
     reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;pathogenetic mutations in 16 distinct genes have been implicated
-      in EB, encoding proteins influencing cellular integrity and adhesion&#34;
-    explanation: Confirms that genes encoding structural proteins including
-      keratins are causative of EB.
+    snippet: &#34;pathogenetic mutations in 16 distinct genes have been implicated in EB, encoding proteins influencing cellular integrity and adhesion&#34;
+    explanation: Confirms that genes encoding structural proteins including keratins are causative of EB.
 - name: KRT14
   association: Causative
   inheritance:
@@ -7458,8 +7490,7 @@ genetic:
       reference_title: &#34;Epidermolysis Bullosa Simplex.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;Autosomal dominant EBS is associated with either a heterozygous
-        dominant-negative variant in KRT5, KRT14, or PLEC&#34;
+      snippet: &#34;Autosomal dominant EBS is associated with either a heterozygous dominant-negative variant in KRT5, KRT14, or PLEC&#34;
       explanation: GeneReviews confirms autosomal dominant inheritance for KRT14.
   notes: &gt;
     Encodes keratin 14, partner of keratin 5 in basal keratinocyte intermediate
@@ -7470,8 +7501,7 @@ genetic:
     reference_title: &#34;Epidermolysis Bullosa Simplex.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;the identification of a heterozygous dominant-negative variant
-      or biallelic loss-of-function variants in KRT5, KRT14, or PLEC&#34;
+    snippet: &#34;the identification of a heterozygous dominant-negative variant or biallelic loss-of-function variants in KRT5, KRT14, or PLEC&#34;
     explanation: Supports KRT14 as a causative EB simplex gene in the clinical diagnostic framework.
 - name: COL7A1
   association: Causative
@@ -7482,8 +7512,7 @@ genetic:
       reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;About 70% of individuals diagnosed with DDEB are reported to
-        have an affected parent&#34;
+      snippet: &#34;About 70% of individuals diagnosed with DDEB are reported to have an affected parent&#34;
       explanation: GeneReviews confirms autosomal dominant inheritance for DDEB.
   - name: Autosomal recessive
     evidence:
@@ -7491,9 +7520,7 @@ genetic:
       reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;If both parents are known to be heterozygous for a COL7A1
-        pathogenic variant, each sib of an affected individual has at
-        conception a 25% chance of being affected&#34;
+      snippet: &#34;If both parents are known to be heterozygous for a COL7A1 pathogenic variant, each sib of an affected individual has at conception a 25% chance of being affected&#34;
       explanation: GeneReviews confirms autosomal recessive inheritance for RDEB.
   notes: &gt;
     Encodes type VII collagen, the major structural component of anchoring
@@ -7505,11 +7532,8 @@ genetic:
     reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Over 30 subtypes are recognized, grouped into four major
-      categories, based predominantly on the plane of cleavage within the skin
-      and reflecting the underlying molecular abnormality&#34;
-    explanation: Confirms that specific molecular abnormalities including
-      collagen VII defects determine EB subtypes.
+    snippet: &#34;Over 30 subtypes are recognized, grouped into four major categories, based predominantly on the plane of cleavage within the skin and reflecting the underlying molecular abnormality&#34;
+    explanation: Confirms that specific molecular abnormalities including collagen VII defects determine EB subtypes.
 - name: LAMB3
   association: Causative
   inheritance:
@@ -7529,8 +7553,7 @@ genetic:
     reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;biallelic pathogenic variants in one of the genes associated
-      with JEB: COL17A1, ITGB4, LAMA3, LAMB3, or LAMC2&#34;
+    snippet: &#34;biallelic pathogenic variants in one of the genes associated with JEB: COL17A1, ITGB4, LAMA3, LAMB3, or LAMC2&#34;
     explanation: Supports LAMB3 as one of the established causative genes for junctional epidermolysis bullosa.
 - name: LAMA3
   association: Causative
@@ -7552,9 +7575,7 @@ genetic:
     reference_title: &#34;Herlitz junctional epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;this devastating condition is most often caused by homozygous null
-      mutations in the genes LAMA3, LAMB3, or LAMC2, each encoding for 1 of the
-      3 chains of the heterotrimer laminin-332&#34;
+    snippet: &#34;this devastating condition is most often caused by homozygous null mutations in the genes LAMA3, LAMB3, or LAMC2, each encoding for 1 of the 3 chains of the heterotrimer laminin-332&#34;
     explanation: Supports LAMA3 as a causative laminin-332 chain gene in junctional epidermolysis bullosa.
 - name: LAMC2
   association: Causative
@@ -7575,9 +7596,7 @@ genetic:
     reference_title: &#34;Herlitz junctional epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;this devastating condition is most often caused by homozygous null
-      mutations in the genes LAMA3, LAMB3, or LAMC2, each encoding for 1 of the
-      3 chains of the heterotrimer laminin-332&#34;
+    snippet: &#34;this devastating condition is most often caused by homozygous null mutations in the genes LAMA3, LAMB3, or LAMC2, each encoding for 1 of the 3 chains of the heterotrimer laminin-332&#34;
     explanation: Supports LAMC2 as a causative laminin-332 chain gene in junctional epidermolysis bullosa.
 - name: COL17A1
   association: Causative
@@ -7598,8 +7617,7 @@ genetic:
     reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;biallelic pathogenic variants in one of the genes associated
-      with JEB: COL17A1, ITGB4, LAMA3, LAMB3, or LAMC2&#34;
+    snippet: &#34;biallelic pathogenic variants in one of the genes associated with JEB: COL17A1, ITGB4, LAMA3, LAMB3, or LAMC2&#34;
     explanation: Supports COL17A1 as one of the established causative genes for junctional epidermolysis bullosa.
 - name: ITGA6
   association: Causative
@@ -7621,8 +7639,7 @@ genetic:
     reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;pathogenetic mutations in 16 distinct genes have been implicated
-      in EB, encoding proteins influencing cellular integrity and adhesion&#34;
+    snippet: &#34;pathogenetic mutations in 16 distinct genes have been implicated in EB, encoding proteins influencing cellular integrity and adhesion&#34;
     explanation: Supports ITGA6 as part of the adhesion-gene set underlying EB, consistent with its role in JEB with pyloric atresia.
 - name: ITGB4
   association: Causative
@@ -7644,8 +7661,7 @@ genetic:
     reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;biallelic pathogenic variants in one of the genes associated
-      with JEB: COL17A1, ITGB4, LAMA3, LAMB3, or LAMC2&#34;
+    snippet: &#34;biallelic pathogenic variants in one of the genes associated with JEB: COL17A1, ITGB4, LAMA3, LAMB3, or LAMC2&#34;
     explanation: Supports ITGB4 as one of the established causative genes for junctional epidermolysis bullosa.
 - name: FERMT1
   association: Causative
@@ -7667,10 +7683,8 @@ genetic:
     reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;EB simplex, junctional EB, dystrophic EB and
-      Kindler EB&#34;
-    explanation: Confirms Kindler EB as one of the four major EB categories
-      in the consensus classification.
+    snippet: &#34;EB simplex, junctional EB, dystrophic EB and Kindler EB&#34;
+    explanation: Confirms Kindler EB as one of the four major EB categories in the consensus classification.
 notes: &gt;-
   Key EB Registries: (1) US National Epidermolysis Bullosa Registry (NEBR),
   established 1986, provides incidence/prevalence data for the United States
@@ -7711,17 +7725,13 @@ datasets:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;A total of 464 EB-patients (287 families) were included.&#34;
-    explanation: Supports the Dutch EB Registry as a substantial national phenotype
-      resource spanning the major EB subtypes.
+    explanation: Supports the Dutch EB Registry as a substantial national phenotype resource spanning the major EB subtypes.
   - reference: PMID:33095945
     reference_title: &#34;Novel insights into the epidemiology of epidermolysis bullosa (EB) from the Dutch EB Registry: EB more common than previously assumed?&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;In this observational study all EB-patients that were based in the
-      Netherlands and captured in the Dutch EB Registry between 1988 and 2018 were
-      included.&#34;
-    explanation: Confirms the registry&#39;s longitudinal national scope and direct
-      relevance as an EB-wide clinical dataset.
+    snippet: &#34;In this observational study all EB-patients that were based in the Netherlands and captured in the Dutch EB Registry between 1988 and 2018 were included.&#34;
+    explanation: Confirms the registry&#39;s longitudinal national scope and direct relevance as an EB-wide clinical dataset.
 references:
 - reference: PMID:26937547
   title: &#34;Kindler Syndrome.&#34;
@@ -7743,6 +7753,153 @@ references:
   tags:
   - GeneReviews
   findings: []
+- reference: DOI:10.1007/s12326-024-00627-z
+  title: Neue Lokal- und Systemtherapien bei Epidermolysis bullosa
+  found_in:
+  - Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: ZusammenfassungEpidermolysis bullosa (EB) bezeichnet eine seltene, heterogene Gruppe von Genodermatosen, charakterisiert durch eine gesteigerte Fragilität von Haut und Schleimhaut.
+    supporting_text: ZusammenfassungEpidermolysis bullosa (EB) bezeichnet eine seltene, heterogene Gruppe von Genodermatosen, charakterisiert durch eine gesteigerte Fragilität von Haut und Schleimhaut.
+    evidence:
+    - reference: DOI:10.1007/s12326-024-00627-z
+      reference_title: Neue Lokal- und Systemtherapien bei Epidermolysis bullosa
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: ZusammenfassungEpidermolysis bullosa (EB) bezeichnet eine seltene, heterogene Gruppe von Genodermatosen, charakterisiert durch eine gesteigerte Fragilität von Haut und Schleimhaut.
+      explanation: Deep research cited this publication as relevant literature for Epidermolysis Bullosa.
+- reference: DOI:10.1007/s40257-025-00942-y
+  title: Long-Term Safety and Tolerability of Beremagene Geperpavec-svdt (B-VEC) in an Open-Label Extension Study of Patients with Dystrophic Epidermolysis Bullosa
+  found_in:
+  - Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: Long-Term Safety and Tolerability of Beremagene Geperpavec-svdt (B-VEC) in an Open-Label Extension Study of Patients with Dystrophic Epidermolysis Bullosa
+    supporting_text: Long-Term Safety and Tolerability of Beremagene Geperpavec-svdt (B-VEC) in an Open-Label Extension Study of Patients with Dystrophic Epidermolysis Bullosa
+- reference: DOI:10.1186/s13023-023-02817-z
+  title: &#39;Itch in recessive dystrophic epidermolysis bullosa: findings of PEBLES, a prospective register study&#39;
+  found_in:
+  - Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: &#39;Itch in recessive dystrophic epidermolysis bullosa: findings of PEBLES, a prospective register study&#39;
+    supporting_text: Itch is common and distressing in epidermolysis bullosa (EB) but has not previously been studied in depth in different recessive dystrophic EB (RDEB) subtypes.ObjectivesAs part of a prospective register study of the natural history of RDEB we explored features of itch, medications used, and correlation with disease severity and quality of life.MethodsFifty individuals with RDEB aged 8 years and above completed the Leuven Itch Scale (LIS) (total 243 reviews over a 7-year period).
+    evidence:
+    - reference: DOI:10.1186/s13023-023-02817-z
+      reference_title: &#39;Itch in recessive dystrophic epidermolysis bullosa: findings of PEBLES, a prospective register study&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Itch is common and distressing in epidermolysis bullosa (EB) but has not previously been studied in depth in different recessive dystrophic EB (RDEB) subtypes.ObjectivesAs part of a prospective register study of the natural history of RDEB we explored features of itch, medications used, and correlation with disease severity and quality of life.MethodsFifty individuals with RDEB aged 8 years and above completed the Leuven Itch Scale (LIS) (total 243 reviews over a 7-year period).
+      explanation: Deep research cited this publication as relevant literature for Epidermolysis Bullosa.
+- reference: DOI:10.1186/s13023-024-03190-1
+  title: &#39;Therapies for cutaneous squamous cell carcinoma in recessive dystrophic epidermolysis bullosa: a systematic review of 157 cases&#39;
+  found_in:
+  - Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: Invasive cutaneous squamous cell carcinomas (cSCC) are a leading cause of death in recessive dystrophic epidermolysis bullosa (RDEB), a rare blistering genodermatosis.
+    supporting_text: Invasive cutaneous squamous cell carcinomas (cSCC) are a leading cause of death in recessive dystrophic epidermolysis bullosa (RDEB), a rare blistering genodermatosis.
+    evidence:
+    - reference: DOI:10.1186/s13023-024-03190-1
+      reference_title: &#39;Therapies for cutaneous squamous cell carcinoma in recessive dystrophic epidermolysis bullosa: a systematic review of 157 cases&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Invasive cutaneous squamous cell carcinomas (cSCC) are a leading cause of death in recessive dystrophic epidermolysis bullosa (RDEB), a rare blistering genodermatosis.
+      explanation: Deep research cited this publication as relevant literature for Epidermolysis Bullosa.
+- reference: DOI:10.1186/s13023-024-03328-1
+  title: Economic burden and health-related quality of life in patients with epidermolysis bullosa in Spain
+  found_in:
+  - Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: Epidermolysis bullosa (EB) is a rare genetic skin disorder characterized by fragility of skin with appearance of acute and chronic wounds.
+    supporting_text: Epidermolysis bullosa (EB) is a rare genetic skin disorder characterized by fragility of skin with appearance of acute and chronic wounds.
+    evidence:
+    - reference: DOI:10.1186/s13023-024-03328-1
+      reference_title: Economic burden and health-related quality of life in patients with epidermolysis bullosa in Spain
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Epidermolysis bullosa (EB) is a rare genetic skin disorder characterized by fragility of skin with appearance of acute and chronic wounds.
+      explanation: Deep research cited this publication as relevant literature for Epidermolysis Bullosa.
+- reference: DOI:10.15690/vsp.v23i5.2808
+  title: Congenital Epidermolysis Bullosa Epidemiology among Children of Russian Federation
+  found_in:
+  - Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: The prevalence of all types of congenital epidermolysis bullosa (СEB) worldwide is approximately 11 cases per 1 million according to the latest data from the American Epidermolysis Bullosa Registry.
+    supporting_text: The prevalence of all types of congenital epidermolysis bullosa (СEB) worldwide is approximately 11 cases per 1 million according to the latest data from the American Epidermolysis Bullosa Registry.
+    evidence:
+    - reference: DOI:10.15690/vsp.v23i5.2808
+      reference_title: Congenital Epidermolysis Bullosa Epidemiology among Children of Russian Federation
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The prevalence of all types of congenital epidermolysis bullosa (СEB) worldwide is approximately 11 cases per 1 million according to the latest data from the American Epidermolysis Bullosa Registry.
+      explanation: Deep research cited this publication as relevant literature for Epidermolysis Bullosa.
+- reference: DOI:10.3390/bioengineering12060574
+  title: Towards Extracellular Vesicles in the Treatment of Epidermolysis Bullosa
+  found_in:
+  - Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: Epidermolysis bullosa (EB) is a debilitating genetic skin disorder characterized by extreme fragility, chronic wounds, and severe complications, particularly in its most severe form, recessive dystrophic EB (RDEB).
+    supporting_text: Epidermolysis bullosa (EB) is a debilitating genetic skin disorder characterized by extreme fragility, chronic wounds, and severe complications, particularly in its most severe form, recessive dystrophic EB (RDEB).
+    evidence:
+    - reference: DOI:10.3390/bioengineering12060574
+      reference_title: Towards Extracellular Vesicles in the Treatment of Epidermolysis Bullosa
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Epidermolysis bullosa (EB) is a debilitating genetic skin disorder characterized by extreme fragility, chronic wounds, and severe complications, particularly in its most severe form, recessive dystrophic EB (RDEB).
+      explanation: Deep research cited this publication as relevant literature for Epidermolysis Bullosa.
+- reference: DOI:10.3390/ijms25042243
+  title: Emerging Gene Therapeutics for Epidermolysis Bullosa under Development
+  found_in:
+  - Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: The monogenetic disease epidermolysis bullosa (EB) is characterised by the formation of extended blisters and lesions on the patient’s skin upon minimal mechanical stress.
+    supporting_text: The monogenetic disease epidermolysis bullosa (EB) is characterised by the formation of extended blisters and lesions on the patient’s skin upon minimal mechanical stress.
+    evidence:
+    - reference: DOI:10.3390/ijms25042243
+      reference_title: Emerging Gene Therapeutics for Epidermolysis Bullosa under Development
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The monogenetic disease epidermolysis bullosa (EB) is characterised by the formation of extended blisters and lesions on the patient’s skin upon minimal mechanical stress.
+      explanation: Deep research cited this publication as relevant literature for Epidermolysis Bullosa.
+- reference: DOI:10.3390/ijms26146592
+  title: &#39;Gene Therapies in Dermatological Diseases: A Breakthrough in Treatment&#39;
+  found_in:
+  - Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: Gene therapy involves introducing genetic material into cells to treat or prevent disease and offers highly targeted and potentially curative approaches for both inherited and acquired conditions.
+    supporting_text: Gene therapy involves introducing genetic material into cells to treat or prevent disease and offers highly targeted and potentially curative approaches for both inherited and acquired conditions.
+    evidence:
+    - reference: DOI:10.3390/ijms26146592
+      reference_title: &#39;Gene Therapies in Dermatological Diseases: A Breakthrough in Treatment&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Gene therapy involves introducing genetic material into cells to treat or prevent disease and offers highly targeted and potentially curative approaches for both inherited and acquired conditions.
+      explanation: Deep research cited this publication as relevant literature for Epidermolysis Bullosa.
+- reference: DOI:10.3390/jcm13133742
+  title: Epidemiological Characteristics of Inherited Epidermolysis Bullosa in an Eastern European Population
+  found_in:
+  - Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: Epidermolysis bullosa (EB) is a hereditary condition characterized by skin and mucosal fragility, with various degrees of severity.
+    supporting_text: Epidermolysis bullosa (EB) is a hereditary condition characterized by skin and mucosal fragility, with various degrees of severity.
+    evidence:
+    - reference: DOI:10.3390/jcm13133742
+      reference_title: Epidemiological Characteristics of Inherited Epidermolysis Bullosa in an Eastern European Population
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Epidermolysis bullosa (EB) is a hereditary condition characterized by skin and mucosal fragility, with various degrees of severity.
+      explanation: Deep research cited this publication as relevant literature for Epidermolysis Bullosa.
+- reference: DOI:10.1038/s41572-020-0210-0
+  title: Epidermolysis bullosa
+  found_in:
+  - Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: Epidermolysis bullosa
+    supporting_text: Epidermolysis bullosa
+    evidence:
+    - reference: DOI:10.1038/s41572-020-0210-0
+      reference_title: Epidermolysis bullosa
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Epidermolysis bullosa
+      explanation: Deep research cited this publication as relevant literature for Epidermolysis Bullosa.
 </pre>
             </div>
         </div>
@@ -7758,7 +7915,7 @@ references:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">4</span>
+                    <span class="card-count">15</span>
                 </div>
                 
                 <div class="reference-entry">
@@ -7829,8 +7986,1185 @@ references:
                     
                 </div>
                 
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s12326-024-00627-z" target="_blank">DOI:10.1007/s12326-024-00627-z</a>
+                            </div>
+                            
+                            <div class="reference-title">Neue Lokal- und Systemtherapien bei Epidermolysis bullosa</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">ZusammenfassungEpidermolysis bullosa (EB) bezeichnet eine seltene, heterogene Gruppe von Genodermatosen, charakterisiert durch eine gesteigerte Fragilität von Haut und Schleimhaut.</div>
+            
+            
+            <div class="reference-finding-supporting">"ZusammenfassungEpidermolysis bullosa (EB) bezeichnet eine seltene, heterogene Gruppe von Genodermatosen, charakterisiert durch eine gesteigerte Fragilität von Haut und Schleimhaut."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s12326-024-00627-z" target="_blank">DOI:10.1007/s12326-024-00627-z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"ZusammenfassungEpidermolysis bullosa (EB) bezeichnet eine seltene, heterogene Gruppe von Genodermatosen, charakterisiert durch eine gesteigerte Fragilität von Haut und Schleimhaut."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Epidermolysis Bullosa.</div>
+                
             </div>
             
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s40257-025-00942-y" target="_blank">DOI:10.1007/s40257-025-00942-y</a>
+                            </div>
+                            
+                            <div class="reference-title">Long-Term Safety and Tolerability of Beremagene Geperpavec-svdt (B-VEC) in an Open-Label Extension Study of Patients with Dystrophic Epidermolysis Bullosa</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Long-Term Safety and Tolerability of Beremagene Geperpavec-svdt (B-VEC) in an Open-Label Extension Study of Patients with Dystrophic Epidermolysis Bullosa</div>
+            
+            
+            <div class="reference-finding-supporting">"Long-Term Safety and Tolerability of Beremagene Geperpavec-svdt (B-VEC) in an Open-Label Extension Study of Patients with Dystrophic Epidermolysis Bullosa"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1186/s13023-023-02817-z" target="_blank">DOI:10.1186/s13023-023-02817-z</a>
+                            </div>
+                            
+                            <div class="reference-title">Itch in recessive dystrophic epidermolysis bullosa: findings of PEBLES, a prospective register study</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Itch in recessive dystrophic epidermolysis bullosa: findings of PEBLES, a prospective register study</div>
+            
+            
+            <div class="reference-finding-supporting">"Itch is common and distressing in epidermolysis bullosa (EB) but has not previously been studied in depth in different recessive dystrophic EB (RDEB) subtypes.ObjectivesAs part of a prospective register study of the natural history of RDEB we explored features of itch, medications used, and..."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s13023-023-02817-z" target="_blank">DOI:10.1186/s13023-023-02817-z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Itch is common and distressing in epidermolysis bullosa (EB) but has not previously been studied in depth in different recessive dystrophic EB (RDEB) subtypes.ObjectivesAs part of a prospective register study of the natural history of RDEB we explored features of itch, medications used, and..."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Epidermolysis Bullosa.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1186/s13023-024-03190-1" target="_blank">DOI:10.1186/s13023-024-03190-1</a>
+                            </div>
+                            
+                            <div class="reference-title">Therapies for cutaneous squamous cell carcinoma in recessive dystrophic epidermolysis bullosa: a systematic review of 157 cases</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Invasive cutaneous squamous cell carcinomas (cSCC) are a leading cause of death in recessive dystrophic epidermolysis bullosa (RDEB), a rare blistering genodermatosis.</div>
+            
+            
+            <div class="reference-finding-supporting">"Invasive cutaneous squamous cell carcinomas (cSCC) are a leading cause of death in recessive dystrophic epidermolysis bullosa (RDEB), a rare blistering genodermatosis."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s13023-024-03190-1" target="_blank">DOI:10.1186/s13023-024-03190-1</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Invasive cutaneous squamous cell carcinomas (cSCC) are a leading cause of death in recessive dystrophic epidermolysis bullosa (RDEB), a rare blistering genodermatosis."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Epidermolysis Bullosa.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1186/s13023-024-03328-1" target="_blank">DOI:10.1186/s13023-024-03328-1</a>
+                            </div>
+                            
+                            <div class="reference-title">Economic burden and health-related quality of life in patients with epidermolysis bullosa in Spain</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Epidermolysis bullosa (EB) is a rare genetic skin disorder characterized by fragility of skin with appearance of acute and chronic wounds.</div>
+            
+            
+            <div class="reference-finding-supporting">"Epidermolysis bullosa (EB) is a rare genetic skin disorder characterized by fragility of skin with appearance of acute and chronic wounds."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s13023-024-03328-1" target="_blank">DOI:10.1186/s13023-024-03328-1</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Epidermolysis bullosa (EB) is a rare genetic skin disorder characterized by fragility of skin with appearance of acute and chronic wounds."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Epidermolysis Bullosa.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.15690/vsp.v23i5.2808" target="_blank">DOI:10.15690/vsp.v23i5.2808</a>
+                            </div>
+                            
+                            <div class="reference-title">Congenital Epidermolysis Bullosa Epidemiology among Children of Russian Federation</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The prevalence of all types of congenital epidermolysis bullosa (СEB) worldwide is approximately 11 cases per 1 million according to the latest data from the American Epidermolysis Bullosa Registry.</div>
+            
+            
+            <div class="reference-finding-supporting">"The prevalence of all types of congenital epidermolysis bullosa (СEB) worldwide is approximately 11 cases per 1 million according to the latest data from the American Epidermolysis Bullosa Registry."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.15690/vsp.v23i5.2808" target="_blank">DOI:10.15690/vsp.v23i5.2808</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The prevalence of all types of congenital epidermolysis bullosa (СEB) worldwide is approximately 11 cases per 1 million according to the latest data from the American Epidermolysis Bullosa Registry."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Epidermolysis Bullosa.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/bioengineering12060574" target="_blank">DOI:10.3390/bioengineering12060574</a>
+                            </div>
+                            
+                            <div class="reference-title">Towards Extracellular Vesicles in the Treatment of Epidermolysis Bullosa</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Epidermolysis bullosa (EB) is a debilitating genetic skin disorder characterized by extreme fragility, chronic wounds, and severe complications, particularly in its most severe form, recessive dystrophic EB (RDEB).</div>
+            
+            
+            <div class="reference-finding-supporting">"Epidermolysis bullosa (EB) is a debilitating genetic skin disorder characterized by extreme fragility, chronic wounds, and severe complications, particularly in its most severe form, recessive dystrophic EB (RDEB)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/bioengineering12060574" target="_blank">DOI:10.3390/bioengineering12060574</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Epidermolysis bullosa (EB) is a debilitating genetic skin disorder characterized by extreme fragility, chronic wounds, and severe complications, particularly in its most severe form, recessive dystrophic EB (RDEB)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Epidermolysis Bullosa.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/ijms25042243" target="_blank">DOI:10.3390/ijms25042243</a>
+                            </div>
+                            
+                            <div class="reference-title">Emerging Gene Therapeutics for Epidermolysis Bullosa under Development</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The monogenetic disease epidermolysis bullosa (EB) is characterised by the formation of extended blisters and lesions on the patient’s skin upon minimal mechanical stress.</div>
+            
+            
+            <div class="reference-finding-supporting">"The monogenetic disease epidermolysis bullosa (EB) is characterised by the formation of extended blisters and lesions on the patient’s skin upon minimal mechanical stress."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/ijms25042243" target="_blank">DOI:10.3390/ijms25042243</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The monogenetic disease epidermolysis bullosa (EB) is characterised by the formation of extended blisters and lesions on the patient’s skin upon minimal mechanical stress."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Epidermolysis Bullosa.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/ijms26146592" target="_blank">DOI:10.3390/ijms26146592</a>
+                            </div>
+                            
+                            <div class="reference-title">Gene Therapies in Dermatological Diseases: A Breakthrough in Treatment</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Gene therapy involves introducing genetic material into cells to treat or prevent disease and offers highly targeted and potentially curative approaches for both inherited and acquired conditions.</div>
+            
+            
+            <div class="reference-finding-supporting">"Gene therapy involves introducing genetic material into cells to treat or prevent disease and offers highly targeted and potentially curative approaches for both inherited and acquired conditions."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/ijms26146592" target="_blank">DOI:10.3390/ijms26146592</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Gene therapy involves introducing genetic material into cells to treat or prevent disease and offers highly targeted and potentially curative approaches for both inherited and acquired conditions."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Epidermolysis Bullosa.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/jcm13133742" target="_blank">DOI:10.3390/jcm13133742</a>
+                            </div>
+                            
+                            <div class="reference-title">Epidemiological Characteristics of Inherited Epidermolysis Bullosa in an Eastern European Population</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Epidermolysis bullosa (EB) is a hereditary condition characterized by skin and mucosal fragility, with various degrees of severity.</div>
+            
+            
+            <div class="reference-finding-supporting">"Epidermolysis bullosa (EB) is a hereditary condition characterized by skin and mucosal fragility, with various degrees of severity."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/jcm13133742" target="_blank">DOI:10.3390/jcm13133742</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Epidermolysis bullosa (EB) is a hereditary condition characterized by skin and mucosal fragility, with various degrees of severity."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Epidermolysis Bullosa.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1038/s41572-020-0210-0" target="_blank">DOI:10.1038/s41572-020-0210-0</a>
+                            </div>
+                            
+                            <div class="reference-title">Epidermolysis bullosa</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Epidermolysis bullosa</div>
+            
+            
+            <div class="reference-finding-supporting">"Epidermolysis bullosa"</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41572-020-0210-0" target="_blank">DOI:10.1038/s41572-020-0210-0</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Epidermolysis bullosa"</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Epidermolysis Bullosa.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">1. Disease Information (definitions and current understanding)</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">51 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-08T16:11:07.201699</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <h2>1. Disease Information (definitions and current understanding)</h2>
+<h3>Concise disease overview</h3>
+<p>EB is an inherited, heterogeneous group of rare genetic dermatoses characterized by mucocutaneous fragility and blister formation that can be triggered by minimal mechanical trauma (bardhan2020epidermolysisbullosa pages 1-2). A widely used framing is that EB comprises &gt;30 subtypes grouped into <strong>four major categories</strong>—<strong>EB simplex, junctional EB, dystrophic EB, and Kindler EB</strong>—defined primarily by the <strong>plane of tissue cleavage</strong> within the skin, reflecting the underlying molecular defect (bardhan2020epidermolysisbullosa pages 1-2).</p>
+<h3>Key definitional quote (from abstract-style text)</h3>
+<ul>
+<li>Nature Reviews Disease Primers states: <strong>“Epidermolysis bullosa (EB) is an inherited, heterogeneous group of rare genetic dermatoses characterized by mucocutaneous fragility and blister formation, inducible by often minimal trauma.”</strong> (Sep 2020; URL: https://doi.org/10.1038/s41572-020-0210-0) (bardhan2020epidermolysisbullosa pages 1-2)</li>
+</ul>
+<h3>Classification (consensus framing)</h3>
+<ul>
+<li>EB is classified into four major types based on the level of tissue separation: <strong>EBS, JEB, DEB, Kindler EB</strong> (bardhan2020epidermolysisbullosa pages 1-2, bischof2024emerginggenetherapeutics pages 1-2).</li>
+</ul>
+<hr />
+<h2>2. Etiology</h2>
+<h3>Disease causal factors</h3>
+<p>EB is primarily caused by <strong>germline pathogenic variants</strong> in genes encoding structural proteins required for epithelial integrity and epidermal–dermal adhesion. A major review notes <strong>“pathogenetic mutations in 16 distinct genes”</strong> implicated in EB (bardhan2020epidermolysisbullosa pages 1-2). A 2024 review similarly states <strong>EB-causing mutations can be present in at least 16 different genes</strong> (bischof2024emerginggenetherapeutics pages 1-2).</p>
+<h3>Genetic risk factors (causal genes by major EB type)</h3>
+<p>Causal genes are subtype-dependent. Examples explicitly present in the retrieved evidence include:
+- <strong>EBS:</strong> KRT5, KRT14, PLEC (with a statement that <strong>“75% of patients with EB simplex harbour mutations”</strong> in KRT5/KRT14) (bardhan2020epidermolysisbullosa pages 6-7)
+- <strong>JEB:</strong> LAMA3, LAMB3, LAMC2, ITGA6/ITGB4 (integrin α6β4), COL17A1 (type XVII collagen) (bardhan2020epidermolysisbullosa pages 4-5, bischof2024emerginggenetherapeutics pages 1-2)
+- <strong>DEB:</strong> COL7A1 (type VII collagen) (bardhan2020epidermolysisbullosa pages 10-11)
+- <strong>Kindler EB:</strong> FERMT1 (also referred to as KIND1 in some texts) (bischof2024emerginggenetherapeutics pages 1-2, suru2024epidemiologicalcharacteristicsof pages 4-6)</p>
+<p>OpenTargets also lists strong gene–disease associations for EB consistent with these causal genes (e.g., COL7A1, KRT5) (OpenTargets Search: Epidermolysis bullosa).</p>
+<h3>Variant classes and functional consequences (examples from retrieved evidence)</h3>
+<p>For DEB, COL7A1 variant class influences phenotype:
+- Recessive COL7A1 mutations often include <strong>premature termination codons</strong> causing reduced mRNA and markedly reduced/absent type VII collagen (loss-of-function) (bardhan2020epidermolysisbullosa pages 10-11).
+- Non-terminating variants (example: <strong>glycine substitutions</strong>) can impair collagen triple helix assembly and are associated with milder disease in some cases (bardhan2020epidermolysisbullosa pages 10-11).</p>
+<h3>Environmental risk and protective factors</h3>
+<p>EB is genetic in origin; environmental factors primarily <strong>modify clinical severity</strong> (e.g., mechanical trauma/friction provoking blistering) rather than cause disease onset (bardhan2020epidermolysisbullosa pages 1-2, bischof2024emerginggenetherapeutics pages 1-2). Specific protective environmental factors are not well characterized in the retrieved evidence.</p>
+<h3>Gene–environment interactions</h3>
+<p>The defining clinical trigger is <strong>mechanical trauma acting on genetically fragile skin</strong>, producing blistering and chronic wounds; this is inherent to the classification by tissue cleavage plane and the “minimal trauma” definition (bardhan2020epidermolysisbullosa pages 1-2, bischof2024emerginggenetherapeutics pages 1-2).</p>
+<hr />
+<h2>3. Phenotypes (with HPO suggestions)</h2>
+<h3>Core mucocutaneous phenotype (all major types)</h3>
+<ul>
+<li><strong>Blistering/erosions after minor trauma</strong> (HPO suggestion: <em>Skin blistering</em> [HP:0008064]) (bardhan2020epidermolysisbullosa pages 1-2).</li>
+<li><strong>Mucosal fragility</strong> (HPO: <em>Mucosal blistering</em> [HP:0000770]) (bardhan2020epidermolysisbullosa pages 1-2).</li>
+<li><strong>Pain and itch</strong> are common burdens, particularly in severe subtypes (mellerio2023itchinrecessive pages 1-2).</li>
+</ul>
+<h3>Dystrophic EB / severe RDEB phenotype cluster</h3>
+<p>Severe RDEB is characterized by chronic, painful wounds and fibrotic scarring leading to deformity and strictures, including:
+- <strong>Pseudosyndactyly / mitten deformities</strong> (HPO: <em>Syndactyly</em> [HP:0001159] / <em>Cutaneous syndactyly</em> [HP:0010692]) (sandoval2025towardsextracellularvesicles pages 1-2).
+- <strong>Microstomia</strong> (HPO: <em>Microstomia</em> [HP:0000212]) and <strong>esophageal strictures</strong> (HPO: <em>Esophageal stricture</em> [HP:0002044]) (sandoval2025towardsextracellularvesicles pages 1-2).
+- <strong>High risk of aggressive cutaneous squamous cell carcinoma (cSCC)</strong> (HPO: <em>Squamous cell carcinoma</em> [HP:0002860]) (hwang2024therapiesforcutaneous pages 1-3).</p>
+<h3>Itch: phenotype frequency and QoL association (human prospective registry; 2023)</h3>
+<p>A large, prospective registry study in RDEB (PEBLES; 50 participants, 243 reviews) found itch is highly prevalent and severe:
+- Quote: <strong>“Itch was frequent, present in the preceding month in 93% of reviews.”</strong> (Aug 2023; URL: https://doi.org/10.1186/s13023-023-02817-z) (mellerio2023itchinrecessive pages 1-2).
+- Subtype differences: itch frequency (“always/often”) was <strong>87%</strong> in severe RDEB reviews vs <strong>42%</strong> in intermediate RDEB reviews; RDEB-pruriginosa had particularly high itch burden (mellerio2023itchinrecessive pages 4-6).
+- Medication use: <strong>61%</strong> of reviews reported itch medication use; at index, <strong>oral antihistamines 28%</strong> and <strong>emollients 24%</strong> (mellerio2023itchinrecessive pages 6-7).
+- Correlations with disease severity and QoL scores depended on subtype: correlations were present in intermediate/inversa forms but weak in severe RDEB (mellerio2023itchinrecessive pages 1-2, mellerio2023itchinrecessive pages 6-7).</p>
+<h3>Quality-of-life impact (recent quantitative data; 2024)</h3>
+<p>A Spanish societal-burden study (2024; reference year 2022) reports large HRQoL impairment measured by EQ-5D:
+- Mean EQ-5D utility index: <strong>0.45 for severe EB</strong> vs <strong>0.62 for non-severe EB</strong> (proxy/self reporting differences described) (arandareneo2024economicburdenand pages 1-2, arandareneo2024economicburdenand pages 6-7).</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<h3>Causal genes (core set in retrieved evidence)</h3>
+<p>EB is genetically heterogeneous; causal genes explicitly supported in the retrieved evidence include:
+- <strong>EBS:</strong> KRT5, KRT14, PLEC (bischof2024emerginggenetherapeutics pages 1-2, bardhan2020epidermolysisbullosa pages 6-7)
+- <strong>JEB:</strong> LAMA3, LAMB3, LAMC2, ITGA6/ITGB4, COL17A1 (bardhan2020epidermolysisbullosa pages 4-5, bischof2024emerginggenetherapeutics pages 1-2)
+- <strong>DEB:</strong> COL7A1 (bardhan2020epidermolysisbullosa pages 10-11)
+- <strong>Kindler EB:</strong> FERMT1 (suru2024epidemiologicalcharacteristicsof pages 4-6)</p>
+<h3>Inheritance patterns</h3>
+<p>A Romanian population-based study (2012–2024) reported inheritance patterns among its cohort (not all specified): autosomal recessive (58), autosomal dominant (29), de novo (3), unspecified (62) (suru2024epidemiologicalcharacteristicsof pages 4-6). Dystrophic EB may be autosomal dominant, autosomal recessive, or de novo (bardhan2020epidermolysisbullosa pages 10-11).</p>
+<h3>Functional biology summary (protein dysfunction)</h3>
+<p>EB phenotypes reflect failure of key structural proteins in keratinocyte cytoskeleton (EBS), hemidesmosomes/basement membrane zone (JEB), or anchoring fibrils (DEB). For example, dystrophic EB is “characterized by cleavage in the upper dermis” and “arising in all cases from COL7A1 mutations” with disrupted type VII collagen anchoring fibrils (bardhan2020epidermolysisbullosa pages 10-11).</p>
+<h3>Modifier genes, epigenetics, chromosomal abnormalities</h3>
+<p>Not specifically described in the retrieved evidence; additional targeted searches (ClinGen/ClinVar/GWAS/epigenomic datasets) would be required for robust modifier and epigenetic annotation.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Non-genetic contributors</strong> primarily influence <strong>disease expression and complications</strong> (e.g., friction/trauma precipitating blistering; chronic wounds and infections) rather than act as primary causes (bardhan2020epidermolysisbullosa pages 1-2).</li>
+<li>In severe disease, downstream systemic complications include infection/sepsis-related mortality in early life for junctional forms in some cohorts (murashkin2024congenitalepidermolysisbullosa pages 1-2).</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology (causal chains, upstream vs downstream)</h2>
+<h3>Canonical mechanistic chain</h3>
+<ol>
+<li><strong>Germline pathogenic variant(s)</strong> in skin adhesion/structural genes (e.g., COL7A1, LAMB3, KRT5/KRT14). (Upstream cause) (bardhan2020epidermolysisbullosa pages 1-2, bardhan2020epidermolysisbullosa pages 10-11)</li>
+<li><strong>Loss/dysfunction of adhesion structures</strong> at a specific ultrastructural level (intraepidermal; lamina lucida; sublamina densa; mixed). (Core molecular defect) (bardhan2020epidermolysisbullosa pages 1-2, bischof2024emerginggenetherapeutics pages 1-2)</li>
+<li><strong>Mechanical trauma</strong> → <strong>epidermal–dermal separation</strong> → blisters/erosions. (Trigger-to-lesion mechanism) (bardhan2020epidermolysisbullosa pages 1-2, bischof2024emerginggenetherapeutics pages 1-2)</li>
+<li><strong>Chronic wounds + inflammation + fibrosis/scarring</strong> → deformities (pseudosyndactyly), strictures, nutritional compromise, anemia; high risk of aggressive cSCC especially in severe RDEB. (Downstream complications) (sandoval2025towardsextracellularvesicles pages 1-2, hwang2024therapiesforcutaneous pages 1-3, bardhan2020epidermolysisbullosa pages 5-6)</li>
+</ol>
+<h3>Cellular and tissue structures (ontology suggestions)</h3>
+<ul>
+<li><strong>GO biological processes (examples):</strong> <em>cell adhesion</em>, <em>extracellular matrix organization</em>, <em>wound healing</em>, <em>inflammatory response</em>, <em>keratinocyte differentiation</em>.</li>
+<li><strong>CL cell types (examples):</strong> <em>keratinocyte</em> (CL:0000312), <em>fibroblast</em> (CL:0000057), <em>immune cells</em> relevant to wound inflammation (e.g., macrophage CL:0000235).</li>
+<li><strong>Subcellular / structural components (GO cellular component examples):</strong> basement membrane (GO:0005604), hemidesmosome (GO:0030056), intermediate filament (GO:0005882).</li>
+</ul>
+<h3>Squamous cell carcinoma as a major downstream mechanism</h3>
+<p>A major EB review identifies SCC as a feared complication and leading cause of mortality (bardhan2020epidermolysisbullosa pages 1-2). A 2024 systematic review in RDEB-cSCC quantifies high cumulative incidence and mortality, consistent with aggressive malignant transformation in chronic wound environments (hwang2024therapiesforcutaneous pages 1-3).</p>
+<hr />
+<h2>7. Anatomical Structures Affected (with UBERON/CL suggestions)</h2>
+<h3>Organ and system level</h3>
+<ul>
+<li><strong>Primary:</strong> skin (UBERON:0002097), oral mucosa and other mucosal sites (mucocutaneous involvement) (bardhan2020epidermolysisbullosa pages 1-2).</li>
+<li><strong>Common extracutaneous sites in severe subtypes:</strong> eyes, airway, gastrointestinal tract (e.g., esophagus), genitourinary tract (noted in RDEB descriptions) (sandoval2025towardsextracellularvesicles pages 1-2).</li>
+</ul>
+<h3>Tissue and cell level</h3>
+<ul>
+<li><strong>Tissues:</strong> epidermis, dermis, basement membrane zone / dermal–epidermal junction (bischof2024emerginggenetherapeutics pages 1-2).</li>
+<li><strong>Cells:</strong> basal keratinocytes (EBS), epithelial cells forming hemidesmosomes and basement membrane attachments, dermal fibroblasts contributing to fibrosis and scarring.</li>
+</ul>
+<h3>Localization and laterality</h3>
+<p>Not specifically emphasized in the retrieved evidence; generally widespread (generalized types) vs localized (e.g., localized EBS) distributions occur (suru2024epidemiologicalcharacteristicsof pages 4-6).</p>
+<hr />
+<h2>8. Temporal Development (onset, progression, staging)</h2>
+<h3>Onset</h3>
+<p>EB often manifests <strong>at birth or in early infancy</strong>, particularly in severe subtypes; RDEB is noted to typically manifest at birth (sandoval2025towardsextracellularvesicles pages 1-2).</p>
+<h3>Progression and natural history</h3>
+<p>Course depends on subtype and severity. Examples from Eastern European registry-style data:
+- Romanian cohort had substantial pediatric representation, but also adult survival depending on type/subtype (suru2024epidemiologicalcharacteristicsof pages 6-9).
+- Russian pediatric registry data show substantial early mortality in junctional forms, with survival probability dropping “almost to 0% in the first 100 days” for junctional congenital EB (murashkin2024congenitalepidermolysisbullosa pages 1-2).</p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>Epidemiology (recent registry-derived estimates, prioritizing 2024)</h3>
+<p><strong>Romania (2012–2024; point reference 31 Dec 2023):</strong>
+- Point prevalence: <strong>6.77 per million population</strong>; incidence: <strong>24.23 per million live births</strong> (Jun 2024; URL: https://doi.org/10.3390/jcm13133742) (suru2024epidemiologicalcharacteristicsof pages 1-2).
+- Major type distribution: EBS <strong>21%</strong>, JEB <strong>3%</strong>, DEB <strong>63%</strong>, KEB <strong>2%</strong>, EB NOS <strong>11%</strong> (suru2024epidemiologicalcharacteristicsof pages 1-2).
+- Sex distribution reported as slight female preponderance (approx. 52% vs 48%) (suru2024epidemiologicalcharacteristicsof pages 6-9).</p>
+<p><strong>Russian Federation children (registry as of 2024; ages 0–17):</strong>
+- Pediatric prevalence: <strong>15.48 per 1,000,000 children</strong>; sex ratio <strong>boys:girls 1.08:1</strong> (Oct 2024; URL: https://doi.org/10.15690/vsp.v23i5.2808) (murashkin2024congenitalepidermolysisbullosa pages 1-2).
+- Type counts among 491 children: dystrophic <strong>261</strong>, simplex <strong>191</strong>, junctional <strong>31</strong>, Kindler <strong>8</strong> (murashkin2024congenitalepidermolysisbullosa pages 1-2).
+- Five-year mean birth rate: <strong>2.13 per 100,000 births</strong> (2019–2023) (murashkin2024congenitalepidermolysisbullosa pages 1-2).
+- Mortality: 22 deaths recorded; <strong>junctional</strong> accounts for <strong>59.1%</strong> of deaths; highest mortality in age 0–1 years (65.2% of deaths) with sepsis-related multi-organ failure noted as leading cause (murashkin2024congenitalepidermolysisbullosa pages 1-2).</p>
+<h3>Founder effects/consanguinity</h3>
+<p>The Russian registry highlights a high-burden region (Dagestan) with “apparently” high consanguineous marriage rates (50%) corresponding to higher case counts, suggesting a role for autosomal recessive inheritance and local population structure (murashkin2024congenitalepidermolysisbullosa pages 2-3).</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>Diagnostic workflow (current standard framing)</h3>
+<p>A major authoritative review emphasizes that precise diagnosis relies on correlating:
+- <strong>Clinical phenotype</strong>, plus
+- <strong>Electron microscopy</strong> and <strong>immunohistological features</strong> (including immunofluorescence mapping), plus
+- <strong>Mutational analyses (genetic testing)</strong> (bardhan2020epidermolysisbullosa pages 1-2).</p>
+<h3>Real-world diagnostic utilization (Romania 2012–2024)</h3>
+<p>In the Romanian cohort:
+- <strong>83/152 (54.6%)</strong> were clinically diagnosed only.
+- <strong>48 (31.5%)</strong> had molecular genetic testing.
+- Smaller fractions had IF mapping (IFM) and/or transmission electron microscopy (TEM), including <strong>2</strong> with IFM+TEM and additional cases combining IFM or TEM with genetics (suru2024epidemiologicalcharacteristicsof pages 4-6).</p>
+<h3>Differential diagnosis</h3>
+<p>Not specifically enumerated in the retrieved evidence; standard differentials include acquired blistering diseases and other skin fragility syndromes—note that the Romanian study explicitly excluded acquired EB and other fragility syndromes (suru2024epidemiologicalcharacteristicsof pages 2-4).</p>
+<hr />
+<h2>11. Outcome / Prognosis (including key statistics)</h2>
+<h3>cSCC risk and outcomes in RDEB (2024 systematic review; 157 cases)</h3>
+<p>A 2024 systematic review of <strong>157 RDEB-cSCC cases</strong> reports:
+- Cumulative risk for at least one cSCC: <strong>7.5% by age 20</strong> rising to <strong>80% by age 45</strong> (May 2024; URL: https://doi.org/10.1186/s13023-024-03190-1) (hwang2024therapiesforcutaneous pages 1-3).
+- Mortality estimates: <strong>38.7% by 35 years</strong>, <strong>70% by 40</strong>, <strong>78.7% by 55</strong> (hwang2024therapiesforcutaneous pages 1-3).
+- Tumor features: well-differentiated <strong>64.1%</strong>, ulcerated <strong>59.6%</strong>, ≥2 cm <strong>77.6%</strong>; median age at diagnosis <strong>30 years</strong> (hwang2024therapiesforcutaneous pages 1-3).</p>
+<h3>Survival variation by EB type (2024 Romania)</h3>
+<p>Romanian survival analysis indicated poorer survival for JEB and unspecified cases compared to other types (Kaplan–Meier curves shown; see extracted figure) (suru2024epidemiologicalcharacteristicsof media bf76e012).</p>
+<hr />
+<h2>12. Treatment (current applications, real-world implementations, and 2023–2024 developments)</h2>
+<h3>Standard of care: supportive, multidisciplinary management</h3>
+<p>In the absence of universally curative therapy, management focuses on minimizing blister formation, wound care, symptom relief, and management of complications (including SCC) (bardhan2020epidermolysisbullosa pages 1-2).</p>
+<h3>FDA-approved topical gene therapy for DEB (major 2023 milestone)</h3>
+<p>A 2024 review of EB gene therapeutics describes the first approved in vivo topical gene replacement product:
+- Mechanism: HSV-1–based topical vector delivering functional <strong>COL7A1</strong> to wounds (bischof2024emerginggenetherapeutics pages 8-9).
+- Phase III (GEM-3; NCT04491604; intrapatient matched wound pairs, n=31) outcomes: <strong>71% complete wound closure at 3 months and 67% at 6 months</strong> vs placebo ~<strong>20–22%</strong> (bischof2024emerginggenetherapeutics pages 8-9, prodinger2024neuelokalund pages 1-2).
+- This product is widely referenced as <strong>Vyjuvek (beremagene geperpavec, B-VEC)</strong> and described as FDA approved in 2023 (prodinger2024neuelokalund pages 1-2, sandoval2025towardsextracellularvesicles pages 2-4).</p>
+<h3>Implementation and payer impact (2024 economic evaluation)</h3>
+<p>Post-approval economic modeling estimates substantial payer impact in the US:
+- Assumed base-case annual price <strong>$300,000 per patient per year</strong>.
+- Estimated first-year total expenditure <strong>$268 million</strong> (and the therapy described as weekly lifelong administration in the summarized source) (sandoval2025towardsextracellularvesicles pages 2-4).</p>
+<h3>Itch symptom management (2023 prospective registry evidence)</h3>
+<p>Despite frequent use of emollients and antihistamines, itch remains an unmet need in RDEB; only 61% of reviews reported using medication and satisfaction was low-moderate (mean 41.3/100) (mellerio2023itchinrecessive pages 6-7).</p>
+<h3>Treatment of RDEB-associated cSCC (2024 systematic review)</h3>
+<p>Surgery remains the primary modality, with emerging use of anti-EGFR therapy and immunotherapy in advanced disease:
+- Median survival from first cSCC diagnosis to death varied by regimen (e.g., ~2 years for surgery only; ~4–4.6 years with addition of anti-EGFR or immunotherapy in small subsets) (hwang2024therapiesforcutaneous pages 1-3).</p>
+<h3>Other approved therapies</h3>
+<ul>
+<li><strong>Filsuvez (Oleogel-S10)</strong> is noted in recent reviews as an approved therapy for EB wound healing support, but detailed trial-level quantitative outcomes were not available in the retrieved evidence set here and should be curated from primary regulatory documents and pivotal trial publications (sandoval2025towardsextracellularvesicles pages 1-2).</li>
+</ul>
+<h3>MAXO suggestions (examples)</h3>
+<ul>
+<li>Gene therapy, topical administration: <em>gene therapy procedure</em>; <em>topical administration of therapeutic agent</em>.</li>
+<li>Wound care: <em>wound dressing</em>, <em>wound debridement</em> (when applicable), <em>pain management</em>, <em>pruritus management</em>.</li>
+<li>cSCC: <em>surgical excision</em>, <em>radiotherapy</em>, <em>systemic chemotherapy</em>, <em>epidermal growth factor receptor inhibitor therapy</em>, <em>immune checkpoint inhibitor therapy</em>.</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<p>For a Mendelian disease, prevention focuses on genetic counseling and reproductive planning. The retrieved evidence set does not provide detailed guideline statements for prenatal testing/PGT/cascade testing; however, the importance of <strong>precise molecular diagnosis</strong> for genetic counseling and stratification is emphasized (bardhan2020epidermolysisbullosa pages 2-3).</p>
+<p>Tertiary prevention is central in practice (e.g., preventing infections, malnutrition, contractures, strictures, and early detection of cSCC) (bardhan2020epidermolysisbullosa pages 1-2, hwang2024therapiesforcutaneous pages 1-3).</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p>Not addressed in the retrieved evidence set.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<p>Not addressed in the retrieved evidence set.</p>
+<hr />
+<h2>Key structured summaries (artifacts)</h2>
+<p>The following tables summarize subtype genetics/features and the most evidence-supported 2023–2024 treatment landscape.</p>
+<table>
+<thead>
+<tr>
+<th>EB type</th>
+<th>Primary cleavage level / skin layer</th>
+<th>Core causal genes mentioned in retrieved evidence</th>
+<th>Typical inheritance</th>
+<th>Hallmark clinical features</th>
+<th>Major complications</th>
+<th>Supporting context</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Epidermolysis bullosa simplex (EBS)</td>
+<td>Intraepidermal cleavage within basal keratinocytes / epidermis</td>
+<td>KRT5, KRT14, PLEC</td>
+<td>Usually autosomal dominant; some autosomal recessive forms</td>
+<td>Skin fragility and trauma-induced blistering, often from birth or infancy; may include inflammation, failure to thrive, itch, neuropathic pain; some PLEC-associated forms have muscular dystrophy</td>
+<td>Variable severity; multisystem involvement in some forms</td>
+<td>(bardhan2020epidermolysisbullosa pages 1-2, bischof2024emerginggenetherapeutics pages 1-2, bardhan2020epidermolysisbullosa pages 6-7, suru2024epidemiologicalcharacteristicsof pages 4-6)</td>
+</tr>
+<tr>
+<td>Junctional EB (JEB)</td>
+<td>Cleavage within the lamina lucida of the dermal-epidermal junction / basement membrane zone</td>
+<td>LAMA3, LAMB3, LAMC2, ITGA6, ITGB4, COL17A1</td>
+<td>Mostly autosomal recessive</td>
+<td>Severe mucocutaneous fragility with blistering and erosions; some forms show exuberant granulation tissue, airway and upper GI involvement</td>
+<td>In severe JEB, high infant mortality; failure to thrive, sepsis, respiratory failure, cardiomyopathy; laryngeal disease can cause respiratory compromise and death</td>
+<td>(bardhan2020epidermolysisbullosa pages 1-2, bardhan2020epidermolysisbullosa pages 4-5, bischof2024emerginggenetherapeutics pages 1-2, bardhan2020epidermolysisbullosa pages 6-7)</td>
+</tr>
+<tr>
+<td>Dystrophic EB, dominant (DDEB)</td>
+<td>Sublamina densa / upper dermis, due to anchoring fibril dysfunction</td>
+<td>COL7A1</td>
+<td>Autosomal dominant</td>
+<td>Trauma-induced blistering with scarring; generally milder than severe recessive disease; nail and mucosal involvement may occur</td>
+<td>Chronic wounds and scarring; cancer risk lower than severe RDEB but elevated in some patients</td>
+<td>(bardhan2020epidermolysisbullosa pages 4-5, bardhan2020epidermolysisbullosa pages 10-11, suru2024epidemiologicalcharacteristicsof pages 4-6)</td>
+</tr>
+<tr>
+<td>Dystrophic EB, recessive (RDEB)</td>
+<td>Sublamina densa / upper dermis, due to absent or markedly reduced type VII collagen anchoring fibrils</td>
+<td>COL7A1</td>
+<td>Autosomal recessive</td>
+<td>Congenital or early-onset severe blistering, chronic wounds, scarring, mitten deformities/pseudosyndactyly, microstomia, esophageal strictures, pain and itch</td>
+<td>Aggressive cutaneous squamous cell carcinoma is the leading cause of death in adults with severe RDEB; also anemia, malnutrition, renal disease, infection/sepsis, fibrosis</td>
+<td>(hwang2024therapiesforcutaneous pages 1-3, bardhan2020epidermolysisbullosa pages 5-6, bardhan2020epidermolysisbullosa pages 10-11, murashkin2024congenitalepidermolysisbullosa pages 2-3)</td>
+</tr>
+<tr>
+<td>Kindler EB / Kindler syndrome</td>
+<td>Mixed and variable cleavage planes across multiple skin levels</td>
+<td>FERMT1 (KIND1)</td>
+<td>Autosomal recessive</td>
+<td>Skin fragility, blistering, and photosensitivity beginning in early childhood; progressive poikiloderma may occur</td>
+<td>Mucosal disease and later epithelial malignancies including non-melanoma skin cancer/SCC in adults</td>
+<td>(bardhan2020epidermolysisbullosa pages 1-2, bischof2024emerginggenetherapeutics pages 1-2, bardhan2020epidermolysisbullosa pages 10-11, suru2024epidemiologicalcharacteristicsof pages 4-6)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes the major epidermolysis bullosa types by tissue cleavage level, core genes, inheritance, hallmark clinical features, and major complications. It is designed as a compact ontology-ready overview for quick reference in a disease knowledge base.</em></p>
+<table>
+<thead>
+<tr>
+<th>Intervention</th>
+<th>Target EB subtype</th>
+<th>Mechanism</th>
+<th>Regulatory status</th>
+<th>Key study/trial + date</th>
+<th>Key quantitative outcomes</th>
+<th>Notes/limitations</th>
+<th>Supporting context IDs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Beremagene geperpavec (B-VEC; Vyjuvek)</td>
+<td>Dystrophic EB, especially COL7A1-related DEB/RDEB</td>
+<td>Topical HSV-1–based in vivo gene replacement delivering functional <strong>COL7A1</strong> to wounded skin</td>
+<td><strong>FDA approved May 2023</strong>; EMA approval noted in 2025 sources</td>
+<td>GEM-3 phase 3, randomized intra-patient matched wound-pair trial, <strong>NCT04491604</strong>; weekly topical treatment for 26 weeks; NEJM trial cited from 2022; FDA approval noted 2023</td>
+<td>Complete wound closure with B-VEC: <strong>71% at 3 months</strong> and <strong>67% at 6 months</strong> vs placebo <strong>20–22%</strong>; phase 1/2: <strong>17/18 wounds</strong> completely closed at 3 months; median time to closure <strong>13.5 vs 22.5 days</strong>; mean duration of closure <strong>103 vs 16.5 days</strong></td>
+<td>Paired-lesion design; repeated application required; topical HSV vector does not penetrate intact skin well; safety profile mainly mild-moderate AEs, and serious AEs in later summaries were not attributed to product (bischof2024emerginggenetherapeutics pages 8-9, prodinger2024neuelokalund pages 1-2, NCT04491604 chunk 1, lisinska2025genetherapiesin pages 2-4)</td>
+<td>(bischof2024emerginggenetherapeutics pages 8-9, prodinger2024neuelokalund pages 1-2, NCT04491604 chunk 1, lisinska2025genetherapiesin pages 2-4)</td>
+</tr>
+<tr>
+<td>B-VEC open-label extension</td>
+<td>Dystrophic EB previously treated or treatment-naive</td>
+<td>Continued topical <strong>COL7A1</strong> gene replacement</td>
+<td>Post-approval/extension evidence; not a separate approval</td>
+<td>Open-label extension <strong>NCT04917874</strong>; published 2025, rollover + treatment-naive participants</td>
+<td><strong>47 subjects</strong>; treatment up to <strong>112 weeks</strong> (median <strong>81 weeks</strong>); maintained wound closure in rollover subjects ranged <strong>61.1–89.5%</strong> through month 12; no new safety signals detected</td>
+<td>Open-label, variable follow-up, exploratory PROs inconclusive for QoL; publication is 2025 but highly relevant for real-world durability/safety</td>
+<td>(marinkovich2025longtermsafetyand pages 1-2)</td>
+</tr>
+<tr>
+<td>Filsuvez (Oleogel-S10)</td>
+<td>EB wound healing support across inherited EB indications in recent reviews</td>
+<td>Topical birch triterpene oleogel intended to support re-epithelialization/wound healing</td>
+<td>Recently approved; referenced as approved in 2022–2024 reviews</td>
+<td>Mentioned in 2024–2025 EB therapeutic reviews</td>
+<td>Detailed quantitative trial outcomes <strong>not present in current retrieved evidence</strong></td>
+<td>Should be included as a recent approved therapy, but the present evidence base here does not provide trial-level numeric endpoints; avoid overclaiming</td>
+<td>(sandoval2025towardsextracellularvesicles pages 1-2, prodinger2024neuelokalund pages 1-2)</td>
+</tr>
+<tr>
+<td>Supportive care / itch management (PEBLES registry)</td>
+<td>Recessive dystrophic EB subtypes (RDEB-S, RDEB-I, RDEB-Inv, RDEB-Pru)</td>
+<td>Symptom control with emollients, topical corticosteroids, antihistamines and related anti-pruritic measures</td>
+<td>Standard supportive care; no disease-modifying approval claim</td>
+<td>PEBLES prospective register study, published <strong>2023</strong></td>
+<td>Itch present in preceding month in <strong>93% of 243 reviews</strong> from <strong>50 participants</strong>; <strong>61%</strong> of reviews reported itch medication use; at index, emollients <strong>12/50 (24%)</strong>, oral antihistamines <strong>14/50 (28%)</strong>; mean medication satisfaction <strong>41.3/100</strong></td>
+<td>Strong evidence of unmet need: frequent itch, greater severity/distress in RDEB-S and RDEB-Pru, limited perceived efficacy of current medications</td>
+<td>(mellerio2023itchinrecessive pages 1-2, mellerio2023itchinrecessive pages 6-7, mellerio2023itchinrecessive pages 4-6, mellerio2023itchinrecessive pages 2-4)</td>
+</tr>
+<tr>
+<td>cSCC treatment in RDEB: surgery, anti-EGFR therapy, immunotherapy</td>
+<td>RDEB-associated cutaneous squamous cell carcinoma</td>
+<td>Oncologic local/systemic treatment after malignant transformation; anti-EGFR or immune checkpoint blockade used in advanced disease</td>
+<td>No EB-specific regulatory approval summarized here; used in practice based on cSCC management</td>
+<td>Systematic review of <strong>157 cases</strong>, published <strong>2024</strong></td>
+<td>Median survival from first cSCC diagnosis to death: <strong>2.0 years</strong> (surgery only), <strong>4.0 years</strong> (+anti-EGFR), <strong>4.6 years</strong> (+immunotherapy), <strong>1.85 years</strong> (surgery+chemotherapy), <strong>4.0 years</strong> (surgery+radiotherapy), <strong>9.5 years</strong> (surgery+chemotherapy+radiotherapy; very small n); surgery was primary treatment in <strong>128</strong> cases</td>
+<td>Evidence mostly case reports/cohorts, major confounding by multimodal treatment and small sample sizes; adverse events included impaired wound healing with immunotherapy and nausea/fatigue with anti-EGFR therapy</td>
+<td>(hwang2024therapiesforcutaneous pages 1-3)</td>
+</tr>
+<tr>
+<td>Health-system implementation: projected B-VEC spending</td>
+<td>US DEB population eligible for B-VEC</td>
+<td>Economic implementation analysis rather than biologic mechanism</td>
+<td>Reflects post-approval payer impact after FDA approval</td>
+<td>JAMA Dermatology economic evaluation, <strong>2024</strong></td>
+<td>Estimated <strong>894</strong> US DEB patients eligible in year 1; projected spending <strong>$268 million</strong> first year and <strong>$805 million</strong> over 3 years; assumed base-case cost <strong>$300,000/patient/year</strong>; lifetime total cost estimated <strong>$15–17 million/patient</strong></td>
+<td>Important for real-world access and reimbursement; FDA indication included both AR and AD DEB, with limited direct trial data in dominant disease noted by authors</td>
+<td>(sandoval2025towardsextracellularvesicles pages 2-4)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes the most clinically relevant epidermolysis bullosa therapies and management strategies emphasized in the retrieved 2023-2024 evidence, including approved gene therapy, supportive care, and cSCC treatment. It is useful for quickly comparing mechanisms, regulatory status, quantitative outcomes, and implementation caveats.</em></p>
+<hr />
+<h2>Notes on evidence limitations and curation gaps</h2>
+<ol>
+<li><strong>OMIM/Orphanet/ICD/MeSH identifiers</strong> were not directly retrievable via the current tool calls; they should be added from those resources in a follow-on curation pass.</li>
+<li>Several key topics requested for a knowledge base entry (modifier genes, epigenetics, model organisms, comparative disease in animals, and detailed prevention/genetic screening guidelines) are not covered by the retrieved documents and require targeted additional retrieval.</li>
+<li>For <strong>Filsuvez (Oleogel-S10)</strong>, the present evidence confirms it as a recently approved therapy in reviews but does not provide pivotal-trial effect sizes; primary trial publications/regulatory assessments should be cited before adding numeric claims.</li>
+</ol>
+<hr />
+<h2>Included URLs and publication dates (selected high-value sources)</h2>
+<ul>
+<li>Bardhan et al. <em>Nature Reviews Disease Primers</em> (Sep 2020): https://doi.org/10.1038/s41572-020-0210-0 (bardhan2020epidermolysisbullosa pages 1-2)</li>
+<li>Suru et al. <em>Journal of Clinical Medicine</em> (Jun 2024): https://doi.org/10.3390/jcm13133742 (suru2024epidemiologicalcharacteristicsof pages 1-2)</li>
+<li>Murashkin et al. <em>Current Pediatrics</em> (Oct 2024): https://doi.org/10.15690/vsp.v23i5.2808 (murashkin2024congenitalepidermolysisbullosa pages 1-2)</li>
+<li>Mellerio et al. <em>Orphanet Journal of Rare Diseases</em> (Aug 2023): https://doi.org/10.1186/s13023-023-02817-z (mellerio2023itchinrecessive pages 1-2)</li>
+<li>Hwang et al. <em>Orphanet Journal of Rare Diseases</em> (May 2024): https://doi.org/10.1186/s13023-024-03190-1 (hwang2024therapiesforcutaneous pages 1-3)</li>
+<li>Aranda-Reneo et al. <em>Orphanet Journal of Rare Diseases</em> (Sep 2024): https://doi.org/10.1186/s13023-024-03328-1 (arandareneo2024economicburdenand pages 1-2)</li>
+<li>Bischof et al. <em>International Journal of Molecular Sciences</em> (Feb 2024): https://doi.org/10.3390/ijms25042243 (bischof2024emerginggenetherapeutics pages 1-2)</li>
+</ul>
+<p>References</p>
+<ol>
+<li>
+<p>(OpenTargets Search: Epidermolysis bullosa): Open Targets Query (Epidermolysis bullosa, 30 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.</p>
+</li>
+<li>
+<p>(bardhan2020epidermolysisbullosa pages 1-2): Ajoy Bardhan, Leena Bruckner-Tuderman, Iain L. C. Chapple, Jo-David Fine, Natasha Harper, Cristina Has, Thomas M. Magin, M. Peter Marinkovich, John F. Marshall, John A. McGrath, Jemima E. Mellerio, Rex Polson, and Adrian H. Heagerty. Epidermolysis bullosa. Nature Reviews Disease Primers, 6:1-27, Sep 2020. URL: https://doi.org/10.1038/s41572-020-0210-0, doi:10.1038/s41572-020-0210-0. This article has 551 citations.</p>
+</li>
+<li>
+<p>(bischof2024emerginggenetherapeutics pages 1-2): Johannes Bischof, Markus Hierl, and Ulrich Koller. Emerging gene therapeutics for epidermolysis bullosa under development. International Journal of Molecular Sciences, 25:2243, Feb 2024. URL: https://doi.org/10.3390/ijms25042243, doi:10.3390/ijms25042243. This article has 37 citations.</p>
+</li>
+<li>
+<p>(hwang2024therapiesforcutaneous pages 1-3): Austin Hwang, Andie Kwon, Corinne H. Miller, Antonia Reimer-Taschenbrecker, and Amy S. Paller. Therapies for cutaneous squamous cell carcinoma in recessive dystrophic epidermolysis bullosa: a systematic review of 157 cases. Orphanet Journal of Rare Diseases, May 2024. URL: https://doi.org/10.1186/s13023-024-03190-1, doi:10.1186/s13023-024-03190-1. This article has 13 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(suru2024epidemiologicalcharacteristicsof pages 6-9): Alina Suru, Sorina Dănescu, Alina Călinescu-Stîncanu, Denis Iorga, Mihai Dascălu, Adrian Baican, George-Sorin Țiplica, and Carmen Maria Sălăvăstru. Epidemiological characteristics of inherited epidermolysis bullosa in an eastern european population. Journal of Clinical Medicine, 13:3742, Jun 2024. URL: https://doi.org/10.3390/jcm13133742, doi:10.3390/jcm13133742. This article has 6 citations.</p>
+</li>
+<li>
+<p>(bardhan2020epidermolysisbullosa pages 6-7): Ajoy Bardhan, Leena Bruckner-Tuderman, Iain L. C. Chapple, Jo-David Fine, Natasha Harper, Cristina Has, Thomas M. Magin, M. Peter Marinkovich, John F. Marshall, John A. McGrath, Jemima E. Mellerio, Rex Polson, and Adrian H. Heagerty. Epidermolysis bullosa. Nature Reviews Disease Primers, 6:1-27, Sep 2020. URL: https://doi.org/10.1038/s41572-020-0210-0, doi:10.1038/s41572-020-0210-0. This article has 551 citations.</p>
+</li>
+<li>
+<p>(bardhan2020epidermolysisbullosa pages 4-5): Ajoy Bardhan, Leena Bruckner-Tuderman, Iain L. C. Chapple, Jo-David Fine, Natasha Harper, Cristina Has, Thomas M. Magin, M. Peter Marinkovich, John F. Marshall, John A. McGrath, Jemima E. Mellerio, Rex Polson, and Adrian H. Heagerty. Epidermolysis bullosa. Nature Reviews Disease Primers, 6:1-27, Sep 2020. URL: https://doi.org/10.1038/s41572-020-0210-0, doi:10.1038/s41572-020-0210-0. This article has 551 citations.</p>
+</li>
+<li>
+<p>(bardhan2020epidermolysisbullosa pages 10-11): Ajoy Bardhan, Leena Bruckner-Tuderman, Iain L. C. Chapple, Jo-David Fine, Natasha Harper, Cristina Has, Thomas M. Magin, M. Peter Marinkovich, John F. Marshall, John A. McGrath, Jemima E. Mellerio, Rex Polson, and Adrian H. Heagerty. Epidermolysis bullosa. Nature Reviews Disease Primers, 6:1-27, Sep 2020. URL: https://doi.org/10.1038/s41572-020-0210-0, doi:10.1038/s41572-020-0210-0. This article has 551 citations.</p>
+</li>
+<li>
+<p>(suru2024epidemiologicalcharacteristicsof pages 4-6): Alina Suru, Sorina Dănescu, Alina Călinescu-Stîncanu, Denis Iorga, Mihai Dascălu, Adrian Baican, George-Sorin Țiplica, and Carmen Maria Sălăvăstru. Epidemiological characteristics of inherited epidermolysis bullosa in an eastern european population. Journal of Clinical Medicine, 13:3742, Jun 2024. URL: https://doi.org/10.3390/jcm13133742, doi:10.3390/jcm13133742. This article has 6 citations.</p>
+</li>
+<li>
+<p>(mellerio2023itchinrecessive pages 1-2): Jemima E. Mellerio, Elizabeth I. Pillay, Lesedi Ledwaba-Chapman, Alessandra Bisquera, Susan J. Robertson, Marieta Papanikolaou, John A. McGrath, Yanzhong Wang, Anna E. Martinez, and Eunice Jeffs. Itch in recessive dystrophic epidermolysis bullosa: findings of pebles, a prospective register study. Orphanet Journal of Rare Diseases, Aug 2023. URL: https://doi.org/10.1186/s13023-023-02817-z, doi:10.1186/s13023-023-02817-z. This article has 14 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(sandoval2025towardsextracellularvesicles pages 1-2): Aaron Gabriel W. Sandoval and Evangelos V. Badiavas. Towards extracellular vesicles in the treatment of epidermolysis bullosa. Bioengineering, 12:574, May 2025. URL: https://doi.org/10.3390/bioengineering12060574, doi:10.3390/bioengineering12060574. This article has 3 citations.</p>
+</li>
+<li>
+<p>(mellerio2023itchinrecessive pages 4-6): Jemima E. Mellerio, Elizabeth I. Pillay, Lesedi Ledwaba-Chapman, Alessandra Bisquera, Susan J. Robertson, Marieta Papanikolaou, John A. McGrath, Yanzhong Wang, Anna E. Martinez, and Eunice Jeffs. Itch in recessive dystrophic epidermolysis bullosa: findings of pebles, a prospective register study. Orphanet Journal of Rare Diseases, Aug 2023. URL: https://doi.org/10.1186/s13023-023-02817-z, doi:10.1186/s13023-023-02817-z. This article has 14 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(mellerio2023itchinrecessive pages 6-7): Jemima E. Mellerio, Elizabeth I. Pillay, Lesedi Ledwaba-Chapman, Alessandra Bisquera, Susan J. Robertson, Marieta Papanikolaou, John A. McGrath, Yanzhong Wang, Anna E. Martinez, and Eunice Jeffs. Itch in recessive dystrophic epidermolysis bullosa: findings of pebles, a prospective register study. Orphanet Journal of Rare Diseases, Aug 2023. URL: https://doi.org/10.1186/s13023-023-02817-z, doi:10.1186/s13023-023-02817-z. This article has 14 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(arandareneo2024economicburdenand pages 1-2): Isaac Aranda-Reneo, Juan Oliva-Moreno, Luz María Peña-Longobardo, Álvaro Rafael Villar-Hernández, and Julio López-Bastida. Economic burden and health-related quality of life in patients with epidermolysis bullosa in spain. Orphanet Journal of Rare Diseases, Sep 2024. URL: https://doi.org/10.1186/s13023-024-03328-1, doi:10.1186/s13023-024-03328-1. This article has 4 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(arandareneo2024economicburdenand pages 6-7): Isaac Aranda-Reneo, Juan Oliva-Moreno, Luz María Peña-Longobardo, Álvaro Rafael Villar-Hernández, and Julio López-Bastida. Economic burden and health-related quality of life in patients with epidermolysis bullosa in spain. Orphanet Journal of Rare Diseases, Sep 2024. URL: https://doi.org/10.1186/s13023-024-03328-1, doi:10.1186/s13023-024-03328-1. This article has 4 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(murashkin2024congenitalepidermolysisbullosa pages 1-2): Nikolay N. Murashkin, Roman V. Epishev, Olga S. Orlova, Alena А. Kuratova, and Victoriya S. Polenova. Congenital epidermolysis bullosa epidemiology among children of russian federation. Current Pediatrics, 23:316-328, Oct 2024. URL: https://doi.org/10.15690/vsp.v23i5.2808, doi:10.15690/vsp.v23i5.2808. This article has 2 citations.</p>
+</li>
+<li>
+<p>(bardhan2020epidermolysisbullosa pages 5-6): Ajoy Bardhan, Leena Bruckner-Tuderman, Iain L. C. Chapple, Jo-David Fine, Natasha Harper, Cristina Has, Thomas M. Magin, M. Peter Marinkovich, John F. Marshall, John A. McGrath, Jemima E. Mellerio, Rex Polson, and Adrian H. Heagerty. Epidermolysis bullosa. Nature Reviews Disease Primers, 6:1-27, Sep 2020. URL: https://doi.org/10.1038/s41572-020-0210-0, doi:10.1038/s41572-020-0210-0. This article has 551 citations.</p>
+</li>
+<li>
+<p>(suru2024epidemiologicalcharacteristicsof pages 1-2): Alina Suru, Sorina Dănescu, Alina Călinescu-Stîncanu, Denis Iorga, Mihai Dascălu, Adrian Baican, George-Sorin Țiplica, and Carmen Maria Sălăvăstru. Epidemiological characteristics of inherited epidermolysis bullosa in an eastern european population. Journal of Clinical Medicine, 13:3742, Jun 2024. URL: https://doi.org/10.3390/jcm13133742, doi:10.3390/jcm13133742. This article has 6 citations.</p>
+</li>
+<li>
+<p>(murashkin2024congenitalepidermolysisbullosa pages 2-3): Nikolay N. Murashkin, Roman V. Epishev, Olga S. Orlova, Alena А. Kuratova, and Victoriya S. Polenova. Congenital epidermolysis bullosa epidemiology among children of russian federation. Current Pediatrics, 23:316-328, Oct 2024. URL: https://doi.org/10.15690/vsp.v23i5.2808, doi:10.15690/vsp.v23i5.2808. This article has 2 citations.</p>
+</li>
+<li>
+<p>(suru2024epidemiologicalcharacteristicsof pages 2-4): Alina Suru, Sorina Dănescu, Alina Călinescu-Stîncanu, Denis Iorga, Mihai Dascălu, Adrian Baican, George-Sorin Țiplica, and Carmen Maria Sălăvăstru. Epidemiological characteristics of inherited epidermolysis bullosa in an eastern european population. Journal of Clinical Medicine, 13:3742, Jun 2024. URL: https://doi.org/10.3390/jcm13133742, doi:10.3390/jcm13133742. This article has 6 citations.</p>
+</li>
+<li>
+<p>(suru2024epidemiologicalcharacteristicsof media bf76e012): Alina Suru, Sorina Dănescu, Alina Călinescu-Stîncanu, Denis Iorga, Mihai Dascălu, Adrian Baican, George-Sorin Țiplica, and Carmen Maria Sălăvăstru. Epidemiological characteristics of inherited epidermolysis bullosa in an eastern european population. Journal of Clinical Medicine, 13:3742, Jun 2024. URL: https://doi.org/10.3390/jcm13133742, doi:10.3390/jcm13133742. This article has 6 citations.</p>
+</li>
+<li>
+<p>(bischof2024emerginggenetherapeutics pages 8-9): Johannes Bischof, Markus Hierl, and Ulrich Koller. Emerging gene therapeutics for epidermolysis bullosa under development. International Journal of Molecular Sciences, 25:2243, Feb 2024. URL: https://doi.org/10.3390/ijms25042243, doi:10.3390/ijms25042243. This article has 37 citations.</p>
+</li>
+<li>
+<p>(prodinger2024neuelokalund pages 1-2): Christine Prodinger and Martin Laimer. Neue lokal- und systemtherapien bei epidermolysis bullosa. hautnah, 23:43-49, Feb 2024. URL: https://doi.org/10.1007/s12326-024-00627-z, doi:10.1007/s12326-024-00627-z. This article has 1 citations.</p>
+</li>
+<li>
+<p>(sandoval2025towardsextracellularvesicles pages 2-4): Aaron Gabriel W. Sandoval and Evangelos V. Badiavas. Towards extracellular vesicles in the treatment of epidermolysis bullosa. Bioengineering, 12:574, May 2025. URL: https://doi.org/10.3390/bioengineering12060574, doi:10.3390/bioengineering12060574. This article has 3 citations.</p>
+</li>
+<li>
+<p>(bardhan2020epidermolysisbullosa pages 2-3): Ajoy Bardhan, Leena Bruckner-Tuderman, Iain L. C. Chapple, Jo-David Fine, Natasha Harper, Cristina Has, Thomas M. Magin, M. Peter Marinkovich, John F. Marshall, John A. McGrath, Jemima E. Mellerio, Rex Polson, and Adrian H. Heagerty. Epidermolysis bullosa. Nature Reviews Disease Primers, 6:1-27, Sep 2020. URL: https://doi.org/10.1038/s41572-020-0210-0, doi:10.1038/s41572-020-0210-0. This article has 551 citations.</p>
+</li>
+<li>
+<p>(NCT04491604 chunk 1):  Ph 3 Efficacy and Safety of B-VEC for the Treatment of DEB. Krystal Biotech, Inc.. 2020. ClinicalTrials.gov Identifier: NCT04491604</p>
+</li>
+<li>
+<p>(lisinska2025genetherapiesin pages 2-4): Wiktoria Lisińska, Patryk Cegiełka, Zuzanna Zalewska, Natalia Bien, Dorota Sobolewska-Sztychny, Joanna Narbutt, and Aleksandra Lesiak. Gene therapies in dermatological diseases: a breakthrough in treatment. International Journal of Molecular Sciences, 26:6592, Jul 2025. URL: https://doi.org/10.3390/ijms26146592, doi:10.3390/ijms26146592. This article has 0 citations.</p>
+</li>
+<li>
+<p>(marinkovich2025longtermsafetyand pages 1-2): M. Peter Marinkovich, Amy S. Paller, Shireen V. Guide, Mercedes E. Gonzalez, Anne W. Lucky, Işın Sinem Bağcı, Brittani Agostini, Kolleen Fitzgerald, Shijie Chen, Hubert Chen, Meghan M. Conner, and Suma M. Krishnan. Long-term safety and tolerability of beremagene geperpavec-svdt (b-vec) in an open-label extension study of patients with dystrophic epidermolysis bullosa. American Journal of Clinical Dermatology, 26:623-635, Apr 2025. URL: https://doi.org/10.1007/s40257-025-00942-y, doi:10.1007/s40257-025-00942-y. This article has 12 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(mellerio2023itchinrecessive pages 2-4): Jemima E. Mellerio, Elizabeth I. Pillay, Lesedi Ledwaba-Chapman, Alessandra Bisquera, Susan J. Robertson, Marieta Papanikolaou, John A. McGrath, Yanzhong Wang, Anna E. Martinez, and Eunice Jeffs. Itch in recessive dystrophic epidermolysis bullosa: findings of pebles, a prospective register study. Orphanet Journal of Rare Diseases, Aug 2023. URL: https://doi.org/10.1186/s13023-023-02817-z, doi:10.1186/s13023-023-02817-z. This article has 14 citations and is from a peer-reviewed journal.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
             
         </div>
         
@@ -7883,7 +9217,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Epidermolysis Bullosa", "mondoId": "MONDO:0006541", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Epidermolysis_Bullosa", "yamlRevision": "64593af7ca7a"};
+        const OS_CONFIG = {"diseaseName": "Epidermolysis Bullosa", "mondoId": "MONDO:0006541", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Epidermolysis_Bullosa", "yamlRevision": "2cd5b9b5b2d6"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

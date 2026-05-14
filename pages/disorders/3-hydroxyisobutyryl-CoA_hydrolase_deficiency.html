@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,7 +2570,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 17</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">hereditary disease</span>
@@ -2582,7 +2735,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">11</div>
+                <div class="stat-value">17</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -2968,6 +3121,27 @@
 	                            
 	                        </div>
 	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">C4-OH acylcarnitine</span>
+	                            
+	                            <span class="crosslink-desc">HIBCH-related valine catabolic impairment is associated with elevated hydroxy-C4-carnitine in dried blood spots.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Urinary 2,3-dihydroxy-2-methylbutyrate</span>
+	                            
+	                            <span class="crosslink-desc">The valine catabolic block produces elevated urinary 2,3-dihydroxy-2-methylbutyrate.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Urinary S-(2-carboxypropyl)cysteamine</span>
+	                            
+	                            <span class="crosslink-desc">Toxic valine-derived intermediates are reflected by elevated urinary S-(2-carboxypropyl)cysteamine.</span>
+	                            
+	                        </div>
+	                        
 	                    </div>
 	                </div>
 	                
@@ -3131,6 +3305,20 @@
 	                            
 	                        </div>
 	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Seizure</span>
+	                            
+	                            <span class="crosslink-desc">Leigh-like HIBCH disease can present with seizures in neonatal and infantile-onset disease.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Dystonia</span>
+	                            
+	                            <span class="crosslink-desc">Later-onset HIBCH neurodegeneration can include paroxysmal dystonia as part of the movement-disorder phenotype.</span>
+	                            
+	                        </div>
+	                        
 	                    </div>
 	                </div>
 	                
@@ -3214,7 +3402,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Developmental regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of previously acquired developmental skills is a common early manifestation of HIBCH deficiency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002376\"}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Leigh-like encephalopathy reflects the central nervous system involvement of HIBCH deficiency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001298\"}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infants with HIBCH deficiency often have poor feeding in the setting of early neurodegenerative disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011968\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Affected children often present with developmental delay in early life.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"HIBCH\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"HIBCH\"], \"association\": \"Loss of function\"}}, {\"id\": \"HIBCH enzyme deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic HIBCH variants reduce mitochondrial 3-hydroxyisobutyryl-CoA hydrolase activity and disrupt valine degradation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"valine catabolic process\"], \"genes\": [\"HIBCH\"]}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low tone is a prominent early neurologic feature in HIBCH deficiency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Leigh-like neurodegeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The combined energy failure produces a progressive Leigh-like neurodegenerative encephalopathy with early basal ganglia involvement.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Movement disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Later-onset HIBCH deficiency can present with a progressive movement disorder, sometimes with paroxysmal dystonia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100022\"}}, {\"id\": \"Multiple mitochondrial dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HIBCH deficiency can produce combined mitochondrial respiratory chain enzyme deficiency and pyruvate dehydrogenase complex dysfunction.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Valine catabolic block\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of HIBCH activity blocks valine degradation and promotes accumulation of upstream toxic valine-derived intermediates.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"HIBCH enzyme deficiency\", \"target\": \"Valine catabolic block\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Valine catabolic block\", \"target\": \"Multiple mitochondrial dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multiple mitochondrial dysfunction\", \"target\": \"Leigh-like neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leigh-like neurodegeneration\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leigh-like neurodegeneration\", \"target\": \"Developmental regression\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leigh-like neurodegeneration\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leigh-like neurodegeneration\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leigh-like neurodegeneration\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leigh-like neurodegeneration\", \"target\": \"Movement disorder\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"HIBCH\", \"target\": \"HIBCH enzyme deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"C4-OH acylcarnitine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Developmental regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of previously acquired developmental skills is a common early manifestation of HIBCH deficiency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002376\"}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Paroxysmal dystonia can accompany the movement-disorder phenotype in late onset HIBCH deficiency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001332\"}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Leigh-like encephalopathy reflects the central nervous system involvement of HIBCH deficiency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001298\"}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infants with HIBCH deficiency often have poor feeding in the setting of early neurodegenerative disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011968\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Affected children often present with developmental delay in early life.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"HIBCH\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"HIBCH\"], \"association\": \"Loss of function\"}}, {\"id\": \"HIBCH enzyme deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic HIBCH variants reduce mitochondrial 3-hydroxyisobutyryl-CoA hydrolase activity and disrupt valine degradation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"valine catabolic process\"], \"genes\": [\"HIBCH\"]}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low tone is a prominent early neurologic feature in HIBCH deficiency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Leigh-like neurodegeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The combined energy failure produces a progressive Leigh-like neurodegenerative encephalopathy with early basal ganglia involvement.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Movement disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Later-onset HIBCH deficiency can present with a progressive movement disorder, sometimes with paroxysmal dystonia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100022\"}}, {\"id\": \"Multiple mitochondrial dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HIBCH deficiency can produce combined mitochondrial respiratory chain enzyme deficiency and pyruvate dehydrogenase complex dysfunction.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in neonatal and infantile-onset HIBCH deficiency and may accompany Leigh-like neurodegeneration.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Urinary 2,3-dihydroxy-2-methylbutyrate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Urinary S-(2-carboxypropyl)cysteamine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Valine catabolic block\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of HIBCH activity blocks valine degradation and promotes accumulation of upstream toxic valine-derived intermediates.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Valine-Restricted Diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dietary restriction of valine is the primary targeted therapy for HIBCH deficiency, addressing the block in valine catabolism. Special medical food formulas can be delivered orally or by gastrostomy tube, with total protein restriction as an alternative when formula adherence is poor.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"HIBCH enzyme deficiency\", \"target\": \"Valine catabolic block\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Valine catabolic block\", \"target\": \"Multiple mitochondrial dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Valine catabolic block\", \"target\": \"C4-OH acylcarnitine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Valine catabolic block\", \"target\": \"Urinary 2,3-dihydroxy-2-methylbutyrate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Valine catabolic block\", \"target\": \"Urinary S-(2-carboxypropyl)cysteamine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multiple mitochondrial dysfunction\", \"target\": \"Leigh-like neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leigh-like neurodegeneration\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leigh-like neurodegeneration\", \"target\": \"Developmental regression\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leigh-like neurodegeneration\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leigh-like neurodegeneration\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leigh-like neurodegeneration\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leigh-like neurodegeneration\", \"target\": \"Movement disorder\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leigh-like neurodegeneration\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leigh-like neurodegeneration\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Valine-Restricted Diet\", \"target\": \"Valine catabolic block\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"HIBCH\", \"target\": \"HIBCH enzyme deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3751,7 +3939,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -3772,6 +3960,26 @@
                 
                 
                 <div class="evidence-explanation">This directly supports HIBCH as the causal gene and explicitly names the relevant mitochondrial differential diagnosis context.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_26621ace-7c6b-4a1c-8286-02c4cb8a1544-2019-11-07T222437.403Z" target="_blank">CGGV:assertion_26621ace-7c6b-4a1c-8286-02c4cb8a1544-2019-11-07T222437.403Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"HIBCH | HGNC:4908 | 3-hydroxyisobutyryl-CoA hydrolase deficiency | MONDO:0009603 | AR | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the HIBCH-3-hydroxyisobutyryl-CoA hydrolase deficiency gene-disease relationship as definitive with autosomal recessive inheritance.</div>
                 
             </div>
             
@@ -3833,6 +4041,54 @@
                 
                 <div class="item-desc">Dietary restriction of valine is the primary targeted therapy for HIBCH deficiency, addressing the block in valine catabolism. Special medical food formulas can be delivered orally or by gastrostomy tube, with total protein restriction as an alternative when formula adherence is poor.</div>
                 
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+                        <strong style="color: #5b21b6;">Valine catabolic block</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Valine restriction reduces dietary substrate flux into the impaired valine catabolic pathway.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41264763" target="_blank">PMID:41264763</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"MANAGEMENT: Targeted therapy: Valine-restricted diet."</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews identifies valine restriction as targeted therapy for the pathway-level HIBCH defect.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
                 
                 
                 
@@ -3974,6 +4230,7 @@
                 <div class="item-desc">Context: Elevation of hydroxy-C4-carnitine in dried blood spots is a useful biochemical clue in HIBCH deficiency.</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4019,6 +4276,7 @@
                 <div class="item-desc">Context: Urinary 2,3-dihydroxy-2-methylbutyrate is an elevated organic acid marker in HIBCH deficiency.</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4062,6 +4320,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Urinary S-(2-carboxypropyl)cysteamine is another disease-associated metabolite in HIBCH deficiency.</div>
+                
                 
                 
     
@@ -4176,12 +4435,11 @@
             <div class="item-box differential-box">
                 <div class="item-name">
                     
-                    <span class="missing-disease-name" title="No Dismech page yet for this disease">Pyruvate dehydrogenase deficiency</span>
-                    <span class="curation-gap-badge">Not Yet Curated</span>
+                    <a class="item-name-link" href="Pyruvate_Dehydrogenase_Deficiency.html">Pyruvate dehydrogenase deficiency</a>
                     
                     
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/MONDO_0019169" target="_blank" class="missing-ontology-link">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0019169" target="_blank">
                             MONDO:0019169
                         </a>
                     </span>
@@ -4315,7 +4573,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: 3-hydroxyisobutyryl-CoA hydrolase deficiency
 creation_date: &#34;2026-04-15T00:00:00Z&#34;
-updated_date: &#34;2026-04-20T00:00:00Z&#34;
+updated_date: &#34;2026-05-11T01:43:24Z&#34;
 category: Mendelian
 description: &gt;-
   3-hydroxyisobutyryl-CoA hydrolase deficiency is an inborn error of valine
@@ -4410,6 +4668,57 @@ pathophysiology:
       Valine catabolic impairment secondarily contributes to combined
       respiratory chain and pyruvate dehydrogenase dysfunction.
     causal_link_type: DIRECT
+  - target: C4-OH acylcarnitine
+    description: &gt;-
+      HIBCH-related valine catabolic impairment is associated with elevated
+      hydroxy-C4-carnitine in dried blood spots.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:33762937
+      reference_title: &#34;Cinical, Metabolic, and Genetic Analysis and Follow-Up of Eight Patients With HIBCH Mutations Presenting With Leigh/Leigh-Like Syndrome.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Five (5/7) patients presented with elevated C4-OH in dried blood spots,
+        and the level was probably correlated with the NPMDS scores during the
+        peak disease phase.
+      explanation: &gt;-
+        The HIBCH cohort supports elevated C4-OH as a biochemical readout of
+        the disturbed valine-catabolism state.
+  - target: Urinary 2,3-dihydroxy-2-methylbutyrate
+    description: &gt;-
+      The valine catabolic block produces elevated urinary
+      2,3-dihydroxy-2-methylbutyrate.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:33762937
+      reference_title: &#34;Cinical, Metabolic, and Genetic Analysis and Follow-Up of Eight Patients With HIBCH Mutations Presenting With Leigh/Leigh-Like Syndrome.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        2,3-Dihydroxy-2-methylbutyrate in urine was elevated in six (6/7)
+        patients and elevated S-(2-caboxypropyl)cysteamine in urine was found
+        in three patients (3/3).
+      explanation: &gt;-
+        The cohort directly supports urinary 2,3-dihydroxy-2-methylbutyrate as
+        an elevated disease-associated metabolite.
+  - target: Urinary S-(2-carboxypropyl)cysteamine
+    description: &gt;-
+      Toxic valine-derived intermediates are reflected by elevated urinary
+      S-(2-carboxypropyl)cysteamine.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:33762937
+      reference_title: &#34;Cinical, Metabolic, and Genetic Analysis and Follow-Up of Eight Patients With HIBCH Mutations Presenting With Leigh/Leigh-Like Syndrome.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        2,3-Dihydroxy-2-methylbutyrate in urine was elevated in six (6/7)
+        patients and elevated S-(2-caboxypropyl)cysteamine in urine was found
+        in three patients (3/3).
+      explanation: &gt;-
+        The cohort supports urinary S-(2-carboxypropyl)cysteamine as another
+        elevated metabolite in HIBCH deficiency.
 - name: Multiple mitochondrial dysfunction
   description: &gt;-
     HIBCH deficiency can produce combined mitochondrial respiratory chain
@@ -4482,6 +4791,43 @@ pathophysiology:
       Progressive HIBCH deficiency can produce a movement disorder in later
       infancy or childhood.
     causal_link_type: DIRECT
+  - target: Seizure
+    description: &gt;-
+      Leigh-like HIBCH disease can present with seizures in neonatal and
+      infantile-onset disease.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:41264763
+      reference_title: 3-Hydroxyisobutyryl-CoA Hydrolase Deficiency.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Infantile onset is the most common phenotype, presenting in the first
+        two years of life with feeding difficulties, vomiting, developmental
+        delay with regression, hypotonia, seizures, movement disorder,
+        microcephaly, vision impairment, and episodes of neurologic
+        deterioration.
+      explanation: &gt;-
+        GeneReviews supports seizures as part of the infantile Leigh-like HIBCH
+        neurologic presentation.
+  - target: Dystonia
+    description: &gt;-
+      Later-onset HIBCH neurodegeneration can include paroxysmal dystonia as
+      part of the movement-disorder phenotype.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:41264763
+      reference_title: 3-Hydroxyisobutyryl-CoA Hydrolase Deficiency.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Late onset is the second most common phenotype, presenting in childhood
+        as a slowly progressive disease with significant movement disorder with
+        or without paroxysmal dystonia, variable cognitive impairment, and high
+        survivability.
+      explanation: &gt;-
+        GeneReviews supports paroxysmal dystonia within the later-onset HIBCH
+        movement-disorder phenotype.
 phenotypes:
 - name: Global developmental delay
   category: Neurologic
@@ -4715,6 +5061,12 @@ genetic:
     explanation: &gt;-
       This directly supports HIBCH as the causal gene and explicitly names the
       relevant mitochondrial differential diagnosis context.
+  - reference: CGGV:assertion_26621ace-7c6b-4a1c-8286-02c4cb8a1544-2019-11-07T222437.403Z
+    reference_title: &#34;HIBCH / 3-hydroxyisobutyryl-CoA hydrolase deficiency (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;HIBCH | HGNC:4908 | 3-hydroxyisobutyryl-CoA hydrolase deficiency | MONDO:0009603 | AR | Definitive&#34;
+    explanation: ClinGen classifies the HIBCH-3-hydroxyisobutyryl-CoA hydrolase deficiency gene-disease relationship as definitive with autosomal recessive inheritance.
 diagnosis:
 - name: Molecular genetic testing
   description: &gt;-
@@ -4846,6 +5198,22 @@ treatments:
     term:
       id: MAXO:0000088
       label: dietary intervention
+  target_mechanisms:
+  - target: Valine catabolic block
+    treatment_effect: MODULATES
+    description: &gt;-
+      Valine restriction reduces dietary substrate flux into the impaired
+      valine catabolic pathway.
+    evidence:
+    - reference: PMID:41264763
+      reference_title: 3-Hydroxyisobutyryl-CoA Hydrolase Deficiency.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        MANAGEMENT: Targeted therapy: Valine-restricted diet.
+      explanation: &gt;-
+        GeneReviews identifies valine restriction as targeted therapy for the
+        pathway-level HIBCH defect.
   evidence:
   - reference: PMID:41264763
     reference_title: 3-Hydroxyisobutyryl-CoA Hydrolase Deficiency.
@@ -5350,7 +5718,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "3-hydroxyisobutyryl-CoA hydrolase deficiency", "mondoId": "MONDO:0009603", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "3-hydroxyisobutyryl-CoA_hydrolase_deficiency", "yamlRevision": "510920a9a431"};
+        const OS_CONFIG = {"diseaseName": "3-hydroxyisobutyryl-CoA hydrolase deficiency", "mondoId": "MONDO:0009603", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "3-hydroxyisobutyryl-CoA_hydrolase_deficiency", "yamlRevision": "7180ccbade53"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

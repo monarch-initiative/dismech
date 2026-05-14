@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2629,6 +2782,20 @@
             
             
             
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-value">11</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -4069,6 +4236,7 @@
                 </div>
                 
                 
+                
     
     
             </div>
@@ -4078,6 +4246,7 @@
                     LANA Immunohistochemistry
                     
                 </div>
+                
                 
                 
     
@@ -4115,7 +4284,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Kaposi Sarcoma
 creation_date: &#39;2026-01-26T02:55:13Z&#39;
-updated_date: &#39;2026-04-10T00:00:00Z&#39;
+updated_date: &#39;2026-05-09T17:39:56Z&#39;
 description: &gt;-
   Kaposi sarcoma (KS) is a vascular neoplasm caused by Human Herpesvirus 8 (HHV-8),
   also known as Kaposi sarcoma-associated herpesvirus (KSHV). The tumor arises from
@@ -4508,11 +4677,1254 @@ classifications:
   harrisons_chapter:
   - classification_value: cancer
   - classification_value: solid tumor
+references:
+- reference: DOI:10.1080/14787210.2023.2247161
+  title: &#39;Clinical management of Kaposi sarcoma herpesvirus-associated diseases: an update on disease manifestations and treatment strategies&#39;
+  found_in:
+  - Kaposi_Sarcoma-deep-research-falcon.md
+  findings:
+  - statement: &#39;Clinical management of Kaposi sarcoma herpesvirus-associated diseases: an update on disease manifestations and treatment strategies&#39;
+    supporting_text: &#39;Clinical management of Kaposi sarcoma herpesvirus-associated diseases: an update on disease manifestations and treatment strategies&#39;
+- reference: DOI:10.1101/2024.09.27.615429
+  title: Mapping herpesvirus-driven impacts on the cellular milieu and transcriptional profile of Kaposi sarcoma in patient-derived mouse models
+  found_in:
+  - Kaposi_Sarcoma-deep-research-falcon.md
+  findings:
+  - statement: Kaposi sarcoma (KS) is defined by aberrant angiogenesis driven by Kaposi sarcoma herpesvirus (KSHV)-infected spindle cells with endothelial characteristics.
+    supporting_text: Kaposi sarcoma (KS) is defined by aberrant angiogenesis driven by Kaposi sarcoma herpesvirus (KSHV)-infected spindle cells with endothelial characteristics.
+    evidence:
+    - reference: DOI:10.1101/2024.09.27.615429
+      reference_title: Mapping herpesvirus-driven impacts on the cellular milieu and transcriptional profile of Kaposi sarcoma in patient-derived mouse models
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: Kaposi sarcoma (KS) is defined by aberrant angiogenesis driven by Kaposi sarcoma herpesvirus (KSHV)-infected spindle cells with endothelial characteristics.
+      explanation: Deep research cited this publication as relevant literature for Kaposi Sarcoma.
+- reference: DOI:10.1158/2767-9764.crc-24-0102
+  title: &#39;Clinical Efficacy of the HIV Protease Inhibitor Indinavir in Combination with Chemotherapy for Advanced Classic Kaposi Sarcoma Treatment: A Single-Arm, Phase II Trial in the Elderly&#39;
+  found_in:
+  - Kaposi_Sarcoma-deep-research-falcon.md
+  findings:
+  - statement: Kaposi sarcoma is a rare angioproliferative disease associated with human herpes virus-8 (HHV-8) infection.
+    supporting_text: Kaposi sarcoma is a rare angioproliferative disease associated with human herpes virus-8 (HHV-8) infection.
+    evidence:
+    - reference: DOI:10.1158/2767-9764.crc-24-0102
+      reference_title: &#39;Clinical Efficacy of the HIV Protease Inhibitor Indinavir in Combination with Chemotherapy for Advanced Classic Kaposi Sarcoma Treatment: A Single-Arm, Phase II Trial in the Elderly&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Kaposi sarcoma is a rare angioproliferative disease associated with human herpes virus-8 (HHV-8) infection.
+      explanation: Deep research cited this publication as relevant literature for Kaposi Sarcoma.
+- reference: DOI:10.1186/s12885-023-11402-3
+  title: &#39;Incident Kaposi sarcoma during the expansion of antiretroviral therapy eligibility in Nigeria: a retrospective cohort study&#39;
+  found_in:
+  - Kaposi_Sarcoma-deep-research-falcon.md
+  findings:
+  - statement: The expansion of antiretroviral therapy (ART) eligibility could lead to earlier initiation of Human Immunodeficiency Virus (HIV) treatment and consequently reduce the risk of HIV-associated Kaposi Sarcoma (KS).
+    supporting_text: The expansion of antiretroviral therapy (ART) eligibility could lead to earlier initiation of Human Immunodeficiency Virus (HIV) treatment and consequently reduce the risk of HIV-associated Kaposi Sarcoma (KS).
+    evidence:
+    - reference: DOI:10.1186/s12885-023-11402-3
+      reference_title: &#39;Incident Kaposi sarcoma during the expansion of antiretroviral therapy eligibility in Nigeria: a retrospective cohort study&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The expansion of antiretroviral therapy (ART) eligibility could lead to earlier initiation of Human Immunodeficiency Virus (HIV) treatment and consequently reduce the risk of HIV-associated Kaposi Sarcoma (KS).
+      explanation: Deep research cited this publication as relevant literature for Kaposi Sarcoma.
+- reference: DOI:10.1186/s13027-025-00710-x
+  title: Kaposi sarcoma incidence and mortality trends and disparities in the United States
+  found_in:
+  - Kaposi_Sarcoma-deep-research-falcon.md
+  findings:
+  - statement: Kaposi sarcoma (KS) is an angioproliferative tumor caused by human herpesvirus 8 and is an AIDS-defining illness.
+    supporting_text: Kaposi sarcoma (KS) is an angioproliferative tumor caused by human herpesvirus 8 and is an AIDS-defining illness.
+    evidence:
+    - reference: DOI:10.1186/s13027-025-00710-x
+      reference_title: Kaposi sarcoma incidence and mortality trends and disparities in the United States
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Kaposi sarcoma (KS) is an angioproliferative tumor caused by human herpesvirus 8 and is an AIDS-defining illness.
+      explanation: Deep research cited this publication as relevant literature for Kaposi Sarcoma.
+- reference: DOI:10.1371/journal.pone.0280209
+  title: &#39;Impact of valganciclovir therapy on severe IRIS-Kaposi Sarcoma mortality: An open-label, parallel, randomized controlled trial&#39;
+  found_in:
+  - Kaposi_Sarcoma-deep-research-falcon.md
+  findings:
+  - statement: &#39;Impact of valganciclovir therapy on severe IRIS-Kaposi Sarcoma mortality: An open-label, parallel, randomized controlled trial&#39;
+    supporting_text: High HHV-8 viral load (VL) in Kaposi Sarcoma (KS) has been associated with Severe Immune Reconstitution Inflammatory Syndrome (Severe-IRIS-KS), which can occur after initiating cART, and leads to high mortality, particularly in patients with pulmonary involvement.
+    evidence:
+    - reference: DOI:10.1371/journal.pone.0280209
+      reference_title: &#39;Impact of valganciclovir therapy on severe IRIS-Kaposi Sarcoma mortality: An open-label, parallel, randomized controlled trial&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: High HHV-8 viral load (VL) in Kaposi Sarcoma (KS) has been associated with Severe Immune Reconstitution Inflammatory Syndrome (Severe-IRIS-KS), which can occur after initiating cART, and leads to high mortality, particularly in patients with pulmonary involvement.
+      explanation: Deep research cited this publication as relevant literature for Kaposi Sarcoma.
+- reference: DOI:10.2147/ott.s468787
+  title: &#39;Management and Future Therapeutic Perspectives of Classic Kaposi’s Sarcoma: An Evidence-Based Review&#39;
+  found_in:
+  - Kaposi_Sarcoma-deep-research-falcon.md
+  findings:
+  - statement: &#39;Management and Future Therapeutic Perspectives of Classic Kaposi’s Sarcoma: An Evidence-Based Review&#39;
+    supporting_text: &#39;Management and Future Therapeutic Perspectives of Classic Kaposi’s Sarcoma: An Evidence-Based Review&#39;
+- reference: DOI:10.3390/cancers16040691
+  title: &#39;Kaposi’s Sarcoma: Evaluation of Clinical Features, Treatment Outcomes, and Prognosis in a Single-Center Retrospective Case Series&#39;
+  found_in:
+  - Kaposi_Sarcoma-deep-research-falcon.md
+  findings:
+  - statement: Kaposi’s sarcoma (KS) is a rare angioproliferative tumor classified in four different clinical–epidemiological forms.
+    supporting_text: Kaposi’s sarcoma (KS) is a rare angioproliferative tumor classified in four different clinical–epidemiological forms.
+    evidence:
+    - reference: DOI:10.3390/cancers16040691
+      reference_title: &#39;Kaposi’s Sarcoma: Evaluation of Clinical Features, Treatment Outcomes, and Prognosis in a Single-Center Retrospective Case Series&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Kaposi’s sarcoma (KS) is a rare angioproliferative tumor classified in four different clinical–epidemiological forms.
+      explanation: Deep research cited this publication as relevant literature for Kaposi Sarcoma.
+- reference: DOI:10.3390/cancers18061008
+  title: &#39;Classic Kaposi Sarcoma: Current Treatment Strategies and Emerging Therapeutic Approaches&#39;
+  found_in:
+  - Kaposi_Sarcoma-deep-research-falcon.md
+  findings:
+  - statement: Classic Kaposi sarcoma (CKS) is a rare vascular neoplasm driven by infection with Kaposi sarcoma-associated herpesvirus (KSHV) and characterized by a heterogeneous geographic distribution.
+    supporting_text: Classic Kaposi sarcoma (CKS) is a rare vascular neoplasm driven by infection with Kaposi sarcoma-associated herpesvirus (KSHV) and characterized by a heterogeneous geographic distribution.
+    evidence:
+    - reference: DOI:10.3390/cancers18061008
+      reference_title: &#39;Classic Kaposi Sarcoma: Current Treatment Strategies and Emerging Therapeutic Approaches&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Classic Kaposi sarcoma (CKS) is a rare vascular neoplasm driven by infection with Kaposi sarcoma-associated herpesvirus (KSHV) and characterized by a heterogeneous geographic distribution.
+      explanation: Deep research cited this publication as relevant literature for Kaposi Sarcoma.
+- reference: DOI:10.3390/ijms262010058
+  title: &#39;Recent Advances in the Histopathology, Molecular Biology, and Treatment of Kaposi Sarcoma: A Contemporary Review&#39;
+  found_in:
+  - Kaposi_Sarcoma-deep-research-falcon.md
+  findings:
+  - statement: Kaposi sarcoma (KS) is an intermediate-grade vascular tumour that has undergone major treatment and diagnostic breakthroughs following the discovery of Human herpesvirus 8 (HHV8).
+    supporting_text: Kaposi sarcoma (KS) is an intermediate-grade vascular tumour that has undergone major treatment and diagnostic breakthroughs following the discovery of Human herpesvirus 8 (HHV8).
+    evidence:
+    - reference: DOI:10.3390/ijms262010058
+      reference_title: &#39;Recent Advances in the Histopathology, Molecular Biology, and Treatment of Kaposi Sarcoma: A Contemporary Review&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Kaposi sarcoma (KS) is an intermediate-grade vascular tumour that has undergone major treatment and diagnostic breakthroughs following the discovery of Human herpesvirus 8 (HHV8).
+      explanation: Deep research cited this publication as relevant literature for Kaposi Sarcoma.
+- reference: DOI:10.7759/cureus.52527
+  title: &#39;Evaluating Kaposi Sarcoma in Kidney Transplant Patients: A Systematic Review and Meta-Analysis&#39;
+  found_in:
+  - Kaposi_Sarcoma-deep-research-falcon.md
+  findings:
+  - statement: &#39;Evaluating Kaposi Sarcoma in Kidney Transplant Patients: A Systematic Review and Meta-Analysis&#39;
+    supporting_text: &#39;Evaluating Kaposi Sarcoma in Kidney Transplant Patients: A Systematic Review and Meta-Analysis&#39;
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
+        
+        <div class="card reference-card" id="references-deep-research">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+            
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">11</span>
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1080/14787210.2023.2247161" target="_blank">DOI:10.1080/14787210.2023.2247161</a>
+                            </div>
+                            
+                            <div class="reference-title">Clinical management of Kaposi sarcoma herpesvirus-associated diseases: an update on disease manifestations and treatment strategies</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Clinical management of Kaposi sarcoma herpesvirus-associated diseases: an update on disease manifestations and treatment strategies</div>
+            
+            
+            <div class="reference-finding-supporting">"Clinical management of Kaposi sarcoma herpesvirus-associated diseases: an update on disease manifestations and treatment strategies"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1101/2024.09.27.615429" target="_blank">DOI:10.1101/2024.09.27.615429</a>
+                            </div>
+                            
+                            <div class="reference-title">Mapping herpesvirus-driven impacts on the cellular milieu and transcriptional profile of Kaposi sarcoma in patient-derived mouse models</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Kaposi sarcoma (KS) is defined by aberrant angiogenesis driven by Kaposi sarcoma herpesvirus (KSHV)-infected spindle cells with endothelial characteristics.</div>
+            
+            
+            <div class="reference-finding-supporting">"Kaposi sarcoma (KS) is defined by aberrant angiogenesis driven by Kaposi sarcoma herpesvirus (KSHV)-infected spindle cells with endothelial characteristics."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1101/2024.09.27.615429" target="_blank">DOI:10.1101/2024.09.27.615429</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Kaposi sarcoma (KS) is defined by aberrant angiogenesis driven by Kaposi sarcoma herpesvirus (KSHV)-infected spindle cells with endothelial characteristics."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Kaposi Sarcoma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1158/2767-9764.crc-24-0102" target="_blank">DOI:10.1158/2767-9764.crc-24-0102</a>
+                            </div>
+                            
+                            <div class="reference-title">Clinical Efficacy of the HIV Protease Inhibitor Indinavir in Combination with Chemotherapy for Advanced Classic Kaposi Sarcoma Treatment: A Single-Arm, Phase II Trial in the Elderly</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Kaposi sarcoma is a rare angioproliferative disease associated with human herpes virus-8 (HHV-8) infection.</div>
+            
+            
+            <div class="reference-finding-supporting">"Kaposi sarcoma is a rare angioproliferative disease associated with human herpes virus-8 (HHV-8) infection."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1158/2767-9764.crc-24-0102" target="_blank">DOI:10.1158/2767-9764.crc-24-0102</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Kaposi sarcoma is a rare angioproliferative disease associated with human herpes virus-8 (HHV-8) infection."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Kaposi Sarcoma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1186/s12885-023-11402-3" target="_blank">DOI:10.1186/s12885-023-11402-3</a>
+                            </div>
+                            
+                            <div class="reference-title">Incident Kaposi sarcoma during the expansion of antiretroviral therapy eligibility in Nigeria: a retrospective cohort study</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The expansion of antiretroviral therapy (ART) eligibility could lead to earlier initiation of Human Immunodeficiency Virus (HIV) treatment and consequently reduce the risk of HIV-associated Kaposi Sarcoma (KS).</div>
+            
+            
+            <div class="reference-finding-supporting">"The expansion of antiretroviral therapy (ART) eligibility could lead to earlier initiation of Human Immunodeficiency Virus (HIV) treatment and consequently reduce the risk of HIV-associated Kaposi Sarcoma (KS)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s12885-023-11402-3" target="_blank">DOI:10.1186/s12885-023-11402-3</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The expansion of antiretroviral therapy (ART) eligibility could lead to earlier initiation of Human Immunodeficiency Virus (HIV) treatment and consequently reduce the risk of HIV-associated Kaposi Sarcoma (KS)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Kaposi Sarcoma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1186/s13027-025-00710-x" target="_blank">DOI:10.1186/s13027-025-00710-x</a>
+                            </div>
+                            
+                            <div class="reference-title">Kaposi sarcoma incidence and mortality trends and disparities in the United States</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Kaposi sarcoma (KS) is an angioproliferative tumor caused by human herpesvirus 8 and is an AIDS-defining illness.</div>
+            
+            
+            <div class="reference-finding-supporting">"Kaposi sarcoma (KS) is an angioproliferative tumor caused by human herpesvirus 8 and is an AIDS-defining illness."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s13027-025-00710-x" target="_blank">DOI:10.1186/s13027-025-00710-x</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Kaposi sarcoma (KS) is an angioproliferative tumor caused by human herpesvirus 8 and is an AIDS-defining illness."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Kaposi Sarcoma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1371/journal.pone.0280209" target="_blank">DOI:10.1371/journal.pone.0280209</a>
+                            </div>
+                            
+                            <div class="reference-title">Impact of valganciclovir therapy on severe IRIS-Kaposi Sarcoma mortality: An open-label, parallel, randomized controlled trial</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Impact of valganciclovir therapy on severe IRIS-Kaposi Sarcoma mortality: An open-label, parallel, randomized controlled trial</div>
+            
+            
+            <div class="reference-finding-supporting">"High HHV-8 viral load (VL) in Kaposi Sarcoma (KS) has been associated with Severe Immune Reconstitution Inflammatory Syndrome (Severe-IRIS-KS), which can occur after initiating cART, and leads to high mortality, particularly in patients with pulmonary involvement."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pone.0280209" target="_blank">DOI:10.1371/journal.pone.0280209</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"High HHV-8 viral load (VL) in Kaposi Sarcoma (KS) has been associated with Severe Immune Reconstitution Inflammatory Syndrome (Severe-IRIS-KS), which can occur after initiating cART, and leads to high mortality, particularly in patients with pulmonary involvement."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Kaposi Sarcoma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.2147/ott.s468787" target="_blank">DOI:10.2147/ott.s468787</a>
+                            </div>
+                            
+                            <div class="reference-title">Management and Future Therapeutic Perspectives of Classic Kaposi’s Sarcoma: An Evidence-Based Review</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Management and Future Therapeutic Perspectives of Classic Kaposi’s Sarcoma: An Evidence-Based Review</div>
+            
+            
+            <div class="reference-finding-supporting">"Management and Future Therapeutic Perspectives of Classic Kaposi’s Sarcoma: An Evidence-Based Review"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/cancers16040691" target="_blank">DOI:10.3390/cancers16040691</a>
+                            </div>
+                            
+                            <div class="reference-title">Kaposi’s Sarcoma: Evaluation of Clinical Features, Treatment Outcomes, and Prognosis in a Single-Center Retrospective Case Series</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Kaposi’s sarcoma (KS) is a rare angioproliferative tumor classified in four different clinical–epidemiological forms.</div>
+            
+            
+            <div class="reference-finding-supporting">"Kaposi’s sarcoma (KS) is a rare angioproliferative tumor classified in four different clinical–epidemiological forms."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers16040691" target="_blank">DOI:10.3390/cancers16040691</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Kaposi’s sarcoma (KS) is a rare angioproliferative tumor classified in four different clinical–epidemiological forms."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Kaposi Sarcoma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/cancers18061008" target="_blank">DOI:10.3390/cancers18061008</a>
+                            </div>
+                            
+                            <div class="reference-title">Classic Kaposi Sarcoma: Current Treatment Strategies and Emerging Therapeutic Approaches</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Classic Kaposi sarcoma (CKS) is a rare vascular neoplasm driven by infection with Kaposi sarcoma-associated herpesvirus (KSHV) and characterized by a heterogeneous geographic distribution.</div>
+            
+            
+            <div class="reference-finding-supporting">"Classic Kaposi sarcoma (CKS) is a rare vascular neoplasm driven by infection with Kaposi sarcoma-associated herpesvirus (KSHV) and characterized by a heterogeneous geographic distribution."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers18061008" target="_blank">DOI:10.3390/cancers18061008</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Classic Kaposi sarcoma (CKS) is a rare vascular neoplasm driven by infection with Kaposi sarcoma-associated herpesvirus (KSHV) and characterized by a heterogeneous geographic distribution."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Kaposi Sarcoma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/ijms262010058" target="_blank">DOI:10.3390/ijms262010058</a>
+                            </div>
+                            
+                            <div class="reference-title">Recent Advances in the Histopathology, Molecular Biology, and Treatment of Kaposi Sarcoma: A Contemporary Review</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Kaposi sarcoma (KS) is an intermediate-grade vascular tumour that has undergone major treatment and diagnostic breakthroughs following the discovery of Human herpesvirus 8 (HHV8).</div>
+            
+            
+            <div class="reference-finding-supporting">"Kaposi sarcoma (KS) is an intermediate-grade vascular tumour that has undergone major treatment and diagnostic breakthroughs following the discovery of Human herpesvirus 8 (HHV8)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/ijms262010058" target="_blank">DOI:10.3390/ijms262010058</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Kaposi sarcoma (KS) is an intermediate-grade vascular tumour that has undergone major treatment and diagnostic breakthroughs following the discovery of Human herpesvirus 8 (HHV8)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Kaposi Sarcoma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.7759/cureus.52527" target="_blank">DOI:10.7759/cureus.52527</a>
+                            </div>
+                            
+                            <div class="reference-title">Evaluating Kaposi Sarcoma in Kidney Transplant Patients: A Systematic Review and Meta-Analysis</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Evaluating Kaposi Sarcoma in Kidney Transplant Patients: A Systematic Review and Meta-Analysis</div>
+            
+            
+            <div class="reference-finding-supporting">"Evaluating Kaposi Sarcoma in Kidney Transplant Patients: A Systematic Review and Meta-Analysis"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">Kaposi Sarcoma (KS): Disease Characteristics Research Report</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">25 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-09T09:50:32.891969</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <h1>Kaposi Sarcoma (KS): Disease Characteristics Research Report</h1>
+<h2>Target Disease</h2>
+<ul>
+<li><strong>Disease name:</strong> Kaposi sarcoma (KS)</li>
+<li><strong>Category:</strong> Vascular (angioproliferative) tumor/neoplasm of endothelial lineage, strongly associated with an oncogenic herpesvirus (KSHV/HHV-8), typically requiring immune dysfunction/immunosuppression as a cofactor (russo2024kaposi’ssarcomaevaluation pages 1-2, denaro2024managementandfuture pages 1-2).</li>
+<li><strong>Key identifiers (available in retrieved sources):</strong></li>
+<li><strong>ICD-10:</strong> <strong>C46</strong> (Kaposi sarcoma) and <strong>B21.0</strong> (HIV disease resulting in Kaposi’s sarcoma) are used for surveillance in CDC WONDER analyses (raja2025kaposisarcomaincidence pages 1-2).</li>
+<li><strong>Open Targets / EFO:</strong> <strong>EFO_0000558</strong> (Kaposi’s sarcoma) and <strong>EFO_0002613</strong> (iatrogenic Kaposi’s sarcoma) appear in Open Targets disease entities (OpenTargets Search: Kaposi sarcoma).</li>
+<li><strong>MONDO (available from Open Targets as susceptibility entity):</strong> <strong>MONDO_0007845</strong> (“Kaposi sarcoma, susceptibility to”) (OpenTargets Search: Kaposi sarcoma).</li>
+<li><strong>Note on missing IDs:</strong> This tool run did not retrieve a MONDO identifier explicitly for KS itself (distinct from the “susceptibility to” concept), nor MeSH/Orphanet/OMIM IDs; these would normally be retrieved from ontology portals (e.g., MONDO, MeSH Browser, Orphanet) but were not available within the current evidence set.</li>
+</ul>
+<h3>Synonyms / alternative names</h3>
+<ul>
+<li>“Kaposi’s sarcoma” (with apostrophe), “KS” (russo2024kaposi’ssarcomaevaluation pages 1-2, patel2023clinicalmanagementof pages 2-4).</li>
+<li>Subtype descriptors commonly used: <strong>classic KS</strong>, <strong>endemic (African) KS</strong>, <strong>iatrogenic/post-transplant KS</strong>, <strong>epidemic/HIV-associated KS</strong>; some reviews describe a proposed <strong>HIV-negative MSM-associated subtype</strong> (denaro2024managementandfuture pages 1-2, patel2023clinicalmanagementof pages 2-4).</li>
+</ul>
+<h3>Evidence provenance</h3>
+<p>This report is derived from <strong>aggregated disease-level resources</strong> (peer-reviewed reviews and epidemiologic studies) plus <strong>cohort studies/trials</strong>, not from individual EHRs (russo2024kaposi’ssarcomaevaluation pages 1-2, patel2023clinicalmanagementof pages 2-4, raja2025kaposisarcomaincidence pages 1-2, volkow2023impactofvalganciclovir pages 1-2, akanbi2023incidentkaposisarcoma pages 2-4).</p>
+<hr />
+<h2>1. Disease Information (overview and current understanding)</h2>
+<p>Kaposi sarcoma is a vascular/angioproliferative tumor that most often presents with <strong>cutaneous lesions</strong> but may involve <strong>mucosal surfaces and visceral organs</strong>, particularly when host immune function is impaired (e.g., HIV infection or iatrogenic immunosuppression) (russo2024kaposi’ssarcomaevaluation pages 1-2, patel2023clinicalmanagementof pages 2-4). Multiple sources emphasize that <strong>HHV-8/KSHV infection is the necessary etiologic agent</strong>, with immune dysfunction acting as a key enabling factor for tumorigenesis (denaro2024managementandfuture pages 2-5, denaro2024managementandfuture pages 1-2).</p>
+<p><strong>Current clinical-epidemiologic classification</strong>: four major subtypes (classic, endemic, iatrogenic, epidemic/HIV-associated) are widely accepted, with a proposed fifth subtype in HIV-negative MSM described in recent reviews (denaro2024managementandfuture pages 1-2, patel2023clinicalmanagementof pages 2-4).</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>2.1 Primary causal factor (infectious)</h3>
+<ul>
+<li><strong>Kaposi sarcoma herpesvirus (KSHV) / human herpesvirus-8 (HHV-8)</strong> is the etiologic agent of KS (denaro2024managementandfuture pages 2-5, denaro2024managementandfuture pages 1-2).</li>
+<li>In a clinical management review, KSHV is described as a <strong>lifelong persistent herpesvirus</strong> with two infection programs: <strong>latency (default)</strong> and <strong>lytic replication</strong>, infecting multiple cell types (including B cells and endothelial-lineage cells), and with disease manifestations varying by latent vs lytic phenotype (patel2023clinicalmanagementof pages 2-4).</li>
+</ul>
+<p><strong>Direct abstract quotes (supporting etiology/definition):</strong>
+- “Kaposi sarcoma (KS) is an intermediate-grade vascular tumour that has undergone major treatment and diagnostic breakthroughs following the discovery of Human herpesvirus 8 (HHV8).” (Bagratee et al., 2025) (bagratee2025recentadvancesin pages 4-6)
+- “Kaposi’s sarcoma (KS) is a cutaneous neoplasm of endothelial origin. The causative agent is the human herpes virus-8 (HHV-8) which, combined with an immune system impairment, causes cell proliferation.” (Denaro et al., 2024) (denaro2024managementandfuture pages 1-2)</p>
+<h3>2.2 Risk factors</h3>
+<p><strong>Immunodeficiency / immune dysregulation</strong>
+- HIV infection and advanced immunosuppression are strongly linked to epidemic KS and to more frequent visceral/mucosal involvement (denaro2024managementandfuture pages 2-5, patel2023clinicalmanagementof pages 2-4).
+- <strong>Iatrogenic immunosuppression</strong> (e.g., after solid organ transplantation) is a major risk context; classic KS tends to be more indolent, while iatrogenic KS may improve when immunosuppression is reduced (denaro2024managementandfuture pages 2-5, saowapa2024evaluatingkaposisarcoma pages 1-2).</p>
+<p><strong>Transplant / immunosuppression-related risk (quantitative):</strong>
+- One evidence-based review states that transplant recipients have a roughly <strong>60-fold increased risk</strong> of iatrogenic KS (denaro2024managementandfuture pages 2-5).
+- A kidney-transplant meta-analysis estimated KS prevalence <strong>1.5%</strong> overall, with higher prevalence in African and Middle Eastern recipients (<strong>1.7%</strong> each) vs Western recipients (<strong>0.07%</strong>) and increased odds in males (<strong>OR 2.36</strong>) (Saowapa et al., 2024; published Jan 2024) (saowapa2024evaluatingkaposisarcoma pages 1-2).</p>
+<p><strong>Demographic/geographic risk patterns</strong>
+- Classic KS is described as more frequent in older men and in Mediterranean/Eastern European/Middle Eastern ancestry groups (denaro2024managementandfuture pages 2-5, denaro2024managementandfuture pages 1-2).</p>
+<h3>2.3 Protective factors</h3>
+<ul>
+<li><strong>Antiretroviral therapy (ART)</strong> for HIV is consistently associated with <strong>reduced KS incidence</strong> and improved outcomes, interpreted as immune reconstitution and improved HIV control (raja2025kaposisarcomaincidence pages 1-2, akanbi2023incidentkaposisarcoma pages 2-4).</li>
+</ul>
+<h3>2.4 Gene–environment / host–virus interactions</h3>
+<ul>
+<li>Mechanistically, KSHV’s latent and lytic programs, host immune impairment, and inflammatory/angiogenic cytokine environments (e.g., IL-6, VEGF) interact to drive angioproliferation and lesion evolution (denaro2024managementandfuture pages 2-5, patel2023clinicalmanagementof pages 2-4).</li>
+</ul>
+<hr />
+<h2>3. Phenotypes (clinical manifestations)</h2>
+<h3>3.1 Core phenotypes and HPO suggestions</h3>
+<p>KS lesions are classically described as violaceous/purple macules, papules, plaques, and nodules; transplant-associated and HIV-associated disease may be disseminated and involve mucosal and visceral sites (patel2023clinicalmanagementof pages 2-4, saowapa2024evaluatingkaposisarcoma pages 1-2).</p>
+<p><strong>Cutaneous lesions (symptom/sign)</strong>
+- <strong>Description:</strong> Cutaneous lesions are common and often lower-extremity predominant (russo2024kaposi’ssarcomaevaluation pages 1-2, patel2023clinicalmanagementof pages 2-4).
+- <strong>HPO suggestions:</strong> <em>Cutaneous hemangioma/vascular lesion</em>, <em>Skin nodule</em>, <em>Purpura</em>, <em>Hyperpigmented skin lesion</em> (proposed mappings).</p>
+<p><strong>Mucosal/oral involvement (clinical sign)</strong>
+- <strong>Description:</strong> Oral/oropharyngeal disease is recognized in KS, especially in epidemic KS (patel2023clinicalmanagementof pages 2-4).
+- <strong>HPO suggestions:</strong> <em>Oral mucosal lesion</em>, <em>Gingival lesion</em>, <em>Palatal lesion</em> (proposed mappings).</p>
+<p><strong>Visceral involvement (clinical sign/complication)</strong>
+- <strong>GI involvement:</strong> KS may involve GI tract; endoscopic biopsy is recommended for suspicious lesions (patel2023clinicalmanagementof pages 2-4).
+- <strong>Pulmonary involvement:</strong> Pulmonary/airway KS can occur; bronchoscopy is important but biopsy is often avoided due to bleeding risk (patel2023clinicalmanagementof pages 2-4).
+- <strong>HPO suggestions:</strong> <em>Gastrointestinal hemorrhage</em>, <em>Abdominal pain</em>, <em>Dyspnea</em>, <em>Hemoptysis</em> (proposed mappings).</p>
+<p><strong>Lymphatic involvement and edema</strong>
+- Lymphedema is noted as part of disseminated disease definitions in trials and is a recognized complication (volkow2023impactofvalganciclovir pages 1-2).
+- <strong>HPO suggestion:</strong> <em>Lymphedema</em>.</p>
+<h3>3.2 Frequency, onset, and progression (with quantitative examples)</h3>
+<ul>
+<li>In a mixed-subtype retrospective cohort (Padua, Italy; 1993–2022; <strong>n=86</strong>), <strong>cutaneous involvement</strong> occurred in <strong>77.9%</strong>, and <strong>lower-limb involvement</strong> in <strong>51.16%</strong>; <strong>61.63%</strong> had single-site disease (Russo et al., published Feb 2024) (russo2024kaposi’ssarcomaevaluation pages 1-2, russo2024kaposi’ssarcomaevaluation pages 2-4).</li>
+<li>Classic KS is described as typically <strong>slow-growing</strong> with visceral involvement in <strong>&lt;10%</strong> (denaro2024managementandfuture pages 2-5).</li>
+</ul>
+<h3>3.3 Quality-of-life impact</h3>
+<p>Direct QoL instrument results (e.g., EQ-5D/SF-36) were not available in the retrieved evidence set; however, reviews emphasize symptom palliation, edema reduction, and psychological support as important treatment goals (denaro2024managementandfuture pages 1-2).</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<h3>4.1 Causal genes</h3>
+<ul>
+<li><strong>No germline causal gene</strong> was established in the retrieved evidence as determinative for KS; KS is primarily an <strong>infection-associated malignancy</strong>. Some reviews discuss host genetic associations (e.g., cytokine pathways) but without a definitive single-gene Mendelian etiology in this evidence set (revenko2026classickaposisarcoma pages 1-2).</li>
+</ul>
+<h3>4.2 Molecular/target annotations (host)</h3>
+<p>Open Targets highlights disease–target associations including <strong>IL6</strong> and <strong>TOP2A</strong> (the latter consistent with cytotoxic chemotherapy targets), and retinoid receptor family members (RARA/RARB/RARG/RXR<em>) (OpenTargets Search: Kaposi sarcoma). This is </em>association evidence* and should not be interpreted as causal.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<h3>5.1 Infectious agent</h3>
+<ul>
+<li>KSHV/HHV-8 is the relevant infectious agent (denaro2024managementandfuture pages 1-2, patel2023clinicalmanagementof pages 2-4).</li>
+</ul>
+<h3>5.2 Immunosuppressive exposures</h3>
+<ul>
+<li>Post-transplant immunosuppression is strongly associated with iatrogenic KS; reduction/withdrawal of immunosuppression is a key management lever and can lead to remissions (saowapa2024evaluatingkaposisarcoma pages 1-2).</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>6.1 Causal chain (current model)</h3>
+<ol>
+<li><strong>KSHV acquisition and persistence</strong>: KSHV establishes lifelong infection with a default latent program; virus can enter multiple cell types and persist in latently infected cells (patel2023clinicalmanagementof pages 2-4).</li>
+<li><strong>Immune impairment enables tumorigenesis</strong>: HIV infection or iatrogenic immunosuppression reduces immune surveillance, enabling expansion of infected cells and pro-angiogenic inflammation (denaro2024managementandfuture pages 2-5, patel2023clinicalmanagementof pages 2-4).</li>
+<li><strong>Latent and lytic gene expression promotes angiogenesis/inflammation</strong>: Reviews emphasize that both latent and lytic phases contribute to pathogenesis, including cytokine dysregulation and angiogenic signaling (denaro2024managementandfuture pages 2-5, patel2023clinicalmanagementof pages 2-4).</li>
+<li><strong>Lesion development with KSHV-infected spindle cells</strong>: KS lesions are characterized by spindle cells with endothelial characteristics and aberrant angiogenesis (li2024mappingherpesvirusdrivenimpacts pages 5-9, li2024mappingherpesvirusdrivenimpacts pages 1-5).</li>
+</ol>
+<h3>6.2 Cell types (CL suggestions)</h3>
+<ul>
+<li><strong>Endothelial cells</strong> (spindle cells with endothelial characteristics) are central (CL: <em>endothelial cell</em>; proposed) (li2024mappingherpesvirusdrivenimpacts pages 5-9, li2024mappingherpesvirusdrivenimpacts pages 1-5).</li>
+<li><strong>B cells</strong> are a KSHV-infected reservoir/cell type relevant across KSHV diseases (CL: <em>B cell</em>) (patel2023clinicalmanagementof pages 2-4).</li>
+<li><strong>Fibroblast-like stromal cells / tumor-associated fibroblast-like cells</strong> implicated in xenograft microenvironment and CXCL12 signaling (CL: <em>fibroblast</em>) (li2024mappingherpesvirusdrivenimpacts pages 5-9).</li>
+</ul>
+<h3>6.3 Pathway/process annotations (GO suggestions)</h3>
+<p>Evidence-supported processes to map include:
+- <strong>Angiogenesis / blood vessel morphogenesis</strong> (GO: <em>angiogenesis</em>, <em>blood vessel development</em>) (denaro2024managementandfuture pages 2-5, li2024mappingherpesvirusdrivenimpacts pages 5-9).
+- <strong>Inflammatory response / cytokine-mediated signaling</strong> (e.g., IL-6-related biology) (GO: <em>cytokine-mediated signaling pathway</em>) (denaro2024managementandfuture pages 2-5, patel2023clinicalmanagementof pages 2-4).
+- <strong>Immune evasion and immune system process</strong> (GO: <em>immune system process</em>) (patel2023clinicalmanagementof pages 2-4).</p>
+<h3>6.4 Recent developments (2023–2024 priority)</h3>
+<p><strong>Patient-derived xenograft (PDX) models and spatial transcriptomics (2024)</strong>
+- A 2024 bioRxiv preprint established orthotopic KS PDX models with high engraftment and demonstrated expansion of LANA+ KSHV-infected endothelial regions and increased viral transcripts by spatial transcriptomics (Li et al., posted Sep 2024) (li2024mappingherpesvirusdrivenimpacts pages 5-9, li2024mappingherpesvirusdrivenimpacts pages 1-5).
+- Quantitative highlights: KS tumors maintained in <strong>27/28</strong> PDXs up to <strong>272 days</strong>; LANA+ cell density increased mean <strong>4.3-fold</strong>; LANA+ fraction <strong>15%→62%</strong>; dual LANA+/Ki-67+ cells <strong>1%→5.6%</strong> (li2024mappingherpesvirusdrivenimpacts pages 5-9).</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<h3>7.1 Organ/tissue involvement (UBERON suggestions)</h3>
+<ul>
+<li><strong>Skin</strong> (UBERON: <em>skin</em>)—primary site in many cases (russo2024kaposi’ssarcomaevaluation pages 1-2).</li>
+<li><strong>Lymph node</strong> (UBERON: <em>lymph node</em>)—may be involved, including without skin lesions in some contexts (patel2023clinicalmanagementof pages 2-4).</li>
+<li><strong>Gastrointestinal tract</strong> (UBERON: <em>gastrointestinal tract</em>) (patel2023clinicalmanagementof pages 2-4).</li>
+<li><strong>Respiratory system / lung / bronchus</strong> (UBERON: <em>lung</em>, <em>bronchus</em>) (patel2023clinicalmanagementof pages 2-4).</li>
+</ul>
+<h3>7.2 Subcellular and compartments</h3>
+<p>Not specifically addressed in the retrieved KS-focused evidence; KSHV latency as episomes and latent gene expression are described at a conceptual level (patel2023clinicalmanagementof pages 2-4).</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<h3>8.1 Onset patterns</h3>
+<ul>
+<li>Classic KS: typically older age at onset (median ~70 years reported) (denaro2024managementandfuture pages 2-5).</li>
+<li>Endemic KS: includes childhood forms (median age 4–9 years in one review summary) (denaro2024managementandfuture pages 2-5).</li>
+</ul>
+<h3>8.2 Progression and staging</h3>
+<ul>
+<li>KS can be indolent (classic) or aggressive with visceral and nodal disease (HIV-associated) (denaro2024managementandfuture pages 2-5).</li>
+<li>Detailed staging systems for classic KS were not extracted textually here, but the Denaro 2024 review includes staging tables and a systemic therapy management table (image evidence below) (denaro2024managementandfuture media 1e1c9584).</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>9.1 Epidemiology (recent statistics)</h3>
+<p><strong>United States (registry-based; 1999–2020)</strong>
+- “From 1999 to 2020, <strong>27,886 KS cases and 4,380 deaths occurred</strong>.” (Raja et al., published Nov 2025) (raja2025kaposisarcomaincidence pages 1-2).
+- Sex disparity: “Overall AAIR was <strong>0.99 in men versus 0.10 in women</strong>, and AAMR <strong>0.16 versus 0.01</strong>” per 100,000 (raja2025kaposisarcomaincidence pages 1-2).
+- Race disparity: “Black men experienced the highest AAIR (<strong>2.23</strong>) and AAMR (<strong>0.40</strong>)… exceeding White men (<strong>0.79</strong> and <strong>0.13</strong>)” (raja2025kaposisarcomaincidence pages 1-2).</p>
+<p><strong>Nigeria (HIV clinic cohort; 2006–2016; ART eligibility expansion)</strong>
+- Overall incident KS: <strong>2.35 per 1,000 person-years</strong> (95% CI 2.01–2.74) (Akanbi et al., published Sep 2023) (akanbi2023incidentkaposisarcoma pages 2-4).
+- Incidence declined from <strong>2.53</strong> to <strong>1.58</strong> per 1,000 PY comparing 2006–2009 vs 2010–2016 (akanbi2023incidentkaposisarcoma pages 2-4).
+- ART use strongly reduced risk (<strong>adjusted HR ~0.17</strong>) and male sex increased risk (<strong>HR ~1.64</strong>) (akanbi2023incidentkaposisarcoma pages 6-7).</p>
+<h3>9.2 Population demographics</h3>
+<ul>
+<li>Mixed-subtype cohort (Italy): strong male predominance (<strong>89.53%</strong>) (russo2024kaposi’ssarcomaevaluation pages 1-2).</li>
+<li>Kidney transplant meta-analysis: male predominance (<strong>OR 2.36</strong>) (saowapa2024evaluatingkaposisarcoma pages 1-2).</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>10.1 Clinical and pathology diagnosis (gold standards)</h3>
+<ul>
+<li>Diagnosis relies on <strong>biopsy</strong> with histopathology and immunohistochemistry (russo2024kaposi’ssarcomaevaluation pages 1-2).</li>
+<li>A 2023 clinical management review emphasizes <strong>skin biopsy</strong> showing spindle cells and <strong>KSHV LANA immunohistochemistry</strong> positivity as a diagnostic standard; GI lesions should be biopsied during endoscopy, and bronchoscopy is used to evaluate suspected pulmonary KS (biopsy often avoided due to bleeding risk) (patel2023clinicalmanagementof pages 2-4).</li>
+</ul>
+<h3>10.2 Virologic testing</h3>
+<ul>
+<li>A contemporary review reports strong performance of LANA IHC and highlights PCR-based detection; it reports that LANA-1 positivity was “<strong>100% (50/50)</strong> of KS cases being positive and all other non-KS lesions being negative” in one cited series (Bagratee et al., 2025) (bagratee2025recentadvancesin pages 4-6).</li>
+</ul>
+<h3>10.3 Imaging</h3>
+<ul>
+<li>FDG-PET/CT can help define extent of disease in some contexts (patel2023clinicalmanagementof pages 2-4).</li>
+</ul>
+<h3>10.4 Differential diagnosis</h3>
+<ul>
+<li>KS has histopathologic mimics (e.g., angiosarcoma, hemangioma/vascular lesions, pyogenic granuloma) emphasized in the contemporary diagnostic review (bagratee2025recentadvancesin pages 4-6).</li>
+</ul>
+<hr />
+<h2>11. Outcomes / Prognosis</h2>
+<h3>11.1 Real-world outcomes (retrospective cohort; 1993–2022)</h3>
+<ul>
+<li>In the 86-patient cohort, “A persistent response was observed in approximately <strong>65%</strong> of patients, with a <strong>22% relapse rate</strong> (at least 2 years). The overall survival ranges from <strong>90 to 70%</strong> at 2 to 10 years after the diagnosis. Iatrogenic KS demonstrated a higher mortality (<strong>52.9%</strong>).” (Russo et al., 2024 abstract) (russo2024kaposi’ssarcomaevaluation pages 1-2).</li>
+</ul>
+<h3>11.2 Early mortality in disseminated HIV-KS with IRIS risk</h3>
+<ul>
+<li>Severe IRIS-KS is described as high mortality (reported 25–40% in background) and pulmonary involvement is particularly high-risk (volkow2023impactofvalganciclovir pages 1-2).</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<h3>12.1 Treatment principles by subtype (current practice)</h3>
+<ul>
+<li><strong>Epidemic/HIV-associated KS</strong>: ART is foundational; systemic therapy and local therapy used per extent, with careful evaluation of visceral disease (patel2023clinicalmanagementof pages 2-4, akanbi2023incidentkaposisarcoma pages 2-4).</li>
+<li><strong>Iatrogenic/post-transplant KS</strong>: reduction/withdrawal of immunosuppression and regimen modification (e.g., mTOR inhibitor conversion is discussed in transplant-focused literature; within retrieved evidence, immunosuppression reduction is the key described strategy) (saowapa2024evaluatingkaposisarcoma pages 1-2).</li>
+<li><strong>Classic KS</strong>: local therapy for limited disease; systemic chemotherapy and emerging immunotherapies/targeted strategies for advanced disease; evidence base is more limited than in HIV-KS (denaro2024managementandfuture pages 1-2).</li>
+</ul>
+<h3>12.2 Systemic chemotherapy</h3>
+<ul>
+<li>Reviews summarize cytotoxic regimens (anthracyclines, vinca alkaloids, paclitaxel), with reported response rates often in the <strong>70–90%</strong> range but frequently transient in classic KS (denaro2024managementandfuture pages 2-5).</li>
+</ul>
+<h3>12.3 Antiviral/virus-targeted strategies (recent clinical trial evidence)</h3>
+<p><strong>Valganciclovir in disseminated KS to mitigate severe IRIS-KS (PLOS ONE, May 2023)</strong>
+- Trial design: valganciclovir <strong>900 mg BID</strong> for four weeks before cART and continued to week 48 vs cART initiation alone (volkow2023impactofvalganciclovir pages 1-2).
+- Key outcomes (direct abstract numbers): severe-IRIS-KS attributable mortality <strong>0/20</strong> vs <strong>3/20</strong> (p=0.09); pulmonary KS mortality <strong>0/5</strong> vs <strong>3/4</strong> (P=0.048); among survivors at week 48, <strong>82%</strong> achieved <strong>&gt;80% remission</strong> (volkow2023impactofvalganciclovir pages 1-2).</p>
+<h3>12.4 Repurposed/adjunct antiretroviral class drugs in classic KS (phase II, 2024)</h3>
+<ul>
+<li>Indinavir + chemotherapy strategy in advanced classic KS (Cancer Research Communications; Aug 2024): <strong>22/22</strong> evaluable patients responded to debulking chemotherapy; <strong>16</strong> entered indinavir maintenance; overall response rate <strong>75%</strong> with estimated median response duration <strong>43 months</strong> (sgadari2024clinicalefficacyof pages 1-2).</li>
+</ul>
+<h3>12.5 Post-transplant KS management outcomes (meta-analysis)</h3>
+<ul>
+<li>In kidney transplant recipients, reduction/withdrawal of immunosuppression alone resulted in <strong>47.8% complete remissions</strong> across included studies (Saowapa et al., Jan 2024) (saowapa2024evaluatingkaposisarcoma pages 1-2).</li>
+</ul>
+<h3>12.6 Immunotherapy and emerging strategies</h3>
+<ul>
+<li>Contemporary expert review notes “new therapies… focus on chemotherapy-sparing options that seek to target the underlying viral pathogenesis or immunotherapy strategies” (Patel et al., 2023) (patel2023clinicalmanagementof pages 2-4).</li>
+<li>Clinical trials registered on ClinicalTrials.gov in the current tool state include checkpoint inhibitor strategies (e.g., intralesional nivolumab NCT03316274; pembrolizumab phase II in classic/endemic KS NCT03469804; etc.), but trial outcomes were not retrieved here because only trial registry metadata (not results) were available.</li>
+</ul>
+<h3>12.7 Treatment ontology (MAXO suggestions)</h3>
+<ul>
+<li><strong>Antiretroviral therapy</strong> (MAXO: <em>antiretroviral therapy</em>; proposed) (akanbi2023incidentkaposisarcoma pages 2-4).</li>
+<li><strong>Reduction/withdrawal of immunosuppression</strong> (MAXO: <em>immunosuppressive therapy adjustment</em>) (saowapa2024evaluatingkaposisarcoma pages 1-2).</li>
+<li><strong>Systemic chemotherapy</strong> (MAXO: <em>chemotherapy</em>) (denaro2024managementandfuture pages 2-5).</li>
+<li><strong>Antiviral therapy (valganciclovir)</strong> (MAXO: <em>antiviral therapy</em>) (volkow2023impactofvalganciclovir pages 1-2).</li>
+</ul>
+<h3>12.8 Treatment algorithm (visual evidence)</h3>
+<p>The Denaro 2024 evidence-based review includes a systemic therapy management table (Table 6), serving as a practical algorithm for systemic treatment lines/dosing in classic KS.</p>
+<p>(denaro2024managementandfuture media 1e1c9584)</p>
+<hr />
+<h2>13. Prevention</h2>
+<h3>13.1 Primary prevention</h3>
+<ul>
+<li>No licensed KSHV vaccine is referenced in the retrieved evidence.</li>
+</ul>
+<h3>13.2 Secondary prevention (early HIV diagnosis and ART initiation)</h3>
+<ul>
+<li>In Nigeria, ART eligibility expansion was associated with reduced incident KS, likely through earlier care/ART initiation (akanbi2023incidentkaposisarcoma pages 1-2, akanbi2023incidentkaposisarcoma pages 2-4).</li>
+<li>A US registry analysis contextualizes ART introduction (1996) with subsequent declines in KS incidence and improved survival, while noting persistent disparities (raja2025kaposisarcomaincidence pages 1-2).</li>
+</ul>
+<h3>13.3 Tertiary prevention (preventing complications/relapse)</h3>
+<ul>
+<li>In transplant-associated KS, balancing immunosuppression reduction with graft function is emphasized, with immunosuppression reduction producing remissions in many cases (saowapa2024evaluatingkaposisarcoma pages 1-2).</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p>No veterinary/natural disease evidence was retrieved in the current tool context; this section is therefore <strong>not populated</strong> from evidence and should be revisited with targeted veterinary literature searches.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<h3>15.1 Patient-derived xenografts (2024)</h3>
+<ul>
+<li>A 2024 KS PDX platform supports mechanistic and therapeutic investigations, including spatial transcriptomics readouts and tumor microenvironment signaling (e.g., CXCL12→CXCR4) (li2024mappingherpesvirusdrivenimpacts pages 5-9, li2024mappingherpesvirusdrivenimpacts pages 1-5).</li>
+<li>This addresses a known limitation: rapid loss of KSHV infection when KS tumor cells are explanted into culture (li2024mappingherpesvirusdrivenimpacts pages 1-5).</li>
+</ul>
+<hr />
+<h2>Consolidated subtype and statistics summary</h2>
+<table>
+<thead>
+<tr>
+<th>Subtype</th>
+<th>Etiology/context</th>
+<th>Common sites</th>
+<th>Key quantitative notes</th>
+<th>Key citations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Classic KS</td>
+<td>HHV-8/KSHV-associated; typically older men of Mediterranean/Jewish origin; generally indolent</td>
+<td>Predominantly lower extremity skin; GI tract and lung are the most common metastatic/visceral sites when present</td>
+<td>Median age ~70 years; visceral involvement reported in <strong>&lt;10%</strong>; systemic chemotherapy responses often <strong>70–90%</strong> but usually transient (denaro2024managementandfuture pages 2-5, denaro2024managementandfuture pages 1-2)</td>
+<td>(denaro2024managementandfuture pages 2-5, denaro2024managementandfuture pages 1-2)</td>
+</tr>
+<tr>
+<td>Epidemic/HIV-associated KS</td>
+<td>HHV-8/KSHV plus HIV-related immunosuppression; more aggressive than classic KS</td>
+<td>Skin, mucosa, lymph nodes, GI tract, respiratory tract</td>
+<td>Historical 5-year OS about <strong>12%</strong> pre-ART; with effective ART, survival improved to <strong>68–95%</strong> (denaro2024managementandfuture pages 2-5). In a Nigerian HIV cohort, incidence declined from <strong>2.53 to 1.58 per 1,000 person-years</strong> after ART eligibility expansion; ART use associated with markedly lower KS risk (<strong>adjusted HR ~0.17</strong>), while male sex increased risk (<strong>HR ~1.64</strong>) (akanbi2023incidentkaposisarcoma pages 6-7, akanbi2023incidentkaposisarcoma pages 2-4)</td>
+<td>(denaro2024managementandfuture pages 2-5, akanbi2023incidentkaposisarcoma pages 6-7, akanbi2023incidentkaposisarcoma pages 2-4)</td>
+</tr>
+<tr>
+<td>Endemic/African KS</td>
+<td>HHV-8/KSHV in sub-Saharan Africa; affects adults and children; pediatric disease can be aggressive/lymphadenopathic</td>
+<td>Skin, lymph nodes; may have visceral disease; pediatric nodal disease notable</td>
+<td>Childhood median age reported <strong>4–9 years</strong>; some series/reviews report aggressive exophytic disease with <strong>bony invasion 31%</strong> and <strong>lymphedema 17%</strong> (denaro2024managementandfuture pages 2-5, bagratee2025recentadvancesin pages 4-6)</td>
+<td>(denaro2024managementandfuture pages 2-5, bagratee2025recentadvancesin pages 4-6)</td>
+</tr>
+<tr>
+<td>Iatrogenic/transplant-associated KS</td>
+<td>HHV-8/KSHV with prolonged immunosuppression, especially after solid-organ transplantation or corticosteroid exposure</td>
+<td>Cutaneous lesions common; visceral and nodal involvement may occur, sometimes without skin lesions</td>
+<td>Transplant recipients have about <strong>60-fold increased risk</strong> of KS (denaro2024managementandfuture pages 2-5). Kidney transplant meta-analysis: pooled prevalence <strong>1.5%</strong> overall; <strong>1.7%</strong> in African and Middle Eastern recipients vs <strong>0.07%</strong> in Western recipients; male predominance <strong>OR 2.36</strong>; cyclosporine-based immunosuppression in <strong>79.6%</strong> of KS cases; reduction/withdrawal of immunosuppression alone achieved <strong>47.8% complete remissions</strong> (saowapa2024evaluatingkaposisarcoma pages 1-2). In a retrospective cohort, iatrogenic KS mortality reached <strong>52.9%</strong> (russo2024kaposi’ssarcomaevaluation pages 1-2)</td>
+<td>(denaro2024managementandfuture pages 2-5, russo2024kaposi’ssarcomaevaluation pages 1-2, saowapa2024evaluatingkaposisarcoma pages 1-2)</td>
+</tr>
+<tr>
+<td>HIV-negative MSM-associated KS</td>
+<td>Proposed fifth subtype; HHV-8/KSHV without HIV infection; usually milder than epidemic KS</td>
+<td>Often localized cutaneous and/or mucosal disease</td>
+<td>Recognized as a distinct but less well-characterized subtype in recent reviews; robust epidemiologic estimates remain limited (denaro2024managementandfuture pages 2-5, patel2023clinicalmanagementof pages 2-4)</td>
+<td>(denaro2024managementandfuture pages 2-5, patel2023clinicalmanagementof pages 2-4)</td>
+</tr>
+<tr>
+<td>KS overall clinical presentation</td>
+<td>Angioproliferative/vascular endothelial tumor driven by HHV-8/KSHV, often requiring immunosuppression or immune dysregulation as cofactor</td>
+<td>Skin most common; oral cavity/mucosa, lymph nodes, GI tract, lungs/airways also involved</td>
+<td>In a single-center cohort of <strong>86</strong> KS patients, <strong>89.53%</strong> were male, <strong>43.02%</strong> had classic KS, and <strong>77.9%</strong> had cutaneous involvement; <strong>61.63%</strong> had single-site disease and <strong>51.16%</strong> had lower-limb involvement (russo2024kaposi’ssarcomaevaluation pages 1-2, russo2024kaposi’ssarcomaevaluation pages 2-4)</td>
+<td>(russo2024kaposi’ssarcomaevaluation pages 1-2, russo2024kaposi’ssarcomaevaluation pages 2-4)</td>
+</tr>
+<tr>
+<td>Real-world outcomes across mixed KS cohort</td>
+<td>Multidisciplinary management using surgery, ART, chemotherapy, radiotherapy, or combinations</td>
+<td>Depends on subtype and extent; skin predominant overall</td>
+<td>In the 86-patient cohort, persistent response occurred in about <strong>65%</strong>, relapse in <strong>22%</strong> (≥2 years), and overall survival ranged from <strong>90% to 70%</strong> at <strong>2 to 10 years</strong> after diagnosis (russo2024kaposi’ssarcomaevaluation pages 1-2)</td>
+<td>(russo2024kaposi’ssarcomaevaluation pages 1-2)</td>
+</tr>
+<tr>
+<td>United States epidemiology (all KS)</td>
+<td>Population-level burden reflects ART-era declines but persistent disparities</td>
+<td>Not site-specific; registry analysis of all KS</td>
+<td>From <strong>1999–2020</strong>, there were <strong>27,886 KS cases</strong> and <strong>4,380 deaths</strong>. Overall AAIR: <strong>0.99</strong> in men vs <strong>0.10</strong> in women; AAMR: <strong>0.16</strong> vs <strong>0.01</strong>. Black men had the highest AAIR/AAMR (<strong>2.23/0.40</strong>) vs White men (<strong>0.79/0.13</strong>). Incidence declined <strong>46.7%</strong> in men and <strong>58.9%</strong> in women; male mortality declined <strong>66.4%</strong> (raja2025kaposisarcomaincidence pages 1-2)</td>
+<td>(raja2025kaposisarcomaincidence pages 1-2)</td>
+</tr>
+<tr>
+<td>Disseminated HIV-KS with IRIS risk</td>
+<td>Advanced HIV-associated KS starting cART; high HHV-8 viral load linked to severe IRIS-KS</td>
+<td>Disseminated disease defined by pulmonary, lymph-node, GI involvement, lymphedema, or ≥30 skin lesions</td>
+<td>In an RCT of valganciclovir before/with cART, severe-IRIS-KS attributable mortality was <strong>0/20</strong> vs <strong>3/20</strong> in controls; in pulmonary KS, mortality was <strong>0/5</strong> vs <strong>3/4</strong>; among survivors at week 48, <strong>82%</strong> achieved <strong>&gt;80% remission</strong> (volkow2023impactofvalganciclovir pages 1-2)</td>
+<td>(volkow2023impactofvalganciclovir pages 1-2)</td>
+</tr>
+<tr>
+<td>Advanced classic KS trial</td>
+<td>Elderly patients with progressive/advanced classic KS treated with debulking chemotherapy followed by indinavir maintenance</td>
+<td>Primarily cutaneous disease burden requiring systemic control</td>
+<td>In a phase II trial, <strong>22/22</strong> evaluable patients responded to debulking chemotherapy; <strong>16</strong> entered indinavir maintenance; overall response rate at end of maintenance was <strong>75%</strong> with estimated median response duration <strong>43 months</strong> (sgadari2024clinicalefficacyof pages 1-2)</td>
+<td>(sgadari2024clinicalefficacyof pages 1-2)</td>
+</tr>
+<tr>
+<td>Experimental model systems (KS PDX)</td>
+<td>Patient-derived xenografts from cutaneous KS biopsies in immunodeficient mice; useful for mechanistic and translational studies</td>
+<td>Orthotopic cutaneous KS xenografts retaining infected endothelial/spindle-cell populations</td>
+<td>Tumors were maintained in <strong>27/28</strong> PDXs (up to <strong>272 days</strong>); LANA+ endothelial cell density increased a mean <strong>4.3-fold</strong>; LANA+ cells increased from <strong>15% to 62%</strong>; dual LANA+/Ki-67+ cells increased from <strong>1% to 5.6%</strong> (li2024mappingherpesvirusdrivenimpacts pages 5-9, li2024mappingherpesvirusdrivenimpacts pages 1-5)</td>
+<td>(li2024mappingherpesvirusdrivenimpacts pages 5-9, li2024mappingherpesvirusdrivenimpacts pages 1-5)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes Kaposi sarcoma subtypes, risk contexts, anatomic patterns, and key quantitative epidemiology, treatment, and model-system findings extracted from the gathered evidence. It is useful as a compact evidence map for subtype-specific disease characterization and recent outcome statistics.</em></p>
+<hr />
+<h2>Key “expert opinion” perspectives (authoritative reviews)</h2>
+<ul>
+<li>KS and other KSHV-associated diseases are “often underdiagnosed… in the United States and worldwide,” and emerging therapies aim to target viral pathogenesis or employ immunotherapy approaches (Patel et al., 2023, Expert Review of Anti-infective Therapy) (patel2023clinicalmanagementof pages 2-4).</li>
+<li>For classic KS specifically, Denaro et al. (2024) emphasize limited high-quality evidence and the importance of multidisciplinary referral centers and clinical trial enrollment (denaro2024managementandfuture pages 1-2).</li>
+</ul>
+<hr />
+<h2>Evidence limitations and gaps (for knowledge base completion)</h2>
+<ul>
+<li>This tool run did not retrieve <strong>MeSH</strong>, <strong>Orphanet</strong>, <strong>OMIM</strong>, or a definitive <strong>MONDO ID for Kaposi sarcoma</strong> (as distinct from “susceptibility to”), nor did it retrieve a standardized list of HPO terms with validated frequencies.</li>
+<li>Checkpoint inhibitor efficacy in KS was not populated with outcome data here because results papers were not retrieved (only trial registry entries).</li>
+<li>Additional targeted searches (e.g., NCCN guideline text, WHO/ICD-11, MeSH Browser, MONDO release files, and key KS immunotherapy trial publications) would be needed for a fully populated ontology-first knowledge base entry.</li>
+</ul>
+<p>References</p>
+<ol>
+<li>
+<p>(russo2024kaposi’ssarcomaevaluation pages 1-2): Irene Russo, Dario Marino, Claudia Cozzolino, Paolo Del Fiore, Fitnete Nerjaku, Silvia Finotto, Annamaria Cattelan, Maria Luisa Calabrò, Anna Belloni Fortina, Francesco Russano, Marcodomenico Mazza, Sara Galuppo, Elisabetta Bezzon, Marta Sbaraglia, Marco Krengli, Antonella Brunello, Simone Mocellin, Stefano Piaserico, and Mauro Alaibac. Kaposi’s sarcoma: evaluation of clinical features, treatment outcomes, and prognosis in a single-center retrospective case series. Cancers, 16:691, Feb 2024. URL: https://doi.org/10.3390/cancers16040691, doi:10.3390/cancers16040691. This article has 19 citations.</p>
+</li>
+<li>
+<p>(denaro2024managementandfuture pages 1-2): Nerina Denaro, Alice Indini, Lucia Brambilla, Angelo Valerio Marzano, Ornella Garrone, and Athanasia Tourlaki. Management and future therapeutic perspectives of classic kaposi’s sarcoma: an evidence-based review. OncoTargets and Therapy, 17:961-976, Nov 2024. URL: https://doi.org/10.2147/ott.s468787, doi:10.2147/ott.s468787. This article has 8 citations.</p>
+</li>
+<li>
+<p>(raja2025kaposisarcomaincidence pages 1-2): Ahsan Raza Raja, Philippos Apolinario Costa, and Muhammad Hyder Junejo. Kaposi sarcoma incidence and mortality trends and disparities in the united states. Infectious Agents and Cancer, Nov 2025. URL: https://doi.org/10.1186/s13027-025-00710-x, doi:10.1186/s13027-025-00710-x. This article has 1 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(OpenTargets Search: Kaposi sarcoma): Open Targets Query (Kaposi sarcoma, 11 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.</p>
+</li>
+<li>
+<p>(patel2023clinicalmanagementof pages 2-4): Roshani Patel, Kathryn Lurain, Robert Yarchoan, and Ramya Ramaswami. Clinical management of kaposi sarcoma herpesvirus-associated diseases: an update on disease manifestations and treatment strategies. Expert Review of Anti-infective Therapy, 21:929-941, Aug 2023. URL: https://doi.org/10.1080/14787210.2023.2247161, doi:10.1080/14787210.2023.2247161. This article has 38 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(volkow2023impactofvalganciclovir pages 1-2): Patricia Volkow, Leslie Chavez Galan, Lucero Ramon-Luing, Judith Cruz-Velazquez, Patricia Cornejo-Juarez, Isabel Sada-Ovalle, Rogelio Perez-Padilla, and Beda Islas-Muñoz. Impact of valganciclovir therapy on severe iris-kaposi sarcoma mortality: an open-label, parallel, randomized controlled trial. PLOS ONE, 18:e0280209, May 2023. URL: https://doi.org/10.1371/journal.pone.0280209, doi:10.1371/journal.pone.0280209. This article has 11 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(akanbi2023incidentkaposisarcoma pages 2-4): Maxwell. O. Akanbi, Lucy. A. Bilaver, Chad Achenbach, Lisa. R. Hirschhorn, Adovich. S. Rivera, Orimisan. S. Adekolujo, Kehinde. U. A. Adekola, Olugbenga. A. Silas, Patricia. A. Agaba, Oche Agbaji, Nathan. Y. Shehu, Solomon. A. Sagay, Lifang Hou, and Robert. L. Murphy. Incident kaposi sarcoma during the expansion of antiretroviral therapy eligibility in nigeria: a retrospective cohort study. BMC Cancer, Sep 2023. URL: https://doi.org/10.1186/s12885-023-11402-3, doi:10.1186/s12885-023-11402-3. This article has 3 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(denaro2024managementandfuture pages 2-5): Nerina Denaro, Alice Indini, Lucia Brambilla, Angelo Valerio Marzano, Ornella Garrone, and Athanasia Tourlaki. Management and future therapeutic perspectives of classic kaposi’s sarcoma: an evidence-based review. OncoTargets and Therapy, 17:961-976, Nov 2024. URL: https://doi.org/10.2147/ott.s468787, doi:10.2147/ott.s468787. This article has 8 citations.</p>
+</li>
+<li>
+<p>(bagratee2025recentadvancesin pages 4-6): Tayarv Jayd Bagratee, Veron Ramsuran, Mpumelelo Msimang, and Pratistadevi Kanaye Ramdial. Recent advances in the histopathology, molecular biology, and treatment of kaposi sarcoma: a contemporary review. International Journal of Molecular Sciences, 26:10058, Oct 2025. URL: https://doi.org/10.3390/ijms262010058, doi:10.3390/ijms262010058. This article has 2 citations.</p>
+</li>
+<li>
+<p>(saowapa2024evaluatingkaposisarcoma pages 1-2): Sakditad Saowapa, Natchaya Polpichai, Pharit Siladech, Chalothorn Wannaphut, Manasawee Tanariyakul, Phuuwadith Wattanachayakul, and Pakin Lalitnithi. Evaluating kaposi sarcoma in kidney transplant patients: a systematic review and meta-analysis. Cureus, Jan 2024. URL: https://doi.org/10.7759/cureus.52527, doi:10.7759/cureus.52527. This article has 20 citations.</p>
+</li>
+<li>
+<p>(russo2024kaposi’ssarcomaevaluation pages 2-4): Irene Russo, Dario Marino, Claudia Cozzolino, Paolo Del Fiore, Fitnete Nerjaku, Silvia Finotto, Annamaria Cattelan, Maria Luisa Calabrò, Anna Belloni Fortina, Francesco Russano, Marcodomenico Mazza, Sara Galuppo, Elisabetta Bezzon, Marta Sbaraglia, Marco Krengli, Antonella Brunello, Simone Mocellin, Stefano Piaserico, and Mauro Alaibac. Kaposi’s sarcoma: evaluation of clinical features, treatment outcomes, and prognosis in a single-center retrospective case series. Cancers, 16:691, Feb 2024. URL: https://doi.org/10.3390/cancers16040691, doi:10.3390/cancers16040691. This article has 19 citations.</p>
+</li>
+<li>
+<p>(revenko2026classickaposisarcoma pages 1-2): Daniela Revenko, Natali Shirron, Reut Shainer, Emily Avitan-Hersh, and Alona Zer. Classic kaposi sarcoma: current treatment strategies and emerging therapeutic approaches. Cancers, 18:1008, Mar 2026. URL: https://doi.org/10.3390/cancers18061008, doi:10.3390/cancers18061008. This article has 0 citations.</p>
+</li>
+<li>
+<p>(li2024mappingherpesvirusdrivenimpacts pages 5-9): Xiaofan Li, Zoë Weaver Ohler, Amanda Day, Laura Bassel, Anna Grosskopf, Bahman Afsari, Takanobu Tagawa, Wendi Custer, Ralph Mangusan, Kathryn Lurain, Robert Yarchoan, Joseph Ziegelbauer, Ramya Ramaswami, and Laurie T. Krug. Mapping herpesvirus-driven impacts on the cellular milieu and transcriptional profile of kaposi sarcoma in patient-derived mouse models. bioRxiv, Sep 2024. URL: https://doi.org/10.1101/2024.09.27.615429, doi:10.1101/2024.09.27.615429. This article has 5 citations.</p>
+</li>
+<li>
+<p>(li2024mappingherpesvirusdrivenimpacts pages 1-5): Xiaofan Li, Zoë Weaver Ohler, Amanda Day, Laura Bassel, Anna Grosskopf, Bahman Afsari, Takanobu Tagawa, Wendi Custer, Ralph Mangusan, Kathryn Lurain, Robert Yarchoan, Joseph Ziegelbauer, Ramya Ramaswami, and Laurie T. Krug. Mapping herpesvirus-driven impacts on the cellular milieu and transcriptional profile of kaposi sarcoma in patient-derived mouse models. bioRxiv, Sep 2024. URL: https://doi.org/10.1101/2024.09.27.615429, doi:10.1101/2024.09.27.615429. This article has 5 citations.</p>
+</li>
+<li>
+<p>(denaro2024managementandfuture media 1e1c9584): Nerina Denaro, Alice Indini, Lucia Brambilla, Angelo Valerio Marzano, Ornella Garrone, and Athanasia Tourlaki. Management and future therapeutic perspectives of classic kaposi’s sarcoma: an evidence-based review. OncoTargets and Therapy, 17:961-976, Nov 2024. URL: https://doi.org/10.2147/ott.s468787, doi:10.2147/ott.s468787. This article has 8 citations.</p>
+</li>
+<li>
+<p>(akanbi2023incidentkaposisarcoma pages 6-7): Maxwell. O. Akanbi, Lucy. A. Bilaver, Chad Achenbach, Lisa. R. Hirschhorn, Adovich. S. Rivera, Orimisan. S. Adekolujo, Kehinde. U. A. Adekola, Olugbenga. A. Silas, Patricia. A. Agaba, Oche Agbaji, Nathan. Y. Shehu, Solomon. A. Sagay, Lifang Hou, and Robert. L. Murphy. Incident kaposi sarcoma during the expansion of antiretroviral therapy eligibility in nigeria: a retrospective cohort study. BMC Cancer, Sep 2023. URL: https://doi.org/10.1186/s12885-023-11402-3, doi:10.1186/s12885-023-11402-3. This article has 3 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(sgadari2024clinicalefficacyof pages 1-2): Cecilia Sgadari, Biancamaria Scoppio, Orietta Picconi, Antonella Tripiciano, Francesca Maria Gaiani, Vittorio Francavilla, Angela Arancio, Massimo Campagna, Clelia Palladino, Sonia Moretti, Paolo Monini, Lucia Brambilla, and Barbara Ensoli. Clinical efficacy of the hiv protease inhibitor indinavir in combination with chemotherapy for advanced classic kaposi sarcoma treatment: a single-arm, phase ii trial in the elderly. Cancer Research Communications, 4:2112-2122, Aug 2024. URL: https://doi.org/10.1158/2767-9764.crc-24-0102, doi:10.1158/2767-9764.crc-24-0102. This article has 5 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(akanbi2023incidentkaposisarcoma pages 1-2): Maxwell. O. Akanbi, Lucy. A. Bilaver, Chad Achenbach, Lisa. R. Hirschhorn, Adovich. S. Rivera, Orimisan. S. Adekolujo, Kehinde. U. A. Adekola, Olugbenga. A. Silas, Patricia. A. Agaba, Oche Agbaji, Nathan. Y. Shehu, Solomon. A. Sagay, Lifang Hou, and Robert. L. Murphy. Incident kaposi sarcoma during the expansion of antiretroviral therapy eligibility in nigeria: a retrospective cohort study. BMC Cancer, Sep 2023. URL: https://doi.org/10.1186/s12885-023-11402-3, doi:10.1186/s12885-023-11402-3. This article has 3 citations and is from a peer-reviewed journal.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </div>
         
 
         <footer class="page-footer">
@@ -4563,7 +5975,7 @@ classifications:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Kaposi Sarcoma", "mondoId": "MONDO:0005055", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Kaposi_Sarcoma", "yamlRevision": "d44da6583893"};
+        const OS_CONFIG = {"diseaseName": "Kaposi Sarcoma", "mondoId": "MONDO:0005055", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Kaposi_Sarcoma", "yamlRevision": "62dd1639005b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

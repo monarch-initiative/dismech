@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2592,10 +2745,12 @@
             </a>
             
             
+            <a class="stat-link" href="#treatments">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Treatments</div>
             </div>
+            </a>
             
             
             <a class="stat-link" href="#subtypes">
@@ -2631,6 +2786,20 @@
             
             
             
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-value">6</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -4168,6 +4337,266 @@
 
         <!-- Treatments -->
         
+        <div class="card" id="treatments">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
+                <h2 class="card-title">Treatments</h2>
+                <span class="card-count">3</span>
+            </div>
+            
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    Antiseizure Medication Management
+                </div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">anticonvulsant agent therapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000167" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000167</a>
+                    
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                </div>
+                
+                
+                
+                
+                
+                <div class="item-desc">Symptomatic antiseizure pharmacotherapy is used for DRPLA-associated generalized, myoclonic, focal, and atonic seizures, especially in juvenile-onset progressive myoclonus epilepsy.</div>
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30410817" target="_blank">PMID:30410817</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Myoclonic seizures can be managed with carbamazepine or phenytoin, unlike with other forms of myoclonic epilepsy, while sodium valproate, perampanel, and zonisamide have been used in the treatment of generalized seizures."</div>
+                
+                
+                <div class="evidence-explanation">Review describes antiseizure medication classes used in DRPLA seizure management.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    Multidisciplinary Rehabilitation and Supportive Care
+                </div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">supportive care</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000950</a>
+                    
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                </div>
+                
+                
+                
+                
+                
+                <div class="item-desc">Progressive ataxia, movement disorder, cognitive decline, feeding risk, and functional impairment are managed with multidisciplinary supportive care, including physiotherapy, occupational therapy, environmental adaptation, and palliative support as disease advances.</div>
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30410817" target="_blank">PMID:30410817</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Education, physiotherapy, occupational therapy, and environmental adaptation may also be needed at different disease stages."</div>
+                
+                
+                <div class="evidence-explanation">Supports staged rehabilitation and supportive care needs across DRPLA progression.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30410817" target="_blank">PMID:30410817</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Specialist palliative care input is recommended throughout the disease course, with evidence suggesting particular importance later in disease course."</div>
+                
+                
+                <div class="evidence-explanation">Supports palliative and multidisciplinary care as part of DRPLA management.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    Genetic Counseling
+                </div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">genetic counseling</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000079</a>
+                    
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                </div>
+                
+                
+                
+                
+                
+                <div class="item-desc">Genetic counseling should be offered early because DRPLA is autosomal dominant, has predictive-testing implications for relatives, and involves reproductive planning issues related to repeat expansion and anticipation.</div>
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30410817" target="_blank">PMID:30410817</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Genetic counseling is ideally undertaken early to ensure families are aware of the autosomal dominant nature of the disease, to discuss predictive testing and potential means of family planning."</div>
+                
+                
+                <div class="evidence-explanation">Review directly supports early genetic counseling for affected families.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+        </div>
+        
 
         <!-- Environmental Factors -->
         
@@ -4203,7 +4632,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Dentatorubral-Pallidoluysian Atrophy
 creation_date: &#34;2026-04-08T15:03:27Z&#34;
-updated_date: &#34;2026-04-21T03:24:39Z&#34;
+updated_date: &#34;2026-05-08T21:41:13Z&#34;
 category: Mendelian
 description: &gt;-
   Dentatorubral-pallidoluysian atrophy (DRPLA) is an autosomal dominant
@@ -5030,11 +5459,1308 @@ genetic:
     explanation: &gt;-
       Supports the strong paternal-transmission effect on anticipation in
       DRPLA.
+treatments:
+- name: Antiseizure Medication Management
+  description: &gt;-
+    Symptomatic antiseizure pharmacotherapy is used for DRPLA-associated
+    generalized, myoclonic, focal, and atonic seizures, especially in
+    juvenile-onset progressive myoclonus epilepsy.
+  treatment_term:
+    preferred_term: anticonvulsant agent therapy
+    term:
+      id: MAXO:0000167
+      label: anticonvulsant agent therapy
+  evidence:
+  - reference: PMID:30410817
+    reference_title: &#34;Dentatorubral-pallidoluysian Atrophy: An Update.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Myoclonic seizures can be managed with carbamazepine or phenytoin, unlike
+      with other forms of myoclonic epilepsy, while sodium valproate,
+      perampanel, and zonisamide have been used in the treatment of
+      generalized seizures.
+    explanation: &gt;-
+      Review describes antiseizure medication classes used in DRPLA seizure
+      management.
+- name: Multidisciplinary Rehabilitation and Supportive Care
+  description: &gt;-
+    Progressive ataxia, movement disorder, cognitive decline, feeding risk, and
+    functional impairment are managed with multidisciplinary supportive care,
+    including physiotherapy, occupational therapy, environmental adaptation, and
+    palliative support as disease advances.
+  treatment_term:
+    preferred_term: supportive care
+    term:
+      id: MAXO:0000950
+      label: supportive care
+  evidence:
+  - reference: PMID:30410817
+    reference_title: &#34;Dentatorubral-pallidoluysian Atrophy: An Update.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Education, physiotherapy, occupational therapy, and environmental
+      adaptation may also be needed at different disease stages.
+    explanation: &gt;-
+      Supports staged rehabilitation and supportive care needs across DRPLA
+      progression.
+  - reference: PMID:30410817
+    reference_title: &#34;Dentatorubral-pallidoluysian Atrophy: An Update.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Specialist palliative care input is recommended throughout the disease
+      course, with evidence suggesting particular importance later in disease
+      course.
+    explanation: &gt;-
+      Supports palliative and multidisciplinary care as part of DRPLA
+      management.
+- name: Genetic Counseling
+  description: &gt;-
+    Genetic counseling should be offered early because DRPLA is autosomal
+    dominant, has predictive-testing implications for relatives, and involves
+    reproductive planning issues related to repeat expansion and anticipation.
+  treatment_term:
+    preferred_term: genetic counseling
+    term:
+      id: MAXO:0000079
+      label: genetic counseling
+  evidence:
+  - reference: PMID:30410817
+    reference_title: &#34;Dentatorubral-pallidoluysian Atrophy: An Update.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Genetic counseling is ideally undertaken early to ensure families are
+      aware of the autosomal dominant nature of the disease, to discuss
+      predictive testing and potential means of family planning.
+    explanation: &gt;-
+      Review directly supports early genetic counseling for affected families.
+references:
+- reference: DOI:10.1002/acn3.51858
+  title: &#39;Infantile‐onset parkinsonism, dyskinesia, and developmental delay: do not forget polyglutamine defects!&#39;
+  found_in:
+  - Dentatorubral-Pallidoluysian_Atrophy-deep-research-falcon.md
+  findings:
+  - statement: We present the phenotype of an infant with the largest ATN1 CAG expansion reported to date (98 repeats).
+    supporting_text: We present the phenotype of an infant with the largest ATN1 CAG expansion reported to date (98 repeats).
+    evidence:
+    - reference: DOI:10.1002/acn3.51858
+      reference_title: &#39;Infantile‐onset parkinsonism, dyskinesia, and developmental delay: do not forget polyglutamine defects!&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: We present the phenotype of an infant with the largest ATN1 CAG expansion reported to date (98 repeats).
+      explanation: Deep research cited this publication as relevant literature for Dentatorubral-Pallidoluysian Atrophy.
+- reference: DOI:10.1002/mds.29355
+  title: Atrophin‐1 Function and Dysfunction in Dentatorubral–Pallidoluysian Atrophy
+  found_in:
+  - Dentatorubral-Pallidoluysian_Atrophy-deep-research-falcon.md
+  findings:
+  - statement: Dentatorubral–pallidoluysian atrophy (DRPLA) is a rare, incurable genetic disease that belongs to the group of polyglutamine (polyQ) diseases.
+    supporting_text: Dentatorubral–pallidoluysian atrophy (DRPLA) is a rare, incurable genetic disease that belongs to the group of polyglutamine (polyQ) diseases.
+    evidence:
+    - reference: DOI:10.1002/mds.29355
+      reference_title: Atrophin‐1 Function and Dysfunction in Dentatorubral–Pallidoluysian Atrophy
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Dentatorubral–pallidoluysian atrophy (DRPLA) is a rare, incurable genetic disease that belongs to the group of polyglutamine (polyQ) diseases.
+      explanation: Deep research cited this publication as relevant literature for Dentatorubral-Pallidoluysian Atrophy.
+- reference: DOI:10.1007/s00415-020-10218-6
+  title: &#39;DRPLA: understanding the natural history and developing biomarkers to accelerate therapeutic trials in a globally rare repeat expansion disorder&#39;
+  found_in:
+  - Dentatorubral-Pallidoluysian_Atrophy-deep-research-falcon.md
+  findings:
+  - statement: Dentatorubral–pallidoluysian atrophy (DRPLA) is a rare neurodegenerative disorder caused by CAG repeat expansions in the atrophin-1 gene and is inherited in an autosomal dominant fashion.
+    supporting_text: Dentatorubral–pallidoluysian atrophy (DRPLA) is a rare neurodegenerative disorder caused by CAG repeat expansions in the atrophin-1 gene and is inherited in an autosomal dominant fashion.
+    evidence:
+    - reference: DOI:10.1007/s00415-020-10218-6
+      reference_title: &#39;DRPLA: understanding the natural history and developing biomarkers to accelerate therapeutic trials in a globally rare repeat expansion disorder&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Dentatorubral–pallidoluysian atrophy (DRPLA) is a rare neurodegenerative disorder caused by CAG repeat expansions in the atrophin-1 gene and is inherited in an autosomal dominant fashion.
+      explanation: Deep research cited this publication as relevant literature for Dentatorubral-Pallidoluysian Atrophy.
+- reference: DOI:10.1007/s12311-024-01703-z
+  title: &#39;An Update on the Adult-Onset Hereditary Cerebellar Ataxias: Novel Genetic Causes and New Diagnostic Approaches&#39;
+  found_in:
+  - Dentatorubral-Pallidoluysian_Atrophy-deep-research-falcon.md
+  findings:
+  - statement: The hereditary cerebellar ataxias (HCAs) are rare, progressive neurologic disorders caused by variants in many different genes.
+    supporting_text: The hereditary cerebellar ataxias (HCAs) are rare, progressive neurologic disorders caused by variants in many different genes.
+    evidence:
+    - reference: DOI:10.1007/s12311-024-01703-z
+      reference_title: &#39;An Update on the Adult-Onset Hereditary Cerebellar Ataxias: Novel Genetic Causes and New Diagnostic Approaches&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The hereditary cerebellar ataxias (HCAs) are rare, progressive neurologic disorders caused by variants in many different genes.
+      explanation: Deep research cited this publication as relevant literature for Dentatorubral-Pallidoluysian Atrophy.
+- reference: DOI:10.1038/s41431-024-01542-w
+  title: Diagnostic uplift through the implementation of short tandem repeat analysis using exome sequencing
+  found_in:
+  - Dentatorubral-Pallidoluysian_Atrophy-deep-research-falcon.md
+  findings:
+  - statement: To date, approximately 50 short tandem repeat (STR) disorders have been identified; yet, clinical laboratories rarely conduct STR analysis on exomes.
+    supporting_text: To date, approximately 50 short tandem repeat (STR) disorders have been identified; yet, clinical laboratories rarely conduct STR analysis on exomes.
+    evidence:
+    - reference: DOI:10.1038/s41431-024-01542-w
+      reference_title: Diagnostic uplift through the implementation of short tandem repeat analysis using exome sequencing
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: To date, approximately 50 short tandem repeat (STR) disorders have been identified; yet, clinical laboratories rarely conduct STR analysis on exomes.
+      explanation: Deep research cited this publication as relevant literature for Dentatorubral-Pallidoluysian Atrophy.
+- reference: DOI:10.1177/26330040241249189
+  title: &#39;Establishing resources and increasing awareness to advance research on Dentatorubral-pallidoluysian atrophy toward a treatment: a patient organization perspective&#39;
+  found_in:
+  - Dentatorubral-Pallidoluysian_Atrophy-deep-research-falcon.md
+  findings:
+  - statement: Dentatorubral-pallidoluysian atrophy (DRPLA) is an ultra-rare neurodegenerative disorder characterized by ataxia, cognitive decline, myoclonus, chorea, epilepsy, and psychiatric manifestations.
+    supporting_text: Dentatorubral-pallidoluysian atrophy (DRPLA) is an ultra-rare neurodegenerative disorder characterized by ataxia, cognitive decline, myoclonus, chorea, epilepsy, and psychiatric manifestations.
+    evidence:
+    - reference: DOI:10.1177/26330040241249189
+      reference_title: &#39;Establishing resources and increasing awareness to advance research on Dentatorubral-pallidoluysian atrophy toward a treatment: a patient organization perspective&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Dentatorubral-pallidoluysian atrophy (DRPLA) is an ultra-rare neurodegenerative disorder characterized by ataxia, cognitive decline, myoclonus, chorea, epilepsy, and psychiatric manifestations.
+      explanation: Deep research cited this publication as relevant literature for Dentatorubral-Pallidoluysian Atrophy.
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
+        
+        <div class="card reference-card" id="references-deep-research">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+            
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">6</span>
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1002/acn3.51858" target="_blank">DOI:10.1002/acn3.51858</a>
+                            </div>
+                            
+                            <div class="reference-title">Infantile‐onset parkinsonism, dyskinesia, and developmental delay: do not forget polyglutamine defects!</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">We present the phenotype of an infant with the largest ATN1 CAG expansion reported to date (98 repeats).</div>
+            
+            
+            <div class="reference-finding-supporting">"We present the phenotype of an infant with the largest ATN1 CAG expansion reported to date (98 repeats)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1002/acn3.51858" target="_blank">DOI:10.1002/acn3.51858</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"We present the phenotype of an infant with the largest ATN1 CAG expansion reported to date (98 repeats)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Dentatorubral-Pallidoluysian Atrophy.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1002/mds.29355" target="_blank">DOI:10.1002/mds.29355</a>
+                            </div>
+                            
+                            <div class="reference-title">Atrophin‐1 Function and Dysfunction in Dentatorubral–Pallidoluysian Atrophy</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Dentatorubral–pallidoluysian atrophy (DRPLA) is a rare, incurable genetic disease that belongs to the group of polyglutamine (polyQ) diseases.</div>
+            
+            
+            <div class="reference-finding-supporting">"Dentatorubral–pallidoluysian atrophy (DRPLA) is a rare, incurable genetic disease that belongs to the group of polyglutamine (polyQ) diseases."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1002/mds.29355" target="_blank">DOI:10.1002/mds.29355</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Dentatorubral–pallidoluysian atrophy (DRPLA) is a rare, incurable genetic disease that belongs to the group of polyglutamine (polyQ) diseases."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Dentatorubral-Pallidoluysian Atrophy.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s00415-020-10218-6" target="_blank">DOI:10.1007/s00415-020-10218-6</a>
+                            </div>
+                            
+                            <div class="reference-title">DRPLA: understanding the natural history and developing biomarkers to accelerate therapeutic trials in a globally rare repeat expansion disorder</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Dentatorubral–pallidoluysian atrophy (DRPLA) is a rare neurodegenerative disorder caused by CAG repeat expansions in the atrophin-1 gene and is inherited in an autosomal dominant fashion.</div>
+            
+            
+            <div class="reference-finding-supporting">"Dentatorubral–pallidoluysian atrophy (DRPLA) is a rare neurodegenerative disorder caused by CAG repeat expansions in the atrophin-1 gene and is inherited in an autosomal dominant fashion."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s00415-020-10218-6" target="_blank">DOI:10.1007/s00415-020-10218-6</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Dentatorubral–pallidoluysian atrophy (DRPLA) is a rare neurodegenerative disorder caused by CAG repeat expansions in the atrophin-1 gene and is inherited in an autosomal dominant fashion."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Dentatorubral-Pallidoluysian Atrophy.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s12311-024-01703-z" target="_blank">DOI:10.1007/s12311-024-01703-z</a>
+                            </div>
+                            
+                            <div class="reference-title">An Update on the Adult-Onset Hereditary Cerebellar Ataxias: Novel Genetic Causes and New Diagnostic Approaches</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The hereditary cerebellar ataxias (HCAs) are rare, progressive neurologic disorders caused by variants in many different genes.</div>
+            
+            
+            <div class="reference-finding-supporting">"The hereditary cerebellar ataxias (HCAs) are rare, progressive neurologic disorders caused by variants in many different genes."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s12311-024-01703-z" target="_blank">DOI:10.1007/s12311-024-01703-z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The hereditary cerebellar ataxias (HCAs) are rare, progressive neurologic disorders caused by variants in many different genes."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Dentatorubral-Pallidoluysian Atrophy.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1038/s41431-024-01542-w" target="_blank">DOI:10.1038/s41431-024-01542-w</a>
+                            </div>
+                            
+                            <div class="reference-title">Diagnostic uplift through the implementation of short tandem repeat analysis using exome sequencing</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">To date, approximately 50 short tandem repeat (STR) disorders have been identified; yet, clinical laboratories rarely conduct STR analysis on exomes.</div>
+            
+            
+            <div class="reference-finding-supporting">"To date, approximately 50 short tandem repeat (STR) disorders have been identified; yet, clinical laboratories rarely conduct STR analysis on exomes."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41431-024-01542-w" target="_blank">DOI:10.1038/s41431-024-01542-w</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"To date, approximately 50 short tandem repeat (STR) disorders have been identified; yet, clinical laboratories rarely conduct STR analysis on exomes."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Dentatorubral-Pallidoluysian Atrophy.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1177/26330040241249189" target="_blank">DOI:10.1177/26330040241249189</a>
+                            </div>
+                            
+                            <div class="reference-title">Establishing resources and increasing awareness to advance research on Dentatorubral-pallidoluysian atrophy toward a treatment: a patient organization perspective</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Dentatorubral-pallidoluysian atrophy (DRPLA) is an ultra-rare neurodegenerative disorder characterized by ataxia, cognitive decline, myoclonus, chorea, epilepsy, and psychiatric manifestations.</div>
+            
+            
+            <div class="reference-finding-supporting">"Dentatorubral-pallidoluysian atrophy (DRPLA) is an ultra-rare neurodegenerative disorder characterized by ataxia, cognitive decline, myoclonus, chorea, epilepsy, and psychiatric manifestations."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1177/26330040241249189" target="_blank">DOI:10.1177/26330040241249189</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Dentatorubral-pallidoluysian atrophy (DRPLA) is an ultra-rare neurodegenerative disorder characterized by ataxia, cognitive decline, myoclonus, chorea, epilepsy, and psychiatric manifestations."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Dentatorubral-Pallidoluysian Atrophy.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">1. Disease Information</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">28 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-08T13:46:06.824185</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <h2>1. Disease Information</h2>
+<h3>1.1 Concise overview (current understanding)</h3>
+<p>DRPLA is an autosomal dominant, progressive, neurodegenerative repeat-expansion disorder caused by a CAG expansion in <strong>ATN1</strong> (atrophin-1), and is clinically characterized by cerebellar ataxia, cognitive decline/dementia, myoclonus, epilepsy, chorea/choreoathetosis, and psychiatric manifestations (chaudhry2021drplaunderstandingthe pages 1-3, prades2024establishingresourcesand pages 1-2, prades2024establishingresourcesand pages 2-4).</p>
+<p>Recent (2024) patient-organization perspective emphasizes DRPLA as “an ultra-rare neurodegenerative disorder characterized by ataxia, cognitive decline, myoclonus, chorea, epilepsy, and psychiatric manifestations” and explicitly notes <strong>MIM#125370</strong> (prades2024establishingresourcesand pages 1-2).</p>
+<h3>1.2 Key identifiers (with availability in retrieved sources)</h3>
+<ul>
+<li><strong>OMIM/MIM:</strong> <strong>125370</strong> (listed as “DRPLA, MIM#125370”) (prades2024establishingresourcesand pages 1-2)</li>
+<li><strong>MONDO:</strong> <strong>MONDO_0007435</strong> (OpenTargets disease mapping) (OpenTargets Search: Dentatorubral-pallidoluysian atrophy,DRPLA-ATN1)</li>
+<li><strong>Orphanet:</strong> <strong>Orphanet_101</strong> (OpenTargets disease mapping) (OpenTargets Search: Dentatorubral-pallidoluysian atrophy,DRPLA-ATN1)</li>
+<li><strong>MeSH / ICD-10 / ICD-11:</strong> not available in the retrieved full-text corpus for this run; therefore not reported here.</li>
+</ul>
+<h3>1.3 Synonyms / alternative names</h3>
+<ul>
+<li>DRPLA; dentatorubral pallidoluysian atrophy; “hereditary DRPLA” (historical naming) (chaudhry2021drplaunderstandingthe pages 1-3)</li>
+<li>Often discussed alongside autosomal dominant SCAs / hereditary ataxias in diagnostic workflows (rudaks2024anupdateon pages 1-2, rudaks2024anupdateon pages 10-12)</li>
+</ul>
+<h3>1.4 Evidence source type</h3>
+<p>This entry synthesizes <strong>aggregated disease-level resources</strong> (systematic review-style neurology update, movement disorders review, patient-organization review, clinical trial registries) and <strong>individual patient evidence</strong> (case reports, infantile case report) (chaudhry2021drplaunderstandingthe pages 1-3, prades2024establishingresourcesand pages 1-2, chen2024dentatorubralpallidoluysianatrophya pages 1-2, baide‐mairena2023infantile‐onsetparkinsonismdyskinesia pages 1-3, NCT07084311 chunk 1).</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>2.1 Disease causal factors</h3>
+<p><strong>Primary cause:</strong> unstable <strong>CAG repeat expansion</strong> in <strong>exon 5</strong> of <strong>ATN1</strong> (chromosome 12p13.31) encoding a polyglutamine-expanded atrophin-1 protein (chaudhry2021drplaunderstandingthe pages 1-3, prades2024establishingresourcesand pages 2-4, chen2024dentatorubralpallidoluysianatrophya pages 3-5).</p>
+<p>Direct abstract quote (neurology update): “Dentatorubral–pallidoluysian atrophy (DRPLA) is a rare neurodegenerative disorder caused by CAG repeat expansions in the atrophin-1 gene and is inherited in an autosomal dominant fashion.” (published online 26 Oct 2020; Journal of Neurology 2021) (chaudhry2021drplaunderstandingthe pages 1-3).</p>
+<h3>2.2 Risk factors</h3>
+<ul>
+<li><strong>Genetic:</strong> ATN1 CAG repeat expansion length is the principal determinant of risk, with strong genotype–phenotype correlation (chaudhry2021drplaunderstandingthe pages 1-3, nowak2023atrophin‐1functionand pages 1-2).</li>
+<li><strong>Transmission-related:</strong> genetic anticipation is prominent; paternal transmission is often associated with more prominent anticipation (chaudhry2021drplaunderstandingthe pages 1-3, prades2024establishingresourcesand pages 2-4).</li>
+<li><strong>Somatic instability:</strong> somatic CAG instability creates tissue mosaicism and is hypothesized to contribute to progression (nowak2023atrophin‐1functionand pages 2-2, hasuike2022cagrepeatbindingsmall pages 1-2).</li>
+</ul>
+<h3>2.3 Protective factors</h3>
+<p>No protective genetic variants or environmental protective factors were identified in the retrieved sources.</p>
+<h3>2.4 Gene–environment interactions</h3>
+<p>No direct gene–environment interaction evidence was identified in the retrieved sources.</p>
+<hr />
+<h2>3. Phenotypes (with suggested HPO terms)</h2>
+<p>A structured phenotype table with HPO suggestions and age associations is provided below.</p>
+<table>
+<thead>
+<tr>
+<th>Phenotype (plain language)</th>
+<th>Suggested HPO term(s)</th>
+<th>Typical age-of-onset association</th>
+<th>Supporting evidence / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cerebellar ataxia / gait incoordination</td>
+<td>HP:0001251 Ataxia; HP:0002066 Gait ataxia</td>
+<td>Both juvenile and adult; often a major presenting feature in adult-onset disease</td>
+<td>DRPLA is characterized by progressive cerebellar ataxia; patients with onset after age 20 tend to present with cerebellar ataxia, choreoathetosis, and dementia. Adult-onset cases commonly show ataxia as an early/core feature (chaudhry2021drplaunderstandingthe pages 1-3, chen2024dentatorubralpallidoluysianatrophya pages 3-5, ber2003prevalenceofdentatorubralpallidoluysian pages 1-2).</td>
+</tr>
+<tr>
+<td>Cognitive decline / dementia</td>
+<td>HP:0001268 Mental deterioration; HP:0000726 Dementia; HP:0001249 Intellectual disability</td>
+<td>Juvenile: developmental delay / intellectual disability more prominent; Adult: cognitive decline and dementia common</td>
+<td>Core disease descriptions include cognitive impairment/dementia. Juvenile-onset DRPLA is associated with developmental delay and progressive intellectual disability, whereas adult-onset disease commonly includes dementia/cognitive decline (chaudhry2021drplaunderstandingthe pages 1-3, prades2024establishingresourcesand pages 2-4, chen2024dentatorubralpallidoluysianatrophya pages 3-5, ber2003prevalenceofdentatorubralpallidoluysian pages 1-2).</td>
+</tr>
+<tr>
+<td>Myoclonus</td>
+<td>HP:0001336 Myoclonus</td>
+<td>Strongly associated with juvenile-onset</td>
+<td>Juvenile-onset DRPLA typically presents with a “myoclonus phenotype”; juvenile cases are characterized by myoclonus and epilepsy, while adult-onset cases more often show chorea/ataxia/dementia (nowak2023atrophin‐1functionand pages 2-2, chaudhry2021drplaunderstandingthe pages 1-3, prades2024establishingresourcesand pages 2-4, chen2024dentatorubralpallidoluysianatrophya pages 3-5).</td>
+</tr>
+<tr>
+<td>Epilepsy / seizures</td>
+<td>HP:0001250 Seizure; HP:0002123 Generalized myoclonic seizure; HP:0002069 Generalized tonic-clonic seizure</td>
+<td>Strongly associated with juvenile-onset; uncommon/less frequent in adult-onset, especially after age 40</td>
+<td>Seizures are common in juvenile-onset DRPLA and become less frequent with later onset; juvenile patients may have generalized seizures early and generalized tonic-clonic seizures later. Adult-onset epilepsy is reported but less common (chaudhry2021drplaunderstandingthe pages 1-3, prades2024establishingresourcesand pages 2-4, chen2024dentatorubralpallidoluysianatrophya pages 3-5, ber2003prevalenceofdentatorubralpallidoluysian pages 1-2).</td>
+</tr>
+<tr>
+<td>Chorea / choreoathetosis / involuntary movements</td>
+<td>HP:0002072 Chorea; HP:0001266 Choreoathetosis; HP:0004305 Athetosis</td>
+<td>More typical of adult-onset</td>
+<td>Adult-onset DRPLA is characterized by ataxia, choreoathetosis/involuntary movements, cognitive impairment, and personality/psychiatric change. Choreoathetoid movements are one of the classic described phenotypes (chaudhry2021drplaunderstandingthe pages 1-3, prades2024establishingresourcesand pages 2-4, chen2024dentatorubralpallidoluysianatrophya pages 3-5, ber2003prevalenceofdentatorubralpallidoluysian pages 1-2).</td>
+</tr>
+<tr>
+<td>Psychiatric symptoms / personality change</td>
+<td>HP:0000708 Behavioral abnormality; HP:0000716 Depression; HP:0000738 Hallucinations</td>
+<td>More typical of adult-onset, though can occur across forms</td>
+<td>Psychiatric manifestations are part of the cardinal feature set. Adult-onset DRPLA commonly includes personality changes and psychiatric symptoms; disease overviews also list psychiatric symptoms among key manifestations (chaudhry2021drplaunderstandingthe pages 1-3, prades2024establishingresourcesand pages 1-2, prades2024establishingresourcesand pages 2-4, chen2024dentatorubralpallidoluysianatrophya pages 3-5).</td>
+</tr>
+<tr>
+<td>Developmental delay / progressive intellectual disability</td>
+<td>HP:0001263 Global developmental delay; HP:0001249 Intellectual disability</td>
+<td>Juvenile / infantile</td>
+<td>Juvenile-onset DRPLA is characterized by developmental delay and progressive intellectual disability, reflecting the severe neurodevelopmental/neurodegenerative presentation in early-onset disease (prades2024establishingresourcesand pages 2-4, chen2024dentatorubralpallidoluysianatrophya pages 3-5).</td>
+</tr>
+<tr>
+<td>White matter lesions and cerebellar/brainstem atrophy on MRI</td>
+<td>HP:0002500 Abnormal cerebral white matter morphology; HP:0001272 Cerebellar atrophy; HP:0002367 Brainstem atrophy</td>
+<td>Seen in both; more evident with progression</td>
+<td>MRI commonly shows progressive brainstem and cerebellar atrophy and widespread white matter lesions involving cerebrum, thalamus, brainstem, and cerebellum. The DRPLA natural history study uses brain atrophy on MRI (brainstem, superior cerebellar peduncle, cerebellum, thalamus) as a primary outcome (chen2024dentatorubralpallidoluysianatrophya pages 3-5, NCT06273150 chunk 1, chaudhry2021drplaunderstandingthe pages 1-3).</td>
+</tr>
+<tr>
+<td>Dysphagia / swallowing difficulty</td>
+<td>HP:0002015 Dysphagia</td>
+<td>Progressive complication; not clearly age-specific in retrieved sources</td>
+<td>The ongoing natural history study includes a Clinical Assessment of Dysphagia in Neurodegeneration, indicating dysphagia is clinically relevant for longitudinal phenotyping, although age specificity was not detailed in the retrieved context (NCT06273150 chunk 1).</td>
+</tr>
+<tr>
+<td>Speech impairment / dysarthria</td>
+<td>HP:0001260 Dysarthria; HP:0002167 Slurred speech</td>
+<td>Progressive complication; not clearly age-specific in retrieved sources</td>
+<td>The natural history study includes a DRPLA-specific speech battery, supporting speech disturbance as a measurable phenotype in clinical follow-up, although retrieved texts did not stratify it by juvenile vs adult onset (NCT06273150 chunk 1).</td>
+</tr>
+<tr>
+<td>Nystagmus / abnormal eye movements</td>
+<td>HP:0000639 Nystagmus; HP:0000640 Gaze-evoked nystagmus</td>
+<td>Reported in adult case; age association not established</td>
+<td>A 34-year-old adult case showed bilateral upward rotational nystagmus; the authors suggested this may be a clinical sign worth considering, but this appears to be a less established/possibly uncommon phenotype in the retrieved literature (chen2024dentatorubralpallidoluysianatrophya pages 1-2, chen2024dentatorubralpallidoluysianatrophya pages 3-5).</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes major clinical and imaging phenotypes of dentatorubral-pallidoluysian atrophy, with suggested HPO mappings and whether each feature is more typical of juvenile- or adult-onset disease. It is useful for knowledge-base phenotype annotation and age-stratified curation.</em></p>
+<p>Key phenotype stratification by age-of-onset:
+- Juvenile-onset (&lt;20 years) commonly features myoclonus and epilepsy, with developmental delay/intellectual disability and more rapid progression in many reports (prades2024establishingresourcesand pages 2-4, chen2024dentatorubralpallidoluysianatrophya pages 3-5, nowak2023atrophin‐1functionand pages 2-2).
+- Adult-onset (&gt;20 years) commonly features progressive ataxia, choreoathetosis/chorea, cognitive impairment/dementia, and psychiatric/personality changes (chaudhry2021drplaunderstandingthe pages 1-3, prades2024establishingresourcesand pages 2-4, chen2024dentatorubralpallidoluysianatrophya pages 3-5, nowak2023atrophin‐1functionand pages 2-2).</p>
+<p>Quality-of-life (QoL) impact evidence within this run is mainly inferred from the existence of QoL-focused registry and trial endpoints (CPCHILD; caregiver burden; health economics) rather than validated disease-specific QoL instruments reported in full text (NCT05489393 chunk 1, NCT07084311 chunk 1).</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<h3>4.1 Causal gene</h3>
+<ul>
+<li><strong>ATN1 (atrophin-1)</strong> is the only gene known to cause DRPLA, located on <strong>chromosome 12p13.31</strong> (prades2024establishingresourcesand pages 2-4, chen2024dentatorubralpallidoluysianatrophya pages 3-5).</li>
+</ul>
+<h3>4.2 Pathogenic variant class</h3>
+<ul>
+<li><strong>Repeat expansion</strong> (CAG) in a coding region (exon 5) producing an expanded <strong>polyglutamine</strong> tract (chaudhry2021drplaunderstandingthe pages 1-3, prades2024establishingresourcesand pages 2-4).</li>
+</ul>
+<h3>4.3 Repeat-size ranges and penetrance (data)</h3>
+<p>Across major reviews/case literature retrieved here:
+- Normal alleles: typically <strong>~6–35</strong> CAG repeats (chaudhry2021drplaunderstandingthe pages 1-3, chen2024dentatorubralpallidoluysianatrophya pages 3-5, nowak2023atrophin‐1functionand pages 1-2).
+- <strong>Incomplete penetrance:</strong> often reported for <strong>35–47</strong> repeats (chaudhry2021drplaunderstandingthe pages 1-3, chen2024dentatorubralpallidoluysianatrophya pages 3-5, nowak2023atrophin‐1functionand pages 1-2).
+- <strong>Full penetrance:</strong> typically at <strong>≥48</strong> repeats (chaudhry2021drplaunderstandingthe pages 1-3, prades2024establishingresourcesand pages 2-4, chen2024dentatorubralpallidoluysianatrophya pages 3-5, nowak2023atrophin‐1functionand pages 1-2).
+- Juvenile/infantile disease correlates with larger expansions (e.g., &gt;70; extreme cases &gt;90) (nowak2023atrophin‐1functionand pages 1-2, nowak2023atrophin‐1functionand pages 2-2).</p>
+<p>Recent 2023 primary case data: an infantile-onset case was reported with “<strong>the largest ATN1 CAG expansion reported to date (98 repeats)</strong>” (Annals of Clinical and Translational Neurology, Jul 2023; https://doi.org/10.1002/acn3.51858) (baide‐mairena2023infantile‐onsetparkinsonismdyskinesia pages 1-3).</p>
+<h3>4.4 Modifier genes / pathways</h3>
+<p>A 2022 preclinical DRPLA study (and its framing) highlights the role of <strong>somatic repeat instability</strong> and references DNA repair modifiers (e.g., MLH1/MSH3/PMS2/FAN1 in context) as a general mechanism affecting age at onset/severity in repeat expansion disorders (Neurobiology of Disease 2022; https://doi.org/10.1016/j.nbd.2021.105604) (hasuike2022cagrepeatbindingsmall pages 1-2).</p>
+<h3>4.5 Functional consequences (current synthesis)</h3>
+<p>Evidence converges on predominantly <strong>toxic gain-of-function</strong> of mutant atrophin-1, with broad downstream cellular dysfunction including transcriptional dysregulation and proteostasis/autophagy defects (nowak2023atrophin‐1functionand pages 4-5, nowak2023atrophin‐1functionand pages 2-2).</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>No validated environmental triggers, toxins, infectious agents, or lifestyle risk factors specific to DRPLA were identified in the retrieved sources for this run.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology (causal chain; ontology suggestions)</h2>
+<h3>6.1 Mechanistic summary (from upstream trigger to clinical manifestations)</h3>
+<p><strong>Upstream trigger:</strong> expansion of CAG repeats in ATN1 → expanded polyQ atrophin-1 (chaudhry2021drplaunderstandingthe pages 1-3, prades2024establishingresourcesand pages 2-4).</p>
+<p><strong>Intermediate molecular/cellular mechanisms:</strong>
+- Mutant atrophin-1 aggregation and altered protein–protein interactions (nowak2023atrophin‐1functionand pages 1-2).
+- Transcriptional dysregulation via sequestration/interaction with transcriptional regulators (TBP/CBP/TAFII130/RERE) (nowak2023atrophin‐1functionand pages 4-5).
+- Proteostasis disruption including autophagy-lysosomal impairment (“canonical autophagy is blocked at the lysosomal level” in the reviewed mechanistic summary) (nowak2023atrophin‐1functionand pages 4-5).
+- Somatic and germline repeat instability → mosaicism and anticipation, potentially accelerating neuronal dysfunction over time (nowak2023atrophin‐1functionand pages 2-2, chaudhry2021drplaunderstandingthe pages 1-3).</p>
+<p><strong>Tissue/circuit vulnerability and clinical output:</strong> neuronal dysfunction and neurodegeneration in cerebellar and basal ganglia-related regions (dentate nucleus, globus pallidus, subthalamic nucleus; broader brainstem/white matter involvement), producing ataxia, involuntary movements (chorea/choreoathetosis), epilepsy/myoclonus (especially juvenile onset), and cognitive/psychiatric features (nowak2023atrophin‐1functionand pages 2-2, chaudhry2021drplaunderstandingthe pages 1-3, chen2024dentatorubralpallidoluysianatrophya pages 3-5).</p>
+<p>A structured mechanism table with suggested GO/CL/UBERON terms is provided below.</p>
+<table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Mechanism description</th>
+<th>Suggested GO biological process / cellular component terms</th>
+<th>Suggested CL cell types</th>
+<th>Suggested UBERON anatomy</th>
+<th>Key supporting citations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Genetic</td>
+<td>DRPLA is caused by an unstable CAG repeat expansion in exon 5 of <strong>ATN1</strong> on chromosome 12p13.31. Full penetrance is typically reported at <strong>&gt;=48 CAG</strong> repeats, with <strong>35-47</strong> repeats described as incompletely penetrant; longer repeats are associated with earlier onset, more severe disease, and anticipation. Somatic and germline repeat instability are central upstream drivers of disease progression.</td>
+<td>GO:0003677 DNA binding; GO:0006974 cellular response to DNA damage stimulus; GO:0006310 DNA recombination</td>
+<td>CL:0000540 neuron</td>
+<td>UBERON:0000955 brain; UBERON:0000073 cerebellum</td>
+<td>(chaudhry2021drplaunderstandingthe pages 1-3, prades2024establishingresourcesand pages 2-4, hasuike2022cagrepeatbindingsmall pages 1-2, nowak2023atrophin‐1functionand pages 2-2, nowak2023atrophin‐1functionand pages 1-2)</td>
+</tr>
+<tr>
+<td>Protein</td>
+<td>Expanded CAG repeats encode a polyglutamine-expanded <strong>atrophin-1</strong> protein that undergoes conformational change, aggregation, and abnormal protein-protein interactions. Mutant atrophin-1 is considered a toxic gain-of-function species; loss of ATN1 alone is not thought to explain disease. Nuclear accumulation/inclusions occur, but are not the sole pathogenic mechanism.</td>
+<td>GO:0006508 proteolysis; GO:0043161 proteasome-mediated ubiquitin-dependent protein catabolic process; GO:0097352 autophagosome maturation; GO:0016604 nuclear body</td>
+<td>CL:0000540 neuron</td>
+<td>UBERON:0000955 brain</td>
+<td>(nowak2023atrophin‐1functionand pages 2-2, nowak2023atrophin‐1functionand pages 7-8, nowak2023atrophin‐1functionand pages 4-5, nowak2023atrophin‐1functionand pages 1-2)</td>
+</tr>
+<tr>
+<td>Cellular</td>
+<td>Mutant atrophin-1 disrupts transcriptional regulation by binding/sequestering transcriptional regulators including <strong>TBP</strong>, <strong>CBP</strong>, <strong>TAFII130</strong>, and <strong>RERE</strong>, contributing to transcriptional dysregulation and altered chromatin regulation. This is a major downstream mechanism linking repeat expansion to neuronal dysfunction.</td>
+<td>GO:0006357 regulation of transcription by RNA polymerase II; GO:0016568 chromatin modification; GO:0005634 nucleus</td>
+<td>CL:0000540 neuron</td>
+<td>UBERON:0000955 brain</td>
+<td>(nowak2023atrophin‐1functionand pages 2-2, nowak2023atrophin‐1functionand pages 4-5, nowak2023atrophin‐1functionand pages 1-2)</td>
+</tr>
+<tr>
+<td>Cellular</td>
+<td>Autophagy-lysosomal dysfunction is implicated in DRPLA pathogenesis; canonical autophagy is reported as blocked at the lysosomal level, with compensatory alternative protein-clearance pathways activated. Impaired clearance promotes persistence of mutant ATN1 and cellular degeneration.</td>
+<td>GO:0006914 autophagy; GO:0007040 lysosome organization; GO:0005773 vacuole; GO:0005764 lysosome</td>
+<td>CL:0000540 neuron</td>
+<td>UBERON:0000955 brain</td>
+<td>(nowak2023atrophin‐1functionand pages 4-5)</td>
+</tr>
+<tr>
+<td>Pathway</td>
+<td>Calcium signaling and neuronal excitability may be perturbed, including reported <strong>ITPR1</strong> downregulation; this may contribute to cerebellar dysfunction, myoclonus, and seizures, especially in juvenile-onset disease.</td>
+<td>GO:0007204 positive regulation of cytosolic calcium ion concentration; GO:0006816 calcium ion transport</td>
+<td>CL:0000540 neuron; CL:0000127 Purkinje cell</td>
+<td>UBERON:0002037 cerebellar cortex</td>
+<td>(nowak2023atrophin‐1functionand pages 7-8, nowak2023atrophin‐1functionand pages 4-5)</td>
+</tr>
+<tr>
+<td>Cellular / network</td>
+<td>Neurons are especially susceptible to polyQ-mediated toxicity, and DRPLA likely reflects selective vulnerability within cerebello-basal ganglia-thalamic circuitry rather than uniform brain involvement. Repeat-length-dependent phenotypes support circuit-level toxicity.</td>
+<td>GO:0050890 cognition; GO:0007611 learning or memory; GO:0050804 modulation of chemical synaptic transmission</td>
+<td>CL:0000540 neuron</td>
+<td>UBERON:0000955 brain; UBERON:0001896 dentate nucleus; UBERON:0001874 globus pallidus; UBERON:0002038 thalamus</td>
+<td>(prades2024establishingresourcesand pages 1-2, prades2024establishingresourcesand pages 2-4, nowak2023atrophin‐1functionand pages 2-2)</td>
+</tr>
+<tr>
+<td>Tissue</td>
+<td>Neuropathology prominently affects the <strong>dentate nucleus</strong>, <strong>globus pallidus</strong> (especially the lateral segment), <strong>subthalamic nucleus</strong>, brainstem, and cerebral/cerebellar white matter. These tissue-level changes correspond to ataxia, chorea, cognitive decline, and epilepsy.</td>
+<td>GO:0014003 oligodendrocyte development; GO:0042552 myelination; GO:0007417 central nervous system development</td>
+<td>CL:0000540 neuron; CL:0000127 Purkinje cell; CL:0002603 oligodendrocyte</td>
+<td>UBERON:0001896 dentate nucleus; UBERON:0001874 globus pallidus; UBERON:0001906 subthalamic nucleus; UBERON:0002298 brainstem; UBERON:0001348 white matter</td>
+<td>(chaudhry2021drplaunderstandingthe pages 1-3, chen2024dentatorubralpallidoluysianatrophya pages 3-5, nowak2023atrophin‐1functionand pages 2-2)</td>
+</tr>
+<tr>
+<td>Imaging / biomarker</td>
+<td>Ongoing prospective natural-history work operationalizes downstream tissue injury using <strong>MRI atrophy</strong> and fluid biomarkers. The DRPLA NHBS measures atrophy particularly in the <strong>brainstem</strong>, <strong>superior cerebellar peduncle</strong>, <strong>cerebellum</strong>, and <strong>thalamus</strong>, and tracks <strong>plasma/CSF NfL</strong> as a biomarker of neurodegeneration.</td>
+<td>GO:0097421 liver?; GO:0042552 myelination; GO:0007409 axonogenesis; GO:0005886 plasma membrane</td>
+<td>CL:0000540 neuron; CL:0000127 Purkinje cell</td>
+<td>UBERON:0002298 brainstem; UBERON:0011177 superior cerebellar peduncle; UBERON:0000073 cerebellum; UBERON:0001897 thalamus</td>
+<td>(NCT06273150 chunk 1)</td>
+</tr>
+<tr>
+<td>Therapeutic mechanism</td>
+<td>Preclinical evidence supports targeting the repeat itself: the small molecule <strong>naphthyridine-azaquinolone (NA)</strong> binds slipped CAG-repeat structures, induces repeat contraction, reduces mutant ATN1 aggregation, and improves motor coordination in a DRPLA mouse model. This supports somatic repeat instability as a disease-modifying target.</td>
+<td>GO:0006281 DNA repair; GO:0036297 interstrand cross-link repair; GO:0043161 proteasome-mediated ubiquitin-dependent protein catabolic process</td>
+<td>CL:0000540 neuron</td>
+<td>UBERON:0002435 striatum; UBERON:0000955 brain</td>
+<td>(hasuike2022cagrepeatbindingsmall pages 1-2, hasuike2022cagrepeatbindingsmall pages 2-3)</td>
+</tr>
+<tr>
+<td>Translational / systems</td>
+<td>Real-world DRPLA research infrastructure now includes patient registry, iPSC and fibroblast resources, and humanized mouse models to connect upstream molecular mechanisms with longitudinal clinical outcomes and therapy development, especially <strong>ATN1-lowering</strong> strategies.</td>
+<td>GO:0007399 nervous system development; GO:0031644 regulation of neurological system process</td>
+<td>CL:0000540 neuron; CL:0002327 fibroblast</td>
+<td>UBERON:0000955 brain</td>
+<td>(prades2024establishingresourcesand pages 1-2, prades2024establishingresourcesand pages 2-4)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes DRPLA mechanisms across genetic, protein, cellular, pathway, and tissue levels, with suggested ontology terms and anatomical mappings. It is useful for converting narrative disease biology into structured knowledge-base annotations linked to supporting evidence.</em></p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<h3>7.1 Organ/system level</h3>
+<ul>
+<li>Primary system affected: <strong>central nervous system</strong> (chaudhry2021drplaunderstandingthe pages 1-3).</li>
+</ul>
+<h3>7.2 Tissue/cell/anatomical localization (from retrieved sources)</h3>
+<ul>
+<li>Key structures: cerebellum (dentate nucleus), basal ganglia (globus pallidus), subthalamic nucleus, brainstem, cerebral/cerebellar white matter (nowak2023atrophin‐1functionand pages 2-2, chen2024dentatorubralpallidoluysianatrophya pages 3-5).</li>
+<li>Imaging correlates: progressive brainstem and cerebellar atrophy and widely distributed white-matter lesions (including thalamus and cerebellum) (chen2024dentatorubralpallidoluysianatrophya pages 3-5).</li>
+</ul>
+<p>The DRPLA natural history/biomarker study operationalizes structural degeneration by focusing on atrophy in <strong>brainstem, superior cerebellar peduncle, cerebellum, and thalamus</strong> (NCT06273150 chunk 1).</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<h3>8.1 Onset</h3>
+<ul>
+<li>Typical mean/median onset reported around <strong>~31 years</strong> across reviews (nowak2023atrophin‐1functionand pages 1-2, chen2024dentatorubralpallidoluysianatrophya pages 3-5).</li>
+<li>Clinical categories described in a 2024 case review: juvenile (&lt;20), early adult (20–40), and late adult (&gt;40) (chen2024dentatorubralpallidoluysianatrophya pages 3-5).</li>
+</ul>
+<h3>8.2 Progression</h3>
+<p>DRPLA is progressive; repeat length correlates with earlier onset, more severe phenotype, and poorer prognosis (chaudhry2021drplaunderstandingthe pages 1-3, chen2024dentatorubralpallidoluysianatrophya pages 3-5, nowak2023atrophin‐1functionand pages 1-2).</p>
+<p>A striking example of early-onset severity is the 98-repeat infantile case, which presented at 4 months and had fatal outcome at 17 months (baide‐mairena2023infantile‐onsetparkinsonismdyskinesia pages 1-3).</p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>9.1 Inheritance pattern</h3>
+<ul>
+<li><strong>Autosomal dominant</strong> inheritance (chaudhry2021drplaunderstandingthe pages 1-3, prades2024establishingresourcesand pages 2-4).</li>
+<li><strong>Anticipation</strong>: symptoms can appear earlier and more severely in subsequent generations, with paternal transmission often more prominent (chaudhry2021drplaunderstandingthe pages 1-3, prades2024establishingresourcesand pages 2-4).</li>
+</ul>
+<h3>9.2 Epidemiology (statistics)</h3>
+<ul>
+<li>Japan: estimated incidence/prevalence reported as <strong>2–7 per million</strong> (chaudhry2021drplaunderstandingthe pages 1-3, nowak2023atrophin‐1functionand pages 1-2, prades2024establishingresourcesand pages 2-4).</li>
+<li>In Japan, DRPLA is described as accounting for approximately <strong>7.3–20%</strong> of autosomal dominant SCA in some cohorts/reports (chaudhry2021drplaunderstandingthe pages 1-3).</li>
+<li>Regional frequencies in SCA cohorts reported in the neurology update include: Singapore <strong>3.4%</strong>, Korea <strong>3.4%</strong>, China <strong>1%</strong>, Brazil <strong>0.14%</strong>, Venezuela <strong>3.1%</strong> (chaudhry2021drplaunderstandingthe pages 1-3).</li>
+<li>Europe: a 2003 study analyzing 809 European index ataxia cases estimated DRPLA frequency as <strong>0.25%</strong> in autosomal dominant cerebellar ataxia families and <strong>0.25%</strong> in sporadic progressive ataxia cases, emphasizing very low prevalence in that setting (Arch Neurol. 2003; https://doi.org/10.1001/archneur.60.8.1097) (ber2003prevalenceofdentatorubralpallidoluysian pages 1-2).</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>10.1 Current best-practice diagnostic strategy (from 2024 sources)</h3>
+<p>Recent hereditary ataxia diagnostic guidance (2024) stresses that adult-onset hereditary cerebellar ataxia workups often require (i) targeted testing for STR expansions (including DRPLA) plus (ii) sequencing approaches for conventional variants, and highlights long-read sequencing as a likely future transformer of diagnostic yield (https://doi.org/10.1007/s12311-024-01703-z) (rudaks2024anupdateon pages 1-2, rudaks2024anupdateon pages 10-12).</p>
+<h3>10.2 Structured diagnostic tests table</h3>
+<table>
+<thead>
+<tr>
+<th>Diagnostic domain</th>
+<th>Test / approach</th>
+<th>What it detects or assesses in DRPLA</th>
+<th>Key findings / practical use</th>
+<th>Limitations / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Confirmatory genetics</td>
+<td><strong>ATN1 CAG repeat sizing</strong> by targeted repeat-expansion testing (PCR/capillary electrophoresis; orthogonal confirmation)</td>
+<td>Detects pathogenic CAG expansion in <strong>exon 5 of ATN1</strong></td>
+<td>Central confirmatory test for suspected DRPLA; reviewed sources note normal alleles typically <strong>6-35</strong>, incomplete penetrance around <strong>35-47</strong>, and full penetrance generally at <strong>&gt;=48</strong> repeats. Case reports show diagnosis from pathogenic repeat sizes such as <strong>62 repeats</strong>. Recommended early in the workup of hereditary ataxia or compatible multisystem neurodegenerative phenotypes. (chaudhry2021drplaunderstandingthe pages 1-3, chen2024dentatorubralpallidoluysianatrophya pages 3-5, chen2024dentatorubralpallidoluysianatrophya pages 1-2)</td>
+<td>First-line test when phenotype/family history suggests DRPLA; molecular testing in European ataxia cohorts may be prioritized when ataxia co-occurs with <strong>chorea, dementia, or myoclonic epilepsy</strong>. (ber2003prevalenceofdentatorubralpallidoluysian pages 1-2)</td>
+</tr>
+<tr>
+<td>Expanded genetic screening</td>
+<td><strong>STR analysis from exome data</strong> using tools such as ExpansionHunter + REViewer</td>
+<td>Screens exome datasets for pathogenic repeat expansions, including <strong>ATN1</strong></td>
+<td>2024 study showed that adding STR analysis to exome pipelines identified previously missed diagnoses, including <strong>3 DRPLA cases</strong>, supporting exome-based STR calling as a useful secondary diagnostic strategy in undiagnosed neurogenetic disease. (yoon2024diagnosticupliftthrough pages 1-2)</td>
+<td>Not a replacement for orthogonal confirmation; coverage and mapping limitations can produce false positives/false negatives, so confirmatory repeat testing remains necessary. (yoon2024diagnosticupliftthrough pages 1-2)</td>
+</tr>
+<tr>
+<td>Future/advanced genetics</td>
+<td><strong>Long-read sequencing</strong></td>
+<td>Improved characterization of repeat expansions and complex variant structure</td>
+<td>2024 hereditary ataxia review highlights long-read sequencing as a likely transformative technology for adult-onset hereditary ataxias because it can better resolve STR expansions than standard short-read methods; relevant when routine STR testing and NGS are nondiagnostic or when multiple variant classes are suspected. (rudaks2024anupdateon pages 1-2, rudaks2024anupdateon pages 10-12)</td>
+<td>Not yet standard in many clinical settings; access and implementation remain limited. (rudaks2024anupdateon pages 1-2, rudaks2024anupdateon pages 10-12)</td>
+</tr>
+<tr>
+<td>Clinical diagnostic framing</td>
+<td><strong>Phenotype-led diagnostic assessment</strong></td>
+<td>Integrates age at onset, movement disorder pattern, epilepsy, cognition, psychiatric features, family history, and ancestry</td>
+<td>DRPLA should be considered in patients with juvenile-onset <strong>epilepsy/myoclonus/ataxia</strong> or adult-onset <strong>ataxia, choreoathetosis, cognitive decline, psychiatric symptoms</strong>, especially with autosomal dominant family history or anticipation. (chaudhry2021drplaunderstandingthe pages 1-3, chen2024dentatorubralpallidoluysianatrophya pages 3-5, prades2024establishingresourcesand pages 2-4)</td>
+<td>No universally standardized standalone clinical criteria were identified in the retrieved DRPLA literature; diagnosis remains genotype-supported. (chen2024dentatorubralpallidoluysianatrophya pages 3-5)</td>
+</tr>
+<tr>
+<td>Neuroimaging</td>
+<td><strong>Brain MRI</strong></td>
+<td>Assesses structural changes and supports differential diagnosis</td>
+<td>Common findings include <strong>brainstem and cerebellar atrophy</strong> and widespread <strong>cerebral/cerebellar white-matter lesions</strong>; lesions may involve the <strong>cerebrum, brainstem, thalamus, and cerebellum</strong>. MRI abnormalities may be mild early and more nonspecific later, so imaging is supportive rather than definitive. (chen2024dentatorubralpallidoluysianatrophya pages 3-5, chaudhry2021drplaunderstandingthe pages 1-3)</td>
+<td>MRI is variable across stage and age group; not pathognomonic, and early imaging may be subtle. (chaudhry2021drplaunderstandingthe pages 1-3, chen2024dentatorubralpallidoluysianatrophya pages 3-5)</td>
+</tr>
+<tr>
+<td>Imaging biomarkers in current research</td>
+<td><strong>Volumetric MRI / longitudinal atrophy measurement</strong></td>
+<td>Tracks disease progression and candidate trial endpoints</td>
+<td>The ongoing natural-history/biomarker study uses MRI to quantify atrophy over 3 years, particularly in the <strong>brainstem, superior cerebellar peduncle, cerebellum, and thalamus</strong>, indicating these are current real-world imaging biomarker targets. (NCT06273150 chunk 1)</td>
+<td>Research-use longitudinal biomarker strategy; not yet a validated standalone diagnostic biomarker. (NCT06273150 chunk 1)</td>
+</tr>
+<tr>
+<td>Epilepsy workup</td>
+<td><strong>EEG and seizure phenotyping</strong></td>
+<td>Characterizes seizure type, burden, and electroclinical pattern, especially in juvenile-onset disease</td>
+<td>Seizures are common in juvenile-onset DRPLA; epilepsy evaluation is therefore important in suspected pediatric/juvenile cases and in adults with myoclonus or unexplained seizures plus ataxia/cognitive decline. Current interventional ASO work in one participant uses <strong>EEG-measured seizure length</strong> and seizure tracking as primary outcomes, underscoring clinical relevance. (chaudhry2021drplaunderstandingthe pages 1-3, NCT07084311 chunk 1)</td>
+<td>EEG findings are useful for symptom characterization and treatment monitoring but are not diagnostic of DRPLA without molecular confirmation. (NCT07084311 chunk 1, chaudhry2021drplaunderstandingthe pages 1-3)</td>
+</tr>
+<tr>
+<td>Differential-diagnosis testing strategy</td>
+<td><strong>Hereditary ataxia workflow</strong>: common SCA repeat panel + DRPLA testing, then NGS/WES/WGS if negative</td>
+<td>Distinguishes DRPLA from other dominant and sporadic ataxias</td>
+<td>2024 ataxia guidance recommends testing for common dominant STR ataxias and <strong>DRPLA</strong> early in adults with hereditary cerebellar ataxia, followed by broader sequencing if repeat expansion testing is negative. (rudaks2024anupdateon pages 1-2, rudaks2024anupdateon pages 10-12)</td>
+<td>DRPLA prevalence is low in Europe, so selective testing based on phenotype may improve efficiency in low-prevalence settings. (ber2003prevalenceofdentatorubralpallidoluysian pages 1-2)</td>
+</tr>
+<tr>
+<td>Epidemiology-informed testing</td>
+<td><strong>Targeted DRPLA testing in selected ataxia cohorts</strong></td>
+<td>Helps decide when DRPLA testing is high yield</td>
+<td>European prevalence study found DRPLA was very rare in a large White ataxia series (<strong>0.25%</strong> overall in both AD cerebellar ataxia families and sporadic ataxia cases), supporting selective testing when hallmark features such as <strong>chorea, dementia, or myoclonic epilepsy</strong> accompany ataxia. (ber2003prevalenceofdentatorubralpallidoluysian pages 1-2)</td>
+<td>Low yield in unselected European ataxia cohorts; geographic/ancestral context matters. (chaudhry2021drplaunderstandingthe pages 1-3, ber2003prevalenceofdentatorubralpallidoluysian pages 1-2)</td>
+</tr>
+<tr>
+<td>Fluid / molecular biomarkers</td>
+<td><strong>Plasma and CSF NfL</strong>, plus <strong>tau, GFAP, UCH-L1</strong></td>
+<td>Candidate biomarkers for neurodegeneration and progression</td>
+<td>The DRPLA Natural History and Biomarkers Study prospectively measures <strong>plasma/CSF neurofilament light (NfL)</strong> as a primary biomarker and <strong>tau, GFAP, UCH-L1</strong> as secondary biomarkers, reflecting the current translational biomarker strategy in DRPLA. (NCT06273150 chunk 1)</td>
+<td>These biomarkers are under study and not yet established as routine diagnostic standards for DRPLA. (NCT06273150 chunk 1)</td>
+</tr>
+<tr>
+<td>Multimodal trial-readiness phenotyping</td>
+<td><strong>SARA, INAS, upper-limb testing, speech and dysphagia batteries, biospecimen collection</strong></td>
+<td>Quantifies clinical severity and progression for research and future trials</td>
+<td>Current real-world implementation includes prospective annual assessments of <strong>SARA</strong>, non-ataxia signs, hand function, speech, dysphagia, and broad biosample collection (blood, serum, plasma, CSF, saliva, urine, feces, fibroblasts), creating a structured biomarker/endpoint framework for future interventional studies. (NCT06273150 chunk 1)</td>
+<td>Primarily a research infrastructure rather than routine clinical diagnosis, but highly relevant for standardizing future care and trial endpoints. (NCT06273150 chunk 1)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes the main diagnostic modalities currently used or emerging for dentatorubral-pallidoluysian atrophy, spanning confirmatory genetics, imaging, EEG/epilepsy assessment, and biomarker strategies. It is useful for distinguishing routine clinical diagnosis from research-stage trial-readiness tools and shows where recent 2024 evidence is changing practice.</em></p>
+<h3>10.3 Differential diagnosis (non-exhaustive)</h3>
+<p>DRPLA may mimic Huntington disease and other hereditary SCAs, particularly in adult-onset chorea/ataxia/dementia phenotypes (chaudhry2021drplaunderstandingthe pages 1-3, ber2003prevalenceofdentatorubralpallidoluysian pages 1-2). The low yield in unselected European ataxia cohorts supports selective testing when ataxia co-occurs with hallmark features such as chorea, dementia, or myoclonic epilepsy (ber2003prevalenceofdentatorubralpallidoluysian pages 1-2).</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<p>The retrieved sources in this run mainly provide <strong>qualitative</strong> prognostic relationships rather than survival curves or standardized mortality rates.</p>
+<ul>
+<li>Repeat length is inversely correlated with age at onset and associated with more severe symptoms, long-term disability, and poorer prognosis in reviewed sources (chaudhry2021drplaunderstandingthe pages 1-3, chen2024dentatorubralpallidoluysianatrophya pages 3-5).</li>
+<li>Extreme expansions can drive very early onset and fatal outcomes (e.g., 98 repeats infantile case) (baide‐mairena2023infantile‐onsetparkinsonismdyskinesia pages 1-3).</li>
+</ul>
+<p><strong>Evidence gap:</strong> robust statistics on life expectancy, survival rates, or longitudinal disability trajectories in large modern cohorts were not available in the retrieved full text for this run.</p>
+<hr />
+<h2>12. Treatment</h2>
+<h3>12.1 Current standard of care</h3>
+<p>No disease-modifying therapy is available in the retrieved clinical literature; management is symptomatic and supportive, with emphasis on seizures/myoclonus (juvenile onset), movement disorders, and multidisciplinary care (chaudhry2021drplaunderstandingthe pages 1-3, prades2024establishingresourcesand pages 1-2).</p>
+<h3>12.2 Treatment and experimental therapeutics table (with MAXO suggestions)</h3>
+<table>
+<thead>
+<tr>
+<th>Treatment / approach</th>
+<th>Clinical role</th>
+<th>Mechanism / rationale</th>
+<th>Evidence type</th>
+<th>Key evidence / implementation notes</th>
+<th>Suggested MAXO term(s)</th>
+<th>Citations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Levetiracetam</td>
+<td>Symptomatic seizure control</td>
+<td>Antiseizure medication used for DRPLA-associated epilepsy/myoclonus; favored over sodium-channel blockers in recent evidence synthesis</td>
+<td>Systematic review / meta-analysis</td>
+<td>In DRPLA-related epilepsy, levetiracetam was reported more frequently as effective than sodium channel blockers; epilepsy is especially important in juvenile-onset disease (chaudhry2021drplaunderstandingthe pages 1-3)</td>
+<td>MAXO:0000106 seizure management; MAXO:0000127 anticonvulsant therapy</td>
+<td>(chaudhry2021drplaunderstandingthe pages 1-3)</td>
+</tr>
+<tr>
+<td>Perampanel</td>
+<td>Symptomatic seizure control</td>
+<td>AMPA-receptor antagonist antiseizure therapy for refractory seizures / myoclonus</td>
+<td>Review citing case evidence</td>
+<td>A 2023 review notes a 2017 single-patient experience in a 13-year-old with continuous myoclonic seizures in whom perampanel led to seizure cessation and some intellectual recovery, though it was not expected to alter neurodegeneration (nowak2023atrophin‐1functionand pages 7-8)</td>
+<td>MAXO:0000106 seizure management; MAXO:0000127 anticonvulsant therapy</td>
+<td>(nowak2023atrophin‐1functionand pages 7-8)</td>
+</tr>
+<tr>
+<td>Buspirone</td>
+<td>Symptomatic treatment for movement/balance symptoms</td>
+<td>Serotonergic anxiolytic used empirically for symptom relief; mechanism in DRPLA not established</td>
+<td>Case report</td>
+<td>A 2024 case report described buspirone 5 mg three times daily, but after 6 months there was no significant symptomatic improvement in that patient (chen2024dentatorubralpallidoluysianatrophya pages 1-2)</td>
+<td>MAXO:0001298 symptomatic treatment</td>
+<td>(chen2024dentatorubralpallidoluysianatrophya pages 1-2)</td>
+</tr>
+<tr>
+<td>Rehabilitation and multidisciplinary supportive care</td>
+<td>Supportive / functional management</td>
+<td>Physical, occupational, speech/swallowing, and general supportive care to preserve function and quality of life in progressive ataxia/neurodegeneration</td>
+<td>Review / natural-history implementation</td>
+<td>Current DRPLA research infrastructure includes upper-limb testing, speech assessment, and dysphagia assessment, supporting real-world multidisciplinary management needs; recent ataxia reviews emphasize physical, speech, and occupational therapy as core care in hereditary ataxias (NCT06273150 chunk 1, rudaks2024anupdateon pages 1-2)</td>
+<td>MAXO:0000011 physical therapy; MAXO:0000058 occupational therapy; MAXO:0000370 speech therapy; MAXO:0001103 dysphagia management</td>
+<td>(NCT06273150 chunk 1, rudaks2024anupdateon pages 1-2)</td>
+</tr>
+<tr>
+<td>Personalized ATN1-targeting antisense oligonucleotide (nL-ATN1-002)</td>
+<td>Experimental disease-modifying therapy</td>
+<td>ATN1-lowering ASO intended to reduce mutant atrophin-1 expression and downstream toxicity</td>
+<td>Interventional trial registry</td>
+<td>Ongoing single-participant open-label Phase 1/2 study for genetically confirmed ATN1-related DRPLA; primary outcomes track seizure length/frequency and safety over 24 months (NCT07084311) (NCT07084311 chunk 1)</td>
+<td>MAXO:0000197 antisense oligonucleotide therapy; MAXO:0001526 personalized therapy</td>
+<td>(NCT07084311 chunk 1)</td>
+</tr>
+<tr>
+<td>ATN1-lowering ASO strategies (programmatic approach)</td>
+<td>Experimental disease-modifying therapy</td>
+<td>Gene-silencing/downregulation approach targeting the root cause by lowering ATN1 expression</td>
+<td>Patient-organization perspective / translational review</td>
+<td>CureDRPLA prioritizes ATN1-downregulation strategies and has funded preclinical work and infrastructure to accelerate these therapies toward the clinic; no approved disease-modifying therapy currently exists (prades2024establishingresourcesand pages 1-2, prades2024establishingresourcesand pages 2-4)</td>
+<td>MAXO:0000197 antisense oligonucleotide therapy; MAXO:0001445 gene expression inhibition therapy</td>
+<td>(prades2024establishingresourcesand pages 1-2, prades2024establishingresourcesand pages 2-4)</td>
+</tr>
+<tr>
+<td>CAG repeat-binding small molecule naphthyridine-azaquinolone (NA)</td>
+<td>Experimental disease-modifying therapy</td>
+<td>Binds slipped CAG-repeat DNA structures, induces repeat contraction, reduces mutant ATN1 aggregation, and improves motor phenotype in model systems</td>
+<td>Preclinical mouse study</td>
+<td>In DRPLA transgenic mice, long-term intracerebroventricular NA treatment produced repeat contraction and improved motor coordination, supporting somatic repeat instability as a therapeutic target (hasuike2022cagrepeatbindingsmall pages 1-2, hasuike2022cagrepeatbindingsmall pages 2-3)</td>
+<td>MAXO:0000014 drug treatment; MAXO:0001445 gene expression inhibition therapy</td>
+<td>(hasuike2022cagrepeatbindingsmall pages 1-2, hasuike2022cagrepeatbindingsmall pages 2-3)</td>
+</tr>
+<tr>
+<td>Broader ASO / nucleic acid therapeutic development for polyQ disease</td>
+<td>Experimental platform strategy</td>
+<td>RNA-targeting therapies aim to lower toxic polyQ proteins across monogenic repeat-expansion disorders</td>
+<td>Review</td>
+<td>Polyglutamine disorders, including DRPLA, are considered strong candidates for ASO-based gene-targeting therapy because toxic gain-of-function is central and no disease-modifying therapy is approved (chaudhry2021drplaunderstandingthe pages 1-3, prades2024establishingresourcesand pages 1-2)</td>
+<td>MAXO:0000197 antisense oligonucleotide therapy</td>
+<td>(chaudhry2021drplaunderstandingthe pages 1-3, prades2024establishingresourcesand pages 1-2)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes current symptomatic management and emerging disease-modifying strategies for DRPLA, spanning antiseizure therapy, supportive rehabilitation, and experimental ATN1-targeted or repeat-targeted approaches. It is useful for distinguishing routine care from translational and clinical-trial-stage therapeutics.</em></p>
+<h3>12.3 Recent developments (2023–2024 prioritized)</h3>
+<ul>
+<li><strong>Personalized ASO clinical implementation:</strong> a single-participant Phase 1/2 trial of a personalized ASO targeting ATN1 (start 2024-10-24; NCT07084311) uses seizure endpoints and safety/tolerability monitoring (NCT07084311 chunk 1).</li>
+<li><strong>Infrastructure toward trials:</strong> CureDRPLA and collaborators report active support for natural history/biomarkers studies, patient registry development, and model generation, prioritizing ATN1-lowering strategies (prades2024establishingresourcesand pages 1-2, prades2024establishingresourcesand pages 2-4).</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<p>No primary prevention (in the sense of preventing the mutation) is available for DRPLA; however, prevention of transmission and morbidity is possible via genetic services:
+- <strong>Genetic counseling</strong> and <strong>cascade testing</strong> are relevant given autosomal dominant inheritance and anticipation (chaudhry2021drplaunderstandingthe pages 1-3, prades2024establishingresourcesand pages 2-4).
+- Registry-based engagement and natural history programs (below) support secondary/tertiary prevention through earlier recognition, standardized monitoring, and future trial readiness (NCT05489393 chunk 1, NCT06273150 chunk 1).</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p>No naturally occurring DRPLA-like disease in non-human species was identified in the retrieved sources for this run.</p>
+<hr />
+<h2>15. Model Organisms and Experimental Systems</h2>
+<h3>15.1 Model types and resources (recent developments)</h3>
+<p>CureDRPLA-funded resources include:
+- <strong>Human cellular models:</strong> patient iPSCs (heterozygous for a 67 CAG expansion) and fibroblast cultures (prades2024establishingresourcesand pages 2-4).
+- <strong>Mouse models:</strong> a fully humanized mouse model expressing human ATN1 from the mouse locus (two lines expressing 112 and 70 pure CAG repeats) (prades2024establishingresourcesand pages 2-4).</p>
+<p>A preclinical therapeutic study used DRPLA transgenic mice with multiple CAG-length sublines (including Q113), enabling repeat-length–dependent phenotyping and treatment testing (hasuike2022cagrepeatbindingsmall pages 2-3).</p>
+<hr />
+<h2>Current applications and real-world implementations (clinical research ecosystem)</h2>
+<p>The following clinical studies and real-world infrastructures are active implementations relevant to DRPLA care and research.</p>
+<table>
+<thead>
+<tr>
+<th>Study / implementation</th>
+<th>NCT ID</th>
+<th>Study type</th>
+<th>Sponsor / organization</th>
+<th>Status</th>
+<th>Start date</th>
+<th>Enrollment</th>
+<th>Key outcomes / biomarkers / real-world use</th>
+<th>URL</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DRPLA Natural History and Biomarkers Study (DRPLA NHBS)</td>
+<td>NCT06273150</td>
+<td>Observational, prospective cohort</td>
+<td>University College London; collaborators: University of North Carolina, Chapel Hill and NYU Langone Health</td>
+<td>Recruiting</td>
+<td>2022-05-01</td>
+<td>225</td>
+<td>Annual 3-year natural history study in adult, pediatric, and remote arms; primary outcomes include SARA, brain MRI atrophy, and plasma/CSF neurofilament light (NfL); secondary measures include INAS, upper-limb function, speech battery, dysphagia assessment, and plasma/CSF tau, GFAP, and UCH-L1; biospecimens include blood, serum, plasma, CSF, saliva, urine, feces, and fibroblasts. Designed to support future DRPLA clinical trials (NCT06273150 chunk 1)</td>
+<td>https://clinicaltrials.gov/study/NCT06273150</td>
+</tr>
+<tr>
+<td>CureDRPLA Global Patient Registry</td>
+<td>NCT05489393</td>
+<td>Observational patient registry, prospective cohort</td>
+<td>CureDRPLA; collaborator: Ataxia UK</td>
+<td>Recruiting</td>
+<td>2021-03-01</td>
+<td>100</td>
+<td>Longitudinal global registry collecting patient- or caregiver-reported demographics, diagnosis, medical history, activities of daily living, functional mobility, disease burden, quality of life, and health economics; available in multiple languages and intended to identify a well-characterized cohort for retrospective/prospective research and connect patients with future studies/trials. Represents real-world patient data infrastructure for DRPLA research (NCT05489393 chunk 1)</td>
+<td>https://clinicaltrials.gov/study/NCT05489393</td>
+</tr>
+<tr>
+<td>Personalized Antisense Oligonucleotide for a Single Participant With ATN1 Gene Mutation</td>
+<td>NCT07084311</td>
+<td>Interventional, open-label Phase 1/2, single participant</td>
+<td>n-Lorem Foundation; collaborator: Hawaii Pacific Neuroscience</td>
+<td>Active, not recruiting</td>
+<td>2024-10-24</td>
+<td>1</td>
+<td>Personalized ASO (nL-ATN1-002) for genetically confirmed ATN1-related DRPLA; primary outcomes focus on seizure length by EEG and seizure frequency/medication use; secondary outcomes include quality of life and caregiver burden (CPCHILD), health/comorbidity checklist, and safety/tolerability monitoring with neurologic exams and laboratory/CSF assessments over 24 months. Real-world implementation of individualized ASO therapy in ultra-rare disease (NCT07084311 chunk 1)</td>
+<td>https://clinicaltrials.gov/study/NCT07084311</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes key DRPLA clinical research and implementation efforts spanning natural history/biomarker studies, a global patient registry, and a personalized ASO interventional trial. It is useful for understanding the current translational landscape, including recruitment status, biomarkers, and trial-readiness infrastructure.</em></p>
+<h3>Visual evidence: CureDRPLA resources and ecosystem</h3>
+<p>CureDRPLA’s overview figure and its table of funded resources (including patient iPSCs, humanized mice, and natural history/biomarker study elements) provide a concise depiction of the field’s current translational infrastructure (prades2024establishingresourcesand media bcf421d5, prades2024establishingresourcesand media b4717146).</p>
+<hr />
+<h2>Expert opinions and analysis (authoritative sources)</h2>
+<ul>
+<li>A 2024 neurology review frames a central barrier to therapy development as “the rarity of the condition and the wide global distribution of patients and families,” and positions natural history and biomarker development as necessary precursors to ASO trials (chaudhry2021drplaunderstandingthe pages 1-3).</li>
+<li>A 2024 patient-organization perspective emphasizes coordinated, multi-site research and prioritizes <strong>ATN1-lowering</strong> as a root-cause strategy, noting the need for registry and natural history work to enable trials (prades2024establishingresourcesand pages 1-2, prades2024establishingresourcesand pages 2-4).</li>
+<li>A 2024 adult-onset hereditary ataxia diagnostic review argues that implementing advanced sequencing approaches (including long-read sequencing) could transform diagnostic yield for STR expansion disorders, explicitly including DRPLA (rudaks2024anupdateon pages 1-2).</li>
+</ul>
+<hr />
+<h2>Key data points (quick reference; statistics from recent/authoritative sources)</h2>
+<ul>
+<li>Japan incidence/prevalence estimate: <strong>2–7 per million</strong> (chaudhry2021drplaunderstandingthe pages 1-3, prades2024establishingresourcesand pages 2-4, nowak2023atrophin‐1functionand pages 1-2).</li>
+<li>Europe ataxia cohort (2003) DRPLA frequency: <strong>0.25%</strong> in AD ataxia families and <strong>0.25%</strong> in sporadic progressive ataxia cases (ber2003prevalenceofdentatorubralpallidoluysian pages 1-2).</li>
+<li>Molecular thresholds: normal ~<strong>6–35 CAG</strong>, incomplete penetrance <strong>35–47</strong>, full penetrance <strong>≥48</strong> (chaudhry2021drplaunderstandingthe pages 1-3, chen2024dentatorubralpallidoluysianatrophya pages 3-5, nowak2023atrophin‐1functionand pages 1-2).</li>
+<li>Extreme expansion example: <strong>98 CAG repeats</strong> infantile case (published Jul 2023; https://doi.org/10.1002/acn3.51858) (baide‐mairena2023infantile‐onsetparkinsonismdyskinesia pages 1-3).</li>
+<li>2024 exome-STR pipeline diagnostic gain: STR analysis of 6099 exomes from 2510 families gave a <strong>0.28% diagnostic gain (7/2510)</strong>; identified <strong>DRPLA in n=3</strong> individuals (published online 2 Feb 2024; https://doi.org/10.1038/s41431-024-01542-w) (yoon2024diagnosticupliftthrough pages 1-2).</li>
+</ul>
+<hr />
+<h2>Disease identifiers and nomenclature summary</h2>
+<table>
+<thead>
+<tr>
+<th>Disease name</th>
+<th>Common synonyms / alternative names</th>
+<th>OMIM / MIM</th>
+<th>MONDO</th>
+<th>Orphanet</th>
+<th>Causal gene</th>
+<th>Inheritance</th>
+<th>Key notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dentatorubral-pallidoluysian atrophy</td>
+<td>DRPLA; dentatorubral pallidoluysian atrophy; hereditary DRPLA; classified within the spinocerebellar ataxia group / autosomal dominant cerebellar ataxia type IV in disease mappings (chaudhry2021drplaunderstandingthe pages 1-3, OpenTargets Search: Dentatorubral-pallidoluysian atrophy,DRPLA-ATN1)</td>
+<td>MIM/OMIM #125370 (prades2024establishingresourcesand pages 1-2)</td>
+<td>MONDO:0007435 / MONDO_0007435 (OpenTargets Search: Dentatorubral-pallidoluysian atrophy,DRPLA-ATN1)</td>
+<td>Orphanet 101 / Orphanet_101 (OpenTargets Search: Dentatorubral-pallidoluysian atrophy,DRPLA-ATN1)</td>
+<td>ATN1 (atrophin-1), chromosome 12p13.31; disease-causing CAG repeat expansion in exon 5 (chaudhry2021drplaunderstandingthe pages 1-3, prades2024establishingresourcesand pages 2-4)</td>
+<td>Autosomal dominant (chaudhry2021drplaunderstandingthe pages 1-3, prades2024establishingresourcesand pages 2-4)</td>
+<td>Ultra-rare neurodegenerative polyglutamine disorder characterized by ataxia, cognitive decline, myoclonus, chorea, epilepsy, and psychiatric manifestations; full penetrance typically reported at &gt;=48 CAG repeats, with incomplete penetrance at 35-47 repeats in reviewed sources (prades2024establishingresourcesand pages 1-2, chaudhry2021drplaunderstandingthe pages 1-3, prades2024establishingresourcesand pages 2-4)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes the core disease-normalization fields for dentatorubral-pallidoluysian atrophy, including accepted identifiers, synonyms, causal gene, and inheritance. It is useful for building a standardized disease knowledge base entry anchored to curated and review-supported sources.</em></p>
+<hr />
+<h2>Limitations of this report (evidence availability)</h2>
+<ul>
+<li><strong>ICD-10/ICD-11 and MeSH IDs</strong> were not found in the retrieved full-text evidence for this run and therefore are not asserted here.</li>
+<li><strong>Quantitative prognosis (survival, life expectancy, mortality rates)</strong> is not well supported by the retrieved corpus; most prognostic evidence here is genotype–phenotype correlation (repeat length vs onset/severity) (chaudhry2021drplaunderstandingthe pages 1-3, chen2024dentatorubralpallidoluysianatrophya pages 3-5).</li>
+</ul>
+<p>References</p>
+<ol>
+<li>
+<p>(chaudhry2021drplaunderstandingthe pages 1-3): Aiysha Chaudhry, Alkyoni Anthanasiou-Fragkouli, and Henry Houlden. Drpla: understanding the natural history and developing biomarkers to accelerate therapeutic trials in a globally rare repeat expansion disorder. Journal of Neurology, 268:3031-3041, Oct 2021. URL: https://doi.org/10.1007/s00415-020-10218-6, doi:10.1007/s00415-020-10218-6. This article has 31 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(nowak2023atrophin‐1functionand pages 1-2): Bartosz Nowak, Emilia Kozlowska, Weronika Pawlik, and Agnieszka Fiszer. Atrophin‐1 function and dysfunction in dentatorubral–pallidoluysian atrophy. Movement Disorders, 38:526-536, Feb 2023. URL: https://doi.org/10.1002/mds.29355, doi:10.1002/mds.29355. This article has 25 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(OpenTargets Search: Dentatorubral-pallidoluysian atrophy,DRPLA-ATN1): Open Targets Query (Dentatorubral-pallidoluysian atrophy,DRPLA-ATN1, 6 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.</p>
+</li>
+<li>
+<p>(prades2024establishingresourcesand pages 1-2): Silvia Prades, Andrea Compton, and Jeffrey B. Carroll. Establishing resources and increasing awareness to advance research on dentatorubral-pallidoluysian atrophy toward a treatment: a patient organization perspective. Therapeutic Advances in Rare Disease, Jan 2024. URL: https://doi.org/10.1177/26330040241249189, doi:10.1177/26330040241249189. This article has 1 citations.</p>
+</li>
+<li>
+<p>(prades2024establishingresourcesand pages 2-4): Silvia Prades, Andrea Compton, and Jeffrey B. Carroll. Establishing resources and increasing awareness to advance research on dentatorubral-pallidoluysian atrophy toward a treatment: a patient organization perspective. Therapeutic Advances in Rare Disease, Jan 2024. URL: https://doi.org/10.1177/26330040241249189, doi:10.1177/26330040241249189. This article has 1 citations.</p>
+</li>
+<li>
+<p>(rudaks2024anupdateon pages 1-2): Laura Ivete Rudaks, Dennis Yeow, Karl Ng, Ira W. Deveson, Marina L. Kennerson, and Kishore Raj Kumar. An update on the adult-onset hereditary cerebellar ataxias: novel genetic causes and new diagnostic approaches. Cerebellum (London, England), 23:2152-2168, May 2024. URL: https://doi.org/10.1007/s12311-024-01703-z, doi:10.1007/s12311-024-01703-z. This article has 51 citations.</p>
+</li>
+<li>
+<p>(rudaks2024anupdateon pages 10-12): Laura Ivete Rudaks, Dennis Yeow, Karl Ng, Ira W. Deveson, Marina L. Kennerson, and Kishore Raj Kumar. An update on the adult-onset hereditary cerebellar ataxias: novel genetic causes and new diagnostic approaches. Cerebellum (London, England), 23:2152-2168, May 2024. URL: https://doi.org/10.1007/s12311-024-01703-z, doi:10.1007/s12311-024-01703-z. This article has 51 citations.</p>
+</li>
+<li>
+<p>(chen2024dentatorubralpallidoluysianatrophya pages 1-2): Xin Chen, Wenwen Xiang, Lijun Xu, Jiahao Zhao, Ye Yu, Qing Ke, Zhipeng Liu, and Li Gan. Dentatorubral-pallidoluysian atrophy: a case report and review of literature. Journal of Medical Case Reports, Sep 2024. URL: https://doi.org/10.1186/s13256-024-04745-3, doi:10.1186/s13256-024-04745-3. This article has 0 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(baide‐mairena2023infantile‐onsetparkinsonismdyskinesia pages 1-3): Heidy Baide‐Mairena, Arthur Coget, Nicolas Leboucq, Vincent Procaccio, Maud Blanluet, Pierre Meyer, Marie‐Claire Malinge, Marie‐Céline François‐Heude, Mathis Moreno, David Geneviève, Cecilia Marelli, and Agathe Roubertie. Infantile‐onset parkinsonism, dyskinesia, and developmental delay: do not forget polyglutamine defects! Annals of Clinical and Translational Neurology, 10:1937-1943, Jul 2023. URL: https://doi.org/10.1002/acn3.51858, doi:10.1002/acn3.51858. This article has 3 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(NCT07084311 chunk 1):  Personalized Antisense Oligonucleotide for A Single Participant With ATN1 Gene Mutation. n-Lorem Foundation. 2024. ClinicalTrials.gov Identifier: NCT07084311</p>
+</li>
+<li>
+<p>(chen2024dentatorubralpallidoluysianatrophya pages 3-5): Xin Chen, Wenwen Xiang, Lijun Xu, Jiahao Zhao, Ye Yu, Qing Ke, Zhipeng Liu, and Li Gan. Dentatorubral-pallidoluysian atrophy: a case report and review of literature. Journal of Medical Case Reports, Sep 2024. URL: https://doi.org/10.1186/s13256-024-04745-3, doi:10.1186/s13256-024-04745-3. This article has 0 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(nowak2023atrophin‐1functionand pages 2-2): Bartosz Nowak, Emilia Kozlowska, Weronika Pawlik, and Agnieszka Fiszer. Atrophin‐1 function and dysfunction in dentatorubral–pallidoluysian atrophy. Movement Disorders, 38:526-536, Feb 2023. URL: https://doi.org/10.1002/mds.29355, doi:10.1002/mds.29355. This article has 25 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(hasuike2022cagrepeatbindingsmall pages 1-2): Yuhei Hasuike, Hana Tanaka, Terence Gall-Duncan, Mustafa Mehkary, Kazuhiko Nakatani, Christopher E. Pearson, Shoji Tsuji, Hideki Mochizuki, and Masayuki Nakamori. Cag repeat-binding small molecule improves motor coordination impairment in a mouse model of dentatorubral–pallidoluysian atrophy. Neurobiology of Disease, 163:105604, Feb 2022. URL: https://doi.org/10.1016/j.nbd.2021.105604, doi:10.1016/j.nbd.2021.105604. This article has 24 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(ber2003prevalenceofdentatorubralpallidoluysian pages 1-2): Isabelle Le Ber, Agnès Camuzat, Giovanni Castelnovo, Jean-Philippe Azulay, Pierre Genton, Jean-Louis Gastaut, Dominique Broglin, Pierre Labauge, Alexis Brice, and Alexandra Dürr. Prevalence of dentatorubral-pallidoluysian atrophy in a large series of white patients with cerebellar ataxia. Archives of Neurology, 60:1097, Aug 2003. URL: https://doi.org/10.1001/archneur.60.8.1097, doi:10.1001/archneur.60.8.1097. This article has 68 citations.</p>
+</li>
+<li>
+<p>(NCT06273150 chunk 1):  Dentatorubral-pallidoluysian Atrophy Natural History and Biomarkers Study. University College, London. 2022. ClinicalTrials.gov Identifier: NCT06273150</p>
+</li>
+<li>
+<p>(NCT05489393 chunk 1):  CureDRPLA Global Patient Registry. CureDRPLA. 2021. ClinicalTrials.gov Identifier: NCT05489393</p>
+</li>
+<li>
+<p>(nowak2023atrophin‐1functionand pages 4-5): Bartosz Nowak, Emilia Kozlowska, Weronika Pawlik, and Agnieszka Fiszer. Atrophin‐1 function and dysfunction in dentatorubral–pallidoluysian atrophy. Movement Disorders, 38:526-536, Feb 2023. URL: https://doi.org/10.1002/mds.29355, doi:10.1002/mds.29355. This article has 25 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(nowak2023atrophin‐1functionand pages 7-8): Bartosz Nowak, Emilia Kozlowska, Weronika Pawlik, and Agnieszka Fiszer. Atrophin‐1 function and dysfunction in dentatorubral–pallidoluysian atrophy. Movement Disorders, 38:526-536, Feb 2023. URL: https://doi.org/10.1002/mds.29355, doi:10.1002/mds.29355. This article has 25 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(hasuike2022cagrepeatbindingsmall pages 2-3): Yuhei Hasuike, Hana Tanaka, Terence Gall-Duncan, Mustafa Mehkary, Kazuhiko Nakatani, Christopher E. Pearson, Shoji Tsuji, Hideki Mochizuki, and Masayuki Nakamori. Cag repeat-binding small molecule improves motor coordination impairment in a mouse model of dentatorubral–pallidoluysian atrophy. Neurobiology of Disease, 163:105604, Feb 2022. URL: https://doi.org/10.1016/j.nbd.2021.105604, doi:10.1016/j.nbd.2021.105604. This article has 24 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(yoon2024diagnosticupliftthrough pages 1-2): Jihoon G. Yoon, Seungbok Lee, Jaeso Cho, Narae Kim, Sheehyun Kim, Man Jin Kim, Soo Yeon Kim, Jangsup Moon, and Jong-Hee Chae. Diagnostic uplift through the implementation of short tandem repeat analysis using exome sequencing. European journal of human genetics : EJHG, 32:584-587, Feb 2024. URL: https://doi.org/10.1038/s41431-024-01542-w, doi:10.1038/s41431-024-01542-w. This article has 28 citations.</p>
+</li>
+<li>
+<p>(prades2024establishingresourcesand media bcf421d5): Silvia Prades, Andrea Compton, and Jeffrey B. Carroll. Establishing resources and increasing awareness to advance research on dentatorubral-pallidoluysian atrophy toward a treatment: a patient organization perspective. Therapeutic Advances in Rare Disease, Jan 2024. URL: https://doi.org/10.1177/26330040241249189, doi:10.1177/26330040241249189. This article has 1 citations.</p>
+</li>
+<li>
+<p>(prades2024establishingresourcesand media b4717146): Silvia Prades, Andrea Compton, and Jeffrey B. Carroll. Establishing resources and increasing awareness to advance research on dentatorubral-pallidoluysian atrophy toward a treatment: a patient organization perspective. Therapeutic Advances in Rare Disease, Jan 2024. URL: https://doi.org/10.1177/26330040241249189, doi:10.1177/26330040241249189. This article has 1 citations.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </div>
         
 
         <footer class="page-footer">
@@ -5085,7 +6811,7 @@ genetic:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Dentatorubral-Pallidoluysian Atrophy", "mondoId": "MONDO:0007435", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dentatorubral-Pallidoluysian_Atrophy", "yamlRevision": "3b2f979121b4"};
+        const OS_CONFIG = {"diseaseName": "Dentatorubral-Pallidoluysian Atrophy", "mondoId": "MONDO:0007435", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dentatorubral-Pallidoluysian_Atrophy", "yamlRevision": "44e6c14fba99"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

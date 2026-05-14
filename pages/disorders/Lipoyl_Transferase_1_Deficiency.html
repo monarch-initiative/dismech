@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,6 +2570,8 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 16</a>
+                
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Mitochondrial lipoylation defect</span>
                 
@@ -2436,7 +2591,7 @@
             </div>
             
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; opacity: 0.95; position: relative;">
-                Lipoyl transferase 1 deficiency (OMIM 616299) is a rare autosomal recessive mitochondrial disorder caused by biallelic mutations in LIPT1, encoding lipoyltransferase 1. LIPT1 catalyzes the final step in the mitochondrial lipoylation pathway, transferring lipoyl groups from lipoyl-GCSH to the E2 subunits of alpha-ketoacid dehydrogenases (pyruvate dehydrogenase, alpha-ketoglutarate dehydrogenase, and branched-chain ketoacid dehydrogenase). Critically, LIPT1 deficiency spares the glycine cleavage system, as GCSH is lipoylated upstream by the LIPT2-LIAS pathway. This results in combined dehydrogenase deficiency with lactic acidosis but typically normal glycine levels, distinguishing it biochemically from LIPT2 and LIAS deficiency. Clinical presentation includes Leigh-like encephalopathy, seizures, dystonia, spastic tetraparesis, and variable hepatic involvement. Onset is neonatal to early infantile. Metabolic decompensation during febrile illness may precipitate acute neurological deterioration.
+                Lipoyl transferase 1 deficiency (OMIM 616299) is a rare autosomal recessive mitochondrial disorder caused by biallelic mutations in LIPT1, encoding lipoyltransferase 1. LIPT1 catalyzes the final step in the mitochondrial lipoylation pathway, transferring lipoyl groups from lipoyl-GCSH to the E2 subunits of alpha-ketoacid dehydrogenases (pyruvate dehydrogenase, alpha-ketoglutarate dehydrogenase, and branched-chain ketoacid dehydrogenase). Critically, LIPT1 deficiency spares the glycine cleavage system, as GCSH is lipoylated upstream by the LIPT2-LIAS pathway. This results in combined dehydrogenase deficiency with lactic acidosis but typically normal glycine levels, distinguishing it biochemically from LIPT2 and LIAS deficiency. Clinical presentation includes Leigh-like encephalopathy, early-onset seizures, psychomotor retardation, abnormal muscle tone, severe lactic acidosis, and occasionally syndromic congenital sideroblastic anemia. Onset is neonatal to early infantile. Metabolic decompensation during febrile illness may precipitate acute neurological deterioration.
 
             </p>
             
@@ -2555,7 +2710,7 @@
             
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
-                <div class="stat-value">2</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Pathophysiology</div>
             </div>
             </a>
@@ -2569,16 +2724,18 @@
             
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
-                <div class="stat-value">9</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
             
             
+            <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">16</div>
                 <div class="stat-label">Pathograph</div>
             </div>
+            </a>
             
             
             <a class="stat-link" href="#genetic">
@@ -2785,7 +2942,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">4</span>
             </div>
             
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-lipoyl-relay-via-lipt1-deficiency">
@@ -2845,6 +3002,10 @@
     
     
     
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
     
     
     
@@ -2862,6 +3023,34 @@
                 
                 
 	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage</span>
+	                            
+	                            <span class="crosslink-desc">Loss of LIPT1-mediated lipoyl transfer prevents lipoylation of alpha-ketoacid dehydrogenase E2 subunits while sparing GCSH-dependent glycine cleavage.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Lipoylated dehydrogenase E2 subunits</span>
+	                            
+	                            <span class="crosslink-desc">Loss of LIPT1-mediated lipoyl transfer directly reduces lipoylated PDH E2 and alpha-KGDH E2 subunits in patient-derived cells.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Erythroid lipoylation-deficient proliferation defect</span>
+	                            
+	                            <span class="crosslink-desc">A homozygous LIPT1 sideroblastic anemia allele causes a lipoylation-deficient phenotype and impaired low-glucose proliferation in erythroid-lineage cells.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
 	                
 	                
     
@@ -2920,7 +3109,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -2962,6 +3151,10 @@
     
     
     
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
     
     
     
@@ -2990,6 +3183,48 @@
                 
                 
 	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Lactic acidosis</span>
+	                            
+	                            <span class="crosslink-desc">Reduced pyruvate dehydrogenase activity causes pyruvate accumulation and diversion to lactate.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Pyruvate and alpha-ketoglutarate dehydrogenase activity</span>
+	                            
+	                            <span class="crosslink-desc">Failed lipoylation directly lowers pyruvate dehydrogenase and alpha-ketoglutarate dehydrogenase activities.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Glycine</span>
+	                            
+	                            <span class="crosslink-desc">Preserved GCSH lipoylation and glycine cleavage keep glycine normal or near-normal in LIPT1 deficiency.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Increased urine lactate, ketoglutarate, and 2-oxoacid levels</span>
+	                            
+	                            <span class="crosslink-desc">Reduced 2-ketoacid dehydrogenase activity produces increased urinary lactate, ketoglutarate, and 2-oxoacid metabolites.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Mitochondrial bioenergetic failure and lipid peroxidation</span>
+	                            
+	                            <span class="crosslink-desc">Reduced PDH and alpha-KGDH activities impair cellular bioenergetics and are associated with iron accumulation and lipid peroxidation in LIPT1-deficient patient-derived cells.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
 	                
 	                
     
@@ -3028,7 +3263,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3048,7 +3283,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3056,6 +3291,289 @@
                 
                 
                 <div class="evidence-explanation">Confirms that LIPT1 patients retain GCSH lipoylation and therefore glycine cleavage activity, sparing them from glycine accumulation.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+	            </div>
+	            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-bioenergetic-failure-and-lipid-peroxidation">
+                <div class="item-name">Mitochondrial bioenergetic failure and lipid peroxidation</div>
+                
+                <div class="item-desc">LIPT1-deficient patient-derived fibroblasts show reduced PDH and alpha-KGDH activities with cellular bioenergetic failure, iron accumulation, and lipid peroxidation. This secondary mitochondrial stress extends the enzymatic defect beyond protein lipoylation into a measurable cellular injury state.
+</div>
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-cell">
+                        fibroblast
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        cellular respiration
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0045333" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    <span class="tag tag-bio">
+                        oxidative phosphorylation
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Seizures</span>
+	                            
+	                            <span class="crosslink-desc">Severe mitochondrial energy failure contributes to seizures in reported LIPT1 deficiency.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Global developmental delay</span>
+	                            
+	                            <span class="crosslink-desc">LIPT1-related mitochondrial dysfunction contributes to psychomotor retardation and poor neurocognitive outcomes.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Abnormal muscle tone</span>
+	                            
+	                            <span class="crosslink-desc">Abnormal muscle tone is reported as part of the LIPT1 deficiency clinical spectrum.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
+	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39199267" target="_blank">PMID:39199267</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Accordingly, activities of PDH and α-KGDH were markedly reduced, associated with cell bioenergetics failure, iron accumulation, and lipid peroxidation."</div>
+                
+                
+                <div class="evidence-explanation">Patient-derived LIPT1 fibroblast models show the downstream bioenergetic and oxidative injury state.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+	            </div>
+	            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-erythroid-lipoylation-deficient-proliferation-defect">
+                <div class="item-name">Erythroid lipoylation-deficient proliferation defect</div>
+                
+                <div class="item-desc">The LIPT1 c.212C&gt;T sideroblastic anemia allele recapitulates a lipoylation-deficient phenotype in erythroid-lineage cells and impairs proliferation under low-glucose conditions, linking defective mitochondrial lipoylation to the hematologic presentation.
+</div>
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-cell">
+                        erythroid lineage cell
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0000764" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-gene">
+                        LIPT1
+                        
+                        <a href="https://bioregistry.io/hgnc:29569" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        cell population proliferation
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Sideroblastic anemia</span>
+	                            
+	                            <span class="crosslink-desc">A homozygous LIPT1 variant has been reported with syndromic congenital sideroblastic anemia.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
+	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39547509" target="_blank">PMID:39547509</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"K562 erythroleukemia cells engineered to harbor this missense LIPT1 allele recapitulate the lipoylation-deficient phenotype and exhibit impaired proliferation in low glucose that is completely restored by engineered lplA."</div>
+                
+                
+                <div class="evidence-explanation">Erythroid-lineage cell modeling supports a LIPT1-dependent lipoylation-deficient proliferation defect.</div>
                 
             </div>
             
@@ -3074,6 +3592,29 @@
 
         <!-- Causal Graph (Pathograph) -->
         
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
+                <h2 class="card-title">Pathograph</h2>
+            </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
+            
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for Lipoyl Transferase 1 Deficiency</title>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
+            </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal muscle tone\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003808\"}}, {\"id\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of LIPT1 function impairs lipoylation of the E2 subunits of PDHc, alpha-KGDHc, and BCKDHc, causing combined dehydrogenase deficiency with lactic acidosis and elevation of alpha-ketoacids. However, the glycine cleavage system H protein (GCSH) is lipoylated upstream by the LIPT2-LIAS pathway and does not require LIPT1 for its own lipoylation, so glycine cleavage is preserved and glycine levels remain normal or near-normal.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Tricarboxylic acid cycle\"]}}, {\"id\": \"Defective lipoyl relay via LIPT1 deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LIPT1 encodes lipoyltransferase 1, which transfers lipoyl groups from lipoyl-GCSH to the E2 subunits of pyruvate dehydrogenase, alpha-ketoglutarate dehydrogenase, and branched-chain ketoacid dehydrogenase. This is the final step in the mitochondrial lipoylation pathway. Crucially, LIPT1 is not required for lipoylation of GCSH itself, so the glycine cleavage system remains functional. This explains the distinctive biochemical signature: combined dehydrogenase deficiency with lactic acidosis but preserved glycine cleavage and normal glycine levels. The clinical consequence is a Leigh-like encephalopathy driven by energy failure rather than the combined energy failure plus glycine toxicity seen in LIPT2 and LIAS deficiency.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Protein lipoylation\"], \"genes\": [\"LIPT1\"]}}, {\"id\": \"Erythroid lipoylation-deficient proliferation defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The LIPT1 c.212C\u003eT sideroblastic anemia allele recapitulates a lipoylation-deficient phenotype in erythroid-lineage cells and impairs proliferation under low-glucose conditions, linking defective mitochondrial lipoylation to the hematologic presentation.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythroid lineage cell\"], \"biological_processes\": [\"cell population proliferation\"], \"genes\": [\"LIPT1\"]}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Glycine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"NORMAL\"}}, {\"id\": \"Increased urine lactate, ketoglutarate, and 2-oxoacid levels\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"LIPT1 loss-of-function variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"genes\": [\"LIPT1\"], \"association\": \"Causative\"}}, {\"id\": \"Lactic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe lactic acidosis due to combined pyruvate dehydrogenase and alpha-ketoglutarate dehydrogenase deficiency.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0004902\"}}, {\"id\": \"Lipoic acid supplementation (limited evidence)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Lipoic acid supplementation has been tested in yeast models and patient fibroblasts, with limited biochemical improvement and review-level evidence arguing against established clinical benefit.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"alpha-lipoic acid\"]}}, {\"id\": \"Lipoylated dehydrogenase E2 subunits\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"DECREASED\"}}, {\"id\": \"Mitochondrial bioenergetic failure and lipid peroxidation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LIPT1-deficient patient-derived fibroblasts show reduced PDH and alpha-KGDH activities with cellular bioenergetic failure, iron accumulation, and lipid peroxidation. This secondary mitochondrial stress extends the enzymatic defect beyond protein lipoylation into a measurable cellular injury state.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"cellular respiration\", \"oxidative phosphorylation\"]}}, {\"id\": \"Multi-target pharmacological cocktail (experimental)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An experimental multi-target pharmacological approach using pantothenate, nicotinamide, vitamin E, thiamine, biotin, and alpha-lipoic acid has shown promise in LIPT1-deficient patient-derived cellular models. The cocktail restored LIPT1 expression, lipoylation of mitochondrial proteins, and cellular bioenergetics while eliminating iron overload and lipid peroxidation. The mechanism appears mediated through SIRT3 activation. This has not yet been tested in patients.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pantothenate\", \"nicotinamide\", \"vitamin E\", \"thiamine\", \"biotin\", \"alpha-lipoic acid\"]}}, {\"id\": \"Pyruvate and alpha-ketoglutarate dehydrogenase activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sideroblastic anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001924\"}}], \"edges\": [{\"source\": \"Defective lipoyl relay via LIPT1 deficiency\", \"target\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Defective lipoyl relay via LIPT1 deficiency\", \"target\": \"Lipoylated dehydrogenase E2 subunits\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Defective lipoyl relay via LIPT1 deficiency\", \"target\": \"Erythroid lipoylation-deficient proliferation defect\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"target\": \"Lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"target\": \"Pyruvate and alpha-ketoglutarate dehydrogenase activity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"target\": \"Glycine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"target\": \"Increased urine lactate, ketoglutarate, and 2-oxoacid levels\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"target\": \"Mitochondrial bioenergetic failure and lipid peroxidation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial bioenergetic failure and lipid peroxidation\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial bioenergetic failure and lipid peroxidation\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial bioenergetic failure and lipid peroxidation\", \"target\": \"Abnormal muscle tone\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Erythroid lipoylation-deficient proliferation defect\", \"target\": \"Sideroblastic anemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lipoic acid supplementation (limited evidence)\", \"target\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Multi-target pharmacological cocktail (experimental)\", \"target\": \"Defective lipoyl relay via LIPT1 deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Multi-target pharmacological cocktail (experimental)\", \"target\": \"Mitochondrial bioenergetic failure and lipid peroxidation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"LIPT1 loss-of-function variants\", \"target\": \"Defective lipoyl relay via LIPT1 deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LIPT1 loss-of-function variants\", \"target\": \"Erythroid lipoylation-deficient proliferation defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
+        </div>
+        
 
         <!-- Phenotypes -->
         
@@ -3081,84 +3622,23 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">9</span>
+                <span class="card-count">5</span>
             </div>
             
             
             <div class="pheno-toc">
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Metabolism<span class="pill-count">(1)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(2)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(2)</span></button>
-                
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(3)</span></button>
-                
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Respiratory<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(2)</span></button>
                 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
             
             
             <details class="phenotype-category-group" id="pheno-cat-1">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Digestive
-                    <span class="cat-count">2</span>
-                </summary>
-                
-                <div class="item-box phenotype-box">
-                    <div class="item-name">
-                        Vomiting
-                        
-                    
-                    <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank">
-                            Vomiting
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002013)</span>
-                        </span>
-                        
-                    </div>
-                    
-                    
-                    
-                    
-    
-    
-                    
-    
-    
-                </div>
-                
-                <div class="item-box phenotype-box">
-                    <div class="item-name">
-                        Feeding difficulties
-                        
-                    
-                    <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0008872" target="_blank">
-                            Feeding difficulties in infancy
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0008872)</span>
-                        </span>
-                        
-                    </div>
-                    
-                    
-                    
-                    
-    
-    
-                    
-    
-    
-                </div>
-                
-            </details>
-            
-            <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
@@ -3263,128 +3743,11 @@
                 
             </details>
             
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
-                    <span class="cat-count">2</span>
-                </summary>
-                
-                <div class="item-box phenotype-box">
-                    <div class="item-name">
-                        Spasticity
-                        
-                    
-                    <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank">
-                            Spasticity
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001257)</span>
-                        </span>
-                        
-                    </div>
-                    
-                    
-                    
-                    
-    
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29681092" target="_blank">PMID:29681092</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"commonly presenting with severe lactic acidosis resulting in neonatal death and/or poor neurocognitive outcomes"</div>
-                
-                
-                <div class="evidence-explanation">LIPT1 deficiency causes progressive encephalopathy with poor neurocognitive outcomes including spasticity from upper motor neuron involvement.</div>
-                
-            </div>
-            
-            
-        </div>
-    </details>
-    
-    
-                    
-    
-    
-                </div>
-                
-                <div class="item-box phenotype-box">
-                    <div class="item-name">
-                        Neonatal hypotonia
-                        
-                    
-                    <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001319" target="_blank">
-                            Neonatal hypotonia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001319)</span>
-                        </span>
-                        
-                    </div>
-                    
-                    
-                    
-                    
-    
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39199267" target="_blank">PMID:39199267</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"a fatal condition characterized by lipoylation defects of the 2-ketoacid dehydrogenase complexes causing early-onset seizures, psychomotor retardation, abnormal muscle tone, severe lactic acidosis"</div>
-                
-                
-                <div class="evidence-explanation">Gómez-Fernández et al. describe LIPT1 deficiency as causing abnormal muscle tone among its cardinal features, consistent with neonatal hypotonia.</div>
-                
-            </div>
-            
-            
-        </div>
-    </details>
-    
-    
-                    
-    
-    
-                </div>
-                
-            </details>
-            
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">2</span>
                 </summary>
                 
                 <div class="item-box phenotype-box">
@@ -3463,68 +3826,14 @@
                 
                 <div class="item-box phenotype-box">
                     <div class="item-name">
-                        Dystonia
-                        
-                    
-                    <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank">
-                            Dystonia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001332)</span>
-                        </span>
-                        
-                    </div>
-                    
-                    
-                    
-                    
-    
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24341803" target="_blank">PMID:24341803</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"a boy who developed Leigh disease following a gastroenteritis and had combined PDH and α-KGDH deficiency"</div>
-                
-                
-                <div class="evidence-explanation">The index LIPT1 patient developed Leigh disease, which typically includes dystonia as a prominent movement disorder feature.</div>
-                
-            </div>
-            
-            
-        </div>
-    </details>
-    
-    
-                    
-    
-    
-                </div>
-                
-                <div class="item-box phenotype-box">
-                    <div class="item-name">
                         Global developmental delay
                         
                     
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0012736" target="_blank">
-                            Profound global developmental delay
+                        <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank">
+                            Global developmental delay
                         </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0012736)</span>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001263)</span>
                         </span>
                         
                     </div>
@@ -3535,7 +3844,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -3559,6 +3868,26 @@
                 
             </div>
             
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39199267" target="_blank">PMID:39199267</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"early-onset seizures, psychomotor retardation, abnormal muscle tone, severe lactic acidosis"</div>
+                
+                
+                <div class="evidence-explanation">Psychomotor retardation supports the broader global developmental delay phenotype mapping.</div>
+                
+            </div>
+            
             
         </div>
     </details>
@@ -3571,23 +3900,23 @@
                 
             </details>
             
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Respiratory
-                    <span class="cat-count">1</span>
+                    Other
+                    <span class="cat-count">2</span>
                 </summary>
                 
                 <div class="item-box phenotype-box">
                     <div class="item-name">
-                        Respiratory insufficiency
+                        Abnormal muscle tone
                         
                     
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank">
-                            Respiratory insufficiency
+                        <a href="http://purl.obolibrary.org/obo/HP_0003808" target="_blank">
+                            Abnormal muscle tone
                         </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002093)</span>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0003808)</span>
                         </span>
                         
                     </div>
@@ -3595,6 +3924,90 @@
                     
                     
                     
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39199267" target="_blank">PMID:39199267</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"early-onset seizures, psychomotor retardation, abnormal muscle tone, severe lactic acidosis"</div>
+                
+                
+                <div class="evidence-explanation">The abstract summarizes abnormal muscle tone as a reported feature of LIPT1 deficiency.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Sideroblastic anemia
+                        
+                    
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0001924" target="_blank">
+                            Sideroblastic anemia
+                        </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001924)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39547509" target="_blank">PMID:39547509</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"a patient with a homozygous c.212C&gt;T variant LIPT1 with a previously uncharacterized syndromic congenital sideroblastic anemia."</div>
+                
+                
+                <div class="evidence-explanation">Recent report expands the LIPT1 phenotype to include syndromic congenital sideroblastic anemia.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
                     
@@ -3740,7 +4153,7 @@
             
             <div class="item-box treatment-box">
                 <div class="item-name">
-                    Supportive care
+                    Lipoic acid supplementation (limited evidence)
                 </div>
                 
                 <div class="item-meta">
@@ -3749,10 +4162,10 @@
                     
                     
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
                     
                     
-                    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000950</a>
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
                     
                     
     
@@ -3773,11 +4186,41 @@
                 
                 
                 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        alpha-lipoic acid
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_16494" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
                 
                 
-                <div class="item-desc">Management is primarily supportive with anticonvulsant therapy and nutritional support. Lipoic acid supplementation has been tested in yeast models and patient fibroblasts with limited improvement.
+                
+                <div class="item-desc">Lipoic acid supplementation has been tested in yeast models and patient fibroblasts, with limited biochemical improvement and review-level evidence arguing against established clinical benefit.
 </div>
                 
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+                        <strong style="color: #5b21b6;">Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Lipoic acid supplementation may partially modulate downstream lactate readouts in models, but it has not been established as clinically effective for LIPT1 deficiency.</span>
+                        
+                        
+    
+    
+                    </div>
+                    
+                </div>
                 
                 
                 
@@ -3838,7 +4281,7 @@
                     <span class="evidence-support support-REFUTE">REFUTE</span>
                     
                     
-                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3891,11 +4334,149 @@
                 
                 
                 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        pantothenate
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_16454" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-treatment">
+                        nicotinamide
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_17154" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-treatment">
+                        vitamin E
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_33234" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-treatment">
+                        thiamine
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_26948" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-treatment">
+                        biotin
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_15956" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-treatment">
+                        alpha-lipoic acid
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_16494" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
                 
                 
-                <div class="item-desc">An experimental multi-target pharmacological approach using pantothenate, nicotinamide, vitamin E, thiamine, biotin, and alpha-lipoic acid has shown promise in LIPT1-deficient patient-derived fibroblasts and induced neurons. The cocktail restored LIPT1 expression, lipoylation of mitochondrial proteins, and cellular bioenergetics while eliminating iron overload and lipid peroxidation. The mechanism appears mediated through SIRT3 activation. This has not yet been tested in patients.
+                
+                <div class="item-desc">An experimental multi-target pharmacological approach using pantothenate, nicotinamide, vitamin E, thiamine, biotin, and alpha-lipoic acid has shown promise in LIPT1-deficient patient-derived cellular models. The cocktail restored LIPT1 expression, lipoylation of mitochondrial proteins, and cellular bioenergetics while eliminating iron overload and lipid peroxidation. The mechanism appears mediated through SIRT3 activation. This has not yet been tested in patients.
 </div>
                 
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            RESTORES
+                        </span>
+                        <strong style="color: #5b21b6;">Defective lipoyl relay via LIPT1 deficiency</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; The cocktail increased LIPT1 expression and lipoylation of mitochondrial proteins in patient-derived cellular models.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39199267" target="_blank">PMID:39199267</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"a cocktail of antioxidants and mitochondrial boosting agents consisting of pantothenate, nicotinamide, vitamin E, thiamine, biotin, and α-lipoic acid, which is capable of rescuing LIPT1 pathophysiology, increasing the LIPT1 expression and lipoylation of mitochondrial proteins, improving cell..."</div>
+                
+                
+                <div class="evidence-explanation">The treatment directly improved LIPT1 expression and mitochondrial protein lipoylation in the cellular model.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            RESTORES
+                        </span>
+                        <strong style="color: #5b21b6;">Mitochondrial bioenergetic failure and lipid peroxidation</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; The same cocktail improved cellular bioenergetics and eliminated iron overload and lipid peroxidation.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39199267" target="_blank">PMID:39199267</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"a cocktail of antioxidants and mitochondrial boosting agents consisting of pantothenate, nicotinamide, vitamin E, thiamine, biotin, and α-lipoic acid, which is capable of rescuing LIPT1 pathophysiology, increasing the LIPT1 expression and lipoylation of mitochondrial proteins, improving cell..."</div>
+                
+                
+                <div class="evidence-explanation">The treatment target matches the reported rescue of bioenergetics, iron accumulation, and lipid peroxidation.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
                 
                 
                 
@@ -3942,6 +4523,223 @@
 
         <!-- Biochemical Markers -->
         
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
+                <h2 class="card-title">Biochemical Markers</h2>
+                <span class="card-count">4</span>
+            </div>
+            
+            <div class="item-box biochemical-box">
+                <div class="item-name">
+                    Lipoylated dehydrogenase E2 subunits
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(DECREASED)</span>
+                    
+                </div>
+                
+                <div class="item-desc">Context: LIPT1 deficiency reduces lipoylation of pyruvate dehydrogenase and alpha-ketoglutarate dehydrogenase E2 subunits in patient-derived cells.
+</div>
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24256811" target="_blank">PMID:24256811</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Immunostaining analysis showed that lipoylated E2-PDH and E2-KGDH were extremely reduced in this patient."</div>
+                
+                
+                <div class="evidence-explanation">Patient fibroblast immunostaining directly supports decreased lipoylated dehydrogenase E2 subunits.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39199267" target="_blank">PMID:39199267</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"A Western blot analysis revealed a reduced expression of LIPT1 and absent expression of lipoylated pyruvate dehydrogenase E2 (PDH E2) and alpha-ketoglutarate dehydrogenase E2 (α-KGDH E2) subunits."</div>
+                
+                
+                <div class="evidence-explanation">Western blot evidence from patient-derived cellular models confirms absent lipoylated PDH E2 and alpha-KGDH E2.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box biochemical-box">
+                <div class="item-name">
+                    Pyruvate and alpha-ketoglutarate dehydrogenase activity
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(DECREASED)</span>
+                    
+                </div>
+                
+                <div class="item-desc">Context: Reduced lipoylation lowers PDH and alpha-KGDH enzymatic activity, limiting pyruvate entry into the TCA cycle and TCA-cycle flux.
+</div>
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39199267" target="_blank">PMID:39199267</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Accordingly, activities of PDH and α-KGDH were markedly reduced, associated with cell bioenergetics failure, iron accumulation, and lipid peroxidation."</div>
+                
+                
+                <div class="evidence-explanation">The cellular model directly documents reduced PDH and alpha-KGDH activities.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box biochemical-box">
+                <div class="item-name">
+                    Glycine
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(NORMAL)</span>
+                    
+                </div>
+                
+                <div class="item-desc">Context: Glycine elevation is absent because GCSH lipoylation and glycine cleavage remain intact, distinguishing LIPT1 deficiency from LIAS and LIPT2 deficiency.
+</div>
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24256811" target="_blank">PMID:24256811</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"However, the absence of glycine elevation, the normal activity of the glycine cleavage system and the normal lipoylation of the H protein suggested a defect of lipoic acid transfer to particular proteins rather than a general impairment of lipoic acid biosynthesis"</div>
+                
+                
+                <div class="evidence-explanation">Patient biochemical testing supports normal glycine levels and preserved glycine cleavage in LIPT1 deficiency.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box biochemical-box">
+                <div class="item-name">
+                    Increased urine lactate, ketoglutarate, and 2-oxoacid levels
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(INCREASED)</span>
+                    
+                </div>
+                
+                <div class="item-desc">Context: Urinary lactate, ketoglutarate, and 2-oxoacid accumulation reflects the downstream metabolic block from deficient 2-ketoacid dehydrogenase activity.
+</div>
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39199267" target="_blank">PMID:39199267</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"increased urine lactate, ketoglutarate, and 2-oxoacid levels."</div>
+                
+                
+                <div class="evidence-explanation">The clinical summary in the abstract lists increased urinary lactate, ketoglutarate, and 2-oxoacid levels in LIPT1 deficiency.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+        </div>
+        
 
         <!-- Differential Diagnoses -->
         
@@ -3971,7 +4769,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Lipoyl Transferase 1 Deficiency
 creation_date: &#39;2026-02-13T00:59:22Z&#39;
-updated_date: &#39;2026-02-17T21:53:14Z&#39;
+updated_date: &#39;2026-05-07T14:41:31Z&#39;
 category: Mendelian
 description: &gt;
   Lipoyl transferase 1 deficiency (OMIM 616299) is a rare autosomal recessive
@@ -3984,10 +4782,11 @@ description: &gt;
   lipoylated upstream by the LIPT2-LIAS pathway. This results in combined
   dehydrogenase deficiency with lactic acidosis but typically normal glycine
   levels, distinguishing it biochemically from LIPT2 and LIAS deficiency.
-  Clinical presentation includes Leigh-like encephalopathy, seizures, dystonia,
-  spastic tetraparesis, and variable hepatic involvement. Onset is neonatal to
-  early infantile. Metabolic decompensation during febrile illness may
-  precipitate acute neurological deterioration.
+  Clinical presentation includes Leigh-like encephalopathy, early-onset
+  seizures, psychomotor retardation, abnormal muscle tone, severe lactic
+  acidosis, and occasionally syndromic congenital sideroblastic anemia. Onset
+  is neonatal to early infantile. Metabolic decompensation during febrile
+  illness may precipitate acute neurological deterioration.
 disease_term:
   preferred_term: lipoyl transferase 1 deficiency
   term:
@@ -4041,11 +4840,12 @@ inheritance:
       segregating on different alleles confirms recessive inheritance.
 prevalence:
 - population: Global reported patients
-  percentage: Unknown (5 reported cases by 2018)
+  percentage: Unknown (at least 6 reported patients by 2024)
   notes: &gt;-
     No population-based prevalence study was identified. By 2018, the PubMed
     literature cited four patients from three families and described a fifth
-    case, indicating an ultra-rare disorder that may still be underdiagnosed.
+    case; a 2024 report described an additional patient with a homozygous LIPT1
+    variant and syndromic congenital sideroblastic anemia.
   evidence:
   - reference: PMID:29681092
     supports: SUPPORT
@@ -4067,6 +4867,16 @@ prevalence:
     explanation: &gt;-
       The same report extends the published total to five cases, supporting an
       unknown but extremely low prevalence designation.
+  - reference: PMID:39547509
+    reference_title: &#34;Engineered bacterial lipoate protein ligase A (lplA) restores lipoylation in cell models of lipoylation deficiency.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      a patient with a homozygous c.212C&gt;T variant LIPT1 with a previously
+      uncharacterized syndromic congenital sideroblastic anemia.
+    explanation: &gt;-
+      This 2024 report adds another described patient with biallelic LIPT1
+      disease and an expanded hematologic phenotype.
 pathophysiology:
 - name: Defective lipoyl relay via LIPT1 deficiency
   description: &gt;
@@ -4087,8 +4897,7 @@ pathophysiology:
       label: LIPT1
   gene:
     preferred_term: LIPT1
-    description: Lipoyltransferase 1, transfers lipoyl groups from lipoyl-GCSH
-      to E2 subunits of alpha-ketoacid dehydrogenases.
+    description: Lipoyltransferase 1, transfers lipoyl groups from lipoyl-GCSH to E2 subunits of alpha-ketoacid dehydrogenases.
     modifier: DECREASED
     term:
       id: hgnc:29569
@@ -4100,9 +4909,53 @@ pathophysiology:
       label: neuron
   biological_processes:
   - preferred_term: Protein lipoylation
+    modifier: DECREASED
     term:
       id: GO:0009249
       label: protein lipoylation
+  downstream:
+  - target: Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage
+    description: &gt;-
+      Loss of LIPT1-mediated lipoyl transfer prevents lipoylation of
+      alpha-ketoacid dehydrogenase E2 subunits while sparing GCSH-dependent
+      glycine cleavage.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:32508887
+      reference_title: &#34;Progress in the Enzymology of the Mitochondrial Diseases of Lipoic Acid Requiring Enzymes.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        The two dehydrogenase proteins lack lipoylation because LIPT1 is the
+        enzyme that transfers lipoyl groups from lipoyl-GCSH to the
+        dehydrogenase proteins.
+      explanation: &gt;-
+        The review directly connects LIPT1 loss to failed lipoyl transfer to
+        the dehydrogenase E2 subunits.
+  - target: Lipoylated dehydrogenase E2 subunits
+    description: &gt;-
+      Loss of LIPT1-mediated lipoyl transfer directly reduces lipoylated PDH
+      E2 and alpha-KGDH E2 subunits in patient-derived cells.
+    causal_link_type: DIRECT
+  - target: Erythroid lipoylation-deficient proliferation defect
+    description: &gt;-
+      A homozygous LIPT1 sideroblastic anemia allele causes a
+      lipoylation-deficient phenotype and impaired low-glucose proliferation in
+      erythroid-lineage cells.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:39547509
+      reference_title: &#34;Engineered bacterial lipoate protein ligase A (lplA) restores lipoylation in cell models of lipoylation deficiency.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        K562 erythroleukemia cells engineered to harbor this missense LIPT1
+        allele recapitulate the lipoylation-deficient phenotype and exhibit
+        impaired proliferation in low glucose that is completely restored by
+        engineered lplA.
+      explanation: &gt;-
+        Erythroid-lineage cells carrying the LIPT1 variant show the
+        lipoylation-deficient cellular phenotype and impaired proliferation.
   evidence:
   - reference: PMID:24256811
     reference_title: &#34;Mutations in the lipoyltransferase LIPT1 gene cause a fatal disease associated with a specific lipoylation defect of the 2-ketoacid dehydrogenase complexes.&#34;
@@ -4127,7 +4980,7 @@ pathophysiology:
   - reference: PMID:32508887
     reference_title: &#34;Progress in the Enzymology of the Mitochondrial Diseases of Lipoic Acid Requiring Enzymes.&#34;
     supports: SUPPORT
-    evidence_source: COMPUTATIONAL
+    evidence_source: OTHER
     snippet: &gt;-
       the physiological role of LIPT1 is in transfer of lipoic acid moieties
       from one protein to another
@@ -4144,8 +4997,7 @@ pathophysiology:
     explanation: &gt;-
       Western blot of LIPT1-deficient fibroblasts showed absent lipoylation
       of PDH E2 and alpha-KGDH E2, confirming the lipoyl relay defect.
-- name: Combined alpha-ketoacid dehydrogenase deficiency with spared glycine
-    cleavage
+- name: Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage
   description: &gt;
     Loss of LIPT1 function impairs lipoylation of the E2 subunits of PDHc,
     alpha-KGDHc, and BCKDHc, causing combined dehydrogenase deficiency with
@@ -4155,6 +5007,7 @@ pathophysiology:
     cleavage is preserved and glycine levels remain normal or near-normal.
   biological_processes:
   - preferred_term: Tricarboxylic acid cycle
+    modifier: DECREASED
     term:
       id: GO:0006099
       label: tricarboxylic acid cycle
@@ -4180,7 +5033,7 @@ pathophysiology:
   - reference: PMID:32508887
     reference_title: &#34;Progress in the Enzymology of the Mitochondrial Diseases of Lipoic Acid Requiring Enzymes.&#34;
     supports: SUPPORT
-    evidence_source: COMPUTATIONAL
+    evidence_source: OTHER
     snippet: &gt;-
       Patients that display absent or low lipoylation of all three enzymes
       have mutations in either of two genes LIAS or LIPT2 whereas patients
@@ -4191,13 +5044,167 @@ pathophysiology:
   - reference: PMID:32508887
     reference_title: &#34;Progress in the Enzymology of the Mitochondrial Diseases of Lipoic Acid Requiring Enzymes.&#34;
     supports: SUPPORT
-    evidence_source: COMPUTATIONAL
+    evidence_source: OTHER
     snippet: &gt;-
       LIPT1 patients generally suffer only the respiratory and muscle
       weakness problems because GCSH is lipoylated and glycine is cleaved
     explanation: &gt;-
       Confirms that LIPT1 patients retain GCSH lipoylation and therefore
       glycine cleavage activity, sparing them from glycine accumulation.
+  downstream:
+  - target: Lactic acidosis
+    description: &gt;-
+      Reduced pyruvate dehydrogenase activity causes pyruvate accumulation and
+      diversion to lactate.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:32508887
+      reference_title: &#34;Progress in the Enzymology of the Mitochondrial Diseases of Lipoic Acid Requiring Enzymes.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        the presence of very high levels of lactate (resulting from reduction
+        of the pyruvate that accumulates due to loss pyruvate dehydrogenase
+        activity)
+      explanation: &gt;-
+        The review directly links loss of pyruvate dehydrogenase activity to
+        lactate accumulation in lipoic-acid metabolism disorders.
+  - target: Pyruvate and alpha-ketoglutarate dehydrogenase activity
+    description: &gt;-
+      Failed lipoylation directly lowers pyruvate dehydrogenase and
+      alpha-ketoglutarate dehydrogenase activities.
+    causal_link_type: DIRECT
+  - target: Glycine
+    description: &gt;-
+      Preserved GCSH lipoylation and glycine cleavage keep glycine normal or
+      near-normal in LIPT1 deficiency.
+    causal_link_type: DIRECT
+  - target: Increased urine lactate, ketoglutarate, and 2-oxoacid levels
+    description: &gt;-
+      Reduced 2-ketoacid dehydrogenase activity produces increased urinary
+      lactate, ketoglutarate, and 2-oxoacid metabolites.
+    causal_link_type: DIRECT
+  - target: Mitochondrial bioenergetic failure and lipid peroxidation
+    description: &gt;-
+      Reduced PDH and alpha-KGDH activities impair cellular bioenergetics and
+      are associated with iron accumulation and lipid peroxidation in
+      LIPT1-deficient patient-derived cells.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:39199267
+      reference_title: &#34;A Multi-Target Pharmacological Correction of a Lipoyltransferase LIPT1 Gene Mutation in Patient-Derived Cellular Models.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        Accordingly, activities of PDH and α-KGDH were markedly reduced,
+        associated with cell bioenergetics failure, iron accumulation, and
+        lipid peroxidation.
+      explanation: &gt;-
+        Patient-derived fibroblast data directly connect reduced dehydrogenase
+        activity to bioenergetic failure and oxidative injury.
+- name: Mitochondrial bioenergetic failure and lipid peroxidation
+  description: &gt;
+    LIPT1-deficient patient-derived fibroblasts show reduced PDH and
+    alpha-KGDH activities with cellular bioenergetic failure, iron accumulation,
+    and lipid peroxidation. This secondary mitochondrial stress extends the
+    enzymatic defect beyond protein lipoylation into a measurable cellular
+    injury state.
+  cell_types:
+  - preferred_term: fibroblast
+    term:
+      id: CL:0000057
+      label: fibroblast
+  biological_processes:
+  - preferred_term: cellular respiration
+    modifier: DECREASED
+    term:
+      id: GO:0045333
+      label: cellular respiration
+  - preferred_term: oxidative phosphorylation
+    modifier: DECREASED
+    term:
+      id: GO:0006119
+      label: oxidative phosphorylation
+  evidence:
+  - reference: PMID:39199267
+    reference_title: &#34;A Multi-Target Pharmacological Correction of a Lipoyltransferase LIPT1 Gene Mutation in Patient-Derived Cellular Models.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Accordingly, activities of PDH and α-KGDH were markedly reduced,
+      associated with cell bioenergetics failure, iron accumulation, and lipid
+      peroxidation.
+    explanation: &gt;-
+      Patient-derived LIPT1 fibroblast models show the downstream bioenergetic
+      and oxidative injury state.
+  downstream:
+  - target: Seizures
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Bioenergetic failure in neuronal cells contributes to early-onset epileptic encephalopathy.
+    description: Severe mitochondrial energy failure contributes to seizures in reported LIPT1 deficiency.
+  - target: Global developmental delay
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Impaired cellular respiration in developing neural tissue disrupts psychomotor development.
+    description: LIPT1-related mitochondrial dysfunction contributes to psychomotor retardation and poor neurocognitive outcomes.
+  - target: Abnormal muscle tone
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Mitochondrial energy failure in the nervous system and muscle disrupts motor tone.
+    description: Abnormal muscle tone is reported as part of the LIPT1 deficiency clinical spectrum.
+- name: Erythroid lipoylation-deficient proliferation defect
+  description: &gt;
+    The LIPT1 c.212C&gt;T sideroblastic anemia allele recapitulates a
+    lipoylation-deficient phenotype in erythroid-lineage cells and impairs
+    proliferation under low-glucose conditions, linking defective mitochondrial
+    lipoylation to the hematologic presentation.
+  genes:
+  - preferred_term: LIPT1
+    term:
+      id: hgnc:29569
+      label: LIPT1
+  cell_types:
+  - preferred_term: erythroid lineage cell
+    term:
+      id: CL:0000764
+      label: erythroid lineage cell
+  biological_processes:
+  - preferred_term: cell population proliferation
+    modifier: DECREASED
+    term:
+      id: GO:0008283
+      label: cell population proliferation
+  evidence:
+  - reference: PMID:39547509
+    reference_title: &#34;Engineered bacterial lipoate protein ligase A (lplA) restores lipoylation in cell models of lipoylation deficiency.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      K562 erythroleukemia cells engineered to harbor this missense LIPT1
+      allele recapitulate the lipoylation-deficient phenotype and exhibit
+      impaired proliferation in low glucose that is completely restored by
+      engineered lplA.
+    explanation: &gt;-
+      Erythroid-lineage cell modeling supports a LIPT1-dependent
+      lipoylation-deficient proliferation defect.
+  downstream:
+  - target: Sideroblastic anemia
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Erythroid lipoylation deficiency impairs mitochondrial metabolism and proliferation.
+    description: A homozygous LIPT1 variant has been reported with syndromic congenital sideroblastic anemia.
+    evidence:
+    - reference: PMID:39547509
+      reference_title: &#34;Engineered bacterial lipoate protein ligase A (lplA) restores lipoylation in cell models of lipoylation deficiency.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        a patient with a homozygous c.212C&gt;T variant LIPT1 with a previously
+        uncharacterized syndromic congenital sideroblastic anemia.
+      explanation: &gt;-
+        Clinical report links the same LIPT1 allele to syndromic congenital
+        sideroblastic anemia.
 phenotypes:
 - name: Lactic acidosis
   description: &gt;
@@ -4269,64 +5276,29 @@ phenotypes:
     explanation: &gt;-
       Seizures can progress to epileptic encephalopathy, expanding the
       phenotypic spectrum of LIPT1 deficiency.
-- name: Dystonia
+- name: Abnormal muscle tone
   phenotype_term:
-    preferred_term: Dystonia
+    preferred_term: Abnormal muscle tone
     term:
-      id: HP:0001332
-      label: Dystonia
-  evidence:
-  - reference: PMID:24341803
-    reference_title: &#34;Mutations in human lipoyltransferase gene LIPT1 cause a Leigh disease with secondary deficiency for pyruvate and alpha-ketoglutarate dehydrogenase.&#34;
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &gt;-
-      a boy who developed Leigh disease following a gastroenteritis and had
-      combined PDH and α-KGDH deficiency
-    explanation: &gt;-
-      The index LIPT1 patient developed Leigh disease, which typically
-      includes dystonia as a prominent movement disorder feature.
-- name: Spasticity
-  phenotype_term:
-    preferred_term: Spasticity
-    term:
-      id: HP:0001257
-      label: Spasticity
-  evidence:
-  - reference: PMID:29681092
-    reference_title: &#34;LIPT1 deficiency presenting as early infantile epileptic encephalopathy, Leigh disease, and secondary pyruvate dehydrogenase complex deficiency.&#34;
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &gt;-
-      commonly presenting with severe lactic acidosis resulting in neonatal
-      death and/or poor neurocognitive outcomes
-    explanation: &gt;-
-      LIPT1 deficiency causes progressive encephalopathy with poor
-      neurocognitive outcomes including spasticity from upper motor neuron involvement.
-- name: Neonatal hypotonia
-  phenotype_term:
-    preferred_term: Neonatal hypotonia
-    term:
-      id: HP:0001319
-      label: Neonatal hypotonia
+      id: HP:0003808
+      label: Abnormal muscle tone
   evidence:
   - reference: PMID:39199267
     reference_title: &#34;A Multi-Target Pharmacological Correction of a Lipoyltransferase LIPT1 Gene Mutation in Patient-Derived Cellular Models.&#34;
     supports: SUPPORT
-    evidence_source: IN_VITRO
+    evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      a fatal condition characterized by lipoylation defects of the
-      2-ketoacid dehydrogenase complexes causing early-onset seizures,
-      psychomotor retardation, abnormal muscle tone, severe lactic acidosis
+      early-onset seizures, psychomotor retardation, abnormal muscle tone,
+      severe lactic acidosis
     explanation: &gt;-
-      Gómez-Fernández et al. describe LIPT1 deficiency as causing abnormal
-      muscle tone among its cardinal features, consistent with neonatal hypotonia.
+      The abstract summarizes abnormal muscle tone as a reported feature of
+      LIPT1 deficiency.
 - name: Global developmental delay
   phenotype_term:
-    preferred_term: Profound global developmental delay
+    preferred_term: Global developmental delay
     term:
-      id: HP:0012736
-      label: Profound global developmental delay
+      id: HP:0001263
+      label: Global developmental delay
   evidence:
   - reference: PMID:29681092
     reference_title: &#34;LIPT1 deficiency presenting as early infantile epileptic encephalopathy, Leigh disease, and secondary pyruvate dehydrogenase complex deficiency.&#34;
@@ -4338,27 +5310,122 @@ phenotypes:
     explanation: &gt;-
       Poor neurocognitive outcomes are a recognized consequence of LIPT1
       deficiency across reported cases.
-- name: Vomiting
+  - reference: PMID:39199267
+    reference_title: &#34;A Multi-Target Pharmacological Correction of a Lipoyltransferase LIPT1 Gene Mutation in Patient-Derived Cellular Models.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      early-onset seizures, psychomotor retardation, abnormal muscle tone,
+      severe lactic acidosis
+    explanation: &gt;-
+      Psychomotor retardation supports the broader global developmental delay
+      phenotype mapping.
+- name: Sideroblastic anemia
   phenotype_term:
-    preferred_term: Vomiting
+    preferred_term: Sideroblastic anemia
     term:
-      id: HP:0002013
-      label: Vomiting
-- name: Respiratory insufficiency
-  phenotype_term:
-    preferred_term: Respiratory insufficiency
-    term:
-      id: HP:0002093
-      label: Respiratory insufficiency
-- name: Feeding difficulties
-  phenotype_term:
-    preferred_term: Feeding difficulties in infancy
-    term:
-      id: HP:0008872
-      label: Feeding difficulties in infancy
+      id: HP:0001924
+      label: Sideroblastic anemia
+  evidence:
+  - reference: PMID:39547509
+    reference_title: &#34;Engineered bacterial lipoate protein ligase A (lplA) restores lipoylation in cell models of lipoylation deficiency.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      a patient with a homozygous c.212C&gt;T variant LIPT1 with a previously
+      uncharacterized syndromic congenital sideroblastic anemia.
+    explanation: &gt;-
+      Recent report expands the LIPT1 phenotype to include syndromic
+      congenital sideroblastic anemia.
+biochemical:
+- name: Lipoylated dehydrogenase E2 subunits
+  presence: DECREASED
+  context: &gt;
+    LIPT1 deficiency reduces lipoylation of pyruvate dehydrogenase and
+    alpha-ketoglutarate dehydrogenase E2 subunits in patient-derived cells.
+  evidence:
+  - reference: PMID:24256811
+    reference_title: &#34;Mutations in the lipoyltransferase LIPT1 gene cause a fatal disease associated with a specific lipoylation defect of the 2-ketoacid dehydrogenase complexes.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Immunostaining analysis showed that lipoylated E2-PDH and E2-KGDH
+      were extremely reduced in this patient.
+    explanation: &gt;-
+      Patient fibroblast immunostaining directly supports decreased
+      lipoylated dehydrogenase E2 subunits.
+  - reference: PMID:39199267
+    reference_title: &#34;A Multi-Target Pharmacological Correction of a Lipoyltransferase LIPT1 Gene Mutation in Patient-Derived Cellular Models.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      A Western blot analysis revealed a reduced expression of LIPT1 and
+      absent expression of lipoylated pyruvate dehydrogenase E2 (PDH E2) and
+      alpha-ketoglutarate dehydrogenase E2 (α-KGDH E2) subunits.
+    explanation: &gt;-
+      Western blot evidence from patient-derived cellular models confirms
+      absent lipoylated PDH E2 and alpha-KGDH E2.
+- name: Pyruvate and alpha-ketoglutarate dehydrogenase activity
+  presence: DECREASED
+  context: &gt;
+    Reduced lipoylation lowers PDH and alpha-KGDH enzymatic activity, limiting
+    pyruvate entry into the TCA cycle and TCA-cycle flux.
+  evidence:
+  - reference: PMID:39199267
+    reference_title: &#34;A Multi-Target Pharmacological Correction of a Lipoyltransferase LIPT1 Gene Mutation in Patient-Derived Cellular Models.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Accordingly, activities of PDH and α-KGDH were markedly reduced,
+      associated with cell bioenergetics failure, iron accumulation, and lipid
+      peroxidation.
+    explanation: &gt;-
+      The cellular model directly documents reduced PDH and alpha-KGDH
+      activities.
+- name: Glycine
+  presence: NORMAL
+  context: &gt;
+    Glycine elevation is absent because GCSH lipoylation and glycine cleavage
+    remain intact, distinguishing LIPT1 deficiency from LIAS and LIPT2
+    deficiency.
+  evidence:
+  - reference: PMID:24256811
+    reference_title: &#34;Mutations in the lipoyltransferase LIPT1 gene cause a fatal disease associated with a specific lipoylation defect of the 2-ketoacid dehydrogenase complexes.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      However, the absence of glycine elevation, the normal activity of the
+      glycine cleavage system and the normal lipoylation of the H protein
+      suggested a defect of lipoic acid transfer to particular proteins rather
+      than a general impairment of lipoic acid biosynthesis
+    explanation: &gt;-
+      Patient biochemical testing supports normal glycine levels and preserved
+      glycine cleavage in LIPT1 deficiency.
+- name: Increased urine lactate, ketoglutarate, and 2-oxoacid levels
+  presence: INCREASED
+  context: &gt;
+    Urinary lactate, ketoglutarate, and 2-oxoacid accumulation reflects the
+    downstream metabolic block from deficient 2-ketoacid dehydrogenase activity.
+  evidence:
+  - reference: PMID:39199267
+    reference_title: &#34;A Multi-Target Pharmacological Correction of a Lipoyltransferase LIPT1 Gene Mutation in Patient-Derived Cellular Models.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      increased urine lactate, ketoglutarate, and 2-oxoacid levels.
+    explanation: &gt;-
+      The clinical summary in the abstract lists increased urinary lactate,
+      ketoglutarate, and 2-oxoacid levels in LIPT1 deficiency.
 genetic:
 - name: LIPT1 loss-of-function variants
   association: Causative
+  relationship_type: CAUSATIVE
+  gene_term:
+    preferred_term: LIPT1
+    term:
+      id: hgnc:29569
+      label: LIPT1
+  variant_origin: GERMLINE
   notes: &gt;
     Biallelic loss-of-function mutations in LIPT1 cause lipoyl transferase 1
     deficiency. Both compound heterozygous and homozygous mutations have been
@@ -4429,19 +5496,31 @@ genetic:
       a patient with a homozygous c.212C&gt;T variant LIPT1 with a previously
       uncharacterized syndromic congenital sideroblastic anemia
     explanation: &gt;-
-      Sixth reported case with a homozygous LIPT1 variant, expanding the
+      Additional reported patient with a homozygous LIPT1 variant, expanding the
       phenotypic spectrum to include congenital sideroblastic anemia.
 treatments:
-- name: Supportive care
+- name: Lipoic acid supplementation (limited evidence)
   description: &gt;
-    Management is primarily supportive with anticonvulsant therapy and
-    nutritional support. Lipoic acid supplementation has been tested in yeast
-    models and patient fibroblasts with limited improvement.
+    Lipoic acid supplementation has been tested in yeast models and patient
+    fibroblasts, with limited biochemical improvement and review-level evidence
+    arguing against established clinical benefit.
   treatment_term:
-    preferred_term: supportive care
+    preferred_term: pharmacotherapy
     term:
-      id: MAXO:0000950
-      label: supportive care
+      id: MAXO:0000058
+      label: pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: alpha-lipoic acid
+      term:
+        id: CHEBI:16494
+        label: lipoic acid
+  target_mechanisms:
+  - target: Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage
+    treatment_effect: MODULATES
+    description: &gt;-
+      Lipoic acid supplementation may partially modulate downstream lactate
+      readouts in models, but it has not been established as clinically
+      effective for LIPT1 deficiency.
   evidence:
   - reference: PMID:24341803
     reference_title: &#34;Mutations in human lipoyltransferase gene LIPT1 cause a Leigh disease with secondary deficiency for pyruvate and alpha-ketoglutarate dehydrogenase.&#34;
@@ -4467,7 +5546,7 @@ treatments:
   - reference: PMID:32508887
     reference_title: &#34;Progress in the Enzymology of the Mitochondrial Diseases of Lipoic Acid Requiring Enzymes.&#34;
     supports: REFUTE
-    evidence_source: COMPUTATIONAL
+    evidence_source: OTHER
     snippet: &gt;-
       lipoic acid supplementation of the diets of human LIAS, LIPT1, and
       LIPT2 patients or of their fibroblast cultures failed to alleviate the
@@ -4480,8 +5559,8 @@ treatments:
   description: &gt;
     An experimental multi-target pharmacological approach using pantothenate,
     nicotinamide, vitamin E, thiamine, biotin, and alpha-lipoic acid has
-    shown promise in LIPT1-deficient patient-derived fibroblasts and induced
-    neurons. The cocktail restored LIPT1 expression, lipoylation of
+    shown promise in LIPT1-deficient patient-derived cellular models. The
+    cocktail restored LIPT1 expression, lipoylation of
     mitochondrial proteins, and cellular bioenergetics while eliminating iron
     overload and lipid peroxidation. The mechanism appears mediated through
     SIRT3 activation. This has not yet been tested in patients.
@@ -4490,6 +5569,72 @@ treatments:
     term:
       id: MAXO:0000058
       label: pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: pantothenate
+      term:
+        id: CHEBI:16454
+        label: pantothenate
+    - preferred_term: nicotinamide
+      term:
+        id: CHEBI:17154
+        label: nicotinamide
+    - preferred_term: vitamin E
+      term:
+        id: CHEBI:33234
+        label: vitamin E
+    - preferred_term: thiamine
+      term:
+        id: CHEBI:26948
+        label: vitamin B1
+    - preferred_term: biotin
+      term:
+        id: CHEBI:15956
+        label: biotin
+    - preferred_term: alpha-lipoic acid
+      term:
+        id: CHEBI:16494
+        label: lipoic acid
+  target_mechanisms:
+  - target: Defective lipoyl relay via LIPT1 deficiency
+    treatment_effect: RESTORES
+    description: &gt;-
+      The cocktail increased LIPT1 expression and lipoylation of mitochondrial
+      proteins in patient-derived cellular models.
+    evidence:
+    - reference: PMID:39199267
+      reference_title: &#34;A Multi-Target Pharmacological Correction of a Lipoyltransferase LIPT1 Gene Mutation in Patient-Derived Cellular Models.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        a cocktail of antioxidants and mitochondrial boosting agents consisting
+        of pantothenate, nicotinamide, vitamin E, thiamine, biotin, and
+        α-lipoic acid, which is capable of rescuing LIPT1 pathophysiology,
+        increasing the LIPT1 expression and lipoylation of mitochondrial
+        proteins, improving cell bioenergetics, and eliminating iron overload
+        and lipid peroxidation
+      explanation: &gt;-
+        The treatment directly improved LIPT1 expression and mitochondrial
+        protein lipoylation in the cellular model.
+  - target: Mitochondrial bioenergetic failure and lipid peroxidation
+    treatment_effect: RESTORES
+    description: &gt;-
+      The same cocktail improved cellular bioenergetics and eliminated iron
+      overload and lipid peroxidation.
+    evidence:
+    - reference: PMID:39199267
+      reference_title: &#34;A Multi-Target Pharmacological Correction of a Lipoyltransferase LIPT1 Gene Mutation in Patient-Derived Cellular Models.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        a cocktail of antioxidants and mitochondrial boosting agents consisting
+        of pantothenate, nicotinamide, vitamin E, thiamine, biotin, and
+        α-lipoic acid, which is capable of rescuing LIPT1 pathophysiology,
+        increasing the LIPT1 expression and lipoylation of mitochondrial
+        proteins, improving cell bioenergetics, and eliminating iron overload
+        and lipid peroxidation
+      explanation: &gt;-
+        The treatment target matches the reported rescue of bioenergetics,
+        iron accumulation, and lipid peroxidation.
   evidence:
   - reference: PMID:39199267
     reference_title: &#34;A Multi-Target Pharmacological Correction of a Lipoyltransferase LIPT1 Gene Mutation in Patient-Derived Cellular Models.&#34;
@@ -4509,12 +5654,10 @@ treatments:
 datasets:
 references:
 - reference: DOI:10.1016/j.jbc.2023.105046
-  title: FDX1 regulates cellular protein lipoylation through direct binding to
-    LIAS
+  title: FDX1 regulates cellular protein lipoylation through direct binding to LIAS
   findings: []
 - reference: DOI:10.1016/j.jbc.2024.107995
-  title: Engineered bacterial lipoate protein ligase A (lplA) restores
-    lipoylation in cell models of lipoylation deficiency
+  title: Engineered bacterial lipoate protein ligase A (lplA) restores lipoylation in cell models of lipoylation deficiency
   findings: []
 - reference: DOI:10.1177/1073858420936162
   title: Mitochondrial Fatty Acids and Neurodegenerative Disorders
@@ -4807,7 +5950,7 @@ LIPT1 deficiency is a disorder of mitochondrial protein lipoylation in which fai
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Lipoyl Transferase 1 Deficiency", "mondoId": "MONDO:0014576", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Lipoyl_Transferase_1_Deficiency", "yamlRevision": "88e81cd37112"};
+        const OS_CONFIG = {"diseaseName": "Lipoyl Transferase 1 Deficiency", "mondoId": "MONDO:0014576", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Lipoyl_Transferase_1_Deficiency", "yamlRevision": "6e1a96817dab"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

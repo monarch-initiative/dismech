@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2637,11 +2790,18 @@
             
             <a class="stat-link" href="#references">
             <div class="stat-item">
-                <div class="stat-value">8</div>
+                <div class="stat-value">18</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
             
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -3976,7 +4136,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Okur-Chung Neurodevelopmental Syndrome
 creation_date: &#34;2026-04-09T17:17:18Z&#34;
-updated_date: &#34;2026-04-11T02:36:00Z&#34;
+updated_date: &#34;2026-05-10T14:45:31Z&#34;
 category: Mendelian
 synonyms:
 - OCNDS
@@ -4556,6 +4716,139 @@ references:
 - reference: PMID:40677894
   title: &#34;OCNDS core features are conserved across variants, with loop-region mutations driving greater symptom burden.&#34;
   findings: []
+- reference: DOI:10.1002/ajmg.a.63642
+  title: &#39;Patient with a heterozygous pathogenic variant in &lt;scp&gt;&lt;i&gt;CSNK2A1&lt;/i&gt;&lt;/scp&gt; gene: A new case to update the &lt;scp&gt;Okur–Chung&lt;/scp&gt; neurodevelopmental syndrome&#39;
+  found_in:
+  - Okur_Chung_neurodevelopmental_syndrome-deep-research-falcon.md
+  findings:
+  - statement: &#39;The autosomal dominant Okur–Chung neurodevelopmental syndrome (OCNDS: OMIM #617062) is a rare neurodevelopmental disorder first described in 2016.&#39;
+    supporting_text: &#39;The autosomal dominant Okur–Chung neurodevelopmental syndrome (OCNDS: OMIM #617062) is a rare neurodevelopmental disorder first described in 2016.&#39;
+    evidence:
+    - reference: DOI:10.1002/ajmg.a.63642
+      reference_title: &#39;Patient with a heterozygous pathogenic variant in &lt;scp&gt;&lt;i&gt;CSNK2A1&lt;/i&gt;&lt;/scp&gt; gene: A new case to update the &lt;scp&gt;Okur–Chung&lt;/scp&gt; neurodevelopmental syndrome&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#39;The autosomal dominant Okur–Chung neurodevelopmental syndrome (OCNDS: OMIM #617062) is a rare neurodevelopmental disorder first described in 2016.&#39;
+      explanation: Deep research cited this publication as relevant literature for Okur Chung neurodevelopmental syndrome.
+- reference: DOI:10.1002/mgg3.2398
+  title: &#39;&lt;scp&gt;Okur‐Chung&lt;/scp&gt; neurodevelopmental syndrome: Implications for phenotype and genotype expansion&#39;
+  found_in:
+  - Okur_Chung_neurodevelopmental_syndrome-deep-research-falcon.md
+  findings:
+  - statement: Okur‐Chung neurodevelopmental syndrome (OCNDS) is a rare autosomal dominant disorder caused by pathogenic variants in CSNK2A1.
+    supporting_text: Okur‐Chung neurodevelopmental syndrome (OCNDS) is a rare autosomal dominant disorder caused by pathogenic variants in CSNK2A1.
+    evidence:
+    - reference: DOI:10.1002/mgg3.2398
+      reference_title: &#39;&lt;scp&gt;Okur‐Chung&lt;/scp&gt; neurodevelopmental syndrome: Implications for phenotype and genotype expansion&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Okur‐Chung neurodevelopmental syndrome (OCNDS) is a rare autosomal dominant disorder caused by pathogenic variants in CSNK2A1.
+      explanation: Deep research cited this publication as relevant literature for Okur Chung neurodevelopmental syndrome.
+- reference: DOI:10.1002/mgg3.70166
+  title: A Case of &lt;scp&gt; &lt;i&gt;CSNK2A1&lt;/i&gt; &lt;/scp&gt; Gene Variant Causing Okur‐Chung Syndrome and Analysis of the Clinical Phenotypic Spectrum
+  found_in:
+  - Okur_Chung_neurodevelopmental_syndrome-deep-research-falcon.md
+  findings:
+  - statement: To investigate the clinical features and genetic etiology of one child with Okur‐Chung neurodevelopmental syndrome (OCNDS).
+    supporting_text: To investigate the clinical features and genetic etiology of one child with Okur‐Chung neurodevelopmental syndrome (OCNDS).
+    evidence:
+    - reference: DOI:10.1002/mgg3.70166
+      reference_title: A Case of &lt;scp&gt; &lt;i&gt;CSNK2A1&lt;/i&gt; &lt;/scp&gt; Gene Variant Causing Okur‐Chung Syndrome and Analysis of the Clinical Phenotypic Spectrum
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: To investigate the clinical features and genetic etiology of one child with Okur‐Chung neurodevelopmental syndrome (OCNDS).
+      explanation: Deep research cited this publication as relevant literature for Okur Chung neurodevelopmental syndrome.
+- reference: DOI:10.1073/pnas.2018740118
+  title: A complex of distal appendage–associated kinases linked to human disease regulates ciliary trafficking and stability
+  found_in:
+  - Okur_Chung_neurodevelopmental_syndrome-deep-research-falcon.md
+  findings:
+  - statement: Significance Primary cilia (PC) are sensory organelles essential for the development and maintenance of adult tissues.
+    supporting_text: Significance Primary cilia (PC) are sensory organelles essential for the development and maintenance of adult tissues.
+    evidence:
+    - reference: DOI:10.1073/pnas.2018740118
+      reference_title: A complex of distal appendage–associated kinases linked to human disease regulates ciliary trafficking and stability
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Significance Primary cilia (PC) are sensory organelles essential for the development and maintenance of adult tissues.
+      explanation: Deep research cited this publication as relevant literature for Okur Chung neurodevelopmental syndrome.
+- reference: DOI:10.1101/2024.01.09.574075
+  title: &#39;Characterizing CSNK2A1 Mutant-Induced Morphological Phenotypes in Zebrafish (Danio rerio): Insights into Okur-Chung Neurodevelopmental Syndrome (OCNDS)&#39;
+  found_in:
+  - Okur_Chung_neurodevelopmental_syndrome-deep-research-falcon.md
+  findings:
+  - statement: Okur-Chung Neurodevelopmental Syndrome (OCNDS) is a rare, autosomal dominant disorder caused by heterozygous pathogenic variants in the CSNK2A1 gene.
+    supporting_text: Okur-Chung Neurodevelopmental Syndrome (OCNDS) is a rare, autosomal dominant disorder caused by heterozygous pathogenic variants in the CSNK2A1 gene.
+    evidence:
+    - reference: DOI:10.1101/2024.01.09.574075
+      reference_title: &#39;Characterizing CSNK2A1 Mutant-Induced Morphological Phenotypes in Zebrafish (Danio rerio): Insights into Okur-Chung Neurodevelopmental Syndrome (OCNDS)&#39;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: Okur-Chung Neurodevelopmental Syndrome (OCNDS) is a rare, autosomal dominant disorder caused by heterozygous pathogenic variants in the CSNK2A1 gene.
+      explanation: Deep research cited this publication as relevant literature for Okur Chung neurodevelopmental syndrome.
+- reference: DOI:10.1111/cge.14408
+  title: Inherited &lt;scp&gt;CSNK2A1&lt;/scp&gt; variants in families with &lt;scp&gt;Okur‐Chung&lt;/scp&gt; neurodevelopmental syndrome
+  found_in:
+  - Okur_Chung_neurodevelopmental_syndrome-deep-research-falcon.md
+  findings:
+  - statement: Inherited &lt;scp&gt;CSNK2A1&lt;/scp&gt; variants in families with &lt;scp&gt;Okur‐Chung&lt;/scp&gt; neurodevelopmental syndrome
+    supporting_text: Inherited &lt;scp&gt;CSNK2A1&lt;/scp&gt; variants in families with &lt;scp&gt;Okur‐Chung&lt;/scp&gt; neurodevelopmental syndrome
+- reference: DOI:10.1159/000522353
+  title: &#39;Clinical Features of Okur-Chung Neurodevelopmental Syndrome: Case Report and Literature Review&#39;
+  found_in:
+  - Okur_Chung_neurodevelopmental_syndrome-deep-research-falcon.md
+  findings:
+  - statement: Autosomal dominant pathogenic variations in the CSNK2A1 gene cause Okur-Chung neurodevelopmental syndrome (OCNDS).
+    supporting_text: Autosomal dominant pathogenic variations in the CSNK2A1 gene cause Okur-Chung neurodevelopmental syndrome (OCNDS).
+    evidence:
+    - reference: DOI:10.1159/000522353
+      reference_title: &#39;Clinical Features of Okur-Chung Neurodevelopmental Syndrome: Case Report and Literature Review&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Autosomal dominant pathogenic variations in the CSNK2A1 gene cause Okur-Chung neurodevelopmental syndrome (OCNDS).
+      explanation: Deep research cited this publication as relevant literature for Okur Chung neurodevelopmental syndrome.
+- reference: DOI:10.1159/000530585
+  title: A Case of Okur-Chung Neurodevelopmental Syndrome with a Novel, de novo Variant on the &amp;lt;i&amp;gt;CSNK2A1&amp;lt;/i&amp;gt; Gene in a Turkish Patient
+  found_in:
+  - Okur_Chung_neurodevelopmental_syndrome-deep-research-falcon.md
+  findings:
+  - statement: &#39;Okur-Chung neurodevelopmental syndrome (OCNDS; #617062) has been associated with heterozygous mutations in the CSNK2A1 gene (*115440) mapped on the chromosome’s 20p13 region.&#39;
+    supporting_text: &#39;Okur-Chung neurodevelopmental syndrome (OCNDS; #617062) has been associated with heterozygous mutations in the CSNK2A1 gene (*115440) mapped on the chromosome’s 20p13 region.&#39;
+    evidence:
+    - reference: DOI:10.1159/000530585
+      reference_title: A Case of Okur-Chung Neurodevelopmental Syndrome with a Novel, de novo Variant on the &amp;lt;i&amp;gt;CSNK2A1&amp;lt;/i&amp;gt; Gene in a Turkish Patient
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#39;Okur-Chung neurodevelopmental syndrome (OCNDS; #617062) has been associated with heterozygous mutations in the CSNK2A1 gene (*115440) mapped on the chromosome’s 20p13 region.&#39;
+      explanation: Deep research cited this publication as relevant literature for Okur Chung neurodevelopmental syndrome.
+- reference: DOI:10.1177/26330040241249763
+  title: &#39;Patient organization perspective: a research roadmap for Okur-Chung Neurodevelopmental Syndrome&#39;
+  found_in:
+  - Okur_Chung_neurodevelopmental_syndrome-deep-research-falcon.md
+  findings:
+  - statement: Okur-Chung neurodevelopmental syndrome (OCNDS) is an ultra-rare disorder caused by variants in the CSNK2A1 gene.
+    supporting_text: Okur-Chung neurodevelopmental syndrome (OCNDS) is an ultra-rare disorder caused by variants in the CSNK2A1 gene.
+    evidence:
+    - reference: DOI:10.1177/26330040241249763
+      reference_title: &#39;Patient organization perspective: a research roadmap for Okur-Chung Neurodevelopmental Syndrome&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Okur-Chung neurodevelopmental syndrome (OCNDS) is an ultra-rare disorder caused by variants in the CSNK2A1 gene.
+      explanation: Deep research cited this publication as relevant literature for Okur Chung neurodevelopmental syndrome.
+- reference: DOI:10.3389/fmolb.2022.850661
+  title: The Okur-Chung Neurodevelopmental Syndrome Mutation CK2K198R Leads to a Rewiring of Kinase Specificity
+  found_in:
+  - Okur_Chung_neurodevelopmental_syndrome-deep-research-falcon.md
+  findings:
+  - statement: Okur-Chung Neurodevelopmental Syndrome (OCNDS) is caused by heterozygous mutations to the CSNK2A1 gene, which encodes the alpha subunit of protein kinase CK2.
+    supporting_text: Okur-Chung Neurodevelopmental Syndrome (OCNDS) is caused by heterozygous mutations to the CSNK2A1 gene, which encodes the alpha subunit of protein kinase CK2.
+    evidence:
+    - reference: DOI:10.3389/fmolb.2022.850661
+      reference_title: The Okur-Chung Neurodevelopmental Syndrome Mutation CK2K198R Leads to a Rewiring of Kinase Specificity
+      supports: SUPPORT
+      evidence_source: COMPUTATIONAL
+      snippet: Okur-Chung Neurodevelopmental Syndrome (OCNDS) is caused by heterozygous mutations to the CSNK2A1 gene, which encodes the alpha subunit of protein kinase CK2.
+      explanation: Deep research cited this publication as relevant literature for Okur Chung neurodevelopmental syndrome.
 </pre>
             </div>
         </div>
@@ -4571,7 +4864,7 @@ references:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">8</span>
+                    <span class="card-count">18</span>
                 </div>
                 
                 <div class="reference-entry">
@@ -4710,8 +5003,1424 @@ references:
                     
                 </div>
                 
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1002/ajmg.a.63642" target="_blank">DOI:10.1002/ajmg.a.63642</a>
+                            </div>
+                            
+                            <div class="reference-title">Patient with a heterozygous pathogenic variant in &lt;scp&gt;&lt;i&gt;CSNK2A1&lt;/i&gt;&lt;/scp&gt; gene: A new case to update the &lt;scp&gt;Okur–Chung&lt;/scp&gt; neurodevelopmental syndrome</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The autosomal dominant Okur–Chung neurodevelopmental syndrome (OCNDS: OMIM #617062) is a rare neurodevelopmental disorder first described in 2016.</div>
+            
+            
+            <div class="reference-finding-supporting">"The autosomal dominant Okur–Chung neurodevelopmental syndrome (OCNDS: OMIM #617062) is a rare neurodevelopmental disorder first described in 2016."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1002/ajmg.a.63642" target="_blank">DOI:10.1002/ajmg.a.63642</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The autosomal dominant Okur–Chung neurodevelopmental syndrome (OCNDS: OMIM #617062) is a rare neurodevelopmental disorder first described in 2016."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Okur Chung neurodevelopmental syndrome.</div>
+                
             </div>
             
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1002/mgg3.2398" target="_blank">DOI:10.1002/mgg3.2398</a>
+                            </div>
+                            
+                            <div class="reference-title">&lt;scp&gt;Okur‐Chung&lt;/scp&gt; neurodevelopmental syndrome: Implications for phenotype and genotype expansion</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Okur‐Chung neurodevelopmental syndrome (OCNDS) is a rare autosomal dominant disorder caused by pathogenic variants in CSNK2A1.</div>
+            
+            
+            <div class="reference-finding-supporting">"Okur‐Chung neurodevelopmental syndrome (OCNDS) is a rare autosomal dominant disorder caused by pathogenic variants in CSNK2A1."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1002/mgg3.2398" target="_blank">DOI:10.1002/mgg3.2398</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Okur‐Chung neurodevelopmental syndrome (OCNDS) is a rare autosomal dominant disorder caused by pathogenic variants in CSNK2A1."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Okur Chung neurodevelopmental syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1002/mgg3.70166" target="_blank">DOI:10.1002/mgg3.70166</a>
+                            </div>
+                            
+                            <div class="reference-title">A Case of &lt;scp&gt; &lt;i&gt;CSNK2A1&lt;/i&gt; &lt;/scp&gt; Gene Variant Causing Okur‐Chung Syndrome and Analysis of the Clinical Phenotypic Spectrum</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">To investigate the clinical features and genetic etiology of one child with Okur‐Chung neurodevelopmental syndrome (OCNDS).</div>
+            
+            
+            <div class="reference-finding-supporting">"To investigate the clinical features and genetic etiology of one child with Okur‐Chung neurodevelopmental syndrome (OCNDS)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1002/mgg3.70166" target="_blank">DOI:10.1002/mgg3.70166</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"To investigate the clinical features and genetic etiology of one child with Okur‐Chung neurodevelopmental syndrome (OCNDS)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Okur Chung neurodevelopmental syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1073/pnas.2018740118" target="_blank">DOI:10.1073/pnas.2018740118</a>
+                            </div>
+                            
+                            <div class="reference-title">A complex of distal appendage–associated kinases linked to human disease regulates ciliary trafficking and stability</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Significance Primary cilia (PC) are sensory organelles essential for the development and maintenance of adult tissues.</div>
+            
+            
+            <div class="reference-finding-supporting">"Significance Primary cilia (PC) are sensory organelles essential for the development and maintenance of adult tissues."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1073/pnas.2018740118" target="_blank">DOI:10.1073/pnas.2018740118</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Significance Primary cilia (PC) are sensory organelles essential for the development and maintenance of adult tissues."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Okur Chung neurodevelopmental syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1101/2024.01.09.574075" target="_blank">DOI:10.1101/2024.01.09.574075</a>
+                            </div>
+                            
+                            <div class="reference-title">Characterizing CSNK2A1 Mutant-Induced Morphological Phenotypes in Zebrafish (Danio rerio): Insights into Okur-Chung Neurodevelopmental Syndrome (OCNDS)</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Okur-Chung Neurodevelopmental Syndrome (OCNDS) is a rare, autosomal dominant disorder caused by heterozygous pathogenic variants in the CSNK2A1 gene.</div>
+            
+            
+            <div class="reference-finding-supporting">"Okur-Chung Neurodevelopmental Syndrome (OCNDS) is a rare, autosomal dominant disorder caused by heterozygous pathogenic variants in the CSNK2A1 gene."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1101/2024.01.09.574075" target="_blank">DOI:10.1101/2024.01.09.574075</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Okur-Chung Neurodevelopmental Syndrome (OCNDS) is a rare, autosomal dominant disorder caused by heterozygous pathogenic variants in the CSNK2A1 gene."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Okur Chung neurodevelopmental syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1111/cge.14408" target="_blank">DOI:10.1111/cge.14408</a>
+                            </div>
+                            
+                            <div class="reference-title">Inherited &lt;scp&gt;CSNK2A1&lt;/scp&gt; variants in families with &lt;scp&gt;Okur‐Chung&lt;/scp&gt; neurodevelopmental syndrome</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Inherited &lt;scp&gt;CSNK2A1&lt;/scp&gt; variants in families with &lt;scp&gt;Okur‐Chung&lt;/scp&gt; neurodevelopmental syndrome</div>
+            
+            
+            <div class="reference-finding-supporting">"Inherited &lt;scp&gt;CSNK2A1&lt;/scp&gt; variants in families with &lt;scp&gt;Okur‐Chung&lt;/scp&gt; neurodevelopmental syndrome"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1159/000522353" target="_blank">DOI:10.1159/000522353</a>
+                            </div>
+                            
+                            <div class="reference-title">Clinical Features of Okur-Chung Neurodevelopmental Syndrome: Case Report and Literature Review</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Autosomal dominant pathogenic variations in the CSNK2A1 gene cause Okur-Chung neurodevelopmental syndrome (OCNDS).</div>
+            
+            
+            <div class="reference-finding-supporting">"Autosomal dominant pathogenic variations in the CSNK2A1 gene cause Okur-Chung neurodevelopmental syndrome (OCNDS)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1159/000522353" target="_blank">DOI:10.1159/000522353</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Autosomal dominant pathogenic variations in the CSNK2A1 gene cause Okur-Chung neurodevelopmental syndrome (OCNDS)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Okur Chung neurodevelopmental syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1159/000530585" target="_blank">DOI:10.1159/000530585</a>
+                            </div>
+                            
+                            <div class="reference-title">A Case of Okur-Chung Neurodevelopmental Syndrome with a Novel, de novo Variant on the &amp;lt;i&amp;gt;CSNK2A1&amp;lt;/i&amp;gt; Gene in a Turkish Patient</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Okur-Chung neurodevelopmental syndrome (OCNDS; #617062) has been associated with heterozygous mutations in the CSNK2A1 gene (*115440) mapped on the chromosome’s 20p13 region.</div>
+            
+            
+            <div class="reference-finding-supporting">"Okur-Chung neurodevelopmental syndrome (OCNDS; #617062) has been associated with heterozygous mutations in the CSNK2A1 gene (*115440) mapped on the chromosome’s 20p13 region."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1159/000530585" target="_blank">DOI:10.1159/000530585</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Okur-Chung neurodevelopmental syndrome (OCNDS; #617062) has been associated with heterozygous mutations in the CSNK2A1 gene (*115440) mapped on the chromosome’s 20p13 region."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Okur Chung neurodevelopmental syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1177/26330040241249763" target="_blank">DOI:10.1177/26330040241249763</a>
+                            </div>
+                            
+                            <div class="reference-title">Patient organization perspective: a research roadmap for Okur-Chung Neurodevelopmental Syndrome</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Okur-Chung neurodevelopmental syndrome (OCNDS) is an ultra-rare disorder caused by variants in the CSNK2A1 gene.</div>
+            
+            
+            <div class="reference-finding-supporting">"Okur-Chung neurodevelopmental syndrome (OCNDS) is an ultra-rare disorder caused by variants in the CSNK2A1 gene."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1177/26330040241249763" target="_blank">DOI:10.1177/26330040241249763</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Okur-Chung neurodevelopmental syndrome (OCNDS) is an ultra-rare disorder caused by variants in the CSNK2A1 gene."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Okur Chung neurodevelopmental syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3389/fmolb.2022.850661" target="_blank">DOI:10.3389/fmolb.2022.850661</a>
+                            </div>
+                            
+                            <div class="reference-title">The Okur-Chung Neurodevelopmental Syndrome Mutation CK2K198R Leads to a Rewiring of Kinase Specificity</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Okur-Chung Neurodevelopmental Syndrome (OCNDS) is caused by heterozygous mutations to the CSNK2A1 gene, which encodes the alpha subunit of protein kinase CK2.</div>
+            
+            
+            <div class="reference-finding-supporting">"Okur-Chung Neurodevelopmental Syndrome (OCNDS) is caused by heterozygous mutations to the CSNK2A1 gene, which encodes the alpha subunit of protein kinase CK2."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fmolb.2022.850661" target="_blank">DOI:10.3389/fmolb.2022.850661</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Okur-Chung Neurodevelopmental Syndrome (OCNDS) is caused by heterozygous mutations to the CSNK2A1 gene, which encodes the alpha subunit of protein kinase CK2."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Okur Chung neurodevelopmental syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">1. Disease Information</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">43 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-10T07:45:29.769680</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <h2>1. Disease Information</h2>
+<h3>What is the disease? (concise overview)</h3>
+<p>OCNDS is a Mendelian neurodevelopmental syndrome caused by heterozygous pathogenic variants in <strong>CSNK2A1</strong> (encoding the catalytic α subunit of protein kinase CK2). It is typically de novo but can be inherited in an autosomal dominant pattern. Clinical diagnosis is supported by characteristic neurodevelopmental features, but the definitive diagnosis requires molecular genetic testing demonstrating a heterozygous pathogenic/likely pathogenic CSNK2A1 variant. (chung2022okurchungneurodevelopmentalsyndrome pages 1-3, belnap2023inheritedcsnk2a1variants pages 1-2)</p>
+<h3>Synonyms</h3>
+<p>GeneReviews explicitly lists the synonym “CSNK2A1-Related Neurodevelopmental Syndrome.” (chung2022okurchungneurodevelopmentalsyndrome pages 1-3)</p>
+<h3>Evidence source type</h3>
+<p>Most current clinical knowledge is derived from aggregated literature (GeneReviews synthesis of published cases) supplemented by individual case reports, family series, and patient-registry/family-survey data (CSNK2A1 Foundation, Simons Searchlight). (chung2022okurchungneurodevelopmentalsyndrome pages 1-3, belnap2023inheritedcsnk2a1variants pages 1-2, rushing2024patientorganizationperspective pages 1-2)</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>Disease causal factors</h3>
+<p><strong>Primary causal factor:</strong> Germline <strong>heterozygous pathogenic variants in CSNK2A1</strong> (casein kinase 2 alpha 1), affecting CK2 function in neural development and other cellular processes. (chung2022okurchungneurodevelopmentalsyndrome pages 1-3, rushing2024patientorganizationperspective pages 1-2)</p>
+<h3>Risk factors</h3>
+<p>For OCNDS (a monogenic disorder), “risk factors” are primarily genetic:
+- <strong>De novo CSNK2A1 variants</strong> account for most probands. (chung2022okurchungneurodevelopmentalsyndrome pages 1-3, rushing2024patientorganizationperspective pages 2-4)
+- <strong>Familial (inherited) CSNK2A1 variants</strong> are now documented, shifting counseling from a purely de novo paradigm. (belnap2023inheritedcsnk2a1variants pages 1-2, nan2024okur‐chungneurodevelopmentalsyndrome pages 1-2)</p>
+<p>No environmental or infectious risk factors were identified in the retrieved evidence.</p>
+<h3>Protective factors / gene–environment interaction</h3>
+<p>No genetic protective alleles, protective environmental factors, or gene–environment interactions were identified in the retrieved evidence.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>Phenotype spectrum with frequency/statistics (and HPO suggestions)</h3>
+<table>
+<thead>
+<tr>
+<th>Clinical feature / developmental metric</th>
+<th style="text-align: right;">Frequency / statistic</th>
+<th>Cohort / source note</th>
+<th>Suggested HPO term(s)</th>
+<th>Citation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Developmental delay / intellectual disability</td>
+<td style="text-align: right;">35/35 (100%) with developmental delay / ID; ID reported in about three quarters overall</td>
+<td>GeneReviews Table 2 summarized from 36 clinically described individuals; language generally more affected than gross motor</td>
+<td>HP:0001263 Developmental delay; HP:0001249 Intellectual disability</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 3-6, chung2022okurchungneurodevelopmentalsyndrome pages 1-3)</td>
+</tr>
+<tr>
+<td>Dysmorphic facial features</td>
+<td style="text-align: right;">29/36 (80.6%)</td>
+<td>Often round face and short, broad nasal tip; nonspecific facial dysmorphism</td>
+<td>HP:0001999 Facial dysmorphism; HP:0000311 Round face; HP:0012805 Broad nose</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 3-6)</td>
+</tr>
+<tr>
+<td>Behavioral issues</td>
+<td style="text-align: right;">27/36 (75.0%)</td>
+<td>Includes stereotypies, autism spectrum disorder, tantrums/aggression, ADHD</td>
+<td>HP:0000729 Autistic behavior; HP:0000733 Stereotypy; HP:0007018 Attention deficit hyperactivity disorder</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 3-6)</td>
+</tr>
+<tr>
+<td>Hypotonia</td>
+<td style="text-align: right;">22/36 (61.1%); described as about two thirds</td>
+<td>Usually mild, beginning in infancy/childhood</td>
+<td>HP:0001252 Muscular hypotonia</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 3-6)</td>
+</tr>
+<tr>
+<td>Brain MRI abnormalities</td>
+<td style="text-align: right;">11/20 (55.0%)</td>
+<td>Nonspecific; examples include delayed myelination, thin corpus callosum, small anterior pituitary</td>
+<td>HP:0012444 Abnormal brain MRI; HP:0001273 Corpus callosum hypoplasia; HP:0012447 Delayed myelination</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 3-6)</td>
+</tr>
+<tr>
+<td>Musculoskeletal findings</td>
+<td style="text-align: right;">15/36 (41.7%)</td>
+<td>Kyphoscoliosis, loose joints, hernia</td>
+<td>HP:0002650 Scoliosis; HP:0001382 Joint hypermobility; HP:0001537 Umbilical hernia</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 3-6)</td>
+</tr>
+<tr>
+<td>Feeding difficulties</td>
+<td style="text-align: right;">14/36 (38.9%)</td>
+<td>From infancy to childhood; can include poor suck / difficulty with solids</td>
+<td>HP:0011968 Feeding difficulties; HP:0002033 Dysphagia</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 3-6)</td>
+</tr>
+<tr>
+<td>Postnatal short stature</td>
+<td style="text-align: right;">14/36 (38.9%)</td>
+<td>Generally 2–3 SD below mean</td>
+<td>HP:0004322 Short stature</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 3-6)</td>
+</tr>
+<tr>
+<td>Difficulty gaining weight / failure to thrive</td>
+<td style="text-align: right;">13/36 (36.1%)</td>
+<td>Growth impairment common</td>
+<td>HP:0001508 Failure to thrive; HP:0002028 Poor weight gain</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 3-6)</td>
+</tr>
+<tr>
+<td>Sleep issues</td>
+<td style="text-align: right;">13/36 (36.1%) in GeneReviews cohort; 77% families reporting sleep-related disruptions in 2022 Simons Searchlight survey</td>
+<td>Likely related to disrupted circadian rhythm; family-reported burden may exceed literature-derived frequency</td>
+<td>HP:0002360 Sleep disturbance; HP:0002363 Circadian rhythm sleep disorder</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 3-6, rushing2024patientorganizationperspective pages 2-4, rushing2024patientorganizationperspective pages 1-2)</td>
+</tr>
+<tr>
+<td>Microcephaly / smaller head size</td>
+<td style="text-align: right;">12/36 (33.3%)</td>
+<td>Usually postnatal or relative; congenital microcephaly uncommon</td>
+<td>HP:0000252 Microcephaly</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 3-6)</td>
+</tr>
+<tr>
+<td>Seizures / epilepsy</td>
+<td style="text-align: right;">11/36 (30.6%) in GeneReviews cohort; approximately 25% in 2024 overview</td>
+<td>Seizure prevalence may be underreported; some events may occur during sleep</td>
+<td>HP:0001250 Seizure; HP:0001251 Ataxia if associated neurologic issues present</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 3-6, rushing2024patientorganizationperspective pages 2-4, rushing2024patientorganizationperspective pages 1-2)</td>
+</tr>
+<tr>
+<td>Ataxia / gait difficulties / poor coordination</td>
+<td style="text-align: right;">9/36 (25.0%)</td>
+<td>Variable motor coordination deficits</td>
+<td>HP:0001251 Ataxia; HP:0001288 Gait disturbance; HP:0002370 Poor coordination</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 3-6)</td>
+</tr>
+<tr>
+<td>Autism spectrum disorder</td>
+<td style="text-align: right;">~1/4 affected individuals</td>
+<td>Subset of behavioral phenotype</td>
+<td>HP:0000729 Autistic behavior</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 3-6)</td>
+</tr>
+<tr>
+<td>Stereotypic movements</td>
+<td style="text-align: right;">~1/3 affected individuals</td>
+<td>Common behavioral manifestation</td>
+<td>HP:0000733 Stereotypy</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 3-6)</td>
+</tr>
+<tr>
+<td>ADHD</td>
+<td style="text-align: right;">~1/5 affected individuals</td>
+<td>Attention and hyperactivity phenotype</td>
+<td>HP:0007018 Attention deficit hyperactivity disorder</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 3-6)</td>
+</tr>
+<tr>
+<td>Congenital heart abnormalities</td>
+<td style="text-align: right;">About one-third in Blanc review; atrial septal defect reported in 3 unrelated individuals in GeneReviews</td>
+<td>Cardiac involvement is variable and not universal</td>
+<td>HP:0001627 Abnormality of the cardiovascular system; HP:0001631 Atrial septal defect</td>
+<td>(blanc2024patientwitha pages 4-5, chung2022okurchungneurodevelopmentalsyndrome pages 3-6)</td>
+</tr>
+<tr>
+<td>Average age: sitting independently</td>
+<td style="text-align: right;">11 months</td>
+<td>Early developmental milestone average</td>
+<td>HP:0001270 Delayed ability to sit</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 3-6)</td>
+</tr>
+<tr>
+<td>Average age: walking independently</td>
+<td style="text-align: right;">28.8 months</td>
+<td>Gross motor milestone average</td>
+<td>HP:0001270 Motor delay; HP:0001288 Gait disturbance</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 3-6)</td>
+</tr>
+<tr>
+<td>Average age: first meaningful words</td>
+<td style="text-align: right;">38.3 months</td>
+<td>Language milestone average; language more impaired than gross motor</td>
+<td>HP:0000750 Delayed speech and language development</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 3-6)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes the most consistently reported clinical features and developmental milestones for Okur-Chung neurodevelopmental syndrome, integrating GeneReviews 2022 frequency data with newer 2024 patient-organization survey statistics for sleep and seizure burden. It is useful for phenotype curation, HPO mapping, and quick comparison of literature-based versus family-reported symptom prevalence.</em></p>
+<h3>Additional 2023–2024 phenotype expansion highlights</h3>
+<ul>
+<li>A 2024 case report (AJMG-A) notes that <strong>“congenital heart abnormalities have been reported in about one-third of patients”</strong> in the literature it reviewed. (Published 2024-05; https://doi.org/10.1002/ajmg.a.63642) (blanc2024patientwitha pages 4-5)</li>
+<li>The 2024 roadmap/perspective emphasizes that seizures may be <strong>under-ascertained</strong>, noting that EEG notes and parent reports suggest nocturnal epileptiform activity and that extended EEG recordings may be lacking. (rushing2024patientorganizationperspective pages 2-4, rushing2024patientorganizationperspective pages 1-2)</li>
+</ul>
+<h3>Quality of life impact</h3>
+<p>Direct standardized QoL instruments (e.g., EQ-5D, SF-36, PROMIS) were not reported in the retrieved texts. However, a 2022 Simons Searchlight family survey (summarized in 2024) ranked the top reported issues as: (1) intellectual disability/developmental delay, (2) language delay/inability to speak, and (3) sleep issues, with <strong>“77% of families reporting sleep-related disruptions.”</strong> (rushing2024patientorganizationperspective pages 2-4)</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<h3>Causal gene</h3>
+<ul>
+<li><strong>CSNK2A1</strong> encodes CK2α, a serine/threonine kinase catalytic subunit. (rushing2024patientorganizationperspective pages 1-2, chung2022okurchungneurodevelopmentalsyndrome pages 1-3)</li>
+</ul>
+<h3>Inheritance</h3>
+<ul>
+<li>Typically <strong>autosomal dominant</strong>, usually de novo; rare inherited cases and low-level parental mosaicism are described. (chung2022okurchungneurodevelopmentalsyndrome pages 1-3, belnap2023inheritedcsnk2a1variants pages 1-2)</li>
+</ul>
+<h3>Variant spectrum (representative) and mechanistic interpretations</h3>
+<table>
+<thead>
+<tr>
+<th>Variant / class</th>
+<th>Evidence type</th>
+<th>Inheritance</th>
+<th>Key phenotype / cohort note</th>
+<th>Molecular / mechanistic interpretation</th>
+<th>ACMG / classification note</th>
+<th>Publication date</th>
+<th>URL</th>
+<th>Citation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>p.Lys198Arg (K198R), recurrent missense</td>
+<td>Familial clinical series; also noted as the most frequently reported de novo pathogenic variant</td>
+<td>Both inherited and previously reported de novo</td>
+<td>In 3 families with inherited OCNDS, common manifestations across 8 individuals included DD/ID (8/8), speech delay (7/8), behavioral problems (4/8), hypotonia (3/8), dysmorphic facial features (5/8); marked inter- and intra-familial variability</td>
+<td>Not consistent with simple loss of function; K198R causes a “rewiring” of CK2 specificity with decreased +1 acidic preference, decreased threonine phosphorylation, increased tyrosine phosphorylation, and altered tyrosine motif preference</td>
+<td>Not specified in retrieved familial/mechanistic excerpts</td>
+<td>2023-07; 2022-04</td>
+<td>https://doi.org/10.1111/cge.14408; https://doi.org/10.3389/fmolb.2022.850661</td>
+<td>(belnap2023inheritedcsnk2a1variants pages 1-2, belnap2023inheritedcsnk2a1variants pages 2-2, caefer2022theokurchungneurodevelopmental pages 1-2)</td>
+</tr>
+<tr>
+<td>p.Glu27Lys, missense</td>
+<td>Familial clinical series</td>
+<td>Inherited (maternal transmission)</td>
+<td>Reported in Family 3 with two affected sons; supports preserved fertility and autosomal dominant transmission in OCNDS</td>
+<td>No variant-specific biochemical assay in retrieved evidence; supports variable expressivity rather than obligate severe de novo-only disease</td>
+<td>Not specified in retrieved excerpt</td>
+<td>2023-07</td>
+<td>https://doi.org/10.1111/cge.14408</td>
+<td>(belnap2023inheritedcsnk2a1variants pages 1-2, belnap2023inheritedcsnk2a1variants pages 2-2)</td>
+</tr>
+<tr>
+<td>p.Arg47Gln, missense</td>
+<td>Case report with literature review</td>
+<td>Heterozygous pathogenic variant; inheritance not specified in retrieved excerpt</td>
+<td>Patient had DD, ID, generalized hypotonia, speech delay, short stature, microcephaly, dysmorphic features; lacked sleep disturbance, seizures, and gait difficulty</td>
+<td>Falls in/near ATP/GTP-binding loop region implicated in broader phenotypic range; ATP/GTP-loop variants are reported to cause the widest range of phenotypes</td>
+<td>Described as pathogenic in case report context; no ACMG criteria quoted in retrieved excerpt</td>
+<td>2024-05</td>
+<td>https://doi.org/10.1002/ajmg.a.63642</td>
+<td>(blanc2024patientwitha pages 1-2, blanc2024patientwitha pages 4-5, blanc2024patientwitha pages 4-4)</td>
+</tr>
+<tr>
+<td>p.Met381GlyfsTer32, frameshift</td>
+<td>Turkish case report</td>
+<td>De novo</td>
+<td>Hypotonia, developmental delay, dysmorphic features, abnormal MRI with mildly underdeveloped myelination and ventricular changes</td>
+<td>First reported OCNDS-associated frameshift in retrieved evidence; predicted elongated C-terminal mutant protein may be nonfunctional and may disrupt CK2α interactions/depolymerization</td>
+<td>Classified as likely pathogenic under ACMG-2015; PS2 and PM2 explicitly noted</td>
+<td>2024-05 (online first 2023-05-26)</td>
+<td>https://doi.org/10.1159/000530585</td>
+<td>(zhuri2024acaseof pages 3-6, zhuri2024acaseof pages 1-3, zhuri2024acaseof pages 6-7)</td>
+</tr>
+<tr>
+<td>p.Tyr323Leufs*16, truncating frameshift</td>
+<td>Familial Chinese case report with RNA studies</td>
+<td>Inherited (proband and mother)</td>
+<td>Proband had recurrent generalized tonic-clonic seizures, language impairment, ID; mother had postnatal hernias, splenomegaly, infection predisposition, but no major DD/ID, illustrating variable expressivity</td>
+<td>Transcript with frameshift variant was not detected and total CSNK2A1 product was reduced by ~50%, supporting nonsense-mediated decay and haploinsufficiency; authors suggest null variants may produce milder phenotypes than missense variants</td>
+<td>No ACMG wording quoted in retrieved excerpt</td>
+<td>2024-03</td>
+<td>https://doi.org/10.1002/mgg3.2398</td>
+<td>(nan2024okur‐chungneurodevelopmentalsyndrome pages 1-2, nan2024okur‐chungneurodevelopmentalsyndrome pages 2-5)</td>
+</tr>
+<tr>
+<td>p.Arg191Ter (R191X), truncating/nonsense</td>
+<td>Zebrafish functional model</td>
+<td>Experimental model (not patient inheritance)</td>
+<td>Produced among the most severe and consistent zebrafish phenotypes, including enlarged head, reduced body size, yolk sac defects, and spinal curvature</td>
+<td>Co-injection of wild-type CSNK2A1 mRNA significantly rescued R191X-induced abnormalities; together with CK2 inhibitor phenocopy, this supports CK2 dysfunction and is compatible with dominant-negative effects for some mutants</td>
+<td>Not applicable</td>
+<td>2024-01-11</td>
+<td>https://doi.org/10.1101/2024.01.09.574075</td>
+<td>(hassett2024characterizingcsnk2a1mutantinduced pages 7-9, hassett2024characterizingcsnk2a1mutantinduced pages 1-4, hassett2024characterizingcsnk2a1mutantinduced pages 4-7)</td>
+</tr>
+<tr>
+<td>p.Tyr50Cys (Y50C), missense</td>
+<td>Human case report/review and zebrafish model</td>
+<td>De novo in reported human case</td>
+<td>Human OCNDS with DD/short stature/ID; in zebrafish, Y50C caused severe morphological abnormalities</td>
+<td>Located in ATP/GTP-binding loop; structural analyses suggest impaired protein activation and destabilization of CK2 heterotetramer; wild-type co-injection attenuated zebrafish phenotype, again suggesting mutant interference with CK2 function in at least some contexts</td>
+<td>Human case classified pathogenic by ACMG in 2025 review excerpt (PS2 + PS4_Moderate + PM2_Supporting + PP2 + PP3), but not from 2023-2024 sources</td>
+<td>2024-01-11; 2025-12</td>
+<td>https://doi.org/10.1101/2024.01.09.574075; https://doi.org/10.1002/mgg3.70166</td>
+<td>(hassett2024characterizingcsnk2a1mutantinduced pages 7-9, hassett2024characterizingcsnk2a1mutantinduced pages 4-7, li2025acaseof pages 1-2, li2025acaseof pages 3-4)</td>
+</tr>
+<tr>
+<td>OCNDS-associated missense variants overall</td>
+<td>Review / mechanistic synthesis</td>
+<td>Mostly de novo, but inherited cases now established</td>
+<td>Most OCNDS variants are missense and cluster in functional regions of the kinase domain; registry data reported 82 distinct variants and 22 deletions</td>
+<td>Mechanisms are heterogeneous and likely variant-dependent: reduced activity for many variants, altered substrate specificity for K198R, haploinsufficiency/NMD for truncating alleles, and possible dominant-negative effects suggested by zebrafish rescue experiments and variant-specific localization differences</td>
+<td>Variant-specific ACMG status varies; no single classification applies</td>
+<td>2024-01; 2022-04; 2024-03</td>
+<td>https://doi.org/10.1177/26330040241249763; https://doi.org/10.3389/fmolb.2022.850661; https://doi.org/10.1002/mgg3.2398</td>
+<td>(rushing2024patientorganizationperspective pages 2-4, rushing2024patientorganizationperspective pages 1-2, caefer2022theokurchungneurodevelopmental pages 1-2, nan2024okur‐chungneurodevelopmentalsyndrome pages 1-2)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes representative CSNK2A1 variants reported in Okur-Chung neurodevelopmental syndrome, their inheritance patterns, associated phenotypes, and currently supported molecular mechanisms. It is useful for linking specific variant classes to pathogenic models such as altered substrate specificity, haploinsufficiency, or possible dominant-negative effects.</em></p>
+<p>Key 2023–2024 updates:
+- <strong>Inherited OCNDS</strong>: Belnap et al. (Clinical Genetics; accepted 2023-07-16; https://doi.org/10.1111/cge.14408) report three families with inherited CSNK2A1 variants, supporting preserved fertility and variable expressivity. (belnap2023inheritedcsnk2a1variants pages 1-2)
+- <strong>Frameshift/truncating alleles</strong>: Nan et al. (Mol Genet Genomic Med; accepted 2024-01-31; https://doi.org/10.1002/mgg3.2398) present a familial frameshift with RNA evidence consistent with nonsense-mediated decay (NMD) and haploinsufficiency (∼50% decreased CSNK2A1 product). (nan2024okur‐chungneurodevelopmentalsyndrome pages 1-2, nan2024okur‐chungneurodevelopmentalsyndrome pages 2-5)
+- <strong>Frameshift case report</strong>: Zhuri et al. (Molecular Syndromology; 2024-05; https://doi.org/10.1159/000530585) report a novel, de novo CSNK2A1 frameshift classified as likely pathogenic per ACMG criteria. (zhuri2024acaseof pages 1-3, zhuri2024acaseof pages 3-6)</p>
+<h3>Modifier genes / epigenetics / chromosomal abnormalities</h3>
+<p>No validated modifier genes or disease-specific epigenetic signatures were identified in the retrieved evidence.</p>
+<p>However, registry data indicate that <strong>deletions</strong> (structural variants) are present among individuals with OCNDS (recorded as “22 distinct deletions” in the CSNK2A1 Foundation registry). (rushing2024patientorganizationperspective pages 2-4)</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>No specific environmental, lifestyle, or infectious contributors were reported for OCNDS in the retrieved evidence; OCNDS is best characterized as a Mendelian CSNK2A1-associated condition. (chung2022okurchungneurodevelopmentalsyndrome pages 1-3, rushing2024patientorganizationperspective pages 1-2)</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Current understanding (key concepts)</h3>
+<p>OCNDS pathophysiology is <strong>variant-dependent</strong>, with evidence supporting multiple (not mutually exclusive) molecular mechanisms:
+- <strong>Altered kinase substrate specificity (neomorphic/rewiring)</strong>: For the common K198R variant, Caefer et al. report: “Contrary to prior speculation, the mutation does not result in a loss of function, but rather shifts the substrate specificity of the kinase,” including increased tyrosine phosphorylation preference and motif changes. (Frontiers in Molecular Biosciences; 2022-04; https://doi.org/10.3389/fmolb.2022.850661) (caefer2022theokurchungneurodevelopmental pages 1-2)
+- <strong>Loss-of-function / haploinsufficiency for truncating alleles</strong>: Nan et al. report that in a familial frameshift, “the transcript with the frameshift variant was not detected” and there was “A ∼50% decrease in the CSNK2A1 product,” supporting NMD and haploinsufficiency. (Mol Genet Genomic Med; 2024-03; https://doi.org/10.1002/mgg3.2398) (nan2024okur‐chungneurodevelopmentalsyndrome pages 2-5, nan2024okur‐chungneurodevelopmentalsyndrome pages 1-2)
+- <strong>Dominant-negative or interference effects for some mutants</strong>: Zebrafish mutant-expression phenotypes can be rescued by co-injection of wild-type CSNK2A1 mRNA; the authors interpret this as consistent with mutant interference with CK2 function. (bioRxiv; posted 2024-01-11; https://doi.org/10.1101/2024.01.09.574075) (hassett2024characterizingcsnk2a1mutantinduced pages 7-9, hassett2024characterizingcsnk2a1mutantinduced pages 4-7)</p>
+<h3>Cilia biology as a mechanistic bridge (authoritative experimental evidence)</h3>
+<p>Loukil et al. provide cell-biological evidence connecting CSNK2A1 to ciliogenesis and showing that OCNDS-linked variants can cause ciliary defects:
+- CSNK2A1 identified “as an important modulator of TTBK2 function in cilia trafficking.” (PNAS; 2021-04; https://doi.org/10.1073/pnas.2018740118) (loukil2021acomplexof pages 1-2)
+- “CSNK2A1 is a centrosomal protein concentrated at the mother centriole and associated with the distal appendages.” (loukil2021acomplexof pages 1-2)
+- “Overexpression of Csnk2a1 variants associated with OCNDS causes ciliary structural abnormalities.” (loukil2021acomplexof pages 1-2)</p>
+<h3>Circadian rhythm / sleep disturbance</h3>
+<p>Sleep disturbance is common clinically and is often framed as circadian disruption. The 2024 roadmap/perspective connects CK2 to circadian regulation, noting CK2 modulates PER2 and that a Drosophila dominant-negative CK2 mutant induced marked circadian period lengthening (~33 h). (rushing2024patientorganizationperspective pages 2-4)</p>
+<h3>Suggested ontology terms (mechanisms)</h3>
+<ul>
+<li><strong>GO (biological process) suggestions</strong>: protein phosphorylation (GO:0006468); regulation of protein phosphorylation (GO:0001932); cilium organization (GO:0044782); cilium assembly (GO:0060271); regulation of circadian rhythm (GO:0042752); synaptic signaling (GO:0099536); regulation of membrane potential (GO:0042391).</li>
+<li><strong>GO (cellular component) suggestions</strong>: centrosome (GO:0005813); centriole (GO:0005814); cilium (GO:0005929).</li>
+<li><strong>CL (cell type) suggestions</strong>: neurons (CL:0000540); glutamatergic neuron (CL:0000679); GABAergic neuron (CL:0000617).</li>
+</ul>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<h3>Organ/system level</h3>
+<p>The dominant affected system is the <strong>nervous system</strong> (neurodevelopmental delay/ID, seizures, hypotonia, behavior). Secondary involvement can include <strong>growth/endocrine</strong> issues (short stature; occasional partial growth hormone deficiency), <strong>gastrointestinal/nutrition</strong> (feeding difficulties), <strong>musculoskeletal</strong> (scoliosis/kyphosis, hypermobility, hernias), and occasionally <strong>cardiovascular</strong> congenital defects. (chung2022okurchungneurodevelopmentalsyndrome pages 3-6, chung2022okurchungneurodevelopmentalsyndrome pages 1-3, blanc2024patientwitha pages 4-5)</p>
+<h3>Tissue/cell level and subcellular localization</h3>
+<p>Experimental and review evidence highlights CK2α abundance in brain and CSNK2A1 localization to centrosomal/distal appendage regions relevant to cilia. (rushing2024patientorganizationperspective pages 2-4, loukil2021acomplexof pages 1-2)</p>
+<p><strong>UBERON suggestions</strong> (non-exhaustive): brain (UBERON:0000955); cerebral cortex (UBERON:0000956); hippocampus (UBERON:0001954); heart (UBERON:0000948).</p>
+<hr />
+<h2>8. Temporal Development (onset and progression)</h2>
+<h3>Onset</h3>
+<p>Typically manifests in <strong>infancy/early childhood</strong> with hypotonia, feeding issues, speech and motor delay, and developmental delay. (chung2022okurchungneurodevelopmentalsyndrome pages 1-3, chung2022okurchungneurodevelopmentalsyndrome pages 3-6)</p>
+<h3>Developmental trajectory / natural history indicators</h3>
+<p>GeneReviews provides milestone averages (sitting ~11 months; walking ~28.8 months; first meaningful words ~38.3 months). (chung2022okurchungneurodevelopmentalsyndrome pages 3-6)</p>
+<p>Atypical later diagnosis/milder phenotypes exist; a 2024 report includes an affected 31-year-old proband with relatively mild early history and later functional outcomes (graduated technical secondary school, worked as cashier), illustrating variable expressivity. (nan2024okur‐chungneurodevelopmentalsyndrome pages 1-2)</p>
+<p>Robust staging frameworks and long-term survival statistics were not available in the retrieved evidence.</p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>Inheritance pattern</h3>
+<p>Autosomal dominant; most cases are de novo, but inherited familial cases are established, and low-level parental mosaicism is recognized. (chung2022okurchungneurodevelopmentalsyndrome pages 1-3, belnap2023inheritedcsnk2a1variants pages 1-2)</p>
+<h3>Case counts and rarity (recent statistics)</h3>
+<ul>
+<li>GeneReviews (2022-06-09) summarized <strong>51</strong> identified individuals with pathogenic CSNK2A1 variants at that time. (chung2022okurchungneurodevelopmentalsyndrome pages 3-6)</li>
+<li>Blanc et al. (AJMG-A; 2024-05; https://doi.org/10.1002/ajmg.a.63642) state: “To date, <strong>160</strong> patients have been diagnosed worldwide.” (blanc2024patientwitha pages 1-2)</li>
+<li>Rushing &amp; Sills (2024-01; https://doi.org/10.1177/26330040241249763) report <strong>&gt;200 registered patients</strong> in the CSNK2A1 Foundation registry, with <strong>~40</strong> additional known globally. (rushing2024patientorganizationperspective pages 2-4)</li>
+</ul>
+<h3>Sex ratio</h3>
+<p>A 2022 literature review notes that early female predominance was not sustained as more cases were reported, with an approximate male:female ratio ~1:1. (khamirani2022clinicalfeaturesof pages 5-6)</p>
+<h3>Prevalence/incidence</h3>
+<p>No population prevalence or incidence estimates were present in the retrieved evidence.</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>Clinical tests and imaging</h3>
+<p>No OCNDS-specific laboratory biomarkers are established; brain MRI abnormalities are nonspecific and present in ~55% (11/20) of those imaged in the GeneReviews-derived cohort. (chung2022okurchungneurodevelopmentalsyndrome pages 3-6)</p>
+<h3>Genetic testing approach (real-world implementation)</h3>
+<table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Recommendation / finding</th>
+<th>Details / implementation notes</th>
+<th>Suggested MAXO term(s)</th>
+<th>Citation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Diagnostic framework</td>
+<td>No formal consensus clinical diagnostic criteria published</td>
+<td>Diagnosis is established in a proband with suggestive findings plus a heterozygous pathogenic/likely pathogenic CSNK2A1 variant</td>
+<td>MAXO:0000000 Not applicable</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 1-3)</td>
+</tr>
+<tr>
+<td>Suggestive clinical findings</td>
+<td>Core phenotype prompting evaluation</td>
+<td>Mild-to-moderate developmental delay or intellectual disability, generalized hypotonia in infancy/childhood, speech delay, plus infant feeding difficulties, seizures, behavioral findings, slow growth/failure to thrive, or nonspecific dysmorphic features</td>
+<td>MAXO:0000000 Not applicable</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 1-3)</td>
+</tr>
+<tr>
+<td>First-line genetic workup</td>
+<td>Chromosomal microarray (CMA) may be an initial test in DD/ID evaluation</td>
+<td>GeneReviews notes molecular testing in a child with DD or older person with ID may begin with CMA; useful before or alongside broader sequencing workflows</td>
+<td>MAXO:0000127 Genetic testing</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 1-3)</td>
+</tr>
+<tr>
+<td>Targeted sequencing strategy</td>
+<td>Intellectual disability / neurodevelopmental multigene panel including CSNK2A1</td>
+<td>Useful after nondiagnostic CMA; panel composition varies by lab and some ID panels may omit CSNK2A1 because OCNDS is rare</td>
+<td>MAXO:0000127 Genetic testing</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 1-3)</td>
+</tr>
+<tr>
+<td>Preferred broad sequencing</td>
+<td>Exome sequencing (ES/WES) is most commonly used</td>
+<td>GeneReviews states ES is most commonly used; 2024 and 2023 reports repeatedly used WES/trio-WES in real-world diagnosis of simplex and familial cases</td>
+<td>MAXO:0000127 Genetic testing</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 1-3, belnap2023inheritedcsnk2a1variants pages 1-2, nan2024okur‐chungneurodevelopmentalsyndrome pages 1-2, blanc2024patientwitha pages 1-2, zhuri2024acaseof pages 3-6)</td>
+</tr>
+<tr>
+<td>Genome sequencing</td>
+<td>Genome sequencing (GS/WGS) is also possible and increasingly important</td>
+<td>Blanc et al. note diagnoses are likely to rise with growing use of exome and genome sequencing</td>
+<td>MAXO:0000127 Genetic testing</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 1-3, blanc2024patientwitha pages 1-2)</td>
+</tr>
+<tr>
+<td>Single-gene testing</td>
+<td>Usually not recommended as routine first choice</td>
+<td>GeneReviews: single-gene CSNK2A1 testing is rarely useful and typically not recommended for undifferentiated DD/ID</td>
+<td>MAXO:0000127 Genetic testing</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 1-3)</td>
+</tr>
+<tr>
+<td>Segregation testing</td>
+<td>Confirm inheritance status with parental studies</td>
+<td>Recent reports used Sanger/co-segregation to show de novo or inherited variants, informing counseling and recurrence risk</td>
+<td>MAXO:0000127 Genetic testing</td>
+<td>(nan2024okur‐chungneurodevelopmentalsyndrome pages 1-2, belnap2023inheritedcsnk2a1variants pages 1-2, zhuri2024acaseof pages 3-6)</td>
+</tr>
+<tr>
+<td>RNA studies for truncating variants</td>
+<td>Consider transcript analysis when variant mechanism is uncertain</td>
+<td>In a 2024 familial truncating case, RT-PCR/qRT-PCR showed absent mutant transcript and ~50% reduction in CSNK2A1 product, supporting NMD/haploinsufficiency</td>
+<td>MAXO:0000127 Genetic testing</td>
+<td>(nan2024okur‐chungneurodevelopmentalsyndrome pages 1-2, nan2024okur‐chungneurodevelopmentalsyndrome pages 2-5)</td>
+</tr>
+<tr>
+<td>Feeding management</td>
+<td>Feeding therapy</td>
+<td>Recommended for persistent feeding issues and difficulty transitioning feeds</td>
+<td>MAXO:0001327 Feeding therapy</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 1-3)</td>
+</tr>
+<tr>
+<td>Nutritional support</td>
+<td>Consider gastrostomy tube placement</td>
+<td>For persistent feeding/swallowing problems or poor growth</td>
+<td>MAXO:0001108 Gastrostomy tube placement</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 1-3, chung2022okurchungneurodevelopmentalsyndrome pages 3-6)</td>
+</tr>
+<tr>
+<td>Short stature management</td>
+<td>Consider growth hormone therapy when endocrinology evaluation supports partial GH deficiency</td>
+<td>GeneReviews specifies use when indicated by an endocrinologist; partial GH deficiency has been reported in OCNDS</td>
+<td>MAXO:0000122 Hormone replacement therapy</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 1-3, chung2022okurchungneurodevelopmentalsyndrome pages 3-6)</td>
+</tr>
+<tr>
+<td>Seizure management</td>
+<td>Standard anti-seizure medication under neurology care</td>
+<td>Used for epilepsy/seizures ranging from single events to intractable epilepsy</td>
+<td>MAXO:0000058 Anticonvulsant therapy</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 1-3, chung2022okurchungneurodevelopmentalsyndrome pages 3-6)</td>
+</tr>
+<tr>
+<td>Immunologic management</td>
+<td>Consider intravenous immune globulin (IVIG) for demonstrated hypogammaglobulinemia</td>
+<td>GeneReviews recommends immunologist-directed IVIG where IgG deficiency is documented</td>
+<td>MAXO:0000079 Immunoglobulin therapy</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 1-3, chung2022okurchungneurodevelopmentalsyndrome pages 3-6)</td>
+</tr>
+<tr>
+<td>Motor rehabilitation</td>
+<td>Physical therapy / rehabilitation medicine</td>
+<td>For hypotonia, motor coordination problems, and gait issues</td>
+<td>MAXO:0000011 Physical therapy</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 1-3)</td>
+</tr>
+<tr>
+<td>Functional rehabilitation</td>
+<td>Occupational therapy</td>
+<td>Standard supportive developmental therapy for function and daily living skills</td>
+<td>MAXO:0000012 Occupational therapy</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 1-3)</td>
+</tr>
+<tr>
+<td>Communication therapy</td>
+<td>Speech/language therapy</td>
+<td>Important because language is often more impaired than gross motor development</td>
+<td>MAXO:0000013 Speech therapy</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 1-3, chung2022okurchungneurodevelopmentalsyndrome pages 3-6)</td>
+</tr>
+<tr>
+<td>Sleep management</td>
+<td>Monitor and treat sleep disturbance symptomatically</td>
+<td>Sleep issues are common, often related to circadian rhythm disturbance; 77% of families in a 2022 survey reported sleep-related disruptions</td>
+<td>MAXO:0000184 Sleep management</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 1-3, chung2022okurchungneurodevelopmentalsyndrome pages 3-6, rushing2024patientorganizationperspective pages 2-4, rushing2024patientorganizationperspective pages 1-2)</td>
+</tr>
+<tr>
+<td>Cardiac/other organ management</td>
+<td>Standard care for associated comorbidities</td>
+<td>Includes scoliosis, constipation, congenital heart defects, renal anomalies/pelviectasis, and sleep disorders</td>
+<td>MAXO:0000000 Supportive care</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 1-3)</td>
+</tr>
+<tr>
+<td>Surveillance at each visit</td>
+<td>Growth, nutrition, feeding safety, constipation, neurologic review, development/behavior, infections, sleep</td>
+<td>GeneReviews recommends repeated assessment of growth parameters, feeding/oral safety, seizures/tone/movement disorders/coordination, developmental progress, behavior, unusual infections, and sleep disturbance</td>
+<td>MAXO:0000400 Clinical monitoring</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 1-3)</td>
+</tr>
+<tr>
+<td>Periodic surveillance</td>
+<td>Ophthalmology evaluation every 1-3 years</td>
+<td>Because ophthalmologic findings can occur, though usually nonspecific/infrequent</td>
+<td>MAXO:0000400 Clinical monitoring</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 1-3, chung2022okurchungneurodevelopmentalsyndrome pages 3-6)</td>
+</tr>
+<tr>
+<td>Genetic counseling</td>
+<td>Counsel as autosomal dominant, usually de novo but occasionally inherited or due to parental mosaicism</td>
+<td>Once a familial pathogenic variant is known, prenatal testing and preimplantation genetic testing are possible</td>
+<td>MAXO:0000154 Genetic counseling</td>
+<td>(chung2022okurchungneurodevelopmentalsyndrome pages 1-3, belnap2023inheritedcsnk2a1variants pages 1-2)</td>
+</tr>
+<tr>
+<td>Real-world implementation update</td>
+<td>Molecular testing remains the only diagnostic method currently available</td>
+<td>2024 roadmap article states there are no approved disease-specific treatments and diagnosis currently relies on molecular genetic testing; registry and research infrastructure are being expanded</td>
+<td>MAXO:0000127 Genetic testing; MAXO:0000000 Supportive care</td>
+<td>(rushing2024patientorganizationperspective pages 2-4, rushing2024patientorganizationperspective pages 1-2)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes practical diagnostic and management recommendations for Okur-Chung neurodevelopmental syndrome, combining the GeneReviews 2022 care framework with key 2023-2024 updates on real-world genomic diagnosis and symptom burden. It is useful for rapid clinical curation and for mapping interventions to suggested MAXO terms.</em></p>
+<p>Key implementation data points:
+- GeneReviews: “Exome sequencing is most commonly used,” and single-gene testing is “typically NOT recommended” for undifferentiated DD/ID. (chung2022okurchungneurodevelopmentalsyndrome pages 1-3)
+- Case series/case reports (2023–2024) show routine <strong>WES/trio-WES</strong> plus <strong>Sanger segregation</strong> for inherited vs de novo determination, and <strong>RNA studies</strong> to support NMD for truncating variants. (belnap2023inheritedcsnk2a1variants pages 1-2, nan2024okur‐chungneurodevelopmentalsyndrome pages 1-2, zhuri2024acaseof pages 3-6)</p>
+<h3>Differential diagnosis</h3>
+<p>A structured differential diagnosis list was not included in the retrieved excerpts. GeneReviews notes that CSNK2A1 can be part of broader ID multigene panels and that panels may include other genes of interest (implying a broad neurodevelopmental differential). (chung2022okurchungneurodevelopmentalsyndrome pages 1-3)</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<p>Quantitative survival, mortality, and life expectancy data were not identified in the retrieved corpus. Available evidence supports substantial <strong>phenotypic heterogeneity</strong> including mild adult presentations (familial null variant case), and variable seizure burden with possible underrecognition. (nan2024okur‐chungneurodevelopmentalsyndrome pages 1-2, rushing2024patientorganizationperspective pages 2-4)</p>
+<hr />
+<h2>12. Treatment</h2>
+<h3>Current standard of care (symptom-directed)</h3>
+<p>There are <strong>no approved disease-modifying treatments</strong>; management is supportive and targeted to manifestations. (rushing2024patientorganizationperspective pages 1-2, chung2022okurchungneurodevelopmentalsyndrome pages 1-3)</p>
+<p>Key interventions and MAXO mappings are summarized in Artifact-03 (feeding therapy, gastrostomy, GH therapy when indicated, antiseizure medications, IVIG for hypogammaglobulinemia, PT/OT/speech, sleep management, and surveillance). (chung2022okurchungneurodevelopmentalsyndrome pages 1-3)</p>
+<h3>Experimental/clinical trials</h3>
+<p>No interventional OCNDS-specific trials were identified in the retrieved clinical-trials search, but there is major <strong>observational natural history infrastructure</strong> (Simons Searchlight) that includes CSNK2A1. (NCT01238250 chunk 1)</p>
+<hr />
+<h2>13. Prevention</h2>
+<p>Primary prevention of de novo cases is not currently feasible. Prevention is primarily via <strong>genetic counseling and reproductive options</strong>:
+- GeneReviews states that once a familial CSNK2A1 pathogenic variant is identified, <strong>prenatal testing and preimplantation genetic testing</strong> are possible. (chung2022okurchungneurodevelopmentalsyndrome pages 1-3)</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p>No naturally occurring veterinary disease analogs were identified in the retrieved evidence.</p>
+<hr />
+<h2>15. Model Organisms and Research Infrastructure (applications and real-world implementations)</h2>
+<table>
+<thead>
+<tr>
+<th>Resource / model</th>
+<th>Type</th>
+<th>Key design / scope</th>
+<th>Main findings / utility</th>
+<th>Publication / status date</th>
+<th>URL</th>
+<th>Citation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Zebrafish CSNK2A1 overexpression model</td>
+<td>In vivo model organism</td>
+<td>Human wild-type or mutant <strong>CSNK2A1</strong> mRNAs injected at the single-cell stage in zebrafish; variants tested included <strong>D156E, K198R, R47G/R47Q, Y50C, R191X</strong></td>
+<td>Mutant overexpression caused variant-specific developmental defects including aberrant yolk sac, enlarged head, reduced body size, and curved spine; wild-type overexpression alone did not cause phenotype, supporting specificity</td>
+<td>Posted 2024-01-11</td>
+<td>https://doi.org/10.1101/2024.01.09.574075</td>
+<td>(hassett2024characterizingcsnk2a1mutantinduced pages 7-9, hassett2024characterizingcsnk2a1mutantinduced pages 1-4, hassett2024characterizingcsnk2a1mutantinduced pages 4-7)</td>
+</tr>
+<tr>
+<td>Zebrafish rescue experiments</td>
+<td>Functional rescue assay</td>
+<td>Co-injection of mutant and wild-type <strong>CSNK2A1</strong> mRNA (e.g., <strong>R191X</strong> with WT at 1:2; equal WT with <strong>Y50C</strong>)</td>
+<td>Wild-type co-expression significantly rescued or attenuated mutant-induced abnormalities, supporting direct causal effects of CSNK2A1 dysfunction and therapeutic relevance of restoring WT function</td>
+<td>Posted 2024-01-11</td>
+<td>https://doi.org/10.1101/2024.01.09.574075</td>
+<td>(hassett2024characterizingcsnk2a1mutantinduced pages 7-9, hassett2024characterizingcsnk2a1mutantinduced pages 1-4, hassett2024characterizingcsnk2a1mutantinduced pages 4-7)</td>
+</tr>
+<tr>
+<td>Zebrafish CK2 inhibitor phenocopy</td>
+<td>Pharmacologic perturbation model</td>
+<td>Embryos treated with <strong>CX-4945</strong> (CK2 inhibitor) in dose-response experiments</td>
+<td>CK2 inhibition caused dose-dependent mortality and abnormal morphology, phenocopying developmental disruption from CSNK2A1 mutant expression and implicating CK2 pathway dysfunction</td>
+<td>Posted 2024-01-11</td>
+<td>https://doi.org/10.1101/2024.01.09.574075</td>
+<td>(hassett2024characterizingcsnk2a1mutantinduced pages 7-9, hassett2024characterizingcsnk2a1mutantinduced pages 4-7, hassett2024characterizingcsnk2a1mutantinduced pages 12-18)</td>
+</tr>
+<tr>
+<td>CSNK2A1 cilia / centrosome cell biology model</td>
+<td>Cell biology / mechanistic model</td>
+<td>BioID, CRISPR screening, GFP pulldown, and superresolution microscopy used to study <strong>CSNK2A1</strong> localization and function in cilia biology</td>
+<td><strong>CSNK2A1</strong> identified as a centrosomal protein concentrated at the mother centriole/distal appendages; modulates <strong>TTBK2</strong> function in ciliary trafficking; mutant cilia were longer and unstable at the tip</td>
+<td>Published 2021-04</td>
+<td>https://doi.org/10.1073/pnas.2018740118</td>
+<td>(loukil2021acomplexof pages 1-2, loukil2021acomplexof pages 2-3)</td>
+</tr>
+<tr>
+<td>OCNDS-associated variant cilia defect assay</td>
+<td>Variant-expression cell assay</td>
+<td>Overexpression of OCNDS-associated <strong>CSNK2A1</strong> variants in wild-type cells</td>
+<td>OCNDS-linked variants caused ciliary structural abnormalities, providing a mechanistic bridge from genotype to developmental cell-biology defects</td>
+<td>Published 2021-04</td>
+<td>https://doi.org/10.1073/pnas.2018740118</td>
+<td>(loukil2021acomplexof pages 1-2)</td>
+</tr>
+<tr>
+<td>CSNK2A1 Foundation registry / research infrastructure</td>
+<td>Patient registry / natural history / advocacy infrastructure</td>
+<td>Foundation-established OCNDS registry with patient enrollment, variant tracking, grant support, and research-roadmap development</td>
+<td>Registry includes <strong>&gt;200 registered patients</strong> with <strong>~40 additional known globally</strong>; foundation reported <strong>82 distinct variants</strong> and <strong>22 distinct deletions</strong>; supports natural history, biomarker development, toolbox expansion, and therapeutic planning</td>
+<td>Published 2024-01</td>
+<td>https://doi.org/10.1177/26330040241249763</td>
+<td>(rushing2024patientorganizationperspective pages 2-4, rushing2024patientorganizationperspective pages 1-2)</td>
+</tr>
+<tr>
+<td>Simons Searchlight</td>
+<td>Observational natural history study / research platform</td>
+<td>International, prospective, family-based online observational study for rare neurodevelopmental genetic conditions, explicitly including <strong>CSNK2A1</strong></td>
+<td>Collects medical, behavioral, learning, developmental, and biospecimen data longitudinally to improve clinical care and treatment research; useful real-world infrastructure for OCNDS natural history and outcome tracking</td>
+<td>Study first posted 2010-11-10; recruiting; last update posted 2025-06-06</td>
+<td>https://clinicaltrials.gov/study/NCT01238250</td>
+<td>(NCT01238250 chunk 1)</td>
+</tr>
+<tr>
+<td>Simons Searchlight OCNDS family survey</td>
+<td>Patient-reported outcomes infrastructure</td>
+<td>2022 family survey within Simons Searchlight</td>
+<td>Identified top family concerns in OCNDS as intellectual disability/developmental delay, language delay/inability to speak, and sleep issues; <strong>77%</strong> of families reported sleep-related disruptions</td>
+<td>Reported in 2024 perspective</td>
+<td>https://doi.org/10.1177/26330040241249763</td>
+<td>(rushing2024patientorganizationperspective pages 2-4, rushing2024patientorganizationperspective pages 1-2)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes the main experimental models and real-world research infrastructure currently supporting OCNDS/CSNK2A1 research. It highlights how zebrafish and cell-biology systems inform mechanism, while registries and observational studies enable natural-history and translational work.</em></p>
+<p><strong>Interpretation and expert analysis (authoritative synthesis):</strong>
+- 2024 patient-organization and research-roadmap work explicitly frames OCNDS mechanism as unresolved and likely heterogeneous across variants (“loss of function or altered substrate specificity”), and emphasizes the translational need for biomarkers and therapeutic testing pipelines, including drug repurposing and gene therapy. (rushing2024patientorganizationperspective pages 1-2, rushing2024patientorganizationperspective pages 2-4)
+- The combination of (i) substrate-specificity “rewiring” for K198R, (ii) NMD/haploinsufficiency for null variants, and (iii) cilia structural defects from OCNDS variant expression provides a coherent mechanistic landscape in which <strong>different CSNK2A1 variants may cause disease via distinct biochemical routes</strong>, converging on neurodevelopmental phenotypes. (caefer2022theokurchungneurodevelopmental pages 1-2, nan2024okur‐chungneurodevelopmentalsyndrome pages 1-2, loukil2021acomplexof pages 1-2)</p>
+<hr />
+<h2>Evidence gaps and limitations (explicit)</h2>
+<ol>
+<li><strong>ICD/Orphanet/MeSH identifiers</strong> were not present in retrieved evidence; thus only OMIM, MONDO, and GeneReviews identifiers are reported here. (chung2022okurchungneurodevelopmentalsyndrome pages 1-3, OpenTargets Search: Okur-Chung neurodevelopmental syndrome-CSNK2A1)</li>
+<li><strong>Population prevalence/incidence</strong>, penetrance estimates, and formal survival statistics were not available in the retrieved corpus. (khamirani2022clinicalfeaturesof pages 5-6, rushing2024patientorganizationperspective pages 2-4)</li>
+<li>Several mechanistic and cohort-wide quantitative claims (e.g., kinase activity reductions across many variants) are referenced in the 2024 perspective but the underlying primary paper is not available in this tool run, so the report prioritizes direct evidence we could retrieve (Caefer 2022; Loukil 2021; Nan 2024). (rushing2024patientorganizationperspective pages 2-4, caefer2022theokurchungneurodevelopmental pages 1-2, loukil2021acomplexof pages 1-2, nan2024okur‐chungneurodevelopmentalsyndrome pages 1-2)</li>
+</ol>
+<p>References</p>
+<ol>
+<li>
+<p>(chung2022okurchungneurodevelopmentalsyndrome pages 1-3): W Chung and V Okur. Okur-chung neurodevelopmental syndrome. Unknown journal, 2022.</p>
+</li>
+<li>
+<p>(chung2022okurchungneurodevelopmentalsyndrome pages 3-6): W Chung and V Okur. Okur-chung neurodevelopmental syndrome. Unknown journal, 2022.</p>
+</li>
+<li>
+<p>(rushing2024patientorganizationperspective pages 1-2): Gabrielle V. Rushing and Jennifer Sills. Patient organization perspective: a research roadmap for okur-chung neurodevelopmental syndrome. Therapeutic Advances in Rare Disease, Jan 2024. URL: https://doi.org/10.1177/26330040241249763, doi:10.1177/26330040241249763. This article has 2 citations.</p>
+</li>
+<li>
+<p>(blanc2024patientwitha pages 1-2): Albin Blanc, Céline Bonnet, Marion Wandzel, Virginie Roth, Yannis Duffourd, Hanna Safraou, Bruno Leheup, Florence Muller, Julie D Colne, François Feillet, Emmanuelle Schmitt, Matheus Castro, Jullian Savatt, Adriano Burcheri, Christophe Nemos, Christophe Philippe, and Laëtitia Lambert. Patient with a heterozygous pathogenic variant in csnk2a1 gene: a new case to update the okur–chung neurodevelopmental syndrome. American Journal of Medical Genetics Part A, May 2024. URL: https://doi.org/10.1002/ajmg.a.63642, doi:10.1002/ajmg.a.63642. This article has 3 citations.</p>
+</li>
+<li>
+<p>(OpenTargets Search: Okur-Chung neurodevelopmental syndrome-CSNK2A1): Open Targets Query (Okur-Chung neurodevelopmental syndrome-CSNK2A1, 2 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.</p>
+</li>
+<li>
+<p>(belnap2023inheritedcsnk2a1variants pages 1-2): Newell Belnap, Aiai Price‐Smith, Keri Ramsey, Kamawela Leka, Anna Abraham, Emma Lieberman, Katie Hassett, Sai Potu, Natasha Rudy, Kirstin Smith, Fady M. Mikhail, Kirstin G. Monaghan, Andrea Hendershot, Jeroen Mourmans, Maria Descartes, Matthew J. Huentelman, Jennifer Sills, Sampath Rangasamy, and Vinodh Narayanan. Inherited csnk2a1 variants in families with okur‐chung neurodevelopmental syndrome. Clinical Genetics, 104:607-609, Jul 2023. URL: https://doi.org/10.1111/cge.14408, doi:10.1111/cge.14408. This article has 8 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(rushing2024patientorganizationperspective pages 2-4): Gabrielle V. Rushing and Jennifer Sills. Patient organization perspective: a research roadmap for okur-chung neurodevelopmental syndrome. Therapeutic Advances in Rare Disease, Jan 2024. URL: https://doi.org/10.1177/26330040241249763, doi:10.1177/26330040241249763. This article has 2 citations.</p>
+</li>
+<li>
+<p>(nan2024okur‐chungneurodevelopmentalsyndrome pages 1-2): Haitian Nan, Min-Liang Chu, Jing Zhang, Deming Jiang, Yihao Wang, and Liyong Wu. Okur‐chung neurodevelopmental syndrome: implications for phenotype and genotype expansion. Molecular Genetics &amp; Genomic Medicine, Mar 2024. URL: https://doi.org/10.1002/mgg3.2398, doi:10.1002/mgg3.2398. This article has 9 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(blanc2024patientwitha pages 4-5): Albin Blanc, Céline Bonnet, Marion Wandzel, Virginie Roth, Yannis Duffourd, Hanna Safraou, Bruno Leheup, Florence Muller, Julie D Colne, François Feillet, Emmanuelle Schmitt, Matheus Castro, Jullian Savatt, Adriano Burcheri, Christophe Nemos, Christophe Philippe, and Laëtitia Lambert. Patient with a heterozygous pathogenic variant in csnk2a1 gene: a new case to update the okur–chung neurodevelopmental syndrome. American Journal of Medical Genetics Part A, May 2024. URL: https://doi.org/10.1002/ajmg.a.63642, doi:10.1002/ajmg.a.63642. This article has 3 citations.</p>
+</li>
+<li>
+<p>(belnap2023inheritedcsnk2a1variants pages 2-2): Newell Belnap, Aiai Price‐Smith, Keri Ramsey, Kamawela Leka, Anna Abraham, Emma Lieberman, Katie Hassett, Sai Potu, Natasha Rudy, Kirstin Smith, Fady M. Mikhail, Kirstin G. Monaghan, Andrea Hendershot, Jeroen Mourmans, Maria Descartes, Matthew J. Huentelman, Jennifer Sills, Sampath Rangasamy, and Vinodh Narayanan. Inherited csnk2a1 variants in families with okur‐chung neurodevelopmental syndrome. Clinical Genetics, 104:607-609, Jul 2023. URL: https://doi.org/10.1111/cge.14408, doi:10.1111/cge.14408. This article has 8 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(caefer2022theokurchungneurodevelopmental pages 1-2): Danielle M. Caefer, Nhat Q. Phan, Jennifer C. Liddle, Jeremy L. Balsbaugh, Joseph P. O’Shea, Anastasios V. Tzingounis, and Daniel Schwartz. The okur-chung neurodevelopmental syndrome mutation ck2k198r leads to a rewiring of kinase specificity. Frontiers in Molecular Biosciences, Apr 2022. URL: https://doi.org/10.3389/fmolb.2022.850661, doi:10.3389/fmolb.2022.850661. This article has 14 citations.</p>
+</li>
+<li>
+<p>(blanc2024patientwitha pages 4-4): Albin Blanc, Céline Bonnet, Marion Wandzel, Virginie Roth, Yannis Duffourd, Hanna Safraou, Bruno Leheup, Florence Muller, Julie D Colne, François Feillet, Emmanuelle Schmitt, Matheus Castro, Jullian Savatt, Adriano Burcheri, Christophe Nemos, Christophe Philippe, and Laëtitia Lambert. Patient with a heterozygous pathogenic variant in csnk2a1 gene: a new case to update the okur–chung neurodevelopmental syndrome. American Journal of Medical Genetics Part A, May 2024. URL: https://doi.org/10.1002/ajmg.a.63642, doi:10.1002/ajmg.a.63642. This article has 3 citations.</p>
+</li>
+<li>
+<p>(zhuri2024acaseof pages 3-6): Drenushe Zhuri, Fulya Dusenkalkan, Guzin Tunca Alparslan, and Hakan Gurkan. A case of okur-chung neurodevelopmental syndrome with a novel, de novo variant on the csnk2a1 gene in a turkish patient. Molecular Syndromology, 15:43-50, May 2024. URL: https://doi.org/10.1159/000530585, doi:10.1159/000530585. This article has 5 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(zhuri2024acaseof pages 1-3): Drenushe Zhuri, Fulya Dusenkalkan, Guzin Tunca Alparslan, and Hakan Gurkan. A case of okur-chung neurodevelopmental syndrome with a novel, de novo variant on the csnk2a1 gene in a turkish patient. Molecular Syndromology, 15:43-50, May 2024. URL: https://doi.org/10.1159/000530585, doi:10.1159/000530585. This article has 5 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(zhuri2024acaseof pages 6-7): Drenushe Zhuri, Fulya Dusenkalkan, Guzin Tunca Alparslan, and Hakan Gurkan. A case of okur-chung neurodevelopmental syndrome with a novel, de novo variant on the csnk2a1 gene in a turkish patient. Molecular Syndromology, 15:43-50, May 2024. URL: https://doi.org/10.1159/000530585, doi:10.1159/000530585. This article has 5 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(nan2024okur‐chungneurodevelopmentalsyndrome pages 2-5): Haitian Nan, Min-Liang Chu, Jing Zhang, Deming Jiang, Yihao Wang, and Liyong Wu. Okur‐chung neurodevelopmental syndrome: implications for phenotype and genotype expansion. Molecular Genetics &amp; Genomic Medicine, Mar 2024. URL: https://doi.org/10.1002/mgg3.2398, doi:10.1002/mgg3.2398. This article has 9 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(hassett2024characterizingcsnk2a1mutantinduced pages 7-9): Katie Hassett, Sai Srihaas Potu, Aravind Sankaramoorthy, Sukanniya Kaneshamoorthy, Kamawela Leka, Matthew J. Huentelman, Vinodh Narayanan, and Sampath Rangasamy. Characterizing csnk2a1 mutant-induced morphological phenotypes in zebrafish (danio rerio): insights into okur-chung neurodevelopmental syndrome (ocnds). bioRxiv, Jan 2024. URL: https://doi.org/10.1101/2024.01.09.574075, doi:10.1101/2024.01.09.574075. This article has 0 citations.</p>
+</li>
+<li>
+<p>(hassett2024characterizingcsnk2a1mutantinduced pages 1-4): Katie Hassett, Sai Srihaas Potu, Aravind Sankaramoorthy, Sukanniya Kaneshamoorthy, Kamawela Leka, Matthew J. Huentelman, Vinodh Narayanan, and Sampath Rangasamy. Characterizing csnk2a1 mutant-induced morphological phenotypes in zebrafish (danio rerio): insights into okur-chung neurodevelopmental syndrome (ocnds). bioRxiv, Jan 2024. URL: https://doi.org/10.1101/2024.01.09.574075, doi:10.1101/2024.01.09.574075. This article has 0 citations.</p>
+</li>
+<li>
+<p>(hassett2024characterizingcsnk2a1mutantinduced pages 4-7): Katie Hassett, Sai Srihaas Potu, Aravind Sankaramoorthy, Sukanniya Kaneshamoorthy, Kamawela Leka, Matthew J. Huentelman, Vinodh Narayanan, and Sampath Rangasamy. Characterizing csnk2a1 mutant-induced morphological phenotypes in zebrafish (danio rerio): insights into okur-chung neurodevelopmental syndrome (ocnds). bioRxiv, Jan 2024. URL: https://doi.org/10.1101/2024.01.09.574075, doi:10.1101/2024.01.09.574075. This article has 0 citations.</p>
+</li>
+<li>
+<p>(li2025acaseof pages 1-2): Xin Li, Shuping Wang, Xin Liu, Zhenjing Wang, Na Lv, Shaoting Wang, and Wentao Yang. A case of <scp> <i>csnk2a1</i> </scp> gene variant causing okur‐chung syndrome and analysis of the clinical phenotypic spectrum. Molecular Genetics &amp; Genomic Medicine, Dec 2025. URL: https://doi.org/10.1002/mgg3.70166, doi:10.1002/mgg3.70166. This article has 0 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(li2025acaseof pages 3-4): Xin Li, Shuping Wang, Xin Liu, Zhenjing Wang, Na Lv, Shaoting Wang, and Wentao Yang. A case of <scp> <i>csnk2a1</i> </scp> gene variant causing okur‐chung syndrome and analysis of the clinical phenotypic spectrum. Molecular Genetics &amp; Genomic Medicine, Dec 2025. URL: https://doi.org/10.1002/mgg3.70166, doi:10.1002/mgg3.70166. This article has 0 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(loukil2021acomplexof pages 1-2): Abdelhalim Loukil, Chloe Barrington, and Sarah C. Goetz. A complex of distal appendage–associated kinases linked to human disease regulates ciliary trafficking and stability. Proceedings of the National Academy of Sciences, Apr 2021. URL: https://doi.org/10.1073/pnas.2018740118, doi:10.1073/pnas.2018740118. This article has 33 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(khamirani2022clinicalfeaturesof pages 5-6): Hossein Jafari Khamirani, Sina Zoghi, Ali Motealleh, Mehdi Dianatpour, Seyed Mohammad Bagher Tabei, Sanaz Mohammadi, and Seyed Alireza Dastgheib. Clinical features of okur-chung neurodevelopmental syndrome: case report and literature review. Molecular Syndromology, 13:381-388, Mar 2022. URL: https://doi.org/10.1159/000522353, doi:10.1159/000522353. This article has 18 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(NCT01238250 chunk 1):  Online Study of People Who Have Genetic Changes and Features of Autism: Simons Searchlight. Simons Searchlight. 2010. ClinicalTrials.gov Identifier: NCT01238250</p>
+</li>
+<li>
+<p>(hassett2024characterizingcsnk2a1mutantinduced pages 12-18): Katie Hassett, Sai Srihaas Potu, Aravind Sankaramoorthy, Sukanniya Kaneshamoorthy, Kamawela Leka, Matthew J. Huentelman, Vinodh Narayanan, and Sampath Rangasamy. Characterizing csnk2a1 mutant-induced morphological phenotypes in zebrafish (danio rerio): insights into okur-chung neurodevelopmental syndrome (ocnds). bioRxiv, Jan 2024. URL: https://doi.org/10.1101/2024.01.09.574075, doi:10.1101/2024.01.09.574075. This article has 0 citations.</p>
+</li>
+<li>
+<p>(loukil2021acomplexof pages 2-3): Abdelhalim Loukil, Chloe Barrington, and Sarah C. Goetz. A complex of distal appendage–associated kinases linked to human disease regulates ciliary trafficking and stability. Proceedings of the National Academy of Sciences, Apr 2021. URL: https://doi.org/10.1073/pnas.2018740118, doi:10.1073/pnas.2018740118. This article has 33 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
             
         </div>
         
@@ -4764,7 +6473,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Okur-Chung Neurodevelopmental Syndrome", "mondoId": "MONDO:0014893", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Okur-Chung_Neurodevelopmental_Syndrome", "yamlRevision": "8d88afcca5f9"};
+        const OS_CONFIG = {"diseaseName": "Okur-Chung Neurodevelopmental Syndrome", "mondoId": "MONDO:0014893", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Okur-Chung_Neurodevelopmental_Syndrome", "yamlRevision": "bc692a66c10a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

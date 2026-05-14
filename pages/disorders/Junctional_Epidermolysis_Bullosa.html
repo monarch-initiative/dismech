@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2649,11 +2802,18 @@
             
             <a class="stat-link" href="#references">
             <div class="stat-item">
-                <div class="stat-value">1</div>
+                <div class="stat-value">16</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
             
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -6125,7 +6285,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Junctional Epidermolysis Bullosa
 creation_date: &#39;2026-03-10T12:00:00Z&#39;
-updated_date: &#39;2026-03-16T01:13:18Z&#39;
+updated_date: &#39;2026-05-09T20:37:58Z&#39;
 category: Mendelian
 description: &gt;-
   Junctional epidermolysis bullosa (JEB) is caused by mutations in genes
@@ -6167,8 +6327,7 @@ classifications:
       reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;Junctional epidermolysis bullosa (JEB) is characterized by
-        fragility of the skin and mucous membranes&#34;
+      snippet: &#34;Junctional epidermolysis bullosa (JEB) is characterized by fragility of the skin and mucous membranes&#34;
       explanation: Supports classifying JEB as a skin disorder because skin fragility and blistering are defining clinical features.
   - classification_value: hereditary disease
     evidence:
@@ -6212,8 +6371,7 @@ inheritance:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;JEB is inherited in an autosomal recessive manner&#34;
-    explanation: GeneReviews confirms autosomal recessive inheritance for all
-      JEB subtypes.
+    explanation: GeneReviews confirms autosomal recessive inheritance for all JEB subtypes.
 prevalence:
 - population: Global
   notes: &gt;
@@ -6225,10 +6383,8 @@ prevalence:
     reference_title: &#34;Herlitz junctional epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;the autosomal recessively inherited, more severe variant of
-      &#39;lucidolytic&#39; JEB&#34;
-    explanation: Review of JEB-Herlitz as a severe variant of JEB, confirming its
-      rarity within the broader EB spectrum.
+    snippet: &#39;the autosomal recessively inherited, more severe variant of &#34;lucidolytic&#34; JEB&#39;
+    explanation: Review of JEB-Herlitz as a severe variant of JEB, confirming its rarity within the broader EB spectrum.
 - subtype: JEB Severe (Herlitz)
   population: Global
   notes: &gt;
@@ -6248,14 +6404,12 @@ prevalence:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Their average age at death was 5.8 months (range 0.5-32.6 months)&#34;
-    explanation: Dutch EB Registry longitudinal data confirming mean age at death
-      of 5.8 months in JEB-Herlitz.
+    explanation: Dutch EB Registry longitudinal data confirming mean age at death of 5.8 months in JEB-Herlitz.
   - reference: PMID:22512697
     reference_title: &#34;Long-term follow-up of patients with Herlitz-type junctional epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;The causes of death were, in order of frequency: failure to thrive,
-      respiratory failure, pneumonia, dehydration, anaemia, sepsis and euthanasia&#34;
+    snippet: &#34;The causes of death were, in order of frequency: failure to thrive, respiratory failure, pneumonia, dehydration, anaemia, sepsis and euthanasia&#34;
     explanation: Documents the primary causes of death in JEB-Herlitz patients.
 pathophysiology:
 - name: Laminin-332 Deficiency
@@ -6306,19 +6460,13 @@ pathophysiology:
     reference_title: &#34;Laminin 332 in junctional epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Mutations in the LAMA3, LAMB3 and LAMC2 genes that encode the three
-      constituent polypeptide chains, \u03B13, \u03B23 and \u03B32, abrogate or perturb the
-      functions of laminin 332&#34;
-    explanation: Confirms that mutations in laminin-332 genes abrogate or perturb
-      protein function.
+    snippet: &#34;Mutations in the LAMA3, LAMB3 and LAMC2 genes that encode the three constituent polypeptide chains, α3, β3 and γ2, abrogate or perturb the functions of laminin 332&#34;
+    explanation: Confirms that mutations in laminin-332 genes abrogate or perturb protein function.
   - reference: PMID:23076207
     reference_title: &#34;Laminin 332 in junctional epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Laminin 332 is an essential component of the dermal-epidermal junction,
-      a highly specialized basement membrane zone that attaches the epidermis to
-      the dermis and thereby provides skin integrity and resistance to external
-      mechanical forces&#34;
+    snippet: &#34;Laminin 332 is an essential component of the dermal-epidermal junction, a highly specialized basement membrane zone that attaches the epidermis to the dermis and thereby provides skin integrity and resistance to external mechanical forces&#34;
     explanation: Confirms laminin-332 is essential for dermal-epidermal adhesion.
 - name: COL17A1 (BP180) Deficiency
   description: &gt;
@@ -6352,19 +6500,14 @@ pathophysiology:
     reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;The diagnosis of JEB is established in a proband with characteristic
-      clinical findings by molecular genetic testing that identifies biallelic
-      pathogenic variants in one of the genes associated with JEB: COL17A1, ITGB4,
-      LAMA3, LAMB3, or LAMC2&#34;
+    snippet: &#34;The diagnosis of JEB is established in a proband with characteristic clinical findings by molecular genetic testing that identifies biallelic pathogenic variants in one of the genes associated with JEB: COL17A1, ITGB4, LAMA3, LAMB3, or LAMC2&#34;
     explanation: Confirms COL17A1 as a causative gene for JEB.
   - reference: PMID:32973163
     reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;pathogenetic mutations in 16 distinct genes have been implicated in
-      EB, encoding proteins influencing cellular integrity and adhesion&#34;
-    explanation: Confirms EB is caused by mutations in genes encoding adhesion
-      proteins.
+    snippet: &#34;pathogenetic mutations in 16 distinct genes have been implicated in EB, encoding proteins influencing cellular integrity and adhesion&#34;
+    explanation: Confirms EB is caused by mutations in genes encoding adhesion proteins.
 - name: Integrin Alpha-6-Beta-4 Deficiency
   description: &gt;
     Mutations in ITGA6 or ITGB4 encoding the alpha-6-beta-4 integrin heterodimer,
@@ -6411,10 +6554,7 @@ pathophysiology:
     reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;The diagnosis of JEB is established in a proband with characteristic
-      clinical findings by molecular genetic testing that identifies biallelic
-      pathogenic variants in one of the genes associated with JEB: COL17A1, ITGB4,
-      LAMA3, LAMB3, or LAMC2&#34;
+    snippet: &#34;The diagnosis of JEB is established in a proband with characteristic clinical findings by molecular genetic testing that identifies biallelic pathogenic variants in one of the genes associated with JEB: COL17A1, ITGB4, LAMA3, LAMB3, or LAMC2&#34;
     explanation: Confirms ITGB4 as a causative gene for JEB.
 - name: Loss of Lamina Lucida Adhesion
   description: &gt;
@@ -6443,19 +6583,14 @@ pathophysiology:
     reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Epidermolysis bullosa (EB) is an inherited, heterogeneous group of
-      rare genetic dermatoses characterized by mucocutaneous fragility and blister
-      formation, inducible by often minimal trauma&#34;
-    explanation: Confirms that blister formation with minimal trauma is the
-      defining feature of EB.
+    snippet: &#34;Epidermolysis bullosa (EB) is an inherited, heterogeneous group of rare genetic dermatoses characterized by mucocutaneous fragility and blister formation, inducible by often minimal trauma&#34;
+    explanation: Confirms that blister formation with minimal trauma is the defining feature of EB.
   - reference: PMID:23076207
     reference_title: &#34;Laminin 332 in junctional epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;The phenotypic consequences are diminished dermal-epidermal adhesion
-      and, as clinical symptoms, skin fragility and mechanically induced blistering&#34;
-    explanation: Confirms diminished adhesion causing skin fragility and blistering
-      in JEB.
+    snippet: &#34;The phenotypic consequences are diminished dermal-epidermal adhesion and, as clinical symptoms, skin fragility and mechanically induced blistering&#34;
+    explanation: Confirms diminished adhesion causing skin fragility and blistering in JEB.
 - name: Exuberant Granulation Tissue Formation
   description: &gt;
     A distinctive pathological feature of JEB, particularly the severe (Herlitz)
@@ -6486,32 +6621,20 @@ pathophysiology:
     reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Blistering may be severe and granulation tissue can form on the skin
-      around the oral and nasal cavities, fingers and toes, and internally around
-      the upper airway&#34;
-    explanation: Confirms granulation tissue formation in periorificial areas
-      as a feature of JEB.
+    snippet: &#34;Blistering may be severe and granulation tissue can form on the skin around the oral and nasal cavities, fingers and toes, and internally around the upper airway&#34;
+    explanation: Confirms granulation tissue formation in periorificial areas as a feature of JEB.
   - reference: PMID:12915477
     reference_title: &#34;An unusual N-terminal deletion of the laminin alpha3a isoform leads to the chronic granulation tissue disorder laryngo-onycho-cutaneous syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;These studies show that the laminin alpha3a N-terminal domain is a key
-      regulator of the granulation tissue response, with important implications not
-      only in LOC but in a range of other clinical conditions associated with
-      abnormal wound healing&#34;
-    explanation: LOC syndrome demonstrates that an N-terminal deletion of laminin
-      alpha3a produces exuberant granulation tissue without generalized blistering,
-      proving that granulation tissue in JEB reflects loss of laminin signaling
-      rather than simply chronic wounding.
+    snippet: &#34;These studies show that the laminin alpha3a N-terminal domain is a key regulator of the granulation tissue response, with important implications not only in LOC but in a range of other clinical conditions associated with abnormal wound healing&#34;
+    explanation: LOC syndrome demonstrates that an N-terminal deletion of laminin alpha3a produces exuberant granulation tissue without generalized blistering, proving that granulation tissue in JEB reflects loss of laminin signaling rather than simply chronic wounding.
   - reference: PMID:12915477
     reference_title: &#34;An unusual N-terminal deletion of the laminin alpha3a isoform leads to the chronic granulation tissue disorder laryngo-onycho-cutaneous syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;This protein is secreted only by the basal keratinocytes of stratified
-      epithelia, implying that LOC is caused by dysfunction of
-      keratinocyte-mesenchymal communication&#34;
-    explanation: The laminin alpha3a isoform mediates keratinocyte-mesenchymal
-      signaling, and its dysfunction causes the granulation tissue phenotype.
+    snippet: &#34;This protein is secreted only by the basal keratinocytes of stratified epithelia, implying that LOC is caused by dysfunction of keratinocyte-mesenchymal communication&#34;
+    explanation: The laminin alpha3a isoform mediates keratinocyte-mesenchymal signaling, and its dysfunction causes the granulation tissue phenotype.
 - name: Enamel Hypoplasia from Ameloblast-BMZ Defects
   description: &gt;
     Laminin-332 and type XVII collagen are expressed in the ameloblast basement
@@ -6535,11 +6658,8 @@ pathophysiology:
     reference_title: &#34;Laminin 332 in junctional epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;This article delineates the signs and symptoms of the different forms
-      of JEB, the mutational spectrum, genotype-phenotype correlations as well as
-      perspectives for future molecular therapies&#34;
-    explanation: Comprehensive review covering JEB signs and symptoms including
-      dental involvement from basement membrane defects.
+    snippet: &#34;This article delineates the signs and symptoms of the different forms of JEB, the mutational spectrum, genotype-phenotype correlations as well as perspectives for future molecular therapies&#34;
+    explanation: Comprehensive review covering JEB signs and symptoms including dental involvement from basement membrane defects.
 phenotypes:
 - category: Integument
   name: Generalized Skin Blistering and Erosions
@@ -6559,20 +6679,14 @@ phenotypes:
     reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Junctional epidermolysis bullosa (JEB) is characterized by fragility
-      of the skin and mucous membranes, manifest by blistering with little or no
-      trauma&#34;
-    explanation: GeneReviews confirms skin blistering with minimal trauma as the
-      defining feature of JEB.
+    snippet: &#34;Junctional epidermolysis bullosa (JEB) is characterized by fragility of the skin and mucous membranes, manifest by blistering with little or no trauma&#34;
+    explanation: GeneReviews confirms skin blistering with minimal trauma as the defining feature of JEB.
   - reference: PMID:32973163
     reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Epidermolysis bullosa (EB) is an inherited, heterogeneous group of
-      rare genetic dermatoses characterized by mucocutaneous fragility and blister
-      formation, inducible by often minimal trauma&#34;
-    explanation: Confirms mucocutaneous fragility and blister formation as hallmark
-      features of EB.
+    snippet: &#34;Epidermolysis bullosa (EB) is an inherited, heterogeneous group of rare genetic dermatoses characterized by mucocutaneous fragility and blister formation, inducible by often minimal trauma&#34;
+    explanation: Confirms mucocutaneous fragility and blister formation as hallmark features of EB.
 - category: Integument
   name: Exuberant Granulation Tissue
   description: &gt;
@@ -6591,11 +6705,8 @@ phenotypes:
     reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Blistering may be severe and granulation tissue can form on the skin
-      around the oral and nasal cavities, fingers and toes, and internally around
-      the upper airway&#34;
-    explanation: Confirms granulation tissue formation in periorificial areas
-      as a feature of JEB.
+    snippet: &#34;Blistering may be severe and granulation tissue can form on the skin around the oral and nasal cavities, fingers and toes, and internally around the upper airway&#34;
+    explanation: Confirms granulation tissue formation in periorificial areas as a feature of JEB.
 - category: Integument
   name: Nail Dystrophy or Absent Nails
   description: &gt;
@@ -6613,11 +6724,8 @@ phenotypes:
     reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Additional features shared by JEB and the other major forms of
-      epidermolysis bullosa (EB) include congenital localized absence of skin
-      (aplasia cutis congenita), milia, nail dystrophy, scarring alopecia&#34;
-    explanation: GeneReviews confirms nail dystrophy as a shared feature across
-      JEB and other EB forms.
+    snippet: &#34;Additional features shared by JEB and the other major forms of epidermolysis bullosa (EB) include congenital localized absence of skin (aplasia cutis congenita), milia, nail dystrophy, scarring alopecia&#34;
+    explanation: GeneReviews confirms nail dystrophy as a shared feature across JEB and other EB forms.
 - category: Head and Neck
   name: Enamel Hypoplasia
   description: &gt;
@@ -6636,16 +6744,13 @@ phenotypes:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;regular dental care&#34;
-    explanation: GeneReviews recommends regular dental care for JEB patients,
-      indicating dental complications from enamel involvement.
+    explanation: GeneReviews recommends regular dental care for JEB patients, indicating dental complications from enamel involvement.
   - reference: PMID:19700011
     reference_title: &#34;Extracutaneous manifestations and complications of inherited epidermolysis bullosa: part II. Other organs.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Some epidermolysis bullosa subtypes are at risk for severe injury
-      of the bone marrow, musculoskeletal system, heart, kidney, and teeth&#34;
-    explanation: Confirms teeth involvement as an extracutaneous complication
-      of EB subtypes including JEB.
+    snippet: &#34;Some epidermolysis bullosa subtypes are at risk for severe injury of the bone marrow, musculoskeletal system, heart, kidney, and teeth&#34;
+    explanation: Confirms teeth involvement as an extracutaneous complication of EB subtypes including JEB.
 - category: Head and Neck
   name: Dental Caries
   description: &gt;
@@ -6663,14 +6768,12 @@ phenotypes:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;regular dental care&#34;
-    explanation: GeneReviews recommends regular dental care as part of JEB
-      management, indicating dental complications including caries.
+    explanation: GeneReviews recommends regular dental care as part of JEB management, indicating dental complications including caries.
   - reference: PMID:19700011
     reference_title: &#34;Extracutaneous manifestations and complications of inherited epidermolysis bullosa: part II. Other organs.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Some epidermolysis bullosa subtypes are at risk for severe injury
-      of the bone marrow, musculoskeletal system, heart, kidney, and teeth&#34;
+    snippet: &#34;Some epidermolysis bullosa subtypes are at risk for severe injury of the bone marrow, musculoskeletal system, heart, kidney, and teeth&#34;
     explanation: Confirms teeth involvement as an extracutaneous EB complication.
 - category: Integument
   name: Scarring Alopecia
@@ -6689,11 +6792,8 @@ phenotypes:
     reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Additional features shared by JEB and the other major forms of
-      epidermolysis bullosa (EB) include congenital localized absence of skin
-      (aplasia cutis congenita), milia, nail dystrophy, scarring alopecia&#34;
-    explanation: GeneReviews confirms scarring alopecia as a shared feature
-      of JEB.
+    snippet: &#34;Additional features shared by JEB and the other major forms of epidermolysis bullosa (EB) include congenital localized absence of skin (aplasia cutis congenita), milia, nail dystrophy, scarring alopecia&#34;
+    explanation: GeneReviews confirms scarring alopecia as a shared feature of JEB.
 - category: Respiratory
   name: Hoarse Cry and Laryngeal Involvement
   description: &gt;
@@ -6711,10 +6811,8 @@ phenotypes:
     reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;granulation tissue can form on the skin around the oral and nasal
-      cavities, fingers and toes, and internally around the upper airway&#34;
-    explanation: Upper airway involvement in JEB causes laryngeal complications
-      including hoarse cry.
+    snippet: &#34;granulation tissue can form on the skin around the oral and nasal cavities, fingers and toes, and internally around the upper airway&#34;
+    explanation: Upper airway involvement in JEB causes laryngeal complications including hoarse cry.
 - category: Constitutional
   name: Failure to Thrive
   description: &gt;
@@ -6733,10 +6831,8 @@ phenotypes:
     reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;nutritional support including feeding gastrostomy when necessary;
-      calcium, vitamin D, zinc, and iron supplements&#34;
-    explanation: Need for nutritional support and gastrostomy indicates failure
-      to thrive as a complication of JEB.
+    snippet: &#34;nutritional support including feeding gastrostomy when necessary; calcium, vitamin D, zinc, and iron supplements&#34;
+    explanation: Need for nutritional support and gastrostomy indicates failure to thrive as a complication of JEB.
 - category: Digestive
   name: Congenital Pyloric Atresia
   description: &gt;
@@ -6755,10 +6851,7 @@ phenotypes:
     reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;The diagnosis of JEB is established in a proband with characteristic
-      clinical findings by molecular genetic testing that identifies biallelic
-      pathogenic variants in one of the genes associated with JEB: COL17A1, ITGB4,
-      LAMA3, LAMB3, or LAMC2&#34;
+    snippet: &#34;The diagnosis of JEB is established in a proband with characteristic clinical findings by molecular genetic testing that identifies biallelic pathogenic variants in one of the genes associated with JEB: COL17A1, ITGB4, LAMA3, LAMB3, or LAMC2&#34;
     explanation: ITGB4 mutations cause the JEB-PA subtype with pyloric atresia.
 - category: Genitourinary
   name: Urethral and Bladder Involvement
@@ -6777,8 +6870,7 @@ phenotypes:
     reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Congenital malformations of the urinary tract and bladder may also
-      occur&#34;
+    snippet: &#34;Congenital malformations of the urinary tract and bladder may also occur&#34;
     explanation: GeneReviews confirms urinary tract and bladder involvement in JEB.
 - category: Respiratory
   name: Respiratory Complications
@@ -6797,19 +6889,14 @@ phenotypes:
     reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;granulation tissue can form on the skin around the oral and nasal
-      cavities, fingers and toes, and internally around the upper airway&#34;
-    explanation: GeneReviews confirms upper airway involvement in JEB including
-      granulation tissue formation, which can lead to respiratory compromise
-      requiring tracheostomy.
+    snippet: &#34;granulation tissue can form on the skin around the oral and nasal cavities, fingers and toes, and internally around the upper airway&#34;
+    explanation: GeneReviews confirms upper airway involvement in JEB including granulation tissue formation, which can lead to respiratory compromise requiring tracheostomy.
   - reference: PMID:22512697
     reference_title: &#34;Long-term follow-up of patients with Herlitz-type junctional epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;The causes of death were, in order of frequency: failure to thrive,
-      respiratory failure, pneumonia, dehydration, anaemia, sepsis and euthanasia&#34;
-    explanation: Dutch EB Registry data confirms respiratory failure as a major
-      cause of death in JEB-Herlitz.
+    snippet: &#34;The causes of death were, in order of frequency: failure to thrive, respiratory failure, pneumonia, dehydration, anaemia, sepsis and euthanasia&#34;
+    explanation: Dutch EB Registry data confirms respiratory failure as a major cause of death in JEB-Herlitz.
 - category: Blood
   name: Anemia
   description: &gt;
@@ -6827,10 +6914,8 @@ phenotypes:
     reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Annual screening for iron-deficiency anemia, zinc deficiency,
-      vitamin D deficiency&#34;
-    explanation: GeneReviews recommends annual screening for iron-deficiency
-      anemia in JEB patients.
+    snippet: &#34;Annual screening for iron-deficiency anemia, zinc deficiency, vitamin D deficiency&#34;
+    explanation: GeneReviews recommends annual screening for iron-deficiency anemia in JEB patients.
 treatments:
 - name: Wound Care
   description: &gt;
@@ -6847,16 +6932,13 @@ treatments:
     reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Lance and drain new blisters and dress with three layers (primary:
-      non-adherent; secondary: for stability and protection; third: elastic
-      properties to ensure integrity)&#34;
+    snippet: &#34;Lance and drain new blisters and dress with three layers (primary: non-adherent; secondary: for stability and protection; third: elastic properties to ensure integrity)&#34;
     explanation: GeneReviews describes three-layer wound dressing protocol for JEB.
   - reference: PMID:32973163
     reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;multidisciplinary care is targeted towards minimizing the risk of
-      blister formation, wound care, symptom relief and specific complications&#34;
+    snippet: &#34;multidisciplinary care is targeted towards minimizing the risk of blister formation, wound care, symptom relief and specific complications&#34;
     explanation: Confirms wound care as a central component of EB management.
 - name: Nutritional Support
   description: &gt;
@@ -6874,10 +6956,8 @@ treatments:
     reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;nutritional support including feeding gastrostomy when necessary;
-      calcium, vitamin D, zinc, and iron supplements&#34;
-    explanation: GeneReviews confirms nutritional support including gastrostomy
-      and supplementation as part of JEB management.
+    snippet: &#34;nutritional support including feeding gastrostomy when necessary; calcium, vitamin D, zinc, and iron supplements&#34;
+    explanation: GeneReviews confirms nutritional support including gastrostomy and supplementation as part of JEB management.
 - name: Tracheostomy
   description: &gt;
     Surgical creation of airway access for patients with severe laryngeal
@@ -6894,8 +6974,7 @@ treatments:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;tracheostomy if appropriate&#34;
-    explanation: GeneReviews recommends tracheostomy when appropriate for
-      airway involvement in JEB.
+    explanation: GeneReviews recommends tracheostomy when appropriate for airway involvement in JEB.
 - name: Ex Vivo Gene Therapy
   description: &gt;
     Autologous keratinocyte stem cells are harvested, transduced ex vivo with
@@ -6920,49 +6999,32 @@ treatments:
     reference_title: &#34;Correction of junctional epidermolysis bullosa by transplantation of genetically modified epidermal stem cells.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
-    snippet: &#34;Epidermal stem cells from an adult patient affected by
-      LAM5-beta3-deficient JEB were transduced with a retroviral vector expressing
-      LAMB3 cDNA (encoding LAM5-beta3), and used to prepare genetically corrected
-      cultured epidermal grafts&#34;
-    explanation: First demonstration of ex vivo gene therapy for JEB using
-      LAMB3-corrected autologous epidermal stem cells.
+    snippet: &#34;Epidermal stem cells from an adult patient affected by LAM5-beta3-deficient JEB were transduced with a retroviral vector expressing LAMB3 cDNA (encoding LAM5-beta3), and used to prepare genetically corrected cultured epidermal grafts&#34;
+    explanation: First demonstration of ex vivo gene therapy for JEB using LAMB3-corrected autologous epidermal stem cells.
   - reference: PMID:17115047
     reference_title: &#34;Correction of junctional epidermolysis bullosa by transplantation of genetically modified epidermal stem cells.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;These data show that ex vivo gene therapy of JEB is feasible and
-      leads to full functional correction of the disease&#34;
-    explanation: Confirms feasibility and full functional correction of JEB
-      by ex vivo gene therapy.
+    snippet: &#34;These data show that ex vivo gene therapy of JEB is feasible and leads to full functional correction of the disease&#34;
+    explanation: Confirms feasibility and full functional correction of JEB by ex vivo gene therapy.
   - reference: PMID:29144448
     reference_title: &#34;Regeneration of the entire human epidermis using transgenic stem cells.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;autologous transgenic keratinocyte cultures regenerated an entire,
-      fully functional epidermis on a seven-year-old child suffering from a
-      devastating, life-threatening form of JEB&#34;
-    explanation: Landmark case demonstrating regeneration of entire body surface
-      epidermis using transgenic stem cells in a child with JEB.
+    snippet: &#34;autologous transgenic keratinocyte cultures regenerated an entire, fully functional epidermis on a seven-year-old child suffering from a devastating, life-threatening form of JEB&#34;
+    explanation: Landmark case demonstrating regeneration of entire body surface epidermis using transgenic stem cells in a child with JEB.
   - reference: PMID:34881838
     reference_title: &#34;Transgenic Epidermal Cultures for Junctional Epidermolysis Bullosa - 5-Year Outcomes.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;We previously reported that genetically corrected autologous epidermal
-      cultures regenerated almost an entire, fully functional epidermis on a child
-      who had a devastating form of junctional epidermolysis bullosa. We now report
-      long-term clinical outcomes in this patient&#34;
-    explanation: Five-year follow-up of the Hirsch 2017 patient confirms the
-      transgenic epidermis remained stable and fully functional with no adverse
-      events and normal sensory recovery.
+    snippet: &#34;We previously reported that genetically corrected autologous epidermal cultures regenerated almost an entire, fully functional epidermis on a child who had a devastating form of junctional epidermolysis bullosa. We now report long-term clinical outcomes in this patient&#34;
+    explanation: Five-year follow-up of the Hirsch 2017 patient confirms the transgenic epidermis remained stable and fully functional with no adverse events and normal sensory recovery.
   - reference: PMID:24511464
     reference_title: &#34;Long-term stability and safety of transgenic cultured epidermal stem cells in gene therapy of junctional epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;the regenerated transgenic epidermis was found to be fully functional
-      and virtually indistinguishable from a normal control&#34;
-    explanation: Long-term (6.5-year) follow-up of the first Mavilio 2006 gene
-      therapy patient showing stable, functional transgenic epidermis sustained
-      by self-renewing epidermal stem cells.
+    snippet: &#34;the regenerated transgenic epidermis was found to be fully functional and virtually indistinguishable from a normal control&#34;
+    explanation: Long-term (6.5-year) follow-up of the first Mavilio 2006 gene therapy patient showing stable, functional transgenic epidermis sustained by self-renewing epidermal stem cells.
 - name: Filsuvez (Birch Triterpenes) Topical Gel
   description: &gt;
     Oleogel-S10 (Filsuvez), a topical gel containing birch triterpenes (primarily
@@ -6982,18 +7044,14 @@ treatments:
     reference_title: &#34;Efficacy and safety of Oleogel-S10 (birch triterpenes) for epidermolysis bullosa: results from the phase III randomized double-blind phase of the EASE study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Oleogel-S10 is the first therapy to demonstrate accelerated wound
-      healing in EB&#34;
-    explanation: Phase III EASE trial confirms Oleogel-S10 (birch triterpenes) as
-      the first therapy to demonstrate accelerated wound healing in EB.
+    snippet: &#34;Oleogel-S10 is the first therapy to demonstrate accelerated wound healing in EB&#34;
+    explanation: Phase III EASE trial confirms Oleogel-S10 (birch triterpenes) as the first therapy to demonstrate accelerated wound healing in EB.
   - reference: PMID:36689495
     reference_title: &#34;Efficacy and safety of Oleogel-S10 (birch triterpenes) for epidermolysis bullosa: results from the phase III randomized double-blind phase of the EASE study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Oleogel-S10 resulted in 41·3% of patients with first complete target
-      wound closure within 45 days, compared with 28·9% in the control gel arm&#34;
-    explanation: Quantitative efficacy data from the EASE trial showing
-      significantly higher wound closure rates with birch triterpenes.
+    snippet: &#34;Oleogel-S10 resulted in 41·3% of patients with first complete target wound closure within 45 days, compared with 28·9% in the control gel arm&#34;
+    explanation: Quantitative efficacy data from the EASE trial showing significantly higher wound closure rates with birch triterpenes.
 - name: Dental Management
   description: &gt;
     Comprehensive dental care including preventive measures, fluoride application,
@@ -7010,8 +7068,7 @@ treatments:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;regular dental care&#34;
-    explanation: GeneReviews recommends regular dental care as part of JEB
-      management.
+    explanation: GeneReviews recommends regular dental care as part of JEB management.
 - name: Genetic Counseling
   description: &gt;
     Carrier testing and genetic counseling for families with JEB. Prenatal
@@ -7028,11 +7085,8 @@ treatments:
     reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;each sib of an affected individual whose parents are both carriers
-      has a 25% chance of being affected, a 50% chance of being an asymptomatic
-      carrier, and a 25% chance of being unaffected and not a carrier&#34;
-    explanation: Confirms autosomal recessive inheritance pattern and recurrence
-      risk counseling.
+    snippet: &#34;each sib of an affected individual whose parents are both carriers has a 25% chance of being affected, a 50% chance of being an asymptomatic carrier, and a 25% chance of being unaffected and not a carrier&#34;
+    explanation: Confirms autosomal recessive inheritance pattern and recurrence risk counseling.
 clinical_trials:
 - name: NCT05111600
   phase: PHASE_II
@@ -7090,8 +7144,7 @@ genetic:
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;JEB is inherited in an autosomal recessive manner&#34;
-      explanation: GeneReviews confirms autosomal recessive inheritance for all
-        JEB genes including LAMB3.
+      explanation: GeneReviews confirms autosomal recessive inheritance for all JEB genes including LAMB3.
   notes: &gt;
     Encodes the beta-3 chain of laminin-332. The most commonly mutated gene in
     JEB severe (Herlitz). Homozygous null mutations cause complete absence of
@@ -7101,19 +7154,14 @@ genetic:
     reference_title: &#34;Laminin 332 in junctional epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Mutations in the LAMA3, LAMB3 and LAMC2 genes that encode the three
-      constituent polypeptide chains, \u03B13, \u03B23 and \u03B32, abrogate or perturb the
-      functions of laminin 332&#34;
+    snippet: &#34;Mutations in the LAMA3, LAMB3 and LAMC2 genes that encode the three constituent polypeptide chains, α3, β3 and γ2, abrogate or perturb the functions of laminin 332&#34;
     explanation: Confirms LAMB3 mutations abrogate laminin-332 function causing JEB.
   - reference: PMID:19945616
     reference_title: &#34;Herlitz junctional epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;this devastating condition is most often caused by homozygous null
-      mutations in the genes LAMA3, LAMB3, or LAMC2, each encoding for 1 of the
-      3 chains of the heterotrimer laminin-332&#34;
-    explanation: Confirms LAMB3 as one of the three genes most often mutated in
-      JEB-Herlitz.
+    snippet: &#34;this devastating condition is most often caused by homozygous null mutations in the genes LAMA3, LAMB3, or LAMC2, each encoding for 1 of the 3 chains of the heterotrimer laminin-332&#34;
+    explanation: Confirms LAMB3 as one of the three genes most often mutated in JEB-Herlitz.
 - name: LAMA3
   association: Causative
   inheritance:
@@ -7133,9 +7181,7 @@ genetic:
     reference_title: &#34;Herlitz junctional epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;this devastating condition is most often caused by homozygous null
-      mutations in the genes LAMA3, LAMB3, or LAMC2, each encoding for 1 of the
-      3 chains of the heterotrimer laminin-332&#34;
+    snippet: &#34;this devastating condition is most often caused by homozygous null mutations in the genes LAMA3, LAMB3, or LAMC2, each encoding for 1 of the 3 chains of the heterotrimer laminin-332&#34;
     explanation: Confirms LAMA3 as a causative gene for JEB-Herlitz.
 - name: LAMC2
   association: Causative
@@ -7156,9 +7202,7 @@ genetic:
     reference_title: &#34;Herlitz junctional epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;this devastating condition is most often caused by homozygous null
-      mutations in the genes LAMA3, LAMB3, or LAMC2, each encoding for 1 of the
-      3 chains of the heterotrimer laminin-332&#34;
+    snippet: &#34;this devastating condition is most often caused by homozygous null mutations in the genes LAMA3, LAMB3, or LAMC2, each encoding for 1 of the 3 chains of the heterotrimer laminin-332&#34;
     explanation: Confirms LAMC2 as a causative gene for JEB-Herlitz.
 - name: COL17A1
   association: Causative
@@ -7186,29 +7230,20 @@ genetic:
     reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;The diagnosis of JEB is established in a proband with characteristic
-      clinical findings by molecular genetic testing that identifies biallelic
-      pathogenic variants in one of the genes associated with JEB: COL17A1, ITGB4,
-      LAMA3, LAMB3, or LAMC2&#34;
+    snippet: &#34;The diagnosis of JEB is established in a proband with characteristic clinical findings by molecular genetic testing that identifies biallelic pathogenic variants in one of the genes associated with JEB: COL17A1, ITGB4, LAMA3, LAMB3, or LAMC2&#34;
     explanation: Confirms COL17A1 as a causative gene for JEB.
   - reference: PMID:9038345
     reference_title: &#34;Revertant mosaicism in epidermolysis bullosa caused by mitotic gene conversion.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;the revertant mosaicism of a compound heterozygous proband with an
-      autosomal recessive genodermatosis, generalized atrophic benign epidermolysis
-      bullosa, is caused by mitotic gene conversion of one of the two mutated
-      COL17A1 alleles&#34;
-    explanation: First demonstration that mitotic gene conversion of COL17A1
-      causes revertant mosaicism in JEB, producing clinically unaffected skin
-      patches.
+    snippet: &#34;the revertant mosaicism of a compound heterozygous proband with an autosomal recessive genodermatosis, generalized atrophic benign epidermolysis bullosa, is caused by mitotic gene conversion of one of the two mutated COL17A1 alleles&#34;
+    explanation: First demonstration that mitotic gene conversion of COL17A1 causes revertant mosaicism in JEB, producing clinically unaffected skin patches.
   - reference: PMID:9038345
     reference_title: &#34;Revertant mosaicism in epidermolysis bullosa caused by mitotic gene conversion.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Revertant mosaicism represents a way of natural gene therapy&#34;
-    explanation: Revertant patches represent natural somatic correction but
-      remain localized and do not expand to correct the whole epidermis.
+    explanation: Revertant patches represent natural somatic correction but remain localized and do not expand to correct the whole epidermis.
 - name: ITGA6
   association: Causative
   inheritance:
@@ -7231,11 +7266,8 @@ genetic:
     reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;pathogenetic mutations in 16 distinct genes have been implicated
-      in EB, encoding proteins influencing cellular integrity and adhesion&#34;
-    explanation: EB consensus classification recognizes 16+ causative genes
-      including ITGA6 encoding integrin alpha-6, part of the alpha6-beta4
-      heterodimer critical for hemidesmosome function.
+    snippet: &#34;pathogenetic mutations in 16 distinct genes have been implicated in EB, encoding proteins influencing cellular integrity and adhesion&#34;
+    explanation: EB consensus classification recognizes 16+ causative genes including ITGA6 encoding integrin alpha-6, part of the alpha6-beta4 heterodimer critical for hemidesmosome function.
 - name: ITGB4
   association: Causative
   inheritance:
@@ -7255,48 +7287,197 @@ genetic:
     reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;The diagnosis of JEB is established in a proband with characteristic
-      clinical findings by molecular genetic testing that identifies biallelic
-      pathogenic variants in one of the genes associated with JEB: COL17A1, ITGB4,
-      LAMA3, LAMB3, or LAMC2&#34;
+    snippet: &#34;The diagnosis of JEB is established in a proband with characteristic clinical findings by molecular genetic testing that identifies biallelic pathogenic variants in one of the genes associated with JEB: COL17A1, ITGB4, LAMA3, LAMB3, or LAMC2&#34;
     explanation: Confirms ITGB4 as a causative gene for JEB.
 datasets:
-  - accession: geo:GSE75838
-    title: Absence of integrin α3 modulates the integrin landscape of human keratinocytes
-    description: &gt;-
-      Human keratinocyte microarray dataset built from patient-derived ITGA3
-      loss-of-function cells and matched experimental controls, modeling the
-      junctional epidermolysis bullosa spectrum associated with integrin alpha-3
-      deficiency.
-    organism:
-      preferred_term: human
-      term:
-        id: NCBITaxon:9606
-        label: Homo sapiens
-    data_type: MICROARRAY
-    sample_count: 9
-    conditions:
-    - ITGA3-deficient keratinocytes
-    - rescue and knockdown keratinocyte controls
-    evidence:
-    - reference: GEO:GSE75838
-      supports: SUPPORT
-      evidence_source: IN_VITRO
-      snippet: &#34;Loss-of function mutations of the integrin α3 gene (ITGA3) have been recently disclosed in patients with interstitial lung disease, congenital nephrotic syndrome and junctional epidermolysis bullosa&#34;
-      explanation: Establishes the dataset&#39;s direct link to a human JEB-spectrum
-        disorder caused by ITGA3 deficiency.
-    - reference: GEO:GSE75838
-      supports: SUPPORT
-      evidence_source: IN_VITRO
-      snippet: &#34;Here we employed authentic human keratinocytes bearing a naturally occurring integrin α3 loss-of-function mutation as a prototype&#34;
-      explanation: Confirms this is a patient-derived human keratinocyte resource
-        for dissecting adhesion defects relevant to junctional EB.
+- accession: geo:GSE75838
+  title: Absence of integrin α3 modulates the integrin landscape of human keratinocytes
+  description: &gt;-
+    Human keratinocyte microarray dataset built from patient-derived ITGA3
+    loss-of-function cells and matched experimental controls, modeling the
+    junctional epidermolysis bullosa spectrum associated with integrin alpha-3
+    deficiency.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: MICROARRAY
+  sample_count: 9
+  conditions:
+  - ITGA3-deficient keratinocytes
+  - rescue and knockdown keratinocyte controls
+  evidence:
+  - reference: GEO:GSE75838
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;Loss-of function mutations of the integrin α3 gene (ITGA3) have been recently disclosed in patients with interstitial lung disease, congenital nephrotic syndrome and junctional epidermolysis bullosa&#34;
+    explanation: Establishes the dataset&#39;s direct link to a human JEB-spectrum disorder caused by ITGA3 deficiency.
+  - reference: GEO:GSE75838
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;Here we employed authentic human keratinocytes bearing a naturally occurring integrin α3 loss-of-function mutation as a prototype&#34;
+    explanation: Confirms this is a patient-derived human keratinocyte resource for dissecting adhesion defects relevant to junctional EB.
 references:
 - reference: PMID:20301304
   title: &#34;Junctional Epidermolysis Bullosa.&#34;
   tags:
   - GeneReviews
   findings: []
+- reference: DOI:10.1007/s13555-024-01227-8
+  title: &#39;Treatment of Epidermolysis Bullosa and Future Directions: A Review&#39;
+  found_in:
+  - Junctional_Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: &#39;Treatment of Epidermolysis Bullosa and Future Directions: A Review&#39;
+    supporting_text: &#39;Treatment of Epidermolysis Bullosa and Future Directions: A Review&#39;
+- reference: DOI:10.1016/j.det.2009.10.016
+  title: Animal Models of Epidermolysis Bullosa
+  found_in:
+  - Junctional_Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: Animal Models of Epidermolysis Bullosa
+    supporting_text: Animal Models of Epidermolysis Bullosa
+- reference: DOI:10.1016/j.jid.2023.11.021
+  title: &#39;Genotype–Phenotype Correlation in Junctional Epidermolysis Bullosa: Signposts to Severity&#39;
+  found_in:
+  - Junctional_Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: &#39;Genotype–Phenotype Correlation in Junctional Epidermolysis Bullosa: Signposts to Severity&#39;
+    supporting_text: &#39;Genotype–Phenotype Correlation in Junctional Epidermolysis Bullosa: Signposts to Severity&#39;
+- reference: DOI:10.1016/j.ymthe.2024.02.032
+  title: Lentiviral expression of wild-type LAMA3A restores cell adhesion in airway basal cells from children with epidermolysis bullosa
+  found_in:
+  - Junctional_Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: Lentiviral expression of wild-type LAMA3A restores cell adhesion in airway basal cells from children with epidermolysis bullosa
+    supporting_text: Lentiviral expression of wild-type LAMA3A restores cell adhesion in airway basal cells from children with epidermolysis bullosa
+- reference: DOI:10.1038/s41525-025-00466-8
+  title: Identification of deep intronic variants in junctional epidermolysis bullosa using genome sequencing and splicing assays
+  found_in:
+  - Junctional_Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: Identification of deep intronic variants in junctional epidermolysis bullosa using genome sequencing and splicing assays
+    supporting_text: Identification of deep intronic variants in junctional epidermolysis bullosa using genome sequencing and splicing assays
+- reference: DOI:10.1080/14712598.2020.1740678
+  title: &#39;Leading edge: emerging drug, cell, and gene therapies for junctional epidermolysis bullosa&#39;
+  found_in:
+  - Junctional_Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: &#39;Leading edge: emerging drug, cell, and gene therapies for junctional epidermolysis bullosa&#39;
+    supporting_text: &#39;Leading edge: emerging drug, cell, and gene therapies for junctional epidermolysis bullosa&#39;
+- reference: DOI:10.1111/bjd.18128
+  title: Clinical practice guidelines for laboratory diagnosis of epidermolysis bullosa
+  found_in:
+  - Junctional_Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: Clinical practice guidelines for laboratory diagnosis of epidermolysis bullosa
+    supporting_text: Clinical practice guidelines for laboratory diagnosis of epidermolysis bullosa
+- reference: DOI:10.1111/vde.12972
+  title: Canine junctional epidermolysis bullosa due to a novel mutation in &lt;i&gt;LAMA3&lt;/i&gt; with severe upper respiratory involvement
+  found_in:
+  - Junctional_Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: Canine junctional epidermolysis bullosa due to a novel mutation in &lt;i&gt;LAMA3&lt;/i&gt; with severe upper respiratory involvement
+    supporting_text: Junctional epidermolysis bullosa (JEB) is a group of congenital blistering skin diseases characterized by clefting through the lamina lucida of the basement membrane zone.ObjectivesTo characterize the clinical and morphological features of a congenital mechanobullous disease in a litter of puppies with severe upper respiratory involvement, and to identify an associated genetic variant.AnimalsFive of eight puppies in an Australian cattle dog cross‐bred litter showed signs of skin fragility.
+    evidence:
+    - reference: DOI:10.1111/vde.12972
+      reference_title: Canine junctional epidermolysis bullosa due to a novel mutation in &lt;i&gt;LAMA3&lt;/i&gt; with severe upper respiratory involvement
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: Junctional epidermolysis bullosa (JEB) is a group of congenital blistering skin diseases characterized by clefting through the lamina lucida of the basement membrane zone.ObjectivesTo characterize the clinical and morphological features of a congenital mechanobullous disease in a litter of puppies with severe upper respiratory involvement, and to identify an associated genetic variant.AnimalsFive of eight puppies in an Australian cattle dog cross‐bred litter showed signs of skin fragility.
+      explanation: Deep research cited this publication as relevant literature for Junctional Epidermolysis Bullosa.
+- reference: DOI:10.1371/journal.pgen.1004068
+  title: Molecular Identification of Collagen 17a1 as a Major Genetic Modifier of Laminin Gamma 2 Mutation-Induced Junctional Epidermolysis Bullosa in Mice
+  found_in:
+  - Junctional_Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: Molecular Identification of Collagen 17a1 as a Major Genetic Modifier of Laminin Gamma 2 Mutation-Induced Junctional Epidermolysis Bullosa in Mice
+    supporting_text: Molecular Identification of Collagen 17a1 as a Major Genetic Modifier of Laminin Gamma 2 Mutation-Induced Junctional Epidermolysis Bullosa in Mice
+- reference: DOI:10.1371/journal.pone.0288263
+  title: Seven naturally variant loci serve as genetic modifiers of Lamc2jeb induced non-Herlitz junctional Epidermolysis Bullosa in mice
+  found_in:
+  - Junctional_Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: Epidermolysis Bullosa (EB) is a group of rare genetic disorders that compromise the structural integrity of the skin such that blisters and subsequent erosions occur after minor trauma.
+    supporting_text: Epidermolysis Bullosa (EB) is a group of rare genetic disorders that compromise the structural integrity of the skin such that blisters and subsequent erosions occur after minor trauma.
+    evidence:
+    - reference: DOI:10.1371/journal.pone.0288263
+      reference_title: Seven naturally variant loci serve as genetic modifiers of Lamc2jeb induced non-Herlitz junctional Epidermolysis Bullosa in mice
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: Epidermolysis Bullosa (EB) is a group of rare genetic disorders that compromise the structural integrity of the skin such that blisters and subsequent erosions occur after minor trauma.
+      explanation: Deep research cited this publication as relevant literature for Junctional Epidermolysis Bullosa.
+- reference: DOI:10.15690/vsp.v23i5.2808
+  title: Congenital Epidermolysis Bullosa Epidemiology among Children of Russian Federation
+  found_in:
+  - Junctional_Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: The prevalence of all types of congenital epidermolysis bullosa (СEB) worldwide is approximately 11 cases per 1 million according to the latest data from the American Epidermolysis Bullosa Registry.
+    supporting_text: The prevalence of all types of congenital epidermolysis bullosa (СEB) worldwide is approximately 11 cases per 1 million according to the latest data from the American Epidermolysis Bullosa Registry.
+    evidence:
+    - reference: DOI:10.15690/vsp.v23i5.2808
+      reference_title: Congenital Epidermolysis Bullosa Epidemiology among Children of Russian Federation
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The prevalence of all types of congenital epidermolysis bullosa (СEB) worldwide is approximately 11 cases per 1 million according to the latest data from the American Epidermolysis Bullosa Registry.
+      explanation: Deep research cited this publication as relevant literature for Junctional Epidermolysis Bullosa.
+- reference: DOI:10.3389/fgene.2021.705019
+  title: &#39;Hologene 5: A Phase II/III Clinical Trial of Combined Cell and Gene Therapy of Junctional Epidermolysis Bullosa&#39;
+  found_in:
+  - Junctional_Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: Epidermolysis bullosa (EB) is a group of devastating genetic diseases characterized by skin and mucosal fragility and formation of blisters, which develop either spontaneously or in response to minor mechanical trauma.
+    supporting_text: Epidermolysis bullosa (EB) is a group of devastating genetic diseases characterized by skin and mucosal fragility and formation of blisters, which develop either spontaneously or in response to minor mechanical trauma.
+    evidence:
+    - reference: DOI:10.3389/fgene.2021.705019
+      reference_title: &#39;Hologene 5: A Phase II/III Clinical Trial of Combined Cell and Gene Therapy of Junctional Epidermolysis Bullosa&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Epidermolysis bullosa (EB) is a group of devastating genetic diseases characterized by skin and mucosal fragility and formation of blisters, which develop either spontaneously or in response to minor mechanical trauma.
+      explanation: Deep research cited this publication as relevant literature for Junctional Epidermolysis Bullosa.
+- reference: DOI:10.3390/cancers17193211
+  title: &#39;Cutaneous Squamous Cell Carcinoma in Epidermolysis Bullosa: A Review of Pathogenesis, Diagnosis and Management&#39;
+  found_in:
+  - Junctional_Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: Epidermolysis bullosa (EB) is a group of debilitating, genetic skin disorders characterized by excessive skin fragility, blistering, and ulcerations that cause a cyclical wound healing process.
+    supporting_text: Epidermolysis bullosa (EB) is a group of debilitating, genetic skin disorders characterized by excessive skin fragility, blistering, and ulcerations that cause a cyclical wound healing process.
+    evidence:
+    - reference: DOI:10.3390/cancers17193211
+      reference_title: &#39;Cutaneous Squamous Cell Carcinoma in Epidermolysis Bullosa: A Review of Pathogenesis, Diagnosis and Management&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Epidermolysis bullosa (EB) is a group of debilitating, genetic skin disorders characterized by excessive skin fragility, blistering, and ulcerations that cause a cyclical wound healing process.
+      explanation: Deep research cited this publication as relevant literature for Junctional Epidermolysis Bullosa.
+- reference: DOI:10.3390/genes14101835
+  title: Independent COL17A1 Variants in Cats with Junctional Epidermolysis Bullosa
+  found_in:
+  - Junctional_Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: Epidermolysis bullosa (EB), characterized by defective adhesion of the epidermis to the dermis, is a heterogeneous disease with many subtypes in human patients and domestic animals.
+    supporting_text: Epidermolysis bullosa (EB), characterized by defective adhesion of the epidermis to the dermis, is a heterogeneous disease with many subtypes in human patients and domestic animals.
+    evidence:
+    - reference: DOI:10.3390/genes14101835
+      reference_title: Independent COL17A1 Variants in Cats with Junctional Epidermolysis Bullosa
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Epidermolysis bullosa (EB), characterized by defective adhesion of the epidermis to the dermis, is a heterogeneous disease with many subtypes in human patients and domestic animals.
+      explanation: Deep research cited this publication as relevant literature for Junctional Epidermolysis Bullosa.
+- reference: DOI:10.3390/ijms25042243
+  title: Emerging Gene Therapeutics for Epidermolysis Bullosa under Development
+  found_in:
+  - Junctional_Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: The monogenetic disease epidermolysis bullosa (EB) is characterised by the formation of extended blisters and lesions on the patient’s skin upon minimal mechanical stress.
+    supporting_text: The monogenetic disease epidermolysis bullosa (EB) is characterised by the formation of extended blisters and lesions on the patient’s skin upon minimal mechanical stress.
+    evidence:
+    - reference: DOI:10.3390/ijms25042243
+      reference_title: Emerging Gene Therapeutics for Epidermolysis Bullosa under Development
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The monogenetic disease epidermolysis bullosa (EB) is characterised by the formation of extended blisters and lesions on the patient’s skin upon minimal mechanical stress.
+      explanation: Deep research cited this publication as relevant literature for Junctional Epidermolysis Bullosa.
 </pre>
             </div>
         </div>
@@ -7312,7 +7493,7 @@ references:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">1</span>
+                    <span class="card-count">16</span>
                 </div>
                 
                 <div class="reference-entry">
@@ -7332,8 +7513,1173 @@ references:
                     
                 </div>
                 
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s13555-024-01227-8" target="_blank">DOI:10.1007/s13555-024-01227-8</a>
+                            </div>
+                            
+                            <div class="reference-title">Treatment of Epidermolysis Bullosa and Future Directions: A Review</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Treatment of Epidermolysis Bullosa and Future Directions: A Review</div>
+            
+            
+            <div class="reference-finding-supporting">"Treatment of Epidermolysis Bullosa and Future Directions: A Review"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1016/j.det.2009.10.016" target="_blank">DOI:10.1016/j.det.2009.10.016</a>
+                            </div>
+                            
+                            <div class="reference-title">Animal Models of Epidermolysis Bullosa</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Animal Models of Epidermolysis Bullosa</div>
+            
+            
+            <div class="reference-finding-supporting">"Animal Models of Epidermolysis Bullosa"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1016/j.jid.2023.11.021" target="_blank">DOI:10.1016/j.jid.2023.11.021</a>
+                            </div>
+                            
+                            <div class="reference-title">Genotype–Phenotype Correlation in Junctional Epidermolysis Bullosa: Signposts to Severity</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Genotype–Phenotype Correlation in Junctional Epidermolysis Bullosa: Signposts to Severity</div>
+            
+            
+            <div class="reference-finding-supporting">"Genotype–Phenotype Correlation in Junctional Epidermolysis Bullosa: Signposts to Severity"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1016/j.ymthe.2024.02.032" target="_blank">DOI:10.1016/j.ymthe.2024.02.032</a>
+                            </div>
+                            
+                            <div class="reference-title">Lentiviral expression of wild-type LAMA3A restores cell adhesion in airway basal cells from children with epidermolysis bullosa</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Lentiviral expression of wild-type LAMA3A restores cell adhesion in airway basal cells from children with epidermolysis bullosa</div>
+            
+            
+            <div class="reference-finding-supporting">"Lentiviral expression of wild-type LAMA3A restores cell adhesion in airway basal cells from children with epidermolysis bullosa"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1038/s41525-025-00466-8" target="_blank">DOI:10.1038/s41525-025-00466-8</a>
+                            </div>
+                            
+                            <div class="reference-title">Identification of deep intronic variants in junctional epidermolysis bullosa using genome sequencing and splicing assays</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Identification of deep intronic variants in junctional epidermolysis bullosa using genome sequencing and splicing assays</div>
+            
+            
+            <div class="reference-finding-supporting">"Identification of deep intronic variants in junctional epidermolysis bullosa using genome sequencing and splicing assays"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1080/14712598.2020.1740678" target="_blank">DOI:10.1080/14712598.2020.1740678</a>
+                            </div>
+                            
+                            <div class="reference-title">Leading edge: emerging drug, cell, and gene therapies for junctional epidermolysis bullosa</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Leading edge: emerging drug, cell, and gene therapies for junctional epidermolysis bullosa</div>
+            
+            
+            <div class="reference-finding-supporting">"Leading edge: emerging drug, cell, and gene therapies for junctional epidermolysis bullosa"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1111/bjd.18128" target="_blank">DOI:10.1111/bjd.18128</a>
+                            </div>
+                            
+                            <div class="reference-title">Clinical practice guidelines for laboratory diagnosis of epidermolysis bullosa</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Clinical practice guidelines for laboratory diagnosis of epidermolysis bullosa</div>
+            
+            
+            <div class="reference-finding-supporting">"Clinical practice guidelines for laboratory diagnosis of epidermolysis bullosa"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1111/vde.12972" target="_blank">DOI:10.1111/vde.12972</a>
+                            </div>
+                            
+                            <div class="reference-title">Canine junctional epidermolysis bullosa due to a novel mutation in &lt;i&gt;LAMA3&lt;/i&gt; with severe upper respiratory involvement</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Canine junctional epidermolysis bullosa due to a novel mutation in &lt;i&gt;LAMA3&lt;/i&gt; with severe upper respiratory involvement</div>
+            
+            
+            <div class="reference-finding-supporting">"Junctional epidermolysis bullosa (JEB) is a group of congenital blistering skin diseases characterized by clefting through the lamina lucida of the basement membrane zone.ObjectivesTo characterize the clinical and morphological features of a congenital mechanobullous disease in a litter of..."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1111/vde.12972" target="_blank">DOI:10.1111/vde.12972</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Junctional epidermolysis bullosa (JEB) is a group of congenital blistering skin diseases characterized by clefting through the lamina lucida of the basement membrane zone.ObjectivesTo characterize the clinical and morphological features of a congenital mechanobullous disease in a litter of..."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Junctional Epidermolysis Bullosa.</div>
+                
             </div>
             
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1371/journal.pgen.1004068" target="_blank">DOI:10.1371/journal.pgen.1004068</a>
+                            </div>
+                            
+                            <div class="reference-title">Molecular Identification of Collagen 17a1 as a Major Genetic Modifier of Laminin Gamma 2 Mutation-Induced Junctional Epidermolysis Bullosa in Mice</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Molecular Identification of Collagen 17a1 as a Major Genetic Modifier of Laminin Gamma 2 Mutation-Induced Junctional Epidermolysis Bullosa in Mice</div>
+            
+            
+            <div class="reference-finding-supporting">"Molecular Identification of Collagen 17a1 as a Major Genetic Modifier of Laminin Gamma 2 Mutation-Induced Junctional Epidermolysis Bullosa in Mice"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1371/journal.pone.0288263" target="_blank">DOI:10.1371/journal.pone.0288263</a>
+                            </div>
+                            
+                            <div class="reference-title">Seven naturally variant loci serve as genetic modifiers of Lamc2jeb induced non-Herlitz junctional Epidermolysis Bullosa in mice</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Epidermolysis Bullosa (EB) is a group of rare genetic disorders that compromise the structural integrity of the skin such that blisters and subsequent erosions occur after minor trauma.</div>
+            
+            
+            <div class="reference-finding-supporting">"Epidermolysis Bullosa (EB) is a group of rare genetic disorders that compromise the structural integrity of the skin such that blisters and subsequent erosions occur after minor trauma."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pone.0288263" target="_blank">DOI:10.1371/journal.pone.0288263</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Epidermolysis Bullosa (EB) is a group of rare genetic disorders that compromise the structural integrity of the skin such that blisters and subsequent erosions occur after minor trauma."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Junctional Epidermolysis Bullosa.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.15690/vsp.v23i5.2808" target="_blank">DOI:10.15690/vsp.v23i5.2808</a>
+                            </div>
+                            
+                            <div class="reference-title">Congenital Epidermolysis Bullosa Epidemiology among Children of Russian Federation</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The prevalence of all types of congenital epidermolysis bullosa (СEB) worldwide is approximately 11 cases per 1 million according to the latest data from the American Epidermolysis Bullosa Registry.</div>
+            
+            
+            <div class="reference-finding-supporting">"The prevalence of all types of congenital epidermolysis bullosa (СEB) worldwide is approximately 11 cases per 1 million according to the latest data from the American Epidermolysis Bullosa Registry."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.15690/vsp.v23i5.2808" target="_blank">DOI:10.15690/vsp.v23i5.2808</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The prevalence of all types of congenital epidermolysis bullosa (СEB) worldwide is approximately 11 cases per 1 million according to the latest data from the American Epidermolysis Bullosa Registry."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Junctional Epidermolysis Bullosa.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3389/fgene.2021.705019" target="_blank">DOI:10.3389/fgene.2021.705019</a>
+                            </div>
+                            
+                            <div class="reference-title">Hologene 5: A Phase II/III Clinical Trial of Combined Cell and Gene Therapy of Junctional Epidermolysis Bullosa</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Epidermolysis bullosa (EB) is a group of devastating genetic diseases characterized by skin and mucosal fragility and formation of blisters, which develop either spontaneously or in response to minor mechanical trauma.</div>
+            
+            
+            <div class="reference-finding-supporting">"Epidermolysis bullosa (EB) is a group of devastating genetic diseases characterized by skin and mucosal fragility and formation of blisters, which develop either spontaneously or in response to minor mechanical trauma."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fgene.2021.705019" target="_blank">DOI:10.3389/fgene.2021.705019</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Epidermolysis bullosa (EB) is a group of devastating genetic diseases characterized by skin and mucosal fragility and formation of blisters, which develop either spontaneously or in response to minor mechanical trauma."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Junctional Epidermolysis Bullosa.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/cancers17193211" target="_blank">DOI:10.3390/cancers17193211</a>
+                            </div>
+                            
+                            <div class="reference-title">Cutaneous Squamous Cell Carcinoma in Epidermolysis Bullosa: A Review of Pathogenesis, Diagnosis and Management</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Epidermolysis bullosa (EB) is a group of debilitating, genetic skin disorders characterized by excessive skin fragility, blistering, and ulcerations that cause a cyclical wound healing process.</div>
+            
+            
+            <div class="reference-finding-supporting">"Epidermolysis bullosa (EB) is a group of debilitating, genetic skin disorders characterized by excessive skin fragility, blistering, and ulcerations that cause a cyclical wound healing process."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers17193211" target="_blank">DOI:10.3390/cancers17193211</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Epidermolysis bullosa (EB) is a group of debilitating, genetic skin disorders characterized by excessive skin fragility, blistering, and ulcerations that cause a cyclical wound healing process."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Junctional Epidermolysis Bullosa.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/genes14101835" target="_blank">DOI:10.3390/genes14101835</a>
+                            </div>
+                            
+                            <div class="reference-title">Independent COL17A1 Variants in Cats with Junctional Epidermolysis Bullosa</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Epidermolysis bullosa (EB), characterized by defective adhesion of the epidermis to the dermis, is a heterogeneous disease with many subtypes in human patients and domestic animals.</div>
+            
+            
+            <div class="reference-finding-supporting">"Epidermolysis bullosa (EB), characterized by defective adhesion of the epidermis to the dermis, is a heterogeneous disease with many subtypes in human patients and domestic animals."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/genes14101835" target="_blank">DOI:10.3390/genes14101835</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Epidermolysis bullosa (EB), characterized by defective adhesion of the epidermis to the dermis, is a heterogeneous disease with many subtypes in human patients and domestic animals."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Junctional Epidermolysis Bullosa.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/ijms25042243" target="_blank">DOI:10.3390/ijms25042243</a>
+                            </div>
+                            
+                            <div class="reference-title">Emerging Gene Therapeutics for Epidermolysis Bullosa under Development</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The monogenetic disease epidermolysis bullosa (EB) is characterised by the formation of extended blisters and lesions on the patient’s skin upon minimal mechanical stress.</div>
+            
+            
+            <div class="reference-finding-supporting">"The monogenetic disease epidermolysis bullosa (EB) is characterised by the formation of extended blisters and lesions on the patient’s skin upon minimal mechanical stress."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/ijms25042243" target="_blank">DOI:10.3390/ijms25042243</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The monogenetic disease epidermolysis bullosa (EB) is characterised by the formation of extended blisters and lesions on the patient’s skin upon minimal mechanical stress."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Junctional Epidermolysis Bullosa.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">1. Disease Information</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">52 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-09T09:51:08.047179</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <h2>1. Disease Information</h2>
+<h3>1.1 What is the disease?</h3>
+<p>JEB is an EB subtype defined by cleavage within the <strong>lamina lucida</strong> at the epithelial–subepithelial junction, producing mucocutaneous blistering and erosions. It is a <strong>rare autosomal recessive genodermatosis</strong> with broad phenotypic variability and systemic involvement (e.g., gastrointestinal, renal, respiratory). (keith2020leadingedgeemerging pages 1-6, wen2024genotype–phenotypecorrelationin pages 13-17, wen2024genotype–phenotypecorrelationin pages 17-22)</p>
+<h3>1.2 Key identifiers (available in retrieved evidence)</h3>
+<ul>
+<li><strong>MONDO:</strong> <strong>MONDO_0017612</strong> (junctional epidermolysis bullosa) (OpenTargets Search: Junctional epidermolysis bullosa)</li>
+<li>Related MONDO terms listed in the same ontology context:</li>
+<li><strong>JEB, non-Herlitz type:</strong> MONDO_0009180 (OpenTargets Search: Junctional epidermolysis bullosa)</li>
+<li><strong>JEB, Herlitz type:</strong> MONDO_0009182 (OpenTargets Search: Junctional epidermolysis bullosa)</li>
+<li><strong>JEB with pyloric atresia:</strong> MONDO_0009183 (OpenTargets Search: Junctional epidermolysis bullosa)</li>
+</ul>
+<p><strong>Not retrieved in this tool run (evidence unavailable here):</strong> OMIM numbers, Orphanet IDs, ICD-10/ICD-11 codes, MeSH IDs. (No citeable context in this run.)</p>
+<h3>1.3 Synonyms / alternative names (from retrieved evidence)</h3>
+<ul>
+<li><strong>Generalized severe JEB</strong> ≈ <strong>Herlitz JEB</strong> (historical terminology) (keith2020leadingedgeemerging pages 1-6, wen2024genotype–phenotypecorrelationin pages 13-17, bischof2024emerginggenetherapeutics pages 1-2)</li>
+<li><strong>Generalized intermediate JEB</strong> ≈ <strong>non-Herlitz JEB</strong> (keith2020leadingedgeemerging pages 1-6, wen2024genotype–phenotypecorrelationin pages 13-17)</li>
+<li><strong>Laryngo-onycho-cutaneous syndrome (LOC)</strong> is described as a rare JEB variant associated with LAMA3 (laminin-332 α3) involvement and airway manifestations. (wen2024genotype–phenotypecorrelationin pages 13-17, lau2024lentiviralexpressionof pages 1-2)</li>
+</ul>
+<h3>1.4 Evidence source type</h3>
+<p>This report is based on <strong>aggregated disease-level resources and peer-reviewed literature</strong> (reviews, cohort studies, registry epidemiology, guidelines), supplemented by <strong>clinical trial registry entries</strong> (ClinicalTrials.gov). (wen2024genotype–phenotypecorrelationin pages 13-17, chen2025identificationofdeep pages 1-2, NCT03526159 chunk 1)</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>2.1 Disease causal factors</h3>
+<p><strong>Primary cause:</strong> inherited pathogenic variants in genes encoding proteins required for dermal–epidermal adhesion at the basement membrane zone, producing defective adhesion and tissue cleavage in the lamina lucida. (keith2020leadingedgeemerging pages 1-6, wen2024genotype–phenotypecorrelationin pages 13-17, wen2024genotype–phenotypecorrelationin pages 17-22)</p>
+<h3>2.2 Risk factors</h3>
+<ul>
+<li><strong>Genetic (causal) risk:</strong> biallelic pathogenic variants in core JEB genes (below). (wen2024genotype–phenotypecorrelationin pages 13-17, wen2024genotype–phenotypecorrelationin pages 17-22)</li>
+<li><strong>Consanguinity:</strong> a contributor to higher prevalence of congenital EB in some regions; Russian registry reported high prevalence in Dagestan and noted high consanguineous marriage rates (50%). (murashkin2024congenitalepidermolysisbullosa pages 2-3, murashkin2024congenitalepidermolysisbullosa pages 1-2)</li>
+</ul>
+<p><strong>Environmental risk factors</strong> as causes of JEB are not applicable (monogenic disease); environmental exposures mainly influence <strong>complications</strong> (wound infection, trauma). (keith2020leadingedgeemerging pages 1-6)</p>
+<h3>2.3 Protective factors</h3>
+<p>No established genetic or environmental protective factors were identified in the retrieved evidence.</p>
+<h3>2.4 Gene–environment interactions</h3>
+<p>Not specifically addressed in the retrieved evidence; clinically, mechanical trauma and infection interact with genetic skin fragility to drive lesion burden. (keith2020leadingedgeemerging pages 1-6)</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>3.1 Core phenotype spectrum (with HPO suggestions)</h3>
+<p>Commonly reported features include:
+- <strong>Skin and mucosal blistering/erosions</strong> after minor trauma; chronic wounds (HPO: <em>Skin blistering</em>; <em>Erosions</em>) (keith2020leadingedgeemerging pages 1-6, wen2024genotype–phenotypecorrelationin pages 13-17)
+- <strong>Nail dystrophy / anonychia</strong> (HPO: <em>Nail dystrophy</em>, <em>Anonychia</em>) (wen2024genotype–phenotypecorrelationin pages 13-17, murashkin2024congenitalepidermolysisbullosa pages 1-2)
+- <strong>Enamel defects</strong> (HPO: <em>Enamel hypoplasia</em>) (wen2024genotype–phenotypecorrelationin pages 13-17)
+- <strong>Scarring / alopecia</strong> (HPO: <em>Scarring</em>, <em>Alopecia</em>) (wen2024genotype–phenotypecorrelationin pages 13-17)
+- <strong>Airway/laryngeal involvement</strong> (laryngotracheal stenosis, airway obstruction) (HPO: <em>Laryngeal stenosis</em>, <em>Tracheal stenosis</em>, <em>Respiratory distress</em>) (lau2024lentiviralexpressionof pages 1-2, lau2024lentiviralexpressionof pages 2-4)
+- <strong>Ocular involvement</strong> (HPO: <em>Eye irritation/erosion</em>—non-quantified here) (wen2024genotype–phenotypecorrelationin pages 13-17)
+- <strong>Anemia, failure to thrive, sepsis risk</strong> (HPO: <em>Anemia</em>, <em>Failure to thrive</em>, <em>Sepsis</em>) (wen2024genotype–phenotypecorrelationin pages 13-17, murashkin2024congenitalepidermolysisbullosa pages 1-2)</p>
+<h3>3.2 Phenotype characteristics (onset, severity, progression)</h3>
+<ul>
+<li><strong>Onset:</strong> typically congenital/neonatal or early infancy (widespread blistering and erosions). (wen2024genotype–phenotypecorrelationin pages 13-17, murashkin2024congenitalepidermolysisbullosa pages 1-2)</li>
+<li><strong>Severe JEB (Herlitz/generalized severe):</strong> often fatal in early childhood, with mortality linked to <strong>sepsis, dehydration, airway obstruction, metabolic disturbances</strong>. (wen2024genotype–phenotypecorrelationin pages 13-17, bischof2024emerginggenetherapeutics pages 1-2)</li>
+<li><strong>Intermediate JEB:</strong> survival into adulthood, heterogeneous course with chronic wounds and extracutaneous involvement. (wen2024genotype–phenotypecorrelationin pages 13-17)</li>
+</ul>
+<h3>3.3 Quality of life impact</h3>
+<p>QoL instruments/statistics specific to JEB were not retrieved in the available evidence; however, airway-involved EB patients experience high morbidity and require repeated airway procedures. (lau2024lentiviralexpressionof pages 1-2, lau2024lentiviralexpressionof pages 2-4)</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<h3>4.1 Causal genes (human)</h3>
+<p>From a 2024 genotype–phenotype study and ontology evidence, JEB is caused by pathogenic variants in:
+- <strong>LAMA3, LAMB3, LAMC2</strong> (laminin-332 chains)
+- <strong>COL17A1</strong> (type XVII collagen)
+- <strong>ITGA6, ITGB4</strong> (integrin α6β4)
+- <strong>ITGA3</strong> (integrin α3)
+(wen2024genotype–phenotypecorrelationin pages 13-17, wen2024genotype–phenotypecorrelationin pages 17-22, OpenTargets Search: Junctional epidermolysis bullosa)</p>
+<h3>4.2 Variant classes and functional consequences</h3>
+<p>Common variant types include <strong>nonsense, frameshift, splice-site, deletions, and missense</strong> variants. (wen2024genotype–phenotypecorrelationin pages 17-22)</p>
+<p><strong>Genotype–phenotype correlation (severity):</strong>
+- <strong>Biallelic premature termination codon (PTC) / loss-of-function variants</strong> in laminin-332 genes often lead to <strong>severe JEB</strong> due to nonsense-mediated decay and absent laminin-332 staining. (wen2024genotype–phenotypecorrelationin pages 17-22)
+- Non–loss-of-function alleles (missense/in-frame changes/exon skipping) can preserve partial protein; <strong>~5–10% residual laminin-332</strong> may meaningfully ameliorate severity. (wen2024genotype–phenotypecorrelationin pages 17-22)</p>
+<h3>4.3 Modifier genes</h3>
+<p>Mouse-model genetic evidence supports strong <strong>modifier effects</strong>:
+- <strong>Col17a1</strong> identified as a <strong>major genetic modifier</strong> of Lamc2 hypomorphic JEB severity in mice; 1–3 amino-acid differences in the NC4 domain of collagen XVII altered dermal–epidermal adhesion and disease severity. (Sproule et al., 2014; https://doi.org/10.1371/journal.pgen.1004068) (sproule2014molecularidentificationof pages 1-2)
+- Additional modifier loci/QTL reported in Lamc2jeb mice include intervals containing <strong>Dst-e/Bpag1-e</strong> and candidate metabolic/nuclear receptor pathways (Ppargc1a, Pparg, Igf1). (Sproule et al., 2023; https://doi.org/10.1371/journal.pone.0288263) (sproule2023sevennaturallyvariant pages 1-2)</p>
+<h3>4.4 Deep intronic variants and diagnostic “missing heritability”</h3>
+<p>A 2025 study highlights that exome sequencing can miss causative alleles:
+- Among <strong>69 recessive JEB cases</strong>, <strong>13.0%</strong> remained genetically undiagnosed after initial exome sequencing; among COL17A1-associated cases, unresolved proportion reached <strong>31.6%</strong>. (Chen et al., 2025; https://doi.org/10.1038/s41525-025-00466-8) (chen2025identificationofdeep pages 1-2)
+- Deep intronic variants identified: <strong>COL17A1 c.4156+117G&gt;A, c.2039-104G&gt;A, c.1267+237dupC</strong> and <strong>LAMB3 c.-38+2T&gt;C</strong> in six cases; splicing assays showed exon skipping/pseudoexon insertion <strong>in HaCaT cells</strong> but not HEK293, emphasizing cell-context dependence of transcript assays. (chen2025identificationofdeep pages 1-2)</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>JEB is monogenic; no specific toxins/lifestyle/infectious agents were identified as causes. Environmental factors (mechanical trauma, wound colonization/infection) act as downstream exacerbators of disease burden and complications. (keith2020leadingedgeemerging pages 1-6)</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>6.1 Causal chain (molecular → clinical)</h3>
+<ol>
+<li><strong>Biallelic pathogenic variants</strong> in laminin-332 / COL17A1 / integrin genes reduce/abolish functional adhesion complexes at the basement membrane zone. (keith2020leadingedgeemerging pages 1-6, wen2024genotype–phenotypecorrelationin pages 17-22)</li>
+<li><strong>Defective hemidesmosomes / dermal–epidermal adhesion</strong> at the lamina lucida causes mechanical fragility. (keith2020leadingedgeemerging pages 1-6, NCT03526159 chunk 1)</li>
+<li>Minimal trauma leads to <strong>blistering and erosions</strong>, evolving into chronic wounds. (keith2020leadingedgeemerging pages 1-6, wen2024genotype–phenotypecorrelationin pages 13-17)</li>
+<li>Chronic wounds promote <strong>inflammation</strong>, infection risk, fluid/protein loss, and systemic complications including failure to thrive, anemia, and sepsis. (wen2024genotype–phenotypecorrelationin pages 13-17, murashkin2024congenitalepidermolysisbullosa pages 1-2)</li>
+</ol>
+<h3>6.2 Cell types and processes (ontology suggestions)</h3>
+<ul>
+<li><strong>Key cell types (CL):</strong> basal keratinocytes; airway epithelial basal stem cells (supported by Human Lung Cell Atlas expression context and primary basal-cell experiments). (lau2024lentiviralexpressionof pages 2-4)</li>
+<li><strong>Biological processes (GO suggestions):</strong> cell–substrate adhesion; hemidesmosome assembly; basement membrane organization; wound healing; epithelial cell differentiation. Mechanistic relevance is supported by the central role of laminin-332 and by gene-restoration phenotypes in airway basal cells. (lau2024lentiviralexpressionof pages 1-2, lau2024lentiviralexpressionof pages 4-5)</li>
+</ul>
+<h3>6.3 Molecular profiling / advanced technologies</h3>
+<p>Direct multi-omics profiling for JEB was not retrieved in available evidence; however, Lau et al. performed RNA-seq after LAMA3A transduction in EB airway basal cells and observed <strong>373 differentially expressed transcripts</strong> (149 up, 224 down), consistent with broad epithelial phenotype shifts. (lau2024lentiviralexpressionof pages 4-5)</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<h3>7.1 Organ/system involvement</h3>
+<ul>
+<li><strong>Skin and mucous membranes</strong> (primary) (UBERON: skin; mucosa) (wen2024genotype–phenotypecorrelationin pages 13-17, keith2020leadingedgeemerging pages 1-6)</li>
+<li><strong>Upper and lower airway</strong> (larynx/trachea) in severe JEB/LOC and some intermediate cases; airway stenosis requiring endoscopic management is documented. (lau2024lentiviralexpressionof pages 1-2, lau2024lentiviralexpressionof pages 2-4)</li>
+<li><strong>Eyes</strong> (ocular involvement) (wen2024genotype–phenotypecorrelationin pages 13-17)</li>
+</ul>
+<h3>7.2 Tissue/cell level</h3>
+<ul>
+<li>Basement membrane zone of stratified epithelia; basal epithelial attachment structures are central. (keith2020leadingedgeemerging pages 1-6, wen2024genotype–phenotypecorrelationin pages 17-22)</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<h3>8.1 Onset</h3>
+<p>Typically at birth or in the first months of life. (murashkin2024congenitalepidermolysisbullosa pages 1-2, wen2024genotype–phenotypecorrelationin pages 13-17)</p>
+<h3>8.2 Progression/course</h3>
+<ul>
+<li>Severe forms show rapid decline in infancy due to infections/sepsis and airway complications. (wen2024genotype–phenotypecorrelationin pages 13-17, murashkin2024congenitalepidermolysisbullosa pages 1-2)</li>
+<li>Chronic course in survivors includes persistent wounds and extracutaneous complications. (keith2020leadingedgeemerging pages 1-6, wen2024genotype–phenotypecorrelationin pages 13-17)</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>9.1 Inheritance</h3>
+<p>JEB is primarily <strong>autosomal recessive</strong>. (wen2024genotype–phenotypecorrelationin pages 13-17, chandrasekaran2025cutaneoussquamouscell pages 1-2)</p>
+<h3>9.2 Epidemiology (statistics)</h3>
+<p>From Wen et al. (2024, J Invest Dermatol; https://doi.org/10.1016/j.jid.2023.11.021):
+- Incidence ~<strong>2.68 per million live births</strong>
+- Prevalence ~<strong>0.49 per million</strong> (wen2024genotype–phenotypecorrelationin pages 13-17, wen2024genotype–phenotypecorrelationin pages 17-22)</p>
+<p>Russian pediatric registry paper (Murashkin et al., 2024; https://doi.org/10.15690/vsp.v23i5.2808; accepted 16 Oct 2024):
+- <strong>491</strong> children with congenital EB in registry (all EB types)
+- <strong>31 (6%)</strong> were junctional
+- Registry recorded <strong>22 deaths</strong>, with <strong>JEB comprising 59.1%</strong> (13/22) and mean age at death <strong>0.40 ± 0.22 years</strong>
+- Survival probability for JEB reportedly drops to <strong>almost 0% in the first 100 days</strong> (murashkin2024congenitalepidermolysisbullosa pages 2-3, murashkin2024congenitalepidermolysisbullosa pages 1-2)</p>
+<p>Airway EB cohort (Lau et al., 2024; https://doi.org/10.1016/j.ymthe.2024.02.032):
+- <strong>16</strong> EB patients with airway disease; <strong>8</strong> had died at time of writing (lau2024lentiviralexpressionof pages 2-4)</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>10.1 Recommended diagnostic modalities (laboratory and genetic)</h3>
+<p>Wen et al. (2024) describes a combined approach:
+- <strong>Genetic testing</strong> (Sanger, targeted NGS panels, WES/WGS)
+- <strong>Immunofluorescence mapping (IFM/antigen mapping)</strong> to localize cleavage plane and infer missing proteins
+- <strong>Transmission electron microscopy (TEM)</strong> for ultrastructural defects in selected cases (wen2024genotype–phenotypecorrelationin pages 13-17)</p>
+<p>International laboratory guideline (Has et al., 2019; BJD; https://doi.org/10.1111/bjd.18128):
+- Genetic testing is <strong>“always recommended”</strong> and should include the index case and, if possible, parents for reliable counseling.
+- IFM is recommended for rapid diagnosis/prognosis and to prioritize genetics; TEM is reserved for limited inconclusive cases.
+- States: <strong>“DNA-based prenatal diagnosis is technically feasible for all EB subtypes”</strong> and should be considered upon family request/national regulations. (has2019clinicalpracticeguidelines pages 1-2, has2019clinicalpracticeguidelines pages 2-3)</p>
+<h3>10.2 Diagnostic yield improvements (WGS + splicing assays)</h3>
+<p>Genome sequencing can identify deep intronic alleles missed by exome; splicing assays require a relevant cell model (HaCaT vs HEK293) (chen2025identificationofdeep pages 1-2).</p>
+<h3>10.3 Differential diagnosis</h3>
+<p>Not comprehensively retrievable from the provided evidence in this run.</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<h3>11.1 Mortality and survival</h3>
+<ul>
+<li>Severe JEB is often fatal in early childhood; one recent review states severe JEB is generally lethal within <strong>6–24 months</strong> and that ~70% of JEB cases are associated with LAMB3 mutations (review context). (bischof2024emerginggenetherapeutics pages 1-2)</li>
+<li>Registry data demonstrate very high early mortality for JEB within the first months of life (Murashkin et al., 2024). (murashkin2024congenitalepidermolysisbullosa pages 1-2)</li>
+</ul>
+<h3>11.2 Prognostic factors</h3>
+<p>Severity correlates with degree of residual protein (e.g., laminin-332) and mutation type (biallelic PTC/LoF vs residual expression). (wen2024genotype–phenotypecorrelationin pages 17-22)</p>
+<hr />
+<h2>12. Treatment</h2>
+<h3>12.1 Standard-of-care (current real-world implementation)</h3>
+<p>Supportive multidisciplinary care remains foundational, including wound care, infection control, and systemic support (nutrition, pain management), as emphasized in both JEB-focused and EB-wide reviews. (keith2020leadingedgeemerging pages 1-6, danescu2024treatmentofepidermolysis pages 1-4)</p>
+<h3>12.2 Recently approved/marketed therapies (context)</h3>
+<p>A 2024 review notes that <strong>“the first drugs for the treatment of EB wounds in dystrophic and junctional EB have recently achieved US FDA and EMA approval”</strong> but does not specify product names in the excerpt. It also notes B-VEC licensing approval on May 19, 2023 for dystrophic EB as a milestone of in vivo gene therapy reaching clinical application. (Danescu et al., published online Aug 2, 2024; https://doi.org/10.1007/s13555-024-01227-8) (danescu2024treatmentofepidermolysis pages 1-4, danescu2024treatmentofepidermolysis pages 4-5)</p>
+<h3>12.3 Advanced therapeutics (gene/cell/RNA)</h3>
+<p><strong>Ex vivo gene therapy for LAMB3-related JEB (skin):</strong>
+- Danescu et al. describes de Luca group’s “groundbreaking” life-saving transplantation of transgenic keratinocytes (80% TBSA) in intermediate JEB with LAMB3 mutations and notes that 5-year follow-up showed genetically repaired stem cells continued to regenerate near-normal epidermis. (danescu2024treatmentofepidermolysis pages 4-5)
+- A formal phase II/III protocol (Hologene 5; EudraCT 2018-000261-36; https://doi.org/10.3389/fgene.2021.705019) describes autologous keratinocytes corrected with γ-retroviral LAMB3 cDNA on fibrin support with 12-month efficacy endpoints and 15-year follow-up. (rosa2021hologene5a pages 1-2)</p>
+<p><strong>Nonsense suppression (gentamicin readthrough):</strong>
+- ClinicalTrials.gov pilot study: <strong>NCT03526159</strong> (first posted 2018-05-16; last update posted 2020-04-07) evaluates topical (0.5% ointment BID ×14 days) and IV (7.5 mg/kg daily ×14 days) gentamicin in JEB patients with LAMB3 nonsense mutations; primary endpoints include laminin-332 immunofluorescence and EM hemidesmosomes; safety monitoring includes ototoxicity/nephrotoxicity and anti-laminin-332 antibodies. URL: https://clinicaltrials.gov/study/NCT03526159 (NCT03526159 chunk 1)
+- Optimization study: <strong>NCT04140786</strong> (first posted 2019-10-28; last update posted 2022-11-03) tests IV gentamicin 10 mg/kg regimens and includes EB Disease Activity and Scarring Index (EBDASI) outcomes. URL: https://clinicaltrials.gov/study/NCT04140786 (NCT04140786 chunk 1)</p>
+<p><strong>Airway-directed combined cell/gene therapy proof-of-concept (2024):</strong>
+- Lau et al. (Molecular Therapy; accepted 27 Feb 2024; https://doi.org/10.1016/j.ymthe.2024.02.032) report airway disease in EB and show in vitro rescue of EB patient-derived airway basal cells by lentiviral <strong>LAMA3A</strong> expression. LAMA3 variants were found in <strong>10/15</strong> genotyped airway EB patients; basal cells showed adhesion defects. After transduction, LAMA3 mRNA increased <strong>45.5-fold</strong> and <strong>79.6-fold</strong> in two independent cultures; ALI cultures showed TEER within normal range (&gt;250 Ω) and ciliary beat frequency within expected non-EB range (7–16 Hz); adhesion restored to near control. (lau2024lentiviralexpressionof pages 4-5, lau2024lentiviralexpressionof pages 1-2, lau2024lentiviralexpressionof pages 2-4)</p>
+<h3>12.4 MAXO suggestions (treatment action ontology; illustrative)</h3>
+<ul>
+<li><strong>Wound care / dressing management</strong> (supportive wound management) (keith2020leadingedgeemerging pages 1-6)</li>
+<li><strong>Infection prophylaxis/treatment</strong> (topical/systemic antimicrobial therapy) (keith2020leadingedgeemerging pages 1-6)</li>
+<li><strong>Ex vivo gene therapy / autologous gene-corrected epidermal grafting</strong> (rosa2021hologene5a pages 1-2, danescu2024treatmentofepidermolysis pages 4-5)</li>
+<li><strong>Aminoglycoside nonsense suppression therapy (gentamicin)</strong> (NCT03526159 chunk 1, NCT04140786 chunk 1)</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<h3>13.1 Primary prevention</h3>
+<p>For Mendelian JEB, primary prevention focuses on <strong>reproductive options</strong>:
+- Has et al. (2019 guideline) states accurate EB diagnosis enables informed genetic counseling and prenatal/PGT options and that <strong>“DNA-based prenatal diagnosis is technically feasible for all EB subtypes”</strong>; prenatal diagnosis requires a known familial mutation. (has2019clinicalpracticeguidelines pages 1-2, has2019clinicalpracticeguidelines pages 2-3)</p>
+<h3>13.2 Secondary/tertiary prevention</h3>
+<ul>
+<li>Avoiding skin trauma, meticulous wound care, and infection control reduce complications (sepsis) and improve outcomes. (keith2020leadingedgeemerging pages 1-6, murashkin2024congenitalepidermolysisbullosa pages 1-2)</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p>Naturally occurring JEB has been reported in multiple domestic species and can inform genotype–phenotype correlations.
+- <strong>Cats (COL17A1):</strong> Two unrelated cats with homozygous COL17A1 splice(-region) variants showed marked severity differences; transcript analysis demonstrated residual wildtype splicing in the milder case, supporting a molecular basis for severity variation. (Genes, 2023; https://doi.org/10.3390/genes14101835) (natsuga2010animalmodelsof pages 1-2)
+- <strong>Dogs (LAMA3):</strong> A litter with severe mucocutaneous ulcers and upper airway obstruction had a novel LAMA3 missense variant with AR inheritance; EM confirmed lamina-lucida splitting. (Vet Dermatol, 2021; https://doi.org/10.1111/vde.12972) (not extracted as evidence snippet in gather_evidence, but paper is in state; no citeable context id provided beyond tool results)</p>
+<p><strong>Note:</strong> dog/horse/cat models are also referenced in EB animal-model reviews. (natsuga2010animalmodelsof pages 1-2)</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<ul>
+<li>A 2010 review reports <strong>12 JEB animal models</strong> and lists multiple gene KO/hypomorphic models; most are perinatally lethal. The authors’ <strong>Col17a1 KO mouse</strong> survived ~12 months, with ~<strong>20%</strong> showing long survival enabling therapy experiments; transgenic rescue with human COL17A1 cDNA restored normal skin and fertility. (Dermatol Clin, 2010; https://doi.org/10.1016/j.det.2009.10.016) (natsuga2010animalmodelsof pages 1-2)</li>
+<li><strong>Mouse modifier models:</strong> Lamc2jeb hypomorphic JEB model used to map modifiers including Col17a1 and additional QTL, demonstrating strong epistasis and potential therapeutic modifier pathways. (sproule2014molecularidentificationof pages 1-2, sproule2023sevennaturallyvariant pages 1-2)</li>
+</ul>
+<hr />
+<h2>Recent developments (prioritizing 2023–2025 evidence retrieved here)</h2>
+<ol>
+<li><strong>Genotype–phenotype “signposts to severity” (2024):</strong> detailed correlation between LoF/PTC alleles and severe disease; residual laminin-332 (~5–10%) associated with milder/intermediate disease. (Wen et al., 2024; https://doi.org/10.1016/j.jid.2023.11.021) (wen2024genotype–phenotypecorrelationin pages 17-22)</li>
+<li><strong>Airway gene therapy concepts (2024):</strong> first detailed pediatric airway cohort + in vitro LAMA3A lentiviral functional correction in airway basal cells, expanding the therapeutic target tissue beyond skin. (Lau et al., 2024; https://doi.org/10.1016/j.ymthe.2024.02.032) (lau2024lentiviralexpressionof pages 4-5, lau2024lentiviralexpressionof pages 1-2, lau2024lentiviralexpressionof pages 2-4)</li>
+<li><strong>Genome sequencing resolves ES-negative JEB (2025):</strong> deep intronic COL17A1/LAMB3 variants and cell-type–specific splicing assay considerations. (Chen et al., 2025; https://doi.org/10.1038/s41525-025-00466-8) (chen2025identificationofdeep pages 1-2)</li>
+</ol>
+<hr />
+<h2>Evidence gaps in this tool run (explicit)</h2>
+<ul>
+<li>OMIM, Orphanet, ICD-10/ICD-11, and MeSH identifiers were not available in retrieved citeable evidence.</li>
+<li>Detailed differential diagnosis tables and validated QoL statistics/instruments specific to JEB were not retrieved.</li>
+<li>Human protective factors and gene–environment interaction datasets were not retrieved.</li>
+</ul>
+<hr />
+<h3>Structured summary table</h3>
+<table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>Key details</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease / identifiers</td>
+<td><strong>Junctional epidermolysis bullosa (JEB)</strong>; MONDO: <strong>MONDO_0017612</strong>. Open Targets also lists related subtype MONDO terms including <strong>JEB, non-Herlitz type (MONDO_0009180)</strong>, <strong>JEB Herlitz type (MONDO_0009182)</strong>, and <strong>JEB with pyloric atresia (MONDO_0009183)</strong>. OMIM identifiers are not directly provided in the extracted evidence here. Disease is defined as an EB subtype with tissue cleavage in the <strong>lamina lucida</strong> / epithelial-subepithelial junction, usually inherited as <strong>autosomal recessive</strong> (https://platform.opentargets.org/disease/MONDO_0017612; 2026 access context) (OpenTargets Search: Junctional epidermolysis bullosa, wen2024genotype–phenotypecorrelationin pages 13-17, wen2024genotype–phenotypecorrelationin pages 17-22)</td>
+</tr>
+<tr>
+<td>Main causal genes</td>
+<td>Core JEB genes repeatedly identified across recent evidence: <strong>LAMA3, LAMB3, LAMC2</strong> (laminin-332 chains), <strong>COL17A1</strong> (type XVII collagen), <strong>ITGA6, ITGB4</strong> (integrin α6β4), and <strong>ITGA3</strong>. Open Targets disease-target evidence supports these as the principal disease-associated genes for JEB (https://platform.opentargets.org/disease/MONDO_0017612; context accessed 2026) (OpenTargets Search: Junctional epidermolysis bullosa, wen2024genotype–phenotypecorrelationin pages 13-17, wen2024genotype–phenotypecorrelationin pages 17-22)</td>
+</tr>
+<tr>
+<td>Inheritance / molecular basis</td>
+<td>JEB is described as a <strong>rare autosomal recessive genodermatosis</strong> caused by loss or dysfunction of proteins required for dermal-epidermal adhesion. Laminin-332 deficiency, type XVII collagen deficiency, or integrin α6β4 dysfunction are major molecular categories (Wen et al., <em>J Invest Dermatol</em>, published Jun 2024, https://doi.org/10.1016/j.jid.2023.11.021; Keith et al., Mar 2020, https://doi.org/10.1080/14712598.2020.1740678) (keith2020leadingedgeemerging pages 1-6, wen2024genotype–phenotypecorrelationin pages 13-17, wen2024genotype–phenotypecorrelationin pages 17-22)</td>
+</tr>
+<tr>
+<td>Subtypes / severity correlation</td>
+<td>Recent literature distinguishes <strong>severe/generalized severe (formerly Herlitz)</strong> versus <strong>intermediate/generalized intermediate (formerly non-Herlitz)</strong> JEB. <strong>Biallelic premature termination codon / loss-of-function variants</strong> in laminin-332 genes usually correlate with <strong>severe JEB</strong>, often with absent laminin-332 staining and early lethality; <strong>missense, splice-altering, in-frame, or exon-skipping alleles with residual protein expression (~5–10%)</strong> more often correlate with <strong>intermediate/milder disease</strong>. Severe JEB is often fatal in infancy/early childhood; intermediate JEB can survive into adulthood but remains multisystemic (Wen et al., Jun 2024, https://doi.org/10.1016/j.jid.2023.11.021; Bischof et al., Feb 2024, https://doi.org/10.3390/ijms25042243) (wen2024genotype–phenotypecorrelationin pages 13-17, wen2024genotype–phenotypecorrelationin pages 17-22, bischof2024emerginggenetherapeutics pages 1-2)</td>
+</tr>
+<tr>
+<td>Clinical phenotype highlights</td>
+<td>Typical manifestations include <strong>widespread skin and mucosal blistering/erosions</strong>, <strong>chronic wounds</strong>, <strong>nail dystrophy/anonychia</strong>, <strong>enamel defects</strong>, <strong>scarring</strong>, <strong>alopecia</strong>, <strong>airway/laryngeal involvement</strong>, <strong>ocular involvement</strong>, <strong>anemia</strong>, and in severe forms <strong>failure to thrive, sepsis, and airway obstruction</strong>. Airway disease is especially linked to <strong>LAMA3-associated JEB severe / LOC-like disease</strong> (Wen et al., Jun 2024, https://doi.org/10.1016/j.jid.2023.11.021; Lau et al., May 2024, https://doi.org/10.1016/j.ymthe.2024.02.032) (wen2024genotype–phenotypecorrelationin pages 13-17, lau2024lentiviralexpressionof pages 1-2, lau2024lentiviralexpressionof pages 2-4)</td>
+</tr>
+<tr>
+<td>Diagnostic modalities</td>
+<td>Key modalities include <strong>clinical phenotyping</strong>, <strong>immunofluorescence mapping (IFM / antigen mapping)</strong> to localize the cleavage plane and assess BMZ protein expression, <strong>transmission electron microscopy (TEM)</strong> for ultrastructural defects/hemidesmosomes, and <strong>molecular testing</strong> using <strong>Sanger sequencing, targeted panels, WES, and WGS/GS</strong>. Recent evidence shows a role for <strong>RNA/splicing assays</strong> when exome sequencing is inconclusive (Wen et al., Jun 2024, https://doi.org/10.1016/j.jid.2023.11.021; Chen et al., Feb 2025, https://doi.org/10.1038/s41525-025-00466-8) (wen2024genotype–phenotypecorrelationin pages 13-17, wen2024genotype–phenotypecorrelationin pages 17-22, chen2025identificationofdeep pages 1-2)</td>
+</tr>
+<tr>
+<td>Diagnostic yield / deep intronic findings</td>
+<td>In a 2025 JEB genomics study of <strong>69 recessive JEB cases</strong>, <strong>13.0%</strong> remained genetically undiagnosed after initial exome sequencing; among <strong>COL17A1</strong> cases, unresolved rate reached <strong>31.6%</strong>. Genome sequencing plus splicing assays identified deep intronic variants <strong>COL17A1 c.4156+117G&gt;A, c.2039-104G&gt;A, c.1267+237dupC</strong> and <strong>LAMB3 c.-38+2T&gt;C</strong>; these caused <strong>exon skipping or pseudoexon insertion</strong> in <strong>HaCaT</strong> keratinocyte cells but not HEK293 cells, supporting GS + cell-appropriate transcript testing for ES-negative JEB (Chen et al., published Feb 2025, https://doi.org/10.1038/s41525-025-00466-8) (chen2025identificationofdeep pages 1-2)</td>
+</tr>
+<tr>
+<td>Epidemiology</td>
+<td>A 2024 genotype-phenotype study cites JEB <strong>incidence ~2.68 per million live births</strong> and <strong>prevalence ~0.49 per million</strong>. A 2020 review states JEB affects about <strong>3 in 1 million children</strong>. Broader EB epidemiology reported in some recent reviews is higher because it covers all EB subtypes rather than JEB specifically (Wen et al., Jun 2024, https://doi.org/10.1016/j.jid.2023.11.021; Keith et al., Mar 2020, https://doi.org/10.1080/14712598.2020.1740678) (keith2020leadingedgeemerging pages 1-6, wen2024genotype–phenotypecorrelationin pages 13-17, wen2024genotype–phenotypecorrelationin pages 17-22)</td>
+</tr>
+<tr>
+<td>Russian registry data (all congenital EB, with JEB-specific mortality note)</td>
+<td>Russian pediatric registry, publication accepted <strong>16 Oct 2024</strong> / journal issue 2024, DOI https://doi.org/10.15690/vsp.v23i5.2808: <strong>491</strong> children with congenital EB; pediatric prevalence <strong>15.48 per 1,000,000</strong>; subtype distribution <strong>261 dystrophic (53%)</strong>, <strong>191 simplex (39%)</strong>, <strong>31 junctional (6%)</strong>, <strong>8 Kindler (2%)</strong>. Mean birth rate 2019–2023: <strong>2.13 per 100,000 births</strong>. Registry recorded <strong>22 deaths</strong>; <strong>JEB accounted for 59.1% of fatal outcomes (13/22)</strong> with mean age at death <strong>0.40 ± 0.22 years</strong>; survival curve showed probability of survival falling to <strong>almost 0% in the first 100 days</strong> for JEB (Murashkin et al., 2024, https://doi.org/10.15690/vsp.v23i5.2808) (murashkin2024congenitalepidermolysisbullosa pages 2-3, murashkin2024congenitalepidermolysisbullosa pages 1-2)</td>
+</tr>
+<tr>
+<td>Standard/current management</td>
+<td>Current standard of care remains <strong>supportive and multidisciplinary</strong>: blister lancing, atraumatic wound care, infection control, pain management, nutritional and systemic support, and treatment of complications. Reviews emphasize that despite therapeutic advances, most care remains palliative/symptom-directed (Keith et al., Mar 2020, https://doi.org/10.1080/14712598.2020.1740678; Danescu et al., published online Aug 2, 2024, https://doi.org/10.1007/s13555-024-01227-8) (keith2020leadingedgeemerging pages 1-6, danescu2024treatmentofepidermolysis pages 1-4)</td>
+</tr>
+<tr>
+<td>Recently approved / wound-directed therapies relevant to EB</td>
+<td>A 2024 therapeutic review states that <strong>“the first drugs for the treatment of EB wounds in dystrophic and junctional EB have recently achieved US FDA and EMA approval”</strong>; it also notes that <strong>B-VEC</strong> became the first gene therapy clinically available for DEB on <strong>May 19, 2023</strong>, illustrating regulatory momentum in EB even though B-VEC is not JEB-specific (Danescu et al., Aug 2, 2024, https://doi.org/10.1007/s13555-024-01227-8) (danescu2024treatmentofepidermolysis pages 1-4, danescu2024treatmentofepidermolysis pages 4-5)</td>
+</tr>
+<tr>
+<td>Gentamicin nonsense readthrough trials</td>
+<td><strong>NCT03526159</strong> (“Gentamicin for Junctional Epidermolysis Bullosa”; first posted <strong>2018-05-16</strong>; recruiting per available registry snapshot) tests <strong>topical 0.5% gentamicin twice daily for 14 days</strong> or <strong>IV gentamicin 7.5 mg/kg daily for 14 days</strong> in JEB with <strong>LAMB3 nonsense mutations</strong>, with endpoints including laminin-332 IF signal, EM hemidesmosomes, wound closure, and safety. <strong>NCT04140786</strong> (“Optimizing IV Gentamicin in JEB”; first posted <strong>2019-10-28</strong>) studies <strong>10 mg/kg IV</strong> regimens (daily x24 days or biweekly x3 months) in JEB with <strong>LAMA3/LAMB3 nonsense mutations</strong>, with endpoints including laminin-332 expression, EBDASI, ototoxicity, nephrotoxicity, and anti-laminin-332 antibodies (https://clinicaltrials.gov/study/NCT03526159; https://clinicaltrials.gov/study/NCT04140786) (NCT03526159 chunk 1, NCT03526159 chunk 2, NCT04140786 chunk 1, NCT04140786 chunk 2)</td>
+</tr>
+<tr>
+<td>Ex vivo LAMB3 gene-corrected epidermal grafts</td>
+<td>Ex vivo autologous <strong>LAMB3</strong>-corrected keratinocyte / epidermal stem-cell grafting is the most mature JEB-specific gene-therapy paradigm. <strong>Hologene 5</strong> (EudraCT <strong>2018-000261-36</strong>; protocol paper 2021, https://doi.org/10.3389/fgene.2021.705019) is a phase II/III multicenter study using <strong>γ-retroviral full-length LAMB3 cDNA</strong> in autologous clonogenic keratinocytes on fibrin support for grafting. A 2024 review highlights prior life-saving transplantation over ~80% TBSA and durable <strong>5-year</strong> maintenance of genetically repaired epidermis (Danescu et al., 2024; De Rosa et al., 2021) (rosa2021hologene5a pages 1-2, danescu2024treatmentofepidermolysis pages 4-5)</td>
+</tr>
+<tr>
+<td>Airway-targeted gene/cell proof-of-concept</td>
+<td>In <strong>Lau et al.</strong> (<em>Molecular Therapy</em>, published May 2024, https://doi.org/10.1016/j.ymthe.2024.02.032), a cohort of <strong>16</strong> EB patients with airway disease was described; <strong>10/15</strong> genotyped patients had at least one <strong>LAMA3</strong> pathogenic variant, median age at referral <strong>9 months</strong>, and <strong>8/16</strong> had died by time of report. Patient airway basal cells showed adhesion defects; lentiviral <strong>LAMA3A</strong> overexpression increased LAMA3 mRNA by <strong>45.5-fold</strong> and <strong>79.6-fold</strong> in two cultures, enabled ALI differentiation with <strong>normal-range TEER (&gt;250 Ω)</strong> and <strong>normal ciliary beat frequency (7–16 Hz)</strong>, and restored adhesion to near non-EB control levels—supporting a future combined airway cell/gene therapy approach (lau2024lentiviralexpressionof pages 4-5, lau2024lentiviralexpressionof pages 1-2, lau2024lentiviralexpressionof pages 2-4)</td>
+</tr>
+<tr>
+<td>Other/adjunct experimental wound therapies</td>
+<td><strong>RGN-137 topical gel</strong> (thymosin β4-related wound-healing approach) was studied in JEB/DEB in <strong>NCT03578029 (CELEB)</strong>, a randomized placebo-controlled phase II trial first posted <strong>2018-07-05</strong>; status later <strong>terminated (business decision)</strong> with only <strong>4</strong> enrolled, illustrating the difficulty of wound-therapy trials in rare EB (https://clinicaltrials.gov/study/NCT03578029) (NCT03578029 chunk 1, NCT03578029 chunk 2)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table condenses the most clinically relevant facts about Junctional Epidermolysis Bullosa, including genes, inheritance, severity correlations, diagnostics, epidemiology, and current or emerging therapies. It is designed as a quick reference for building a disease knowledge base entry with directly citeable evidence contexts.</em></p>
+<p>References</p>
+<ol>
+<li>
+<p>(OpenTargets Search: Junctional epidermolysis bullosa): Open Targets Query (Junctional epidermolysis bullosa, 34 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.</p>
+</li>
+<li>
+<p>(keith2020leadingedgeemerging pages 1-6): Allison R. Keith, Kirk Twaroski, Christen L. Ebens, and Jakub Tolar. Leading edge: emerging drug, cell, and gene therapies for junctional epidermolysis bullosa. Expert Opinion on Biological Therapy, 20:911-923, Mar 2020. URL: https://doi.org/10.1080/14712598.2020.1740678, doi:10.1080/14712598.2020.1740678. This article has 22 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(wen2024genotype–phenotypecorrelationin pages 13-17): David Wen, Manrup Hunjan, Ajoy Bardhan, Natasha Harper, Malobi Ogboli, Linda Ozoemena, Lu Liu, Jo-David Fine, Iain Chapple, Dario L. Balacco, and Adrian Heagerty. Genotype–phenotype correlation in junctional epidermolysis bullosa: signposts to severity. Journal of Investigative Dermatology, 144:1334-1343.e14, Jun 2024. URL: https://doi.org/10.1016/j.jid.2023.11.021, doi:10.1016/j.jid.2023.11.021. This article has 10 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(wen2024genotype–phenotypecorrelationin pages 17-22): David Wen, Manrup Hunjan, Ajoy Bardhan, Natasha Harper, Malobi Ogboli, Linda Ozoemena, Lu Liu, Jo-David Fine, Iain Chapple, Dario L. Balacco, and Adrian Heagerty. Genotype–phenotype correlation in junctional epidermolysis bullosa: signposts to severity. Journal of Investigative Dermatology, 144:1334-1343.e14, Jun 2024. URL: https://doi.org/10.1016/j.jid.2023.11.021, doi:10.1016/j.jid.2023.11.021. This article has 10 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(chen2025identificationofdeep pages 1-2): Fuying Chen, Ruoqu Wei, Yumeng Wang, Qiaoyu Cao, Jianbo Wang, Chenfei Wang, Dingjin Yao, Zhirong Yao, Cheng Ni, and Ming Li. Identification of deep intronic variants in junctional epidermolysis bullosa using genome sequencing and splicing assays. NPJ Genomic Medicine, Feb 2025. URL: https://doi.org/10.1038/s41525-025-00466-8, doi:10.1038/s41525-025-00466-8. This article has 2 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(lau2024lentiviralexpressionof pages 1-2): Chun Hang Lau, Maral J. Rouhani, Elizabeth F. Maughan, Jessica C. Orr, Krishna K. Kolluri, David R. Pearce, Elizabeth K. Haughey, Liam Sutton, Sam Flatau, Pablo Lopez Balboa, Maria Laura Bageta, Christopher O’Callaghan, Claire M. Smith, Sam M. Janes, Richard Hewitt, Gabriela Petrof, Anna E. Martinez, John A. McGrath, Colin R. Butler, and Robert E. Hynds. Lentiviral expression of wild-type lama3a restores cell adhesion in airway basal cells from children with epidermolysis bullosa. Molecular Therapy, 32:1497-1509, May 2024. URL: https://doi.org/10.1016/j.ymthe.2024.02.032, doi:10.1016/j.ymthe.2024.02.032. This article has 8 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(bischof2024emerginggenetherapeutics pages 1-2): Johannes Bischof, Markus Hierl, and Ulrich Koller. Emerging gene therapeutics for epidermolysis bullosa under development. International Journal of Molecular Sciences, 25:2243, Feb 2024. URL: https://doi.org/10.3390/ijms25042243, doi:10.3390/ijms25042243. This article has 37 citations.</p>
+</li>
+<li>
+<p>(NCT03526159 chunk 1): David Woodley. Gentamicin for Junctional Epidermolysis Bullosa. University of Southern California. 2018. ClinicalTrials.gov Identifier: NCT03526159</p>
+</li>
+<li>
+<p>(murashkin2024congenitalepidermolysisbullosa pages 2-3): Nikolay N. Murashkin, Roman V. Epishev, Olga S. Orlova, Alena А. Kuratova, and Victoriya S. Polenova. Congenital epidermolysis bullosa epidemiology among children of russian federation. Current Pediatrics, 23:316-328, Oct 2024. URL: https://doi.org/10.15690/vsp.v23i5.2808, doi:10.15690/vsp.v23i5.2808. This article has 2 citations.</p>
+</li>
+<li>
+<p>(murashkin2024congenitalepidermolysisbullosa pages 1-2): Nikolay N. Murashkin, Roman V. Epishev, Olga S. Orlova, Alena А. Kuratova, and Victoriya S. Polenova. Congenital epidermolysis bullosa epidemiology among children of russian federation. Current Pediatrics, 23:316-328, Oct 2024. URL: https://doi.org/10.15690/vsp.v23i5.2808, doi:10.15690/vsp.v23i5.2808. This article has 2 citations.</p>
+</li>
+<li>
+<p>(lau2024lentiviralexpressionof pages 2-4): Chun Hang Lau, Maral J. Rouhani, Elizabeth F. Maughan, Jessica C. Orr, Krishna K. Kolluri, David R. Pearce, Elizabeth K. Haughey, Liam Sutton, Sam Flatau, Pablo Lopez Balboa, Maria Laura Bageta, Christopher O’Callaghan, Claire M. Smith, Sam M. Janes, Richard Hewitt, Gabriela Petrof, Anna E. Martinez, John A. McGrath, Colin R. Butler, and Robert E. Hynds. Lentiviral expression of wild-type lama3a restores cell adhesion in airway basal cells from children with epidermolysis bullosa. Molecular Therapy, 32:1497-1509, May 2024. URL: https://doi.org/10.1016/j.ymthe.2024.02.032, doi:10.1016/j.ymthe.2024.02.032. This article has 8 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(sproule2014molecularidentificationof pages 1-2): Thomas J. Sproule, Jason A. Bubier, Fiorella C. Grandi, Victor Z. Sun, Vivek M. Philip, Caroline G. McPhee, Elisabeth B. Adkins, John P. Sundberg, and Derry C. Roopenian. Molecular identification of collagen 17a1 as a major genetic modifier of laminin gamma 2 mutation-induced junctional epidermolysis bullosa in mice. PLoS Genetics, 10:e1004068, Feb 2014. URL: https://doi.org/10.1371/journal.pgen.1004068, doi:10.1371/journal.pgen.1004068. This article has 38 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(sproule2023sevennaturallyvariant pages 1-2): Thomas J. Sproule, Vivek M. Philip, Nabig A. Chaudhry, Derry C. Roopenian, and John P. Sundberg. Seven naturally variant loci serve as genetic modifiers of lamc2jeb induced non-herlitz junctional epidermolysis bullosa in mice. PLOS ONE, 18:e0288263, Jul 2023. URL: https://doi.org/10.1371/journal.pone.0288263, doi:10.1371/journal.pone.0288263. This article has 7 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(lau2024lentiviralexpressionof pages 4-5): Chun Hang Lau, Maral J. Rouhani, Elizabeth F. Maughan, Jessica C. Orr, Krishna K. Kolluri, David R. Pearce, Elizabeth K. Haughey, Liam Sutton, Sam Flatau, Pablo Lopez Balboa, Maria Laura Bageta, Christopher O’Callaghan, Claire M. Smith, Sam M. Janes, Richard Hewitt, Gabriela Petrof, Anna E. Martinez, John A. McGrath, Colin R. Butler, and Robert E. Hynds. Lentiviral expression of wild-type lama3a restores cell adhesion in airway basal cells from children with epidermolysis bullosa. Molecular Therapy, 32:1497-1509, May 2024. URL: https://doi.org/10.1016/j.ymthe.2024.02.032, doi:10.1016/j.ymthe.2024.02.032. This article has 8 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(chandrasekaran2025cutaneoussquamouscell pages 1-2): Abarajithan Chandrasekaran and Justin C. Moser. Cutaneous squamous cell carcinoma in epidermolysis bullosa: a review of pathogenesis, diagnosis and management. Cancers, 17:3211, Oct 2025. URL: https://doi.org/10.3390/cancers17193211, doi:10.3390/cancers17193211. This article has 0 citations.</p>
+</li>
+<li>
+<p>(has2019clinicalpracticeguidelines pages 1-2): C. Has, L. Liu, M.C. Bolling, A.V. Charlesworth, M. El Hachem, M.J. Escámez, I. Fuentes, S. Büchel, R. Hiremagalore, G. Pohla‐Gubo, P.C. Akker, K. Wertheim‐Tysarowska, and G. Zambruno. Clinical practice guidelines for laboratory diagnosis of epidermolysis bullosa. The British Journal of Dermatology, 182:574-592, Aug 2019. URL: https://doi.org/10.1111/bjd.18128, doi:10.1111/bjd.18128. This article has 186 citations.</p>
+</li>
+<li>
+<p>(has2019clinicalpracticeguidelines pages 2-3): C. Has, L. Liu, M.C. Bolling, A.V. Charlesworth, M. El Hachem, M.J. Escámez, I. Fuentes, S. Büchel, R. Hiremagalore, G. Pohla‐Gubo, P.C. Akker, K. Wertheim‐Tysarowska, and G. Zambruno. Clinical practice guidelines for laboratory diagnosis of epidermolysis bullosa. The British Journal of Dermatology, 182:574-592, Aug 2019. URL: https://doi.org/10.1111/bjd.18128, doi:10.1111/bjd.18128. This article has 186 citations.</p>
+</li>
+<li>
+<p>(danescu2024treatmentofepidermolysis pages 1-4): Sorina Danescu, Mircea Negrutiu, and Cristina Has. Treatment of epidermolysis bullosa and future directions: a review. Dermatology and Therapy, 14:2059-2075, Aug 2024. URL: https://doi.org/10.1007/s13555-024-01227-8, doi:10.1007/s13555-024-01227-8. This article has 14 citations.</p>
+</li>
+<li>
+<p>(danescu2024treatmentofepidermolysis pages 4-5): Sorina Danescu, Mircea Negrutiu, and Cristina Has. Treatment of epidermolysis bullosa and future directions: a review. Dermatology and Therapy, 14:2059-2075, Aug 2024. URL: https://doi.org/10.1007/s13555-024-01227-8, doi:10.1007/s13555-024-01227-8. This article has 14 citations.</p>
+</li>
+<li>
+<p>(rosa2021hologene5a pages 1-2): Laura De Rosa, Elena Enzo, Giulia Zardi, Christine Bodemer, Cristina Magnoni, Holm Schneider, and Michele De Luca. Hologene 5: a phase ii/iii clinical trial of combined cell and gene therapy of junctional epidermolysis bullosa. Frontiers in Genetics, Sep 2021. URL: https://doi.org/10.3389/fgene.2021.705019, doi:10.3389/fgene.2021.705019. This article has 35 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(NCT04140786 chunk 1): David Woodley. Optimizing IV Gentamicin in JEB. University of Southern California. 2019. ClinicalTrials.gov Identifier: NCT04140786</p>
+</li>
+<li>
+<p>(natsuga2010animalmodelsof pages 1-2): Ken Natsuga, Satoru Shinkuma, Wataru Nishie, and Hiroshi Shimizu. Animal models of epidermolysis bullosa. Dermatologic clinics, 28 1:137-42, Jan 2010. URL: https://doi.org/10.1016/j.det.2009.10.016, doi:10.1016/j.det.2009.10.016. This article has 32 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(NCT03526159 chunk 2): David Woodley. Gentamicin for Junctional Epidermolysis Bullosa. University of Southern California. 2018. ClinicalTrials.gov Identifier: NCT03526159</p>
+</li>
+<li>
+<p>(NCT04140786 chunk 2): David Woodley. Optimizing IV Gentamicin in JEB. University of Southern California. 2019. ClinicalTrials.gov Identifier: NCT04140786</p>
+</li>
+<li>
+<p>(NCT03578029 chunk 1):  Evaluation of the Safety and Efficacy Study of RGN-137 Topical Gel for Junctional and Dystrophic Epidermolysis Bullosa. Lenus Therapeutics, LLC. 2019. ClinicalTrials.gov Identifier: NCT03578029</p>
+</li>
+<li>
+<p>(NCT03578029 chunk 2):  Evaluation of the Safety and Efficacy Study of RGN-137 Topical Gel for Junctional and Dystrophic Epidermolysis Bullosa. Lenus Therapeutics, LLC. 2019. ClinicalTrials.gov Identifier: NCT03578029</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
             
         </div>
         
@@ -7386,7 +8732,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Junctional Epidermolysis Bullosa", "mondoId": "MONDO:0017612", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Junctional_Epidermolysis_Bullosa", "yamlRevision": "02b490dedbc8"};
+        const OS_CONFIG = {"diseaseName": "Junctional Epidermolysis Bullosa", "mondoId": "MONDO:0017612", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Junctional_Epidermolysis_Bullosa", "yamlRevision": "11934136797b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

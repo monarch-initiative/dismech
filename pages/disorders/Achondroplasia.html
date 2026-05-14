@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,7 +2570,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">FGFR3-related skeletal dysplasia</span>
@@ -2579,7 +2732,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">8</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -2587,7 +2740,7 @@
             
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
@@ -3661,7 +3814,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"CNP-NPR2 counter-regulatory pathway\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"C-type natriuretic peptide (CNP) signaling through NPR-B (NPR2) physiologically antagonizes FGFR3-MAPK activity in growth plate chondrocytes. CNP inhibits the MAPK pathway downstream of FGFR3, correcting decreased extracellular matrix synthesis but not affecting the STAT1-mediated proliferation defect. This counter-regulatory pathway provides the mechanistic rationale for CNP analog therapy (vosoritide).\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Growth plate chondrocyte\"], \"biological_processes\": [\"Receptor guanylyl cyclase signaling pathway\", \"MAPK cascade\"]}}, {\"id\": \"Cranial base synchondrosis closure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FGFR3-MAPK activation accelerates closure of cranial base synchondroses and fusion of ossification centers, leading to premature cranial base fusion and narrowing of the foramen magnum. This mechanism underlies the foramen magnum stenosis that poses a risk of cervicomedullary compression and sudden death in infancy.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Growth plate chondrocyte\"], \"biological_processes\": [\"MAPK cascade\", \"Endochondral ossification\"]}}, {\"id\": \"FGFR3 G380R mutation\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"association\": \"Causative\", \"variant_count\": 1}}, {\"id\": \"FGFR3 gain-of-function signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The FGFR3 G380R mutation causes constitutive activation of the receptor, leading to enhanced downstream signaling through STAT1, MAPK/ERK, and p38 MAPK pathways. This results in premature cell cycle arrest of growth plate chondrocytes, reduced chondrocyte proliferation and hypertrophy, and impaired endochondral bone formation. The receptor normally serves as a negative regulator of bone growth; its overactivation leads to the shortened long bones characteristic of achondroplasia.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Growth plate chondrocyte\", \"Hypertrophic chondrocyte\"], \"biological_processes\": [\"FGFR signaling pathway\", \"Endochondral ossification\", \"Chondrocyte differentiation\"], \"genes\": [\"FGFR3\"], \"pdb_structures\": [{\"pdb_id\": \"4BSK\", \"description\": \"FGFR3 kinase domain crystal structure showing the constitutively active conformation caused by achondroplasia-associated pathogenic mutations\", \"resolution_angstrom\": 2.3, \"method\": \"X-ray\", \"target_protein\": \"FGFR3 kinase domain\"}]}}, {\"id\": \"Impaired growth plate cartilage development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the growth plate, FGFR3 overactivation disrupts the normal columnar organization of chondrocytes and reduces the height of the proliferative and hypertrophic zones. This results in shortened and disorganized growth plates with reduced longitudinal bone growth, particularly affecting the long bones of the limbs (rhizomelic pattern) and the skull base (leading to foramen magnum stenosis).\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Columnar chondrocyte\"], \"biological_processes\": [\"Growth plate chondrocyte differentiation\", \"Growth plate cartilage development\"]}}, {\"id\": \"MAPK-mediated inhibition of chondrocyte differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The MAPK/ERK cascade is a principal effector of FGFR3-driven growth inhibition. Constitutive activation of MEK1 in chondrocytes causes achondroplasia-like dwarfism with incomplete hypertrophy and delayed endochondral ossification, while chondrocyte proliferation remains unaffected. The MAPK pathway inhibits hypertrophic differentiation, and STAT1 mediates inhibition of chondrocyte proliferation as a parallel pathway. Upregulation of FGFR3, Stat1, Stat5, and p21Cip1 in the prehypertrophic-hypertrophic zone correlates with disease severity and impaired chondrocyte differentiation.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Growth plate chondrocyte\", \"Prehypertrophic chondrocyte\"], \"biological_processes\": [\"MAPK cascade\", \"Chondrocyte differentiation\"]}}, {\"id\": \"Vosoritide (Voxzogo)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"C-type natriuretic peptide (CNP) analog that counteracts FGFR3 overactivation by stimulating the NPR-B receptor, promoting endochondral bone growth. FDA approved in 2021 for children aged 5 years and older with open growth plates. Phase 3 extension data demonstrated sustained growth-promoting effects for up to 6 years, with a mean additional height gain of 5.75 cm over 3 years compared to untreated controls.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"vosoritide\"]}}, {\"id\": \"c.1138G\u003eA (p.Gly380Arg)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The most common causative mutation, accounting for over 95% of cases.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"FGFR3 gain-of-function signaling\", \"target\": \"MAPK-mediated inhibition of chondrocyte differentiation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FGFR3 gain-of-function signaling\", \"target\": \"Impaired growth plate cartilage development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired growth plate cartilage development\", \"target\": \"Cranial base synchondrosis closure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vosoritide (Voxzogo)\", \"target\": \"CNP-NPR2 counter-regulatory pathway\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"c.1138G\u003eA (p.Gly380Arg)\", \"target\": \"FGFR3 G380R mutation\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"CNP-NPR2 counter-regulatory pathway\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"C-type natriuretic peptide (CNP) signaling through NPR-B (NPR2) physiologically antagonizes FGFR3-MAPK activity in growth plate chondrocytes. CNP inhibits the MAPK pathway downstream of FGFR3, correcting decreased extracellular matrix synthesis but not affecting the STAT1-mediated proliferation defect. This counter-regulatory pathway provides the mechanistic rationale for CNP analog therapy (vosoritide).\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Growth plate chondrocyte\"], \"biological_processes\": [\"Receptor guanylyl cyclase signaling pathway\", \"MAPK cascade\"]}}, {\"id\": \"Cranial base synchondrosis closure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FGFR3-MAPK activation accelerates closure of cranial base synchondroses and fusion of ossification centers, leading to premature cranial base fusion and narrowing of the foramen magnum. This mechanism underlies the foramen magnum stenosis that poses a risk of cervicomedullary compression and sudden death in infancy.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Growth plate chondrocyte\"], \"biological_processes\": [\"MAPK cascade\", \"Endochondral ossification\"]}}, {\"id\": \"FGFR3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FGFR3\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"FGFR3 G380R mutation\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"association\": \"Causative\", \"variant_count\": 1}}, {\"id\": \"FGFR3 gain-of-function signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The FGFR3 G380R mutation causes constitutive activation of the receptor, leading to enhanced downstream signaling through STAT1, MAPK/ERK, and p38 MAPK pathways. This results in premature cell cycle arrest of growth plate chondrocytes, reduced chondrocyte proliferation and hypertrophy, and impaired endochondral bone formation. The receptor normally serves as a negative regulator of bone growth; its overactivation leads to the shortened long bones characteristic of achondroplasia.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Growth plate chondrocyte\", \"Hypertrophic chondrocyte\"], \"biological_processes\": [\"FGFR signaling pathway\", \"Endochondral ossification\", \"Chondrocyte differentiation\"], \"genes\": [\"FGFR3\"], \"pdb_structures\": [{\"pdb_id\": \"4BSK\", \"description\": \"FGFR3 kinase domain crystal structure showing the constitutively active conformation caused by achondroplasia-associated pathogenic mutations\", \"resolution_angstrom\": 2.3, \"method\": \"X-ray\", \"target_protein\": \"FGFR3 kinase domain\"}]}}, {\"id\": \"Impaired growth plate cartilage development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the growth plate, FGFR3 overactivation disrupts the normal columnar organization of chondrocytes and reduces the height of the proliferative and hypertrophic zones. This results in shortened and disorganized growth plates with reduced longitudinal bone growth, particularly affecting the long bones of the limbs (rhizomelic pattern) and the skull base (leading to foramen magnum stenosis).\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Columnar chondrocyte\"], \"biological_processes\": [\"Growth plate chondrocyte differentiation\", \"Growth plate cartilage development\"]}}, {\"id\": \"MAPK-mediated inhibition of chondrocyte differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The MAPK/ERK cascade is a principal effector of FGFR3-driven growth inhibition. Constitutive activation of MEK1 in chondrocytes causes achondroplasia-like dwarfism with incomplete hypertrophy and delayed endochondral ossification, while chondrocyte proliferation remains unaffected. The MAPK pathway inhibits hypertrophic differentiation, and STAT1 mediates inhibition of chondrocyte proliferation as a parallel pathway. Upregulation of FGFR3, Stat1, Stat5, and p21Cip1 in the prehypertrophic-hypertrophic zone correlates with disease severity and impaired chondrocyte differentiation.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Growth plate chondrocyte\", \"Prehypertrophic chondrocyte\"], \"biological_processes\": [\"MAPK cascade\", \"Chondrocyte differentiation\"]}}, {\"id\": \"Vosoritide (Voxzogo)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"C-type natriuretic peptide (CNP) analog that counteracts FGFR3 overactivation by stimulating the NPR-B receptor, promoting endochondral bone growth. FDA approved in 2021 for children aged 5 years and older with open growth plates. Phase 3 extension data demonstrated sustained growth-promoting effects for up to 6 years, with a mean additional height gain of 5.75 cm over 3 years compared to untreated controls.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"vosoritide\"]}}, {\"id\": \"c.1138G\u003eA (p.Gly380Arg)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The most common causative mutation, accounting for over 95% of cases.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"FGFR3 gain-of-function signaling\", \"target\": \"MAPK-mediated inhibition of chondrocyte differentiation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FGFR3 gain-of-function signaling\", \"target\": \"Impaired growth plate cartilage development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired growth plate cartilage development\", \"target\": \"Cranial base synchondrosis closure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vosoritide (Voxzogo)\", \"target\": \"CNP-NPR2 counter-regulatory pathway\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"FGFR3\", \"target\": \"FGFR3 gain-of-function signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.1138G\u003eA (p.Gly380Arg)\", \"target\": \"FGFR3 G380R mutation\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5905,7 +6058,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">1</span>
+                <span class="card-count">2</span>
             </div>
             
             <div class="item-box genetic-box">
@@ -5959,6 +6112,49 @@
                 
                 
                 <div class="evidence-explanation">Orphanet confirms FGFR3 gain-of-function germline mutations as the genetic cause of achondroplasia.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    FGFR3
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_0adafa1b-e609-4b99-8e90-f73473b70771-2023-09-28T040000.000Z" target="_blank">CGGV:assertion_0adafa1b-e609-4b99-8e90-f73473b70771-2023-09-28T040000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"FGFR3 | HGNC:3690 | achondroplasia | MONDO:0007037 | AD | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the FGFR3-achondroplasia gene-disease relationship as definitive with autosomal dominant inheritance.</div>
                 
             </div>
             
@@ -7406,6 +7602,20 @@ genetic:
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Both mutations result in the substitution of an arginine residue for a glycine at position 380 of the mature protein, which is in the transmembrane domain of FGFR3.&#34;
       explanation: Original discovery paper identifying the specific G380R substitution in the FGFR3 transmembrane domain as the cause of achondroplasia.
+- name: FGFR3
+  gene_term:
+    preferred_term: FGFR3
+    term:
+      id: hgnc:3690
+      label: FGFR3
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_0adafa1b-e609-4b99-8e90-f73473b70771-2023-09-28T040000.000Z
+    reference_title: &#34;FGFR3 / achondroplasia (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;FGFR3 | HGNC:3690 | achondroplasia | MONDO:0007037 | AD | Definitive&#34;
+    explanation: ClinGen classifies the FGFR3-achondroplasia gene-disease relationship as definitive with autosomal dominant inheritance.
 treatments:
 - name: Vosoritide (Voxzogo)
   description: &gt;
@@ -8000,7 +8210,7 @@ Achondroplasia is caused by germline gain-of-function variants in FGFR3 that inc
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Achondroplasia", "mondoId": "MONDO:0007037", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Achondroplasia", "yamlRevision": "686f42b66d4e"};
+        const OS_CONFIG = {"diseaseName": "Achondroplasia", "mondoId": "MONDO:0007037", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Achondroplasia", "yamlRevision": "2fd491c1b415"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

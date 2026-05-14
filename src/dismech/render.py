@@ -19,6 +19,9 @@ from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
 from dismech.graph import build_causal_graph, generate_mermaid, graph_to_json
 
 _HPO_CATEGORY_CACHE_PATH = Path("app/hpo_category_cache.json")
+_FDA_SURROGATE_ENDPOINTS_RELATIVE_PATH = Path(
+    "surrogate_endpoints/fda_surrogate_endpoints.yaml"
+)
 _LITERATURE_START_PATTERNS = (
     re.compile(r"(?m)^# .+\bReport\s*$"),
     re.compile(r"(?m)^Disease (?:Pathophysiology|Characteristics) Research Report\s*$"),
@@ -30,6 +33,10 @@ _LITERATURE_START_PATTERNS = (
     re.compile(r"(?m)^## \d+\. Disease Information\b.*$"),
     re.compile(r"(?m)^## Disease Information\b.*$"),
     re.compile(r"(?m)^### Disorder\s*$"),
+)
+_RELATIVE_URL_ATTR_PATTERN = re.compile(
+    r'(?P<attr>\b(?:src|href))=(?P<quote>["\'])(?P<url>[^"\']+)(?P=quote)',
+    re.IGNORECASE,
 )
 
 # Canonical display order for phenotype categories (matches HPO_TOP_LEVEL_CATEGORIES)
@@ -445,6 +452,82 @@ def _annotate_model_links(disorder: dict) -> None:
                 )
 
             model["_modeled_mechanisms_resolved"] = resolved_links
+
+
+def _resolve_fda_surrogate_endpoints_path(yaml_path: Path) -> Path:
+    """Resolve the FDA surrogate endpoint source table relative to a disease file."""
+    nearby_kb_path = yaml_path.parent.parent / _FDA_SURROGATE_ENDPOINTS_RELATIVE_PATH
+    if nearby_kb_path.exists():
+        return nearby_kb_path
+    return Path("kb") / _FDA_SURROGATE_ENDPOINTS_RELATIVE_PATH
+
+
+@lru_cache(maxsize=8)
+def _load_fda_surrogate_endpoint_index(source_path: str) -> dict[str, dict]:
+    """Load source-level FDA surrogate endpoint rows by stable row_id."""
+    path = Path(source_path)
+    if not path.exists():
+        return {}
+    data = yaml.safe_load(path.read_text()) or {}
+    rows = data.get("surrogate_endpoints") or []
+    return {
+        str(row["row_id"]): row
+        for row in rows
+        if isinstance(row, dict) and row.get("row_id")
+    }
+
+
+def _summarize_regulatory_endpoint(row: dict) -> dict:
+    """Return the row fields needed for compact disease-page display."""
+    fields = (
+        "row_id",
+        "source_table",
+        "disease_or_use",
+        "patient_population",
+        "surrogate_endpoint",
+        "approval_type",
+        "drug_mechanism_of_action",
+        "age_range",
+        "endpoint_validation_level",
+        "clinical_benefit_linkage",
+        "context_of_use",
+        "source_url",
+    )
+    return {field: row[field] for field in fields if row.get(field) is not None}
+
+
+def _annotate_regulatory_endpoint_refs(disorder: dict, yaml_path: Path) -> None:
+    """Resolve biomarker readout FDA row refs for rendering without duplicating curation."""
+    source_path = _resolve_fda_surrogate_endpoints_path(yaml_path)
+    endpoint_index = _load_fda_surrogate_endpoint_index(str(source_path.resolve()))
+    if not endpoint_index:
+        return
+
+    for biomarker in disorder.get("biochemical") or []:
+        if not isinstance(biomarker, dict):
+            continue
+        for readout in biomarker.get("readouts") or []:
+            if not isinstance(readout, dict):
+                continue
+            refs = readout.get("regulatory_endpoint_refs") or []
+            if isinstance(refs, str):
+                refs = [refs]
+                readout["regulatory_endpoint_refs"] = refs
+            if not isinstance(refs, list):
+                continue
+
+            resolved = []
+            missing = []
+            for ref in refs:
+                row = endpoint_index.get(str(ref))
+                if row is None:
+                    missing.append(str(ref))
+                else:
+                    resolved.append(_summarize_regulatory_endpoint(row))
+            if resolved:
+                readout["_regulatory_endpoints"] = resolved
+            if missing:
+                readout["_missing_regulatory_endpoint_refs"] = missing
 
 
 def load_disorder(yaml_path: Path) -> dict:
@@ -879,8 +962,28 @@ def _humanize_provider(value: str | None) -> str | None:
     )
 
 
+def _rebase_relative_html_urls(html: str, base_prefix: str) -> str:
+    """Prefix relative src/href URLs so embedded report assets resolve from the page."""
+    if not html or base_prefix in {"", "."}:
+        return html
+
+    def _replace(match: re.Match[str]) -> str:
+        url = match.group("url")
+        if re.match(r"^(?:[a-z][a-z0-9+.-]*:|/|#|\?)", url, re.IGNORECASE):
+            return match.group(0)
+        rebased = f"{base_prefix.rstrip('/')}/{url.lstrip('./')}"
+        return (
+            f"{match.group('attr')}={match.group('quote')}"
+            f"{rebased}{match.group('quote')}"
+        )
+
+    return _RELATIVE_URL_ATTR_PATTERN.sub(_replace, html)
+
+
 def collect_reports(
-    disorder_slug: str, reports_root: Path = Path("reports")
+    disorder_slug: str,
+    reports_root: Path = Path("reports"),
+    output_dir: Path | None = None,
 ) -> list[dict]:
     """Collect markdown report files for a disorder and convert to HTML.
 
@@ -900,6 +1003,9 @@ def collect_reports(
         text = md_path.read_text()
         md.reset()
         html = md.convert(text)
+        if output_dir is not None:
+            base_prefix = os.path.relpath(md_path.parent.resolve(), output_dir.resolve())
+            html = _rebase_relative_html_urls(html, base_prefix)
         title = md_path.stem
         for line in text.splitlines():
             stripped = line.strip()
@@ -913,6 +1019,7 @@ def collect_reports(
 def collect_literature_summaries(
     disorder_slug: str,
     research_root: Path = Path("research"),
+    output_dir: Path | None = None,
 ) -> list[dict]:
     """Collect deep-research markdown summaries for a disorder and convert to HTML."""
     if not research_root.is_dir():
@@ -927,6 +1034,9 @@ def collect_literature_summaries(
             continue
         md.reset()
         html = md.convert(body)
+        if output_dir is not None:
+            base_prefix = os.path.relpath(md_path.parent.resolve(), output_dir.resolve())
+            html = _rebase_relative_html_urls(html, base_prefix)
         title = _humanize_provider(metadata.get("provider")) or _extract_display_title(
             body, md_path.stem
         )
@@ -967,6 +1077,7 @@ def render_disorder(
     # Load the disorder data
     disorder = load_disorder(yaml_path)
     _augment_mapping_hierarchies(disorder)
+    _annotate_regulatory_endpoint_refs(disorder, yaml_path)
 
     # Read raw YAML for display
     yaml_content = yaml_path.read_text()
@@ -1001,6 +1112,7 @@ def render_disorder(
     # Register custom filters
     current_term_id = _extract_disorder_term_id(disorder)
     env.filters["curie_to_url"] = curie_to_url
+    env.filters["basename"] = lambda p: Path(p).name
     env.filters["dismech_page_url"] = _build_dismech_page_url_filter(
         yaml_path.parent,
         excluded_term_ids={current_term_id} if current_term_id else None,
@@ -1027,10 +1139,15 @@ def render_disorder(
     research_root = _resolve_nearby_dir(yaml_path.parent, "research")
     disorder_slug = slugify(disorder.get("name") or yaml_path.stem)
     file_stem = yaml_path.stem
-    report_sections = collect_reports(disorder_slug, reports_root=reports_root)
+    report_sections = collect_reports(
+        disorder_slug,
+        reports_root=reports_root,
+        output_dir=output_path.parent,
+    )
     literature_sections = collect_literature_summaries(
         disorder_slug,
         research_root=research_root,
+        output_dir=output_path.parent,
     )
     # Research files are named after the YAML file stem, which may differ from
     # the slugified disorder name.  Fall back to the file stem when needed.
@@ -1038,9 +1155,14 @@ def render_disorder(
         literature_sections = collect_literature_summaries(
             file_stem,
             research_root=research_root,
+            output_dir=output_path.parent,
         )
     if not report_sections and file_stem != disorder_slug:
-        report_sections = collect_reports(file_stem, reports_root=reports_root)
+        report_sections = collect_reports(
+            file_stem,
+            reports_root=reports_root,
+            output_dir=output_path.parent,
+        )
 
     # Group phenotypes by HPO broad category
     phenotype_groups = _group_phenotypes_by_category(disorder.get("phenotypes") or [])
@@ -1052,6 +1174,12 @@ def render_disorder(
     openscientist_proxy_url = os.environ.get(
         "OPENSCIENTIST_PROXY_URL",
         "https://dismech-openscientist.bbop.workers.dev",
+    )
+
+    # Relative path from the output page directory to research root, so that
+    # artifact image <img src="..."> paths resolve correctly in the HTML.
+    research_root_rel = os.path.relpath(
+        research_root.resolve(), output_path.parent.resolve()
     )
 
     html = template.render(
@@ -1066,6 +1194,7 @@ def render_disorder(
         phenotype_groups=phenotype_groups,
         report_sections=report_sections,
         literature_sections=literature_sections,
+        research_root_rel=research_root_rel,
         # OpenScientist integration
         disorder_slug=disorder_slug,
         yaml_revision=yaml_revision,

@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -3094,7 +3247,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Combined immunodeficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Combined immunodeficiency is a central clinical manifestation of Cernunnos-XLF deficiency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005387\"}}, {\"id\": \"Defective V(D)J recombination and lymphocyte development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NHEJ pathway failure impairs repair of programmed DNA breaks during B-cell and T-cell development, producing combined immunodeficiency.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T cell\", \"B cell\"], \"biological_processes\": [\"V(D)J recombination\"]}}, {\"id\": \"Developmental growth impairment from DNA repair failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NHEJ1 deficiency causes a syndromic developmental phenotype with impaired growth and reduced brain growth in addition to immunodeficiency.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Growth delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe growth retardation is part of the syndromic phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001510\"}}, {\"id\": \"Hematopoietic stem cell transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hematopoietic stem cell transplantation can provide curative treatment for the severe immunodeficiency component of the disease.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Immunoglobulin replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Regular IVIG prophylaxis can reduce infection burden in affected individuals with antibody deficiency.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly is a recurring syndromic feature in Cernunnos-XLF deficiency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000252\"}}, {\"id\": \"NHEJ1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NHEJ1\"], \"association\": \"Causal loss-of-function variant\"}}, {\"id\": \"NHEJ1-related nonhomologous end joining defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cernunnos-XLF deficiency results from NHEJ1 dysfunction within the nonhomologous end joining DNA repair pathway, producing a radiosensitive DNA repair defect.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"double-strand break repair via nonhomologous end joining\"], \"genes\": [\"NHEJ1\"]}}, {\"id\": \"Radiosensitivity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Radiosensitivity is a cardinal feature of Cernunnos-XLF deficiency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011133\"}}], \"edges\": [{\"source\": \"NHEJ1-related nonhomologous end joining defect\", \"target\": \"Defective V(D)J recombination and lymphocyte development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"NHEJ1-related nonhomologous end joining defect\", \"target\": \"Developmental growth impairment from DNA repair failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Defective V(D)J recombination and lymphocyte development\", \"target\": \"Combined immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Defective V(D)J recombination and lymphocyte development\", \"target\": \"Radiosensitivity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Developmental growth impairment from DNA repair failure\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Developmental growth impairment from DNA repair failure\", \"target\": \"Growth delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation\", \"target\": \"Combined immunodeficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Immunoglobulin replacement therapy\", \"target\": \"Combined immunodeficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"NHEJ1\", \"target\": \"NHEJ1-related nonhomologous end joining defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Combined immunodeficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Combined immunodeficiency is a central clinical manifestation of Cernunnos-XLF deficiency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005387\"}}, {\"id\": \"Defective V(D)J recombination and lymphocyte development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NHEJ pathway failure impairs repair of programmed DNA breaks during B-cell and T-cell development, producing combined immunodeficiency.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T cell\", \"B cell\"], \"biological_processes\": [\"V(D)J recombination\"]}}, {\"id\": \"Developmental growth impairment from DNA repair failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NHEJ1 deficiency causes a syndromic developmental phenotype with impaired growth and reduced brain growth in addition to immunodeficiency.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Growth delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe growth retardation is part of the syndromic phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001510\"}}, {\"id\": \"Hematopoietic stem cell transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hematopoietic stem cell transplantation can provide curative treatment for the severe immunodeficiency component of the disease.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Immunoglobulin replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Regular IVIG prophylaxis can reduce infection burden in affected individuals with antibody deficiency.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"human immunoglobulin G\"]}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly is a recurring syndromic feature in Cernunnos-XLF deficiency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000252\"}}, {\"id\": \"NHEJ1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"NHEJ1\"], \"association\": \"Causal loss-of-function variant\"}}, {\"id\": \"NHEJ1-related nonhomologous end joining defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cernunnos-XLF deficiency results from NHEJ1 dysfunction within the nonhomologous end joining DNA repair pathway, producing a radiosensitive DNA repair defect.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"double-strand break repair via nonhomologous end joining\"], \"genes\": [\"NHEJ1\"]}}, {\"id\": \"Radiosensitivity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Radiosensitivity is a cardinal feature of Cernunnos-XLF deficiency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011133\"}}], \"edges\": [{\"source\": \"NHEJ1-related nonhomologous end joining defect\", \"target\": \"Defective V(D)J recombination and lymphocyte development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"NHEJ1-related nonhomologous end joining defect\", \"target\": \"Developmental growth impairment from DNA repair failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Defective V(D)J recombination and lymphocyte development\", \"target\": \"Combined immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Defective V(D)J recombination and lymphocyte development\", \"target\": \"Radiosensitivity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Developmental growth impairment from DNA repair failure\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Developmental growth impairment from DNA repair failure\", \"target\": \"Growth delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation\", \"target\": \"Combined immunodeficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Immunoglobulin replacement therapy\", \"target\": \"Combined immunodeficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"NHEJ1\", \"target\": \"NHEJ1-related nonhomologous end joining defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3426,7 +3579,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -3447,6 +3600,26 @@
                 
                 
                 <div class="evidence-explanation">This directly supports NHEJ1 as the causal gene in Cernunnos-XLF deficiency.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_765b118e-c60a-4696-b401-f63b3349d6d2-2021-05-20T151233.276Z" target="_blank">CGGV:assertion_765b118e-c60a-4696-b401-f63b3349d6d2-2021-05-20T151233.276Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"NHEJ1 | HGNC:25737 | Cernunnos-XLF deficiency | MONDO:0012650 | AR | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the NHEJ1-Cernunnos-XLF deficiency gene-disease relationship as definitive with autosomal recessive inheritance.</div>
                 
             </div>
             
@@ -3592,6 +3765,18 @@
                 </div>
                 
                 
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        human immunoglobulin G
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C80829" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
                 
                 
                 
@@ -3836,7 +4021,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Cernunnos-XLF deficiency
 creation_date: &#34;2026-04-15T15:45:03Z&#34;
-updated_date: &#34;2026-04-16T00:04:54Z&#34;
+updated_date: &#34;2026-05-05T00:00:00Z&#34;
 description: &gt;-
   Cernunnos-XLF deficiency is a rare NHEJ1-related syndromic primary
   immunodeficiency characterized by defective nonhomologous end joining,
@@ -4039,6 +4224,12 @@ genetic:
     snippet: &gt;-
       Patients were found to have a homozygous splice site mutation immediately downstream of exon 3 in NHEJ1 (c.390 + 1G &gt; C).
     explanation: This directly supports NHEJ1 as the causal gene in Cernunnos-XLF deficiency.
+  - reference: CGGV:assertion_765b118e-c60a-4696-b401-f63b3349d6d2-2021-05-20T151233.276Z
+    reference_title: &#34;NHEJ1 / Cernunnos-XLF deficiency (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;NHEJ1 | HGNC:25737 | Cernunnos-XLF deficiency | MONDO:0012650 | AR | Definitive&#34;
+    explanation: ClinGen classifies the NHEJ1-Cernunnos-XLF deficiency gene-disease relationship as definitive with autosomal recessive inheritance.
 environmental: []
 treatments:
 - name: Hematopoietic stem cell transplantation
@@ -4068,17 +4259,11 @@ treatments:
     term:
       id: NCIT:C121331
       label: Intravenous Immunoglobulin Therapy
-    qualifiers:
-    - predicate:
-        preferred_term: pharmacologic substance
-        term:
-          id: NCIT:C1909
-          label: Pharmacologic Substance
-      value:
-        preferred_term: human immunoglobulin G
-        term:
-          id: NCIT:C80829
-          label: Human Immunoglobulin G
+    therapeutic_agent:
+    - preferred_term: human immunoglobulin G
+      term:
+        id: NCIT:C80829
+        label: Human Immunoglobulin G
   target_phenotypes:
   - preferred_term: Combined immunodeficiency
     term:
@@ -4590,7 +4775,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Cernunnos-XLF deficiency", "mondoId": "MONDO:0012650", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cernunnos-XLF_deficiency", "yamlRevision": "ede45d31eaef"};
+        const OS_CONFIG = {"diseaseName": "Cernunnos-XLF deficiency", "mondoId": "MONDO:0012650", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cernunnos-XLF_deficiency", "yamlRevision": "e6fd46d91cc7"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

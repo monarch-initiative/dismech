@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2416,6 +2569,8 @@
                     </a>
                 </span>
                 
+                
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 13</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Glycogen Storage Disease</span>
@@ -2573,16 +2728,20 @@
             </a>
             
             
+            <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">13</div>
                 <div class="stat-label">Pathograph</div>
             </div>
+            </a>
             
             
+            <a class="stat-link" href="#genetic">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">1</div>
                 <div class="stat-label">Genes</div>
             </div>
+            </a>
             
             
             <a class="stat-link" href="#treatments">
@@ -3019,6 +3178,10 @@
     
     
     
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
     
     
     
@@ -3039,6 +3202,63 @@
     
     
     
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        4-alpha-glucanotransferase activity
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0004134" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    <span class="tag tag-bio">
+                        amylo-alpha-1,6-glucosidase activity
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0004135" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
     
     
     
@@ -3054,8 +3274,42 @@
                 
                 
                 
-                
 	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hepatic glycogen accumulation and fibrosis</span>
+	                            
+	                            <span class="crosslink-desc">Loss of AGL debranching activity leaves incompletely degraded glycogen in hepatocytes, driving hepatic storage injury and fibrosis risk.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Skeletal and cardiac myopathy</span>
+	                            
+	                            <span class="crosslink-desc">In GSD IIIa, the same debranching block affects skeletal and cardiac muscle, causing progressive glycogen storage myopathy and cardiomyopathy.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Fasting hypoglycemia</span>
+	                            
+	                            <span class="crosslink-desc">Impaired hepatic glycogen mobilization limits fasting glucose release and clinically manifests as ketotic fasting hypoglycemia.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Failure to thrive</span>
+	                            
+	                            <span class="crosslink-desc">Recurrent early-life fasting hypoglycemia and hepatic metabolic disease contribute to poor growth.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
 	                
 	                
     
@@ -3216,6 +3470,34 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hepatomegaly</span>
+	                            
+	                            <span class="crosslink-desc">Hepatic limit-dextrin and glycogen storage enlarges the liver.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Elevated circulating hepatic transaminase concentration</span>
+	                            
+	                            <span class="crosslink-desc">Hepatocyte storage injury elevates circulating aminotransferases early in disease.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hepatic fibrosis</span>
+	                            
+	                            <span class="crosslink-desc">Chronic hepatic glycogen storage injury can progress to fibrosis, cirrhosis, and related complications.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
@@ -3357,6 +3639,10 @@
     
     
     
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
     
     
     
@@ -3374,6 +3660,34 @@
                 
                 
 	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Myopathy</span>
+	                            
+	                            <span class="crosslink-desc">Skeletal muscle glycogen storage causes progressive weakness and exercise intolerance in GSD IIIa.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hypertrophic cardiomyopathy</span>
+	                            
+	                            <span class="crosslink-desc">Cardiac muscle glycogen storage commonly manifests as left ventricular hypertrophy and cardiomyopathy.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Elevated circulating creatine kinase concentration</span>
+	                            
+	                            <span class="crosslink-desc">Skeletal muscle involvement is reflected biochemically by persistently elevated creatine kinase.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
 	                
 	                
     
@@ -3457,6 +3771,29 @@
         
 
         <!-- Causal Graph (Pathograph) -->
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
+                <h2 class="card-title">Pathograph</h2>
+            </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
+            
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for Cori Forbes Disease</title>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
+            </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AGL\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"AGL\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Dietary management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Frequent meals and cornstarch supplementation to prevent hypoglycemia. High-protein diet (3 g/kg) is recommended to provide amino acid substrate for gluconeogenesis and to support muscle integrity. Uncooked cornstarch provides a slow-release glucose source. Modified Atkins or ketogenic diets may improve cardiac and skeletal muscle function by reducing glycogen storage.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Elevated circulating creatine kinase concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated CK levels reflecting skeletal muscle involvement, frequently found in GSD IIIa patients. CK is significantly associated with disease burden.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"HP_0040282\", \"term_id\": \"HP:0003236\"}}, {\"id\": \"Elevated circulating hepatic transaminase concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated liver transaminases (AST and ALT) reflecting hepatocyte injury from glycogen accumulation. Tend to normalize with age as fibrosis progresses.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"HP_0040281\", \"term_id\": \"HP:0002910\"}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth retardation and short stature, particularly in childhood, due to metabolic derangements and recurrent hypoglycemia.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"HP_0040282\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Fasting hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ketotic hypoglycemia during fasting due to impaired glycogenolysis. Less severe than in GSD I because gluconeogenesis is intact. More than half of patients report hospitalizations due to hypoglycemia.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"HP_0040281\", \"term_id\": \"HP:0003162\"}}, {\"id\": \"Glycogen debranching enzyme deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficiency of the glycogen debranching enzyme (AGL) impairs the complete degradation of glycogen. The enzyme normally has two catalytic activities: oligo-1,4-1,4-glucantransferase (transferase) and amylo-1,6-glucosidase (glucosidase). Without this enzyme, glycogen breakdown halts at the branch points, leading to accumulation of limit dextrin (abnormally short-branched glycogen) in hepatocytes, skeletal myocytes, and cardiomyocytes.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Hepatocyte\", \"Skeletal muscle cell\", \"Cardiac muscle cell\"], \"biological_processes\": [\"Glycogen catabolic process\", \"Glucose metabolic process\"], \"molecular_functions\": [\"4-alpha-glucanotransferase activity\", \"amylo-alpha-1,6-glucosidase activity\"], \"genes\": [\"AGL\"]}}, {\"id\": \"Hepatic fibrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive hepatic fibrosis develops in many patients, potentially leading to cirrhosis in adulthood. Fibrosis can be present from infancy and may be severe even in young children.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"HP_0040282\", \"term_id\": \"HP:0001395\"}}, {\"id\": \"Hepatic glycogen accumulation and fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive accumulation of limit dextrin in hepatocytes causes hepatomegaly and hepatic dysfunction. Over time, the glycogen storage leads to hepatocyte injury, inflammation, fibrosis, and potentially cirrhosis. Hepatocellular adenomas and carcinoma can develop as long-term complications. Liver fibrosis can begin early in life; aminotransferases may paradoxically normalize with age as fibrosis progresses.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Hepatocyte\"], \"biological_processes\": [\"Glycogen metabolic process\", \"Carbohydrate metabolic process\"]}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enlargement of the liver due to glycogen accumulation, present from infancy. Typically most prominent in childhood and may decrease with age. Hepatomegaly is the most common presenting sign.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"HP_0040281\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hypertrophic cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Left ventricular hypertrophy is common in GSD IIIa patients and may be present from childhood. Asymptomatic LVH is the most common cardiac manifestation. Symptomatic cardiomyopathy with reduced ejection fraction occurs in approximately 10-15% of patients.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"HP_0040282\", \"term_id\": \"HP:0001639\"}}, {\"id\": \"Myopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive skeletal myopathy in GSD IIIa, manifesting as proximal muscle weakness and exercise intolerance. Distal myopathy may also develop. Muscle weakness is the major cause of morbidity in adult GSD IIIa patients.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"HP_0040282\", \"term_id\": \"HP:0003198\"}}, {\"id\": \"Skeletal and cardiac myopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In GSD IIIa, glycogen accumulation in skeletal and cardiac muscle leads to progressive myopathy and cardiomyopathy. Muscle involvement may be minimal in childhood but typically worsens with age. The myopathy is slowly progressive and can lead to significant disability. Cardiac involvement manifests primarily as left ventricular hypertrophy, which may progress to cardiomyopathy.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Skeletal muscle cell\", \"Cardiac muscle cell\"], \"biological_processes\": [\"Glycogen catabolic process\"]}}], \"edges\": [{\"source\": \"Glycogen debranching enzyme deficiency\", \"target\": \"Hepatic glycogen accumulation and fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Glycogen debranching enzyme deficiency\", \"target\": \"Skeletal and cardiac myopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Glycogen debranching enzyme deficiency\", \"target\": \"Fasting hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Glycogen debranching enzyme deficiency\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatic glycogen accumulation and fibrosis\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatic glycogen accumulation and fibrosis\", \"target\": \"Elevated circulating hepatic transaminase concentration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatic glycogen accumulation and fibrosis\", \"target\": \"Hepatic fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and cardiac myopathy\", \"target\": \"Myopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and cardiac myopathy\", \"target\": \"Hypertrophic cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and cardiac myopathy\", \"target\": \"Elevated circulating creatine kinase concentration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dietary management\", \"target\": \"Glycogen debranching enzyme deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dietary management\", \"target\": \"Hepatic glycogen accumulation and fibrosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dietary management\", \"target\": \"Skeletal and cardiac myopathy\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"AGL\", \"target\": \"Glycogen debranching enzyme deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
+        </div>
         
 
         <!-- Phenotypes -->
@@ -4144,6 +4481,58 @@
 
         <!-- Genetic Associations -->
         
+        <div class="card" id="genetic">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
+                <h2 class="card-title">Genetic Associations</h2>
+                <span class="card-count">1</span>
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    AGL
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_a7b762bc-a12f-4194-91b9-764784248cc7-2023-02-24T170000.000Z" target="_blank">CGGV:assertion_a7b762bc-a12f-4194-91b9-764784248cc7-2023-02-24T170000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"AGL | HGNC:321 | glycogen storage disease III | MONDO:0009291 | AR | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the AGL-glycogen storage disease III gene-disease relationship as definitive with autosomal recessive inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+        </div>
+        
 
         <!-- Treatments -->
         
@@ -4194,6 +4583,140 @@
                 <div class="item-desc">Frequent meals and cornstarch supplementation to prevent hypoglycemia. High-protein diet (3 g/kg) is recommended to provide amino acid substrate for gluconeogenesis and to support muscle integrity. Uncooked cornstarch provides a slow-release glucose source. Modified Atkins or ketogenic diets may improve cardiac and skeletal muscle function by reducing glycogen storage.
 </div>
                 
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            BYPASSES
+                        </span>
+                        <strong style="color: #5b21b6;">Glycogen debranching enzyme deficiency</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Frequent feeds and uncooked cornstarch provide exogenous slow-release carbohydrate to maintain euglycemia around the impaired glycogenolysis block.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301788" target="_blank">PMID:20301788</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Dietary management tailored to the individual patient remains the primary therapy. Frequent feeds (every 3-4 hours) are needed to maintain euglycemia in infancy."</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews supports dietary management as the primary therapy for maintaining euglycemia despite the upstream debranching defect.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+                        <strong style="color: #5b21b6;">Hepatic glycogen accumulation and fibrosis</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Cornstarch-based metabolic control reduces hypoglycemia and serum aminotransferases, mitigating the hepatic injury branch.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2403059" target="_blank">PMID:2403059</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Cornstarch therapy was associated with maintenance of normoglycemia, increased growth velocity, and decreased serum aminotransferase concentrations in all patients."</div>
+                
+                
+                <div class="evidence-explanation">Clinical cornstarch therapy evidence supports dietary modulation of glycemic control, growth, and liver injury markers.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+                        <strong style="color: #5b21b6;">Skeletal and cardiac myopathy</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; High-fat, high-protein, low-carbohydrate dietary strategies have case-level evidence for improving the cardiomyopathy branch in GSD III.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25308556" target="_blank">PMID:25308556</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"A diet rich in fats as well as proteins and poor in carbohydrates could be a beneficial therapeutic choice for GSD III with cardiomyopathy."</div>
+                
+                
+                <div class="evidence-explanation">Reported sibling cases support dietary modulation of cardiac muscle involvement in GSD III.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
                 
                 
                 
@@ -4465,7 +4988,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Cori Forbes Disease
 creation_date: &#39;2026-03-08T00:00:00Z&#39;
-updated_date: &#39;2026-03-08T00:00:00Z&#39;
+updated_date: &#39;2026-05-05T22:41:15Z&#39;
 category: Mendelian
 description: &gt;
   Cori Forbes Disease (Glycogen Storage Disease Type III, GSD III) is an autosomal
@@ -4520,20 +5043,13 @@ inheritance:
     reference_title: &#34;Glycogen Storage Disease Type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;GSD III is inherited in an autosomal recessive manner. If both parents
-      are known to be heterozygous for an AGL pathogenic variant, each sib of an
-      affected individual has at conception a 25% chance of being affected with GSD
-      III, a 50% chance of being an asymptomatic carrier, and a 25% chance of
-      inheriting neither of the familial AGL pathogenic variants.&#34;
-    explanation: GeneReviews confirms autosomal recessive inheritance of GSD III with
-      standard Mendelian ratios for carrier parents.
+    snippet: &#34;GSD III is inherited in an autosomal recessive manner. If both parents are known to be heterozygous for an AGL pathogenic variant, each sib of an affected individual has at conception a 25% chance of being affected with GSD III, a 50% chance of being an asymptomatic carrier, and a 25% chance of inheriting neither of the familial AGL pathogenic variants.&#34;
+    explanation: GeneReviews confirms autosomal recessive inheritance of GSD III with standard Mendelian ratios for carrier parents.
   - reference: PMID:11949933
     reference_title: &#34;Molecular characterization of glycogen storage disease type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Deficiency of the glycogen debranching enzyme (gene, AGL) causes glycogen
-      storage disease type III (GSD-III), an autosomal recessive disease affecting
-      glycogen metabolism.&#34;
+    snippet: &#34;Deficiency of the glycogen debranching enzyme (gene, AGL) causes glycogen storage disease type III (GSD-III), an autosomal recessive disease affecting glycogen metabolism.&#34;
     explanation: Confirms autosomal recessive inheritance and AGL gene involvement.
 has_subtypes:
 - name: GSD IIIa
@@ -4548,10 +5064,8 @@ has_subtypes:
     reference_title: &#34;Glycogen Storage Disease Type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;GSD IIIa is the most common subtype, present in about 85% of affected
-      individuals; it manifests with liver and muscle involvement.&#34;
-    explanation: GeneReviews confirms GSD IIIa as the predominant subtype with
-      liver and muscle involvement.
+    snippet: &#34;GSD IIIa is the most common subtype, present in about 85% of affected individuals; it manifests with liver and muscle involvement.&#34;
+    explanation: GeneReviews confirms GSD IIIa as the predominant subtype with liver and muscle involvement.
 - name: GSD IIIb
   description: &gt;
     Accounts for approximately 15% of GSD III cases. Affects liver only without
@@ -4563,18 +5077,14 @@ has_subtypes:
     reference_title: &#34;Glycogen Storage Disease Type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;GSD IIIb, with liver involvement only, comprises about 15% of all
-      affected individuals.&#34;
-    explanation: GeneReviews confirms GSD IIIb as the liver-only subtype comprising
-      approximately 15% of cases.
+    snippet: &#34;GSD IIIb, with liver involvement only, comprises about 15% of all affected individuals.&#34;
+    explanation: GeneReviews confirms GSD IIIb as the liver-only subtype comprising approximately 15% of cases.
   - reference: PMID:11949933
     reference_title: &#34;Molecular characterization of glycogen storage disease type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;exon 3 mutations (17delAG and Q6X) are specifically associated with
-      GSD-IIIb&#34;
-    explanation: Molecular characterization identifies specific genotype-phenotype
-      correlation for the GSD IIIb subtype.
+    snippet: &#34;exon 3 mutations (17delAG and Q6X) are specifically associated with GSD-IIIb&#34;
+    explanation: Molecular characterization identifies specific genotype-phenotype correlation for the GSD IIIb subtype.
 pathophysiology:
 - name: Glycogen debranching enzyme deficiency
   description: &gt;
@@ -4586,8 +5096,7 @@ pathophysiology:
     glycogen) in hepatocytes, skeletal myocytes, and cardiomyocytes.
   gene:
     preferred_term: AGL
-    description: Amylo-1,6-glucosidase, 4-alpha-glucanotransferase; the glycogen
-      debranching enzyme with dual transferase and glucosidase activities.
+    description: Amylo-1,6-glucosidase, 4-alpha-glucanotransferase; the glycogen debranching enzyme with dual transferase and glucosidase activities.
     modifier: DECREASED
     term:
       id: hgnc:321
@@ -4597,28 +5106,20 @@ pathophysiology:
     reference_title: &#34;Molecular characterization of glycogen storage disease type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Most GSD-III patients have AGL deficiency in both the liver and muscle
-      (type IIIa), but some have it in the liver but not muscle (type IIIb).&#34;
+    snippet: &#34;Most GSD-III patients have AGL deficiency in both the liver and muscle (type IIIa), but some have it in the liver but not muscle (type IIIb).&#34;
     explanation: Confirms AGL deficiency causes GSD III with tissue-specific subtypes.
   - reference: PMID:27106217
     reference_title: &#34;Glycogen storage disease type III: diagnosis, genotype, management, clinical course and outcome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Glycogen storage disease type III (GSDIII) is a rare disorder of
-      glycogenolysis due to AGL gene mutations, causing glycogen debranching enzyme
-      deficiency and storage of limited dextrin.&#34;
-    explanation: Large international cohort study confirms AGL mutations cause
-      debranching enzyme deficiency and limit dextrin accumulation.
+    snippet: &#34;Glycogen storage disease type III (GSDIII) is a rare disorder of glycogenolysis due to AGL gene mutations, causing glycogen debranching enzyme deficiency and storage of limited dextrin.&#34;
+    explanation: Large international cohort study confirms AGL mutations cause debranching enzyme deficiency and limit dextrin accumulation.
   - reference: PMID:33368379
     reference_title: &#34;Narrative review of glycogen storage disorder type III with a focus on neuromuscular, cardiac and therapeutic aspects.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Glycogen storage disorder type III (GSDIII) is a rare inborn error of
-      metabolism due to loss of glycogen debranching enzyme activity, causing inability
-      to fully mobilize glycogen stores and its consequent accumulation in various
-      tissues, notably liver, cardiac and skeletal muscle.&#34;
-    explanation: Review confirms the pathophysiology of debranching enzyme loss
-      causing glycogen accumulation in liver, cardiac, and skeletal muscle.
+    snippet: &#34;Glycogen storage disorder type III (GSDIII) is a rare inborn error of metabolism due to loss of glycogen debranching enzyme activity, causing inability to fully mobilize glycogen stores and its consequent accumulation in various tissues, notably liver, cardiac and skeletal muscle.&#34;
+    explanation: Review confirms the pathophysiology of debranching enzyme loss causing glycogen accumulation in liver, cardiac, and skeletal muscle.
   cell_types:
   - preferred_term: Hepatocyte
     term:
@@ -4632,15 +5133,54 @@ pathophysiology:
     term:
       id: CL:0000746
       label: cardiac muscle cell
+  molecular_functions:
+  - preferred_term: 4-alpha-glucanotransferase activity
+    modifier: DECREASED
+    term:
+      id: GO:0004134
+      label: 4-alpha-glucanotransferase activity
+  - preferred_term: amylo-alpha-1,6-glucosidase activity
+    modifier: DECREASED
+    term:
+      id: GO:0004135
+      label: amylo-alpha-1,6-glucosidase activity
   biological_processes:
   - preferred_term: Glycogen catabolic process
+    modifier: DECREASED
     term:
       id: GO:0005980
       label: glycogen catabolic process
   - preferred_term: Glucose metabolic process
+    modifier: DECREASED
     term:
       id: GO:0006006
       label: glucose metabolic process
+  chemical_entities:
+  - preferred_term: glycogen
+    modifier: INCREASED
+    term:
+      id: CHEBI:28087
+      label: glycogen
+  - preferred_term: glucose
+    modifier: DECREASED
+    term:
+      id: CHEBI:17234
+      label: glucose
+  downstream:
+  - target: Hepatic glycogen accumulation and fibrosis
+    description: Loss of AGL debranching activity leaves incompletely degraded glycogen in hepatocytes, driving hepatic storage injury and fibrosis risk.
+    causal_link_type: DIRECT
+  - target: Skeletal and cardiac myopathy
+    description: In GSD IIIa, the same debranching block affects skeletal and cardiac muscle, causing progressive glycogen storage myopathy and cardiomyopathy.
+    causal_link_type: DIRECT
+  - target: Fasting hypoglycemia
+    description: Impaired hepatic glycogen mobilization limits fasting glucose release and clinically manifests as ketotic fasting hypoglycemia.
+    causal_link_type: DIRECT
+  - target: Failure to thrive
+    description: Recurrent early-life fasting hypoglycemia and hepatic metabolic disease contribute to poor growth.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Fasting hypoglycemia
 - name: Hepatic glycogen accumulation and fibrosis
   description: &gt;
     Progressive accumulation of limit dextrin in hepatocytes causes hepatomegaly
@@ -4654,27 +5194,20 @@ pathophysiology:
     reference_title: &#34;Liver fibrosis during clinical ascertainment of glycogen storage disease type III: a need for improved and systematic monitoring.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Liver fibrosis can occur at an early age, and may explain the decrease
-      in aminotransferases and Glc4 with age.&#34;
-    explanation: Demonstrates that liver fibrosis occurs early in GSD III and that
-      normalization of aminotransferases with age does not indicate hepatic improvement.
+    snippet: &#34;Liver fibrosis can occur at an early age, and may explain the decrease in aminotransferases and Glc4 with age.&#34;
+    explanation: Demonstrates that liver fibrosis occurs early in GSD III and that normalization of aminotransferases with age does not indicate hepatic improvement.
   - reference: PMID:27106217
     reference_title: &#34;Glycogen storage disease type III: diagnosis, genotype, management, clinical course and outcome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Chronic complications involved the liver (hepatic cirrhosis, adenoma(s),
-      and/or hepatocellular carcinoma in 11 %)&#34;
-    explanation: Large cohort study documents hepatic cirrhosis and HCC as chronic
-      complications of GSD III.
+    snippet: &#34;Chronic complications involved the liver (hepatic cirrhosis, adenoma(s), and/or hepatocellular carcinoma in 11 %)&#34;
+    explanation: Large cohort study documents hepatic cirrhosis and HCC as chronic complications of GSD III.
   - reference: PMID:34820282
     reference_title: &#34;A retrospective longitudinal study and comprehensive review of adult patients with glycogen storage disease type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;hepatomegaly and cirrhosis were the most common radiological findings;
-      and 28% developed decompensated liver disease and portal hypertension, the
-      latter being more prevalent in older patients.&#34;
-    explanation: Retrospective study of adults shows high rate of liver disease
-      progression including cirrhosis and portal hypertension.
+    snippet: &#34;hepatomegaly and cirrhosis were the most common radiological findings; and 28% developed decompensated liver disease and portal hypertension, the latter being more prevalent in older patients.&#34;
+    explanation: Retrospective study of adults shows high rate of liver disease progression including cirrhosis and portal hypertension.
   cell_types:
   - preferred_term: Hepatocyte
     term:
@@ -4689,6 +5222,22 @@ pathophysiology:
     term:
       id: GO:0005975
       label: carbohydrate metabolic process
+  chemical_entities:
+  - preferred_term: glycogen
+    modifier: INCREASED
+    term:
+      id: CHEBI:28087
+      label: glycogen
+  downstream:
+  - target: Hepatomegaly
+    description: Hepatic limit-dextrin and glycogen storage enlarges the liver.
+    causal_link_type: DIRECT
+  - target: Elevated circulating hepatic transaminase concentration
+    description: Hepatocyte storage injury elevates circulating aminotransferases early in disease.
+    causal_link_type: DIRECT
+  - target: Hepatic fibrosis
+    description: Chronic hepatic glycogen storage injury can progress to fibrosis, cirrhosis, and related complications.
+    causal_link_type: DIRECT
 - name: Skeletal and cardiac myopathy
   description: &gt;
     In GSD IIIa, glycogen accumulation in skeletal and cardiac muscle leads to
@@ -4701,29 +5250,20 @@ pathophysiology:
     reference_title: &#34;Glycogen Storage Disease Type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Most individuals develop cardiac involvement with cardiac hypertrophy
-      and/or cardiomyopathy. Skeletal myopathy manifesting as weakness may be evident
-      in childhood and slowly progresses, typically becoming prominent in the third to
-      fourth decade.&#34;
-    explanation: GeneReviews describes the progressive nature of cardiac and skeletal
-      muscle involvement in GSD III.
+    snippet: &#34;Most individuals develop cardiac involvement with cardiac hypertrophy and/or cardiomyopathy. Skeletal myopathy manifesting as weakness may be evident in childhood and slowly progresses, typically becoming prominent in the third to fourth decade.&#34;
+    explanation: GeneReviews describes the progressive nature of cardiac and skeletal muscle involvement in GSD III.
   - reference: PMID:27106217
     reference_title: &#34;Glycogen storage disease type III: diagnosis, genotype, management, clinical course and outcome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;heart (cardiac involvement and cardiomyopathy, in 58 % and 15 %,
-      respectively, generally presenting in early childhood), and muscle (pain in
-      34 %).&#34;
-    explanation: Large international cohort quantifies cardiac involvement at 58%
-      and cardiomyopathy at 15% in GSD III patients.
+    snippet: &#34;heart (cardiac involvement and cardiomyopathy, in 58 % and 15 %, respectively, generally presenting in early childhood), and muscle (pain in 34 %).&#34;
+    explanation: Large international cohort quantifies cardiac involvement at 58% and cardiomyopathy at 15% in GSD III patients.
   - reference: PMID:34820282
     reference_title: &#34;A retrospective longitudinal study and comprehensive review of adult patients with glycogen storage disease type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;muscle weakness was a major feature, noted in 89% of the GSD IIIa cohort,
-      a third of whom depended on a wheelchair or an assistive walking device.&#34;
-    explanation: Adult cohort study shows high prevalence and severity of muscle
-      weakness in GSD IIIa, with significant functional disability.
+    snippet: &#34;muscle weakness was a major feature, noted in 89% of the GSD IIIa cohort, a third of whom depended on a wheelchair or an assistive walking device.&#34;
+    explanation: Adult cohort study shows high prevalence and severity of muscle weakness in GSD IIIa, with significant functional disability.
   cell_types:
   - preferred_term: Skeletal muscle cell
     term:
@@ -4735,9 +5275,26 @@ pathophysiology:
       label: cardiac muscle cell
   biological_processes:
   - preferred_term: Glycogen catabolic process
+    modifier: DECREASED
     term:
       id: GO:0005980
       label: glycogen catabolic process
+  chemical_entities:
+  - preferred_term: glycogen
+    modifier: INCREASED
+    term:
+      id: CHEBI:28087
+      label: glycogen
+  downstream:
+  - target: Myopathy
+    description: Skeletal muscle glycogen storage causes progressive weakness and exercise intolerance in GSD IIIa.
+    causal_link_type: DIRECT
+  - target: Hypertrophic cardiomyopathy
+    description: Cardiac muscle glycogen storage commonly manifests as left ventricular hypertrophy and cardiomyopathy.
+    causal_link_type: DIRECT
+  - target: Elevated circulating creatine kinase concentration
+    description: Skeletal muscle involvement is reflected biochemically by persistently elevated creatine kinase.
+    causal_link_type: DIRECT
 phenotypes:
 - name: Hepatomegaly
   description: &gt;
@@ -4755,10 +5312,8 @@ phenotypes:
     reference_title: &#34;Glycogen storage disease type III: diagnosis, genotype, management, clinical course and outcome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;GSDIII patients first presented before the age of 1.5 years,
-      hepatomegaly was the most common presenting clinical sign.&#34;
-    explanation: Large international cohort confirms hepatomegaly as the most common
-      presenting sign of GSD III, appearing before 1.5 years of age.
+    snippet: &#34;GSDIII patients first presented before the age of 1.5 years, hepatomegaly was the most common presenting clinical sign.&#34;
+    explanation: Large international cohort confirms hepatomegaly as the most common presenting sign of GSD III, appearing before 1.5 years of age.
 - name: Fasting hypoglycemia
   description: &gt;
     Ketotic hypoglycemia during fasting due to impaired glycogenolysis. Less severe
@@ -4775,19 +5330,14 @@ phenotypes:
     reference_title: &#34;Glycogen Storage Disease Type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;In infancy and early childhood, liver involvement presents as
-      hepatomegaly and failure to thrive, with fasting ketotic hypoglycemia,
-      hyperlipidemia, and elevated hepatic transaminases.&#34;
-    explanation: GeneReviews describes fasting ketotic hypoglycemia as a key feature
-      of GSD III in infancy and early childhood.
+    snippet: &#34;In infancy and early childhood, liver involvement presents as hepatomegaly and failure to thrive, with fasting ketotic hypoglycemia, hyperlipidemia, and elevated hepatic transaminases.&#34;
+    explanation: GeneReviews describes fasting ketotic hypoglycemia as a key feature of GSD III in infancy and early childhood.
   - reference: PMID:38196773
     reference_title: &#34;Glycogen storage disease type III: a mixed-methods study to assess the burden of disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Hypoglycemia was frequently reported in both adults and children, with
-      more than half reporting hospitalizations due to hypoglycemia.&#34;
-    explanation: Patient burden study confirms high prevalence of hypoglycemia
-      requiring hospitalization.
+    snippet: &#34;Hypoglycemia was frequently reported in both adults and children, with more than half reporting hospitalizations due to hypoglycemia.&#34;
+    explanation: Patient burden study confirms high prevalence of hypoglycemia requiring hospitalization.
 - name: Hyperlipidemia
   description: &gt;
     Elevated blood lipids, including elevated triglycerides and cholesterol.
@@ -4802,8 +5352,7 @@ phenotypes:
     reference_title: &#34;Glycogen Storage Disease Type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;fasting ketotic hypoglycemia, hyperlipidemia, and elevated hepatic
-      transaminases.&#34;
+    snippet: &#34;fasting ketotic hypoglycemia, hyperlipidemia, and elevated hepatic transaminases.&#34;
     explanation: GeneReviews lists hyperlipidemia as a key metabolic feature in GSD III.
 - name: Myopathy
   description: &gt;
@@ -4821,19 +5370,14 @@ phenotypes:
     reference_title: &#34;A retrospective longitudinal study and comprehensive review of adult patients with glycogen storage disease type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;In the GSD IIIa group, muscle weakness was a major feature, noted in 89%
-      of the GSD IIIa cohort, a third of whom depended on a wheelchair or an assistive
-      walking device.&#34;
-    explanation: Retrospective study of adults quantifies muscle weakness at 89%
-      prevalence in GSD IIIa with significant functional impact.
+    snippet: &#34;In the GSD IIIa group, muscle weakness was a major feature, noted in 89% of the GSD IIIa cohort, a third of whom depended on a wheelchair or an assistive walking device.&#34;
+    explanation: Retrospective study of adults quantifies muscle weakness at 89% prevalence in GSD IIIa with significant functional impact.
   - reference: PMID:38196773
     reference_title: &#34;Glycogen storage disease type III: a mixed-methods study to assess the burden of disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Adults most often reported muscle weakness as a top interfering symptom
-      and the most important goal of a potential therapy.&#34;
-    explanation: Patient burden study identifies muscle weakness as the most impactful
-      symptom from the patient perspective.
+    snippet: &#34;Adults most often reported muscle weakness as a top interfering symptom and the most important goal of a potential therapy.&#34;
+    explanation: Patient burden study identifies muscle weakness as the most impactful symptom from the patient perspective.
 - name: Hypertrophic cardiomyopathy
   description: &gt;
     Left ventricular hypertrophy is common in GSD IIIa patients and may be
@@ -4851,19 +5395,14 @@ phenotypes:
     reference_title: &#34;A retrospective longitudinal study and comprehensive review of adult patients with glycogen storage disease type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Asymptomatic left ventricular hypertrophy (LVH) was the most common
-      cardiac manifestation, present in 43%. Symptomatic cardiomyopathy and reduced
-      ejection fraction was evident in 10%.&#34;
-    explanation: Adult cohort study quantifies LVH at 43% and symptomatic
-      cardiomyopathy at 10%.
+    snippet: &#34;Asymptomatic left ventricular hypertrophy (LVH) was the most common cardiac manifestation, present in 43%. Symptomatic cardiomyopathy and reduced ejection fraction was evident in 10%.&#34;
+    explanation: Adult cohort study quantifies LVH at 43% and symptomatic cardiomyopathy at 10%.
   - reference: PMID:27106217
     reference_title: &#34;Glycogen storage disease type III: diagnosis, genotype, management, clinical course and outcome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;heart (cardiac involvement and cardiomyopathy, in 58 % and 15 %,
-      respectively, generally presenting in early childhood)&#34;
-    explanation: International study reports cardiac involvement in 58% and
-      cardiomyopathy in 15% of GSD III patients.
+    snippet: &#34;heart (cardiac involvement and cardiomyopathy, in 58 % and 15 %, respectively, generally presenting in early childhood)&#34;
+    explanation: International study reports cardiac involvement in 58% and cardiomyopathy in 15% of GSD III patients.
 - name: Elevated circulating creatine kinase concentration
   description: &gt;
     Elevated CK levels reflecting skeletal muscle involvement, frequently found
@@ -4879,10 +5418,8 @@ phenotypes:
     reference_title: &#34;Liver fibrosis during clinical ascertainment of glycogen storage disease type III: a need for improved and systematic monitoring.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Creatine phosphokinase was also elevated with no significant correlation
-      with age (p = 0.4).&#34;
-    explanation: Study shows CK is persistently elevated in GSD III patients
-      regardless of age.
+    snippet: &#34;Creatine phosphokinase was also elevated with no significant correlation with age (p = 0.4).&#34;
+    explanation: Study shows CK is persistently elevated in GSD III patients regardless of age.
 - name: Hepatic fibrosis
   description: &gt;
     Progressive hepatic fibrosis develops in many patients, potentially leading
@@ -4899,17 +5436,14 @@ phenotypes:
     reference_title: &#34;Liver fibrosis during clinical ascertainment of glycogen storage disease type III: a need for improved and systematic monitoring.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Liver fibrosis can occur at an early age, and may explain the decrease
-      in aminotransferases and Glc4 with age.&#34;
-    explanation: Study demonstrates early onset of liver fibrosis in GSD III
-      and its paradoxical relationship to normalizing aminotransferases.
+    snippet: &#34;Liver fibrosis can occur at an early age, and may explain the decrease in aminotransferases and Glc4 with age.&#34;
+    explanation: Study demonstrates early onset of liver fibrosis in GSD III and its paradoxical relationship to normalizing aminotransferases.
   - reference: PMID:34820282
     reference_title: &#34;A retrospective longitudinal study and comprehensive review of adult patients with glycogen storage disease type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;28% developed decompensated liver disease and portal hypertension&#34;
-    explanation: Adult cohort shows significant progression to decompensated liver
-      disease.
+    explanation: Adult cohort shows significant progression to decompensated liver disease.
 - name: Failure to thrive
   description: &gt;
     Growth retardation and short stature, particularly in childhood, due to
@@ -4925,8 +5459,7 @@ phenotypes:
     reference_title: &#34;Glycogen Storage Disease Type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;In infancy and early childhood, liver involvement presents as
-      hepatomegaly and failure to thrive&#34;
+    snippet: &#34;In infancy and early childhood, liver involvement presents as hepatomegaly and failure to thrive&#34;
     explanation: GeneReviews identifies failure to thrive as a key early presentation.
 - name: Elevated circulating hepatic transaminase concentration
   description: &gt;
@@ -4943,11 +5476,23 @@ phenotypes:
     reference_title: &#34;Liver fibrosis during clinical ascertainment of glycogen storage disease type III: a need for improved and systematic monitoring.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Markers of liver injury (aminotransferases), dysfunction (cholesterol,
-      triglycerides), and glycogen storage (glucose tetrasaccharide, Glc4) were
-      elevated at an early age, and decreased significantly thereafter&#34;
-    explanation: Demonstrates elevated aminotransferases in early GSD III that
-      paradoxically decrease with age.
+    snippet: &#34;Markers of liver injury (aminotransferases), dysfunction (cholesterol, triglycerides), and glycogen storage (glucose tetrasaccharide, Glc4) were elevated at an early age, and decreased significantly thereafter&#34;
+    explanation: Demonstrates elevated aminotransferases in early GSD III that paradoxically decrease with age.
+genetic:
+- name: AGL
+  gene_term:
+    preferred_term: AGL
+    term:
+      id: hgnc:321
+      label: AGL
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_a7b762bc-a12f-4194-91b9-764784248cc7-2023-02-24T170000.000Z
+    reference_title: &#34;AGL / glycogen storage disease III (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;AGL | HGNC:321 | glycogen storage disease III | MONDO:0009291 | AR | Definitive&#34;
+    explanation: ClinGen classifies the AGL-glycogen storage disease III gene-disease relationship as definitive with autosomal recessive inheritance.
 treatments:
 - name: Dietary management
   description: &gt;
@@ -4961,33 +5506,56 @@ treatments:
     term:
       id: MAXO:0000088
       label: dietary intervention
+  target_mechanisms:
+  - target: Glycogen debranching enzyme deficiency
+    treatment_effect: BYPASSES
+    description: Frequent feeds and uncooked cornstarch provide exogenous slow-release carbohydrate to maintain euglycemia around the impaired glycogenolysis block.
+    evidence:
+    - reference: PMID:20301788
+      reference_title: &#34;Glycogen Storage Disease Type III.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Dietary management tailored to the individual patient remains the primary therapy. Frequent feeds (every 3-4 hours) are needed to maintain euglycemia in infancy.&#34;
+      explanation: GeneReviews supports dietary management as the primary therapy for maintaining euglycemia despite the upstream debranching defect.
+  - target: Hepatic glycogen accumulation and fibrosis
+    treatment_effect: MODULATES
+    description: Cornstarch-based metabolic control reduces hypoglycemia and serum aminotransferases, mitigating the hepatic injury branch.
+    evidence:
+    - reference: PMID:2403059
+      reference_title: &#34;Efficacy of cornstarch therapy in type III glycogen-storage disease.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Cornstarch therapy was associated with maintenance of normoglycemia, increased growth velocity, and decreased serum aminotransferase concentrations in all patients.&#34;
+      explanation: Clinical cornstarch therapy evidence supports dietary modulation of glycemic control, growth, and liver injury markers.
+  - target: Skeletal and cardiac myopathy
+    treatment_effect: MODULATES
+    description: High-fat, high-protein, low-carbohydrate dietary strategies have case-level evidence for improving the cardiomyopathy branch in GSD III.
+    evidence:
+    - reference: PMID:25308556
+      reference_title: &#34;Improvement of Cardiomyopathy After High-Fat Diet in Two Siblings with Glycogen Storage Disease Type III.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;A diet rich in fats as well as proteins and poor in carbohydrates could be a beneficial therapeutic choice for GSD III with cardiomyopathy.&#34;
+      explanation: Reported sibling cases support dietary modulation of cardiac muscle involvement in GSD III.
   evidence:
   - reference: PMID:20301788
     reference_title: &#34;Glycogen Storage Disease Type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Dietary management tailored to the individual patient remains the
-      primary therapy. Frequent feeds (every 3-4 hours) are needed to maintain
-      euglycemia in infancy.&#34;
-    explanation: GeneReviews establishes dietary management as the primary therapy
-      with specific recommendations for meal frequency.
+    snippet: &#34;Dietary management tailored to the individual patient remains the primary therapy. Frequent feeds (every 3-4 hours) are needed to maintain euglycemia in infancy.&#34;
+    explanation: GeneReviews establishes dietary management as the primary therapy with specific recommendations for meal frequency.
   - reference: PMID:2403059
     reference_title: &#34;Efficacy of cornstarch therapy in type III glycogen-storage disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Cornstarch therapy was associated with maintenance of normoglycemia,
-      increased growth velocity, and decreased serum aminotransferase concentrations
-      in all patients.&#34;
-    explanation: Clinical study demonstrates efficacy of cornstarch therapy in
-      GSD III for glycemic control, growth, and liver function.
+    snippet: &#34;Cornstarch therapy was associated with maintenance of normoglycemia, increased growth velocity, and decreased serum aminotransferase concentrations in all patients.&#34;
+    explanation: Clinical study demonstrates efficacy of cornstarch therapy in GSD III for glycemic control, growth, and liver function.
   - reference: PMID:25308556
     reference_title: &#34;Improvement of Cardiomyopathy After High-Fat Diet in Two Siblings with Glycogen Storage Disease Type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;A diet rich in fats as well as proteins and poor in carbohydrates could
-      be a beneficial therapeutic choice for GSD III with cardiomyopathy.&#34;
-    explanation: Case report of two siblings shows high-fat low-carbohydrate diet
-      improves cardiomyopathy in GSD IIIa.
+    snippet: &#34;A diet rich in fats as well as proteins and poor in carbohydrates could be a beneficial therapeutic choice for GSD III with cardiomyopathy.&#34;
+    explanation: Case report of two siblings shows high-fat low-carbohydrate diet improves cardiomyopathy in GSD IIIa.
 - name: Liver transplantation
   description: &gt;
     Liver transplantation may be considered for patients with severe hepatic
@@ -5003,11 +5571,8 @@ treatments:
     reference_title: &#34;Glycogen Storage Disease Type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Liver transplantation is reserved for those with severe hepatic
-      cirrhosis, liver dysfunction, and/or hepatocellular carcinoma. Liver
-      transplantation may exacerbate myopathy and cardiomyopathy.&#34;
-    explanation: GeneReviews describes liver transplantation indications and the
-      important caveat that it may worsen muscle disease.
+    snippet: &#34;Liver transplantation is reserved for those with severe hepatic cirrhosis, liver dysfunction, and/or hepatocellular carcinoma. Liver transplantation may exacerbate myopathy and cardiomyopathy.&#34;
+    explanation: GeneReviews describes liver transplantation indications and the important caveat that it may worsen muscle disease.
 - name: Genetic counseling
   description: &gt;
     Genetic counseling for affected families regarding autosomal recessive
@@ -5023,11 +5588,8 @@ treatments:
     reference_title: &#34;Glycogen Storage Disease Type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Once the AGL pathogenic variants have been identified in an affected
-      family member, carrier testing for at-risk family members and prenatal and
-      preimplantation genetic testing for a pregnancy at increased risk are possible.&#34;
-    explanation: GeneReviews outlines genetic counseling recommendations for GSD III
-      families.
+    snippet: &#34;Once the AGL pathogenic variants have been identified in an affected family member, carrier testing for at-risk family members and prenatal and preimplantation genetic testing for a pregnancy at increased risk are possible.&#34;
+    explanation: GeneReviews outlines genetic counseling recommendations for GSD III families.
 references:
 - reference: PMID:20301788
   title: &#34;Glycogen Storage Disease Type III.&#34;
@@ -5562,7 +6124,7 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Cori Forbes Disease", "mondoId": "MONDO:0009291", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cori_Forbes_Disease", "yamlRevision": "b3dbb295fe42"};
+        const OS_CONFIG = {"diseaseName": "Cori Forbes Disease", "mondoId": "MONDO:0009291", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cori_Forbes_Disease", "yamlRevision": "560c8892d430"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

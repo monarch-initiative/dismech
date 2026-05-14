@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2636,11 +2789,18 @@
             
             <a class="stat-link" href="#references">
             <div class="stat-item">
-                <div class="stat-value">15</div>
+                <div class="stat-value">26</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
             
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -4755,19 +4915,26 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Fibrochondrogenesis
 creation_date: &#34;2026-04-02T12:00:00Z&#34;
-updated_date: &#34;2026-04-19T06:45:17Z&#34;
+updated_date: &#34;2026-05-09T00:41:13Z&#34;
 category: Mendelian
 description: &gt;
-  Fibrochondrogenesis is a severe, usually lethal skeletal dysplasia most commonly caused
+  Fibrochondrogenesis is a severe, usually lethal skeletal dysplasia most commonly
+  caused
   by biallelic mutations in COL11A1 (type 1) or COL11A2 (type 2), encoding the alpha-1
-  and alpha-2 chains of type XI collagen; rare autosomal dominant COL11A2 cases also occur. It is characterized by short-limbed dwarfism with dumbbell-shaped
-  long bones, platyspondyly with vertebral clefting, short ribs with distal cupping, and a
-  distinctive craniofacial profile that includes midface hypoplasia, a small nose with
+  and alpha-2 chains of type XI collagen; rare autosomal dominant COL11A2 cases also
+  occur. It is characterized by short-limbed dwarfism with dumbbell-shaped
+  long bones, platyspondyly with vertebral clefting, short ribs with distal cupping,
+  and a
+  distinctive craniofacial profile that includes midface hypoplasia, a small nose
+  with
   anteverted nares, and micrognathia. The hallmark histopathological finding is fibrosis
-  of the growth plate cartilage with interwoven fibrous septa and fibroblastic dysplasia of
+  of the growth plate cartilage with interwoven fibrous septa and fibroblastic dysplasia
+  of
   chondrocytes, distinguishing it from other lethal osteochondrodysplasias such as
-  thanatophoric dysplasia and achondrogenesis. Most affected individuals are stillborn or die
-  in the neonatal period after severe respiratory compromise related to the small thorax. Rare
+  thanatophoric dysplasia and achondrogenesis. Most affected individuals are stillborn
+  or die
+  in the neonatal period after severe respiratory compromise related to the small
+  thorax. Rare
   survivors with homozygous null mutations in COL11A1 have severe developmental delay,
   profound sensorineural deafness, high myopia, and progressive skeletal abnormalities.
   Heterozygous COL11A1 carriers may exhibit mild ocular findings.
@@ -4784,7 +4951,8 @@ has_subtypes:
   display_name: Fibrochondrogenesis 1 (COL11A1)
   description: &gt;
     Caused by biallelic mutations in COL11A1 encoding the alpha-1 chain of type XI
-    collagen. Most commonly compound heterozygous for a loss-of-function allele and a
+    collagen. Most commonly compound heterozygous for a loss-of-function allele and
+    a
     glycine substitution in the triple helical domain. This is the more common form.
   evidence:
   - reference: PMID:21035103
@@ -4796,7 +4964,8 @@ has_subtypes:
 - name: Type 2
   display_name: Fibrochondrogenesis 2 (COL11A2)
   description: &gt;
-    Caused by mutations in COL11A2 encoding the alpha-2 chain of type XI collagen. Can
+    Caused by mutations in COL11A2 encoding the alpha-2 chain of type XI collagen.
+    Can
     be inherited in either autosomal recessive or autosomal dominant fashion.
   evidence:
   - reference: PMID:22246659
@@ -4940,7 +5109,8 @@ pathophysiology:
     The defining histopathological feature of fibrochondrogenesis is replacement of
     normal hyaline cartilage architecture by dense fibrous tissue with interwoven
     fibrous septa. Chondrocytes exhibit fibroblastic dysplasia, assuming an elongated,
-    fibroblast-like morphology rather than their normal rounded shape. The growth plate
+    fibroblast-like morphology rather than their normal rounded shape. The growth
+    plate
     is grossly disorganized with a densely fibrous collagenous matrix.
   cell_types:
   - preferred_term: Chondrocyte
@@ -5352,7 +5522,8 @@ progression:
 - phase: Neonatal lethality
   notes: &gt;
     Majority of affected individuals are stillborn or die within the first three months.
-    In a series of 13 term deliveries, 30.7% were stillborn and 53.8% died within 3 months.
+    In a series of 13 term deliveries, 30.7% were stillborn and 53.8% died within
+    3 months.
   evidence:
   - reference: PMID:24127948
     reference_title: &#34;Fibrochondrogenesis: prenatal diagnosis and outcome.&#34;
@@ -5364,7 +5535,8 @@ progression:
   subtype: Type 1
   notes: &gt;
     Rare survivors with homozygous null COL11A1 mutations develop progressive skeletal
-    deformity, profound sensorineural deafness, severe myopia, and global developmental delay.
+    deformity, profound sensorineural deafness, severe myopia, and global developmental
+    delay.
   evidence:
   - reference: PMID:21668896
     reference_title: &#34;Clinical and molecular analysis of UAE fibrochondrogenesis patients expands the phenotype and reveals two COL11A1 homozygous null mutations.&#34;
@@ -5377,7 +5549,8 @@ diagnosis:
   description: &gt;
     Fibrochondrogenesis can be detected prenatally by ultrasound as early as 17 weeks
     gestation. Key findings include severe micromelia, a small bell-shaped thorax,
-    and widened metaphyses. However, prenatal diagnosis was achieved in only 20% of published
+    and widened metaphyses. However, prenatal diagnosis was achieved in only 20% of
+    published
     cases, reflecting the rarity of the condition and overlap with other lethal
     skeletal dysplasias.
   evidence:
@@ -5444,13 +5617,16 @@ treatments:
     affected families, particularly in consanguineous populations where recurrence
     risk is 25%.
 notes: &gt;
-  Fibrochondrogenesis was first described by Lazzaroni-Fossati et al. in 1978. It is
+  Fibrochondrogenesis was first described by Lazzaroni-Fossati et al. in 1978. It
+  is
   classified within the type XI collagenopathy spectrum, which also includes Stickler
   syndrome type 2, Marshall syndrome, and otospondylomegaepiphyseal dysplasia. The
   distinction from Stickler syndrome relates to severity: biallelic loss-of-function
   mutations cause fibrochondrogenesis, while heterozygous structural mutations typically
-  cause the milder Stickler phenotype. Alternative splicing of COL11A1 exon 9 can modify
-  the phenotype, as biallelic variants affecting only this alternatively expressed exon
+  cause the milder Stickler phenotype. Alternative splicing of COL11A1 exon 9 can
+  modify
+  the phenotype, as biallelic variants affecting only this alternatively expressed
+  exon
   may produce Stickler syndrome with severe hearing loss rather than fibrochondrogenesis.
 datasets:
 references:
@@ -5478,6 +5654,8 @@ references:
 - reference: PMID:21035103
   title: &#34;Fibrochondrogenesis results from mutations in the COL11A1 type XI collagen gene.&#34;
   findings: []
+  found_in:
+  - Fibrochondrogenesis-deep-research-falcon.md
 - reference: PMID:21668896
   title: &#34;Clinical and molecular analysis of UAE fibrochondrogenesis patients expands the phenotype and reveals two COL11A1 homozygous null mutations.&#34;
   findings: []
@@ -5499,6 +5677,132 @@ references:
 - reference: PMID:36972944
   title: &#34;Genetic analysis of a child patient with rare fibrochondrogenesis due to COL11A1 gene variant.&#34;
   findings: []
+- reference: DOI:10.1002/ajmg.a.34406
+  title: Dominant and recessive forms of fibrochondrogenesis resulting from mutations at a second locus, &lt;i&gt;COL11A2&lt;/i&gt;
+  found_in:
+  - Fibrochondrogenesis-deep-research-falcon.md
+  findings:
+  - statement: Fibrochondrogenesis is a severe, recessively inherited skeletal dysplasia shown to result from mutations in the gene encoding the proα1(XI) chain of type XI collagen, COL11A1.
+    supporting_text: Fibrochondrogenesis is a severe, recessively inherited skeletal dysplasia shown to result from mutations in the gene encoding the proα1(XI) chain of type XI collagen, COL11A1.
+    evidence:
+    - reference: DOI:10.1002/ajmg.a.34406
+      reference_title: Dominant and recessive forms of fibrochondrogenesis resulting from mutations at a second locus, &lt;i&gt;COL11A2&lt;/i&gt;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Fibrochondrogenesis is a severe, recessively inherited skeletal dysplasia shown to result from mutations in the gene encoding the proα1(XI) chain of type XI collagen, COL11A1.
+      explanation: Deep research cited this publication as relevant literature for Fibrochondrogenesis.
+- reference: DOI:10.1093/hmg/ddad117
+  title: COL11A2 as a candidate gene for vertebral malformations and congenital scoliosis
+  found_in:
+  - Fibrochondrogenesis-deep-research-falcon.md
+  findings:
+  - statement: COL11A2 as a candidate gene for vertebral malformations and congenital scoliosis
+    supporting_text: Human vertebral malformations (VMs) have an estimated incidence of 1/2000 and are associated with significant health problems including congenital scoliosis (CS) and recurrent organ system malformation syndromes such as VACTERL (vertebral anomalies; anal abnormalities; cardiac abnormalities; tracheo-esophageal fistula; renal anomalies; limb anomalies).
+    evidence:
+    - reference: DOI:10.1093/hmg/ddad117
+      reference_title: COL11A2 as a candidate gene for vertebral malformations and congenital scoliosis
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Human vertebral malformations (VMs) have an estimated incidence of 1/2000 and are associated with significant health problems including congenital scoliosis (CS) and recurrent organ system malformation syndromes such as VACTERL (vertebral anomalies; anal abnormalities; cardiac abnormalities; tracheo-esophageal fistula; renal anomalies; limb anomalies).
+      explanation: Deep research cited this publication as relevant literature for Fibrochondrogenesis.
+- reference: DOI:10.1098/rstb.2017.0335
+  title: The mechanical impact of &lt;i&gt;col11a2&lt;/i&gt; loss on joints; &lt;i&gt;col11a2&lt;/i&gt; mutant zebrafish show changes to joint development and function, which leads to early-onset osteoarthritis
+  found_in:
+  - Fibrochondrogenesis-deep-research-falcon.md
+  findings:
+  - statement: Collagen is the major structural component of cartilage, and mutations in the genes encoding type XI collagen are associated with severe skeletal dysplasias (fibrochondrogenesis and Stickler syndrome) and early-onset osteoarthritis (OA).
+    supporting_text: Collagen is the major structural component of cartilage, and mutations in the genes encoding type XI collagen are associated with severe skeletal dysplasias (fibrochondrogenesis and Stickler syndrome) and early-onset osteoarthritis (OA).
+    evidence:
+    - reference: DOI:10.1098/rstb.2017.0335
+      reference_title: The mechanical impact of &lt;i&gt;col11a2&lt;/i&gt; loss on joints; &lt;i&gt;col11a2&lt;/i&gt; mutant zebrafish show changes to joint development and function, which leads to early-onset osteoarthritis
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: Collagen is the major structural component of cartilage, and mutations in the genes encoding type XI collagen are associated with severe skeletal dysplasias (fibrochondrogenesis and Stickler syndrome) and early-onset osteoarthritis (OA).
+      explanation: Deep research cited this publication as relevant literature for Fibrochondrogenesis.
+- reference: DOI:10.1148/rg.2021200075
+  title: Radiologic Features of Type II and Type XI Collagenopathies
+  found_in:
+  - Fibrochondrogenesis-deep-research-falcon.md
+  findings:
+  - statement: Radiologic Features of Type II and Type XI Collagenopathies
+    supporting_text: Radiologic Features of Type II and Type XI Collagenopathies
+- reference: DOI:10.1201/9781003166948
+  title: Fetal and Perinatal Skeletal Dysplasias
+  found_in:
+  - Fibrochondrogenesis-deep-research-falcon.md
+  findings:
+  - statement: Fetal and Perinatal Skeletal Dysplasias
+    supporting_text: Fetal and Perinatal Skeletal Dysplasias
+- reference: DOI:10.1259/bjr.20221025
+  title: Prenatal diagnosis of bone dysplasias
+  found_in:
+  - Fibrochondrogenesis-deep-research-falcon.md
+  findings:
+  - statement: Bone dysplasias are individually rare but collectively common.
+    supporting_text: Bone dysplasias are individually rare but collectively common.
+    evidence:
+    - reference: DOI:10.1259/bjr.20221025
+      reference_title: Prenatal diagnosis of bone dysplasias
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Bone dysplasias are individually rare but collectively common.
+      explanation: Deep research cited this publication as relevant literature for Fibrochondrogenesis.
+- reference: DOI:10.18122/b2dq43
+  title: The Role of Col11a1 Expression During Cartilage Development
+  found_in:
+  - Fibrochondrogenesis-deep-research-falcon.md
+  findings:
+  - statement: The Role of Col11a1 Expression During Cartilage Development
+    supporting_text: The Role of Col11a1 Expression During Cartilage Development
+- reference: DOI:10.3390/jdb10040040
+  title: The Shape of the Jaw—Zebrafish Col11a1a Regulates Meckel’s Cartilage Morphogenesis and Mineralization
+  found_in:
+  - Fibrochondrogenesis-deep-research-falcon.md
+  findings:
+  - statement: The expression of the col11a1a gene is essential for normal skeletal development, affecting both cartilage and bone.
+    supporting_text: The expression of the col11a1a gene is essential for normal skeletal development, affecting both cartilage and bone.
+    evidence:
+    - reference: DOI:10.3390/jdb10040040
+      reference_title: The Shape of the Jaw—Zebrafish Col11a1a Regulates Meckel’s Cartilage Morphogenesis and Mineralization
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: The expression of the col11a1a gene is essential for normal skeletal development, affecting both cartilage and bone.
+      explanation: Deep research cited this publication as relevant literature for Fibrochondrogenesis.
+- reference: DOI:10.3390/jdb3040158
+  title: Col11a1 Regulates Bone Microarchitecture during Embryonic Development
+  found_in:
+  - Fibrochondrogenesis-deep-research-falcon.md
+  findings:
+  - statement: Col11a1 Regulates Bone Microarchitecture during Embryonic Development
+    supporting_text: Collagen XI alpha 1 (Col11a1) is an extracellular matrix molecule required for embryonic development with a role in both nucleating the formation of fibrils and regulating the diameter of heterotypic fibrils during collagen fibrillar assembly.
+    evidence:
+    - reference: DOI:10.3390/jdb3040158
+      reference_title: Col11a1 Regulates Bone Microarchitecture during Embryonic Development
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: Collagen XI alpha 1 (Col11a1) is an extracellular matrix molecule required for embryonic development with a role in both nucleating the formation of fibrils and regulating the diameter of heterotypic fibrils during collagen fibrillar assembly.
+      explanation: Deep research cited this publication as relevant literature for Fibrochondrogenesis.
+- reference: DOI:10.6065/apem.2346150.075
+  title: &#39;A novel compound heterozygous variant of the COL11A1 gene in a patient with fibrochondrogenesis type I: the first case in Korea&#39;
+  found_in:
+  - Fibrochondrogenesis-deep-research-falcon.md
+  findings:
+  - statement: &#39;A novel compound heterozygous variant of the COL11A1 gene in a patient with fibrochondrogenesis type I: the first case in Korea&#39;
+    supporting_text: &#39;A novel compound heterozygous variant of the COL11A1 gene in a patient with fibrochondrogenesis type I: the first case in Korea&#39;
+- reference: DOI:10.1016/j.ajhg.2010.10.009
+  title: Fibrochondrogenesis Results from Mutations in the COL11A1 Type XI Collagen Gene
+  found_in:
+  - Fibrochondrogenesis-deep-research-falcon.md
+  findings:
+  - statement: Fibrochondrogenesis Results from Mutations in the COL11A1 Type XI Collagen Gene
+    supporting_text: Fibrochondrogenesis Results from Mutations in the COL11A1 Type XI Collagen Gene
+    evidence:
+    - reference: DOI:10.1016/j.ajhg.2010.10.009
+      reference_title: Fibrochondrogenesis Results from Mutations in the COL11A1 Type XI Collagen Gene
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Fibrochondrogenesis Results from Mutations in the COL11A1 Type XI Collagen Gene
+      explanation: Deep research cited this publication as relevant literature for Fibrochondrogenesis.
 </pre>
             </div>
         </div>
@@ -5514,7 +5818,7 @@ references:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">15</span>
+                    <span class="card-count">26</span>
                 </div>
                 
                 <div class="reference-entry">
@@ -5772,8 +6076,1344 @@ references:
                     
                 </div>
                 
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1002/ajmg.a.34406" target="_blank">DOI:10.1002/ajmg.a.34406</a>
+                            </div>
+                            
+                            <div class="reference-title">Dominant and recessive forms of fibrochondrogenesis resulting from mutations at a second locus, &lt;i&gt;COL11A2&lt;/i&gt;</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Fibrochondrogenesis is a severe, recessively inherited skeletal dysplasia shown to result from mutations in the gene encoding the proα1(XI) chain of type XI collagen, COL11A1.</div>
+            
+            
+            <div class="reference-finding-supporting">"Fibrochondrogenesis is a severe, recessively inherited skeletal dysplasia shown to result from mutations in the gene encoding the proα1(XI) chain of type XI collagen, COL11A1."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1002/ajmg.a.34406" target="_blank">DOI:10.1002/ajmg.a.34406</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Fibrochondrogenesis is a severe, recessively inherited skeletal dysplasia shown to result from mutations in the gene encoding the proα1(XI) chain of type XI collagen, COL11A1."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Fibrochondrogenesis.</div>
+                
             </div>
             
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1093/hmg/ddad117" target="_blank">DOI:10.1093/hmg/ddad117</a>
+                            </div>
+                            
+                            <div class="reference-title">COL11A2 as a candidate gene for vertebral malformations and congenital scoliosis</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">COL11A2 as a candidate gene for vertebral malformations and congenital scoliosis</div>
+            
+            
+            <div class="reference-finding-supporting">"Human vertebral malformations (VMs) have an estimated incidence of 1/2000 and are associated with significant health problems including congenital scoliosis (CS) and recurrent organ system malformation syndromes such as VACTERL (vertebral anomalies; anal abnormalities; cardiac abnormalities;..."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/hmg/ddad117" target="_blank">DOI:10.1093/hmg/ddad117</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Human vertebral malformations (VMs) have an estimated incidence of 1/2000 and are associated with significant health problems including congenital scoliosis (CS) and recurrent organ system malformation syndromes such as VACTERL (vertebral anomalies; anal abnormalities; cardiac abnormalities;..."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Fibrochondrogenesis.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1098/rstb.2017.0335" target="_blank">DOI:10.1098/rstb.2017.0335</a>
+                            </div>
+                            
+                            <div class="reference-title">The mechanical impact of &lt;i&gt;col11a2&lt;/i&gt; loss on joints; &lt;i&gt;col11a2&lt;/i&gt; mutant zebrafish show changes to joint development and function, which leads to early-onset osteoarthritis</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Collagen is the major structural component of cartilage, and mutations in the genes encoding type XI collagen are associated with severe skeletal dysplasias (fibrochondrogenesis and Stickler syndrome) and early-onset osteoarthritis (OA).</div>
+            
+            
+            <div class="reference-finding-supporting">"Collagen is the major structural component of cartilage, and mutations in the genes encoding type XI collagen are associated with severe skeletal dysplasias (fibrochondrogenesis and Stickler syndrome) and early-onset osteoarthritis (OA)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1098/rstb.2017.0335" target="_blank">DOI:10.1098/rstb.2017.0335</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Collagen is the major structural component of cartilage, and mutations in the genes encoding type XI collagen are associated with severe skeletal dysplasias (fibrochondrogenesis and Stickler syndrome) and early-onset osteoarthritis (OA)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Fibrochondrogenesis.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1148/rg.2021200075" target="_blank">DOI:10.1148/rg.2021200075</a>
+                            </div>
+                            
+                            <div class="reference-title">Radiologic Features of Type II and Type XI Collagenopathies</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Radiologic Features of Type II and Type XI Collagenopathies</div>
+            
+            
+            <div class="reference-finding-supporting">"Radiologic Features of Type II and Type XI Collagenopathies"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1201/9781003166948" target="_blank">DOI:10.1201/9781003166948</a>
+                            </div>
+                            
+                            <div class="reference-title">Fetal and Perinatal Skeletal Dysplasias</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Fetal and Perinatal Skeletal Dysplasias</div>
+            
+            
+            <div class="reference-finding-supporting">"Fetal and Perinatal Skeletal Dysplasias"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1259/bjr.20221025" target="_blank">DOI:10.1259/bjr.20221025</a>
+                            </div>
+                            
+                            <div class="reference-title">Prenatal diagnosis of bone dysplasias</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Bone dysplasias are individually rare but collectively common.</div>
+            
+            
+            <div class="reference-finding-supporting">"Bone dysplasias are individually rare but collectively common."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1259/bjr.20221025" target="_blank">DOI:10.1259/bjr.20221025</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Bone dysplasias are individually rare but collectively common."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Fibrochondrogenesis.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.18122/b2dq43" target="_blank">DOI:10.18122/b2dq43</a>
+                            </div>
+                            
+                            <div class="reference-title">The Role of Col11a1 Expression During Cartilage Development</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The Role of Col11a1 Expression During Cartilage Development</div>
+            
+            
+            <div class="reference-finding-supporting">"The Role of Col11a1 Expression During Cartilage Development"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/jdb10040040" target="_blank">DOI:10.3390/jdb10040040</a>
+                            </div>
+                            
+                            <div class="reference-title">The Shape of the Jaw—Zebrafish Col11a1a Regulates Meckel’s Cartilage Morphogenesis and Mineralization</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The expression of the col11a1a gene is essential for normal skeletal development, affecting both cartilage and bone.</div>
+            
+            
+            <div class="reference-finding-supporting">"The expression of the col11a1a gene is essential for normal skeletal development, affecting both cartilage and bone."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/jdb10040040" target="_blank">DOI:10.3390/jdb10040040</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The expression of the col11a1a gene is essential for normal skeletal development, affecting both cartilage and bone."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Fibrochondrogenesis.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/jdb3040158" target="_blank">DOI:10.3390/jdb3040158</a>
+                            </div>
+                            
+                            <div class="reference-title">Col11a1 Regulates Bone Microarchitecture during Embryonic Development</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Col11a1 Regulates Bone Microarchitecture during Embryonic Development</div>
+            
+            
+            <div class="reference-finding-supporting">"Collagen XI alpha 1 (Col11a1) is an extracellular matrix molecule required for embryonic development with a role in both nucleating the formation of fibrils and regulating the diameter of heterotypic fibrils during collagen fibrillar assembly."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/jdb3040158" target="_blank">DOI:10.3390/jdb3040158</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Collagen XI alpha 1 (Col11a1) is an extracellular matrix molecule required for embryonic development with a role in both nucleating the formation of fibrils and regulating the diameter of heterotypic fibrils during collagen fibrillar assembly."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Fibrochondrogenesis.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.6065/apem.2346150.075" target="_blank">DOI:10.6065/apem.2346150.075</a>
+                            </div>
+                            
+                            <div class="reference-title">A novel compound heterozygous variant of the COL11A1 gene in a patient with fibrochondrogenesis type I: the first case in Korea</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">A novel compound heterozygous variant of the COL11A1 gene in a patient with fibrochondrogenesis type I: the first case in Korea</div>
+            
+            
+            <div class="reference-finding-supporting">"A novel compound heterozygous variant of the COL11A1 gene in a patient with fibrochondrogenesis type I: the first case in Korea"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1016/j.ajhg.2010.10.009" target="_blank">DOI:10.1016/j.ajhg.2010.10.009</a>
+                            </div>
+                            
+                            <div class="reference-title">Fibrochondrogenesis Results from Mutations in the COL11A1 Type XI Collagen Gene</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Fibrochondrogenesis Results from Mutations in the COL11A1 Type XI Collagen Gene</div>
+            
+            
+            <div class="reference-finding-supporting">"Fibrochondrogenesis Results from Mutations in the COL11A1 Type XI Collagen Gene"</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1016/j.ajhg.2010.10.009" target="_blank">DOI:10.1016/j.ajhg.2010.10.009</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Fibrochondrogenesis Results from Mutations in the COL11A1 Type XI Collagen Gene"</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Fibrochondrogenesis.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">1. Disease Information</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">39 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-08T15:56:13.123493</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <h2>1. Disease Information</h2>
+<h3>1.1 Overview (what is the disease?)</h3>
+<p>Fibrochondrogenesis is a <strong>severe short-limbed skeletal dysplasia</strong> that classically presents <strong>prenatally</strong> with characteristic craniofacial, thoracic, and radiographic findings and is frequently <strong>perinatally lethal</strong> due to thoracic insufficiency/respiratory compromise (tompson2010fibrochondrogenesisresultsfrom pages 1-2, tompson2012dominantandrecessive pages 1-3). In the landmark genetic study, Tompson et al. describe it as “<strong>a severe, autosomal-recessive, short-limbed skeletal dysplasia</strong>” and provide detailed clinical-radiographic-pathologic characterization (tompson2010fibrochondrogenesisresultsfrom pages 1-2).</p>
+<h3>1.2 Key identifiers (OMIM/Orphanet/ICD/MeSH/MONDO)</h3>
+<ul>
+<li><strong>OMIM/MIM:</strong> <strong>228520</strong> (“Fibrochondrogenesis (MIM 228520)”) (tompson2010fibrochondrogenesisresultsfrom pages 1-2)</li>
+<li><strong>Orphanet, ICD-10/ICD-11, MeSH, MONDO:</strong> Not present in the retrieved full-text excerpts (tompson2010fibrochondrogenesisresultsfrom pages 5-5, jeon2024anovelcompound pages 1-3).</li>
+</ul>
+<h3>1.3 Synonyms / alternative names in retrieved sources</h3>
+<ul>
+<li><strong>Fibrochondrogenesis type 1</strong> / <strong>FBCG1</strong> (jeon2024anovelcompound pages 1-3)</li>
+</ul>
+<h3>1.4 Evidence source types</h3>
+<p>The retrieved evidence is largely from:
+- <strong>Human clinical genetics and fetal/neonatal radiology/pathology</strong> (case reports and molecular studies) (tompson2010fibrochondrogenesisresultsfrom pages 1-2, jeon2024anovelcompound pages 1-3, tompson2012dominantandrecessive pages 1-3)
+- <strong>Aggregated radiology review</strong> (type II and type XI collagenopathies) (handa2021radiologicfeaturesof pages 11-14)
+- <strong>Model organism studies</strong> (zebrafish and mouse) supporting mechanism (lawrence2018themechanicalimpact pages 1-2, reeck2022theshapeof pages 9-11, hafez2015col11a1regulatesbone pages 1-3)</p>
+<p>A compact identifiers/nomenclature summary is provided here:</p>
+<table>
+<thead>
+<tr>
+<th>Disease name / label in source</th>
+<th>Synonyms / alternative names in retrieved texts</th>
+<th>OMIM / MIM</th>
+<th>Described inheritance in retrieved texts</th>
+<th>Causal gene(s) mentioned in retrieved texts</th>
+<th>Key source (URL; publication date)</th>
+<th>Notes on identifiers not found in retrieved texts</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fibrochondrogenesis</td>
+<td>—</td>
+<td>MIM 228520</td>
+<td>Severe, autosomal recessive short-limbed skeletal dysplasia (tompson2010fibrochondrogenesisresultsfrom pages 1-2)</td>
+<td>COL11A1 identified as a disease locus (tompson2010fibrochondrogenesisresultsfrom pages 1-2)</td>
+<td>Tompson et al., <em>Am J Hum Genet</em>; https://doi.org/10.1016/j.ajhg.2010.10.009; Nov 2010 (tompson2010fibrochondrogenesisresultsfrom pages 1-2)</td>
+<td>Orphanet, MONDO, MeSH, and ICD identifiers were not reported in the retrieved text excerpts (tompson2010fibrochondrogenesisresultsfrom pages 5-5)</td>
+</tr>
+<tr>
+<td>Fibrochondrogenesis type 1</td>
+<td>FBCG1; “fibrochondrogenesis type I” (jeon2024anovelcompound pages 1-3)</td>
+<td>OMIM #228520</td>
+<td>Rare lethal autosomal recessive form (jeon2024anovelcompound pages 1-3)</td>
+<td>COL11A1 (jeon2024anovelcompound pages 1-3)</td>
+<td>Jeon et al., <em>Ann Pediatr Endocrinol Metab</em>; https://doi.org/10.6065/apem.2346150.075; Apr 2024 (jeon2024anovelcompound pages 1-3)</td>
+<td>Orphanet, MONDO, MeSH, and ICD identifiers were not reported in the retrieved text excerpts (jeon2024anovelcompound pages 1-3)</td>
+</tr>
+<tr>
+<td>Fibrochondrogenesis</td>
+<td>—</td>
+<td>OMIM 228520</td>
+<td>Both recessive and dominant forms described at a second locus; de novo dominant case reported (tompson2012dominantandrecessive pages 1-3, tompson2012dominantandrecessive pages 4-6)</td>
+<td>COL11A2 as a second locus (tompson2012dominantandrecessive pages 1-3, tompson2012dominantandrecessive pages 12-13)</td>
+<td>Tompson et al., <em>Am J Med Genet A</em>; https://doi.org/10.1002/ajmg.a.34406; Feb 2012 (tompson2012dominantandrecessive pages 1-3, tompson2012dominantandrecessive pages 4-6)</td>
+<td>Orphanet, MONDO, MeSH, and ICD identifiers were not reported in the retrieved text excerpts (tompson2012dominantandrecessive pages 7-12, tompson2012dominantandrecessive pages 4-6, tompson2012dominantandrecessive pages 12-13)</td>
+</tr>
+<tr>
+<td>Fibrochondrogenesis</td>
+<td>Included among type XI collagenopathies; described alongside otospondylomegaepiphyseal dysplasia (handa2021radiologicfeaturesof pages 11-14)</td>
+<td>—</td>
+<td>Variably fatal; lethal autosomal recessive chondrodysplasia attributed to COL11A1 in review text (handa2021radiologicfeaturesof pages 11-14, handa2021radiologicfeaturesof pages 16-17)</td>
+<td>COL11A1; related type XI collagenopathy context also includes COL11A2 (handa2021radiologicfeaturesof pages 16-17, handa2021radiologicfeaturesof pages 11-14)</td>
+<td>Handa et al., <em>RadioGraphics</em>; https://doi.org/10.1148/rg.2021200075; Jan 2021 (handa2021radiologicfeaturesof pages 11-14)</td>
+<td>OMIM/Orphanet/ICD/MeSH/MONDO identifiers were not provided in the cited review excerpts (handa2021radiologicfeaturesof pages 16-17, handa2021radiologicfeaturesof pages 11-14)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes the disease names, synonyms, OMIM/MIM identifiers, inheritance patterns, and causal genes for fibrochondrogenesis using only the retrieved evidence. It also flags which standard identifiers were not found in the available source excerpts.</em></p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>2.1 Disease causal factors</h3>
+<p>Fibrochondrogenesis is primarily a <strong>genetic disorder</strong> caused by pathogenic variants affecting <strong>type XI collagen</strong>:
+- <strong>COL11A1</strong>: established disease locus for classic autosomal recessive fibrochondrogenesis (tompson2010fibrochondrogenesisresultsfrom pages 1-2)
+- <strong>COL11A2</strong>: identified as a <strong>second locus</strong>, with both recessive and <strong>de novo dominant</strong> fibrochondrogenesis reported (tompson2012dominantandrecessive pages 1-3, tompson2012dominantandrecessive pages 4-6)</p>
+<h4>Key primary-literature abstract quote (genetic causality)</h4>
+<p>Tompson et al. (2010) report: “<strong>Fibrochondrogenesis results from mutations in the COL11A1 type XI collagen gene</strong>” and note affected individuals were compound heterozygotes for a loss-of-function allele and a glycine-substitution triple-helical allele (tompson2010fibrochondrogenesisresultsfrom pages 1-2).</p>
+<h3>2.2 Risk factors</h3>
+<ul>
+<li><strong>Genetic risk factor:</strong> biallelic pathogenic variants in COL11A1 (AR) (tompson2010fibrochondrogenesisresultsfrom pages 1-2, jeon2024anovelcompound pages 1-3).</li>
+<li><strong>Consanguinity/autozygosity:</strong> a case had “unknown ancestral consanguinity” inferred from autozygous regions by SNP genotyping (tompson2010fibrochondrogenesisresultsfrom pages 1-2).</li>
+</ul>
+<p>Environmental/lifestyle risk factors are <strong>not established</strong> in the retrieved sources.</p>
+<h3>2.3 Protective factors / gene–environment interactions</h3>
+<p>No protective factors or gene–environment interactions were identified in the retrieved evidence for fibrochondrogenesis.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>3.1 Core clinical and radiographic phenotype (current understanding)</h3>
+<p>Tompson et al. describe the classic phenotype including:
+- Craniofacial: <strong>flat midface</strong>, small nose, <strong>anteverted nares</strong> (tompson2010fibrochondrogenesisresultsfrom pages 1-2)
+- Limbs: <strong>significant shortening of all limb segments</strong> with relatively normal hands/feet (tompson2010fibrochondrogenesisresultsfrom pages 1-2)
+- Thorax: <strong>small bell-shaped thorax</strong> (tompson2010fibrochondrogenesisresultsfrom pages 1-2)
+- Radiographs: <strong>short long bones with broad metaphyseal ends (“dumb-bell shape”)</strong>, short ribs with metaphyseal cupping, and <strong>flat vertebral bodies with “pinched” appearance</strong> (hypoplastic posterior end; rounded anterior end) (tompson2010fibrochondrogenesisresultsfrom pages 1-2)
+- Histopathology: growth plate with <strong>fibroblastic chondrocytes</strong> and <strong>fibrous cartilage extracellular matrix</strong>; collagen fibrils appear “frayed and irregular” on EM (tompson2010fibrochondrogenesisresultsfrom pages 1-2, jeon2024anovelcompound pages 1-3)</p>
+<p>The 2024 Korean survivor case (COL11A1 compound heterozygote) highlights that <strong>phenotypic severity can vary</strong> by genotype and can include short stature and dysmorphism with survivorship into childhood (jeon2024anovelcompound pages 1-3).</p>
+<h3>3.2 Phenotype ontology mapping (HPO) and anatomical structures (UBERON)</h3>
+<p>A structured mapping of major features to suggested <strong>HPO</strong> and <strong>UBERON</strong> terms is provided here:</p>
+<table>
+<thead>
+<tr>
+<th>Phenotype description (as in sources)</th>
+<th>Suggested HPO term (name + HP:ID)</th>
+<th>Typical onset</th>
+<th>Notes on frequency/severity</th>
+<th>Key anatomic structure (with UBERON if known)</th>
+<th>Supporting citation context IDs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Severe short-limbed skeletal dysplasia / significant shortening of all limb segments</td>
+<td>Short limb (HP:0009826); Micromelia (HP:0002983)</td>
+<td>Prenatal</td>
+<td>Core, severe feature; often detected on prenatal imaging</td>
+<td>Limb skeleton (UBERON:0001032); long bone of lower limb (UBERON:0000981)</td>
+<td>(tompson2010fibrochondrogenesisresultsfrom pages 1-2, jeon2024anovelcompound pages 1-3)</td>
+</tr>
+<tr>
+<td>Flat midface with small nose and anteverted nares / severe midface hypoplasia</td>
+<td>Midface retrusion (HP:0011800); Anteverted nares (HP:0000463); Flat face (HP:0000276)</td>
+<td>Prenatal / neonatal</td>
+<td>Characteristic craniofacial gestalt</td>
+<td>Face (UBERON:0001456); middle face region (UBERON:0011822)</td>
+<td>(tompson2010fibrochondrogenesisresultsfrom pages 1-2, jeon2024anovelcompound pages 1-3, handa2021radiologicfeaturesof pages 11-14)</td>
+</tr>
+<tr>
+<td>Small bell-shaped thorax</td>
+<td>Bell-shaped thorax (HP:0001591); Narrow chest (HP:0000774)</td>
+<td>Prenatal / neonatal</td>
+<td>Major severity marker; contributes to respiratory compromise/perinatal lethality</td>
+<td>Thoracic cage (UBERON:0000915)</td>
+<td>(tompson2010fibrochondrogenesisresultsfrom pages 1-2, tompson2012dominantandrecessive pages 1-3, jeon2024anovelcompound pages 1-3)</td>
+</tr>
+<tr>
+<td>Protuberant abdomen</td>
+<td>Protuberant abdomen (HP:0001538)</td>
+<td>Prenatal / neonatal</td>
+<td>Reported in classic clinical description</td>
+<td>Abdomen (UBERON:0000916)</td>
+<td>(tompson2010fibrochondrogenesisresultsfrom pages 1-2)</td>
+</tr>
+<tr>
+<td>Long bones severely short, broad metaphyseal ends, dumbbell-shaped with metaphyseal widening/flaring</td>
+<td>Metaphyseal widening (HP:0003026); Dumbbell-shaped long bone (HP:0003305)</td>
+<td>Prenatal / neonatal</td>
+<td>Hallmark radiographic feature; severe</td>
+<td>Long bone metaphysis (UBERON:0006374); long bone (UBERON:0002495)</td>
+<td>(tompson2010fibrochondrogenesisresultsfrom pages 1-2, tompson2012dominantandrecessive pages 4-6, handa2021radiologicfeaturesof pages 11-14)</td>
+</tr>
+<tr>
+<td>Short ribs with metaphyseal cupping / anterior rib cupping</td>
+<td>Short rib (HP:0000885); Cupped ribs (suggested HPO if used locally; exact HP uncertain)</td>
+<td>Prenatal / neonatal</td>
+<td>Frequent radiographic clue in severe cases</td>
+<td>Rib (UBERON:0000974)</td>
+<td>(tompson2010fibrochondrogenesisresultsfrom pages 1-2, tompson2012dominantandrecessive pages 1-3, tompson2012dominantandrecessive pages 4-6)</td>
+</tr>
+<tr>
+<td>Flat vertebral bodies / platyspondyly / pear-shaped vertebral bodies</td>
+<td>Platyspondyly (HP:0000926); Pear-shaped vertebrae (HP:0002938)</td>
+<td>Prenatal / neonatal</td>
+<td>Hallmark axial skeletal finding; often severe</td>
+<td>Vertebral body (UBERON:0002415); vertebral column (UBERON:0001130)</td>
+<td>(tompson2010fibrochondrogenesisresultsfrom pages 1-2, jeon2024anovelcompound pages 1-3, handa2021radiologicfeaturesof pages 11-14)</td>
+</tr>
+<tr>
+<td>Vertebral bodies with hypoplastic posterior and rounded anterior ends producing a pinched appearance</td>
+<td>Vertebral body hypoplasia (HP:0002650); Abnormal vertebral body morphology (HP:0003312)</td>
+<td>Prenatal / neonatal</td>
+<td>Distinctive lateral radiographic appearance</td>
+<td>Vertebral body (UBERON:0002415)</td>
+<td>(tompson2010fibrochondrogenesisresultsfrom pages 1-2, tompson2012dominantandrecessive pages 1-3, rebello2023col11a2asa pages 1-2)</td>
+</tr>
+<tr>
+<td>Multilevel coronal clefts / dorsally wedged vertebral bodies</td>
+<td>Coronal cleft vertebrae (HP:0004602); Vertebral wedging (HP:0004586)</td>
+<td>Prenatal / neonatal</td>
+<td>Distinguishes fibrochondrogenesis from some related dysplasias</td>
+<td>Vertebral body (UBERON:0002415); lumbar vertebra (UBERON:0002414)</td>
+<td>(handa2021radiologicfeaturesof pages 11-14)</td>
+</tr>
+<tr>
+<td>Delayed vertebral ossification / delayed ossification of cervical vertebral bodies</td>
+<td>Delayed skeletal ossification (HP:0002750); Delayed ossification of vertebral bodies (suggested)</td>
+<td>Prenatal</td>
+<td>Seen in severe fetal cases</td>
+<td>Vertebral column (UBERON:0001130); cervical vertebra (UBERON:0002413)</td>
+<td>(tompson2012dominantandrecessive pages 7-12, handa2021radiologicfeaturesof pages 11-14)</td>
+</tr>
+<tr>
+<td>Small ilia with hypoplastic ischia and pubis / pelvic hypoplasia</td>
+<td>Hypoplastic ilia (HP:0008818); Ischiopubic hypoplasia (suggested)</td>
+<td>Prenatal / neonatal</td>
+<td>Supports radiographic diagnosis in severe cases</td>
+<td>Ilium (UBERON:0001137); ischium (UBERON:0001274); pubis (UBERON:0001275)</td>
+<td>(tompson2012dominantandrecessive pages 7-12, tompson2012dominantandrecessive pages 12-13)</td>
+</tr>
+<tr>
+<td>Relatively normal hands and feet</td>
+<td>Normal hands and feet / absence of major acromelic shortening (no direct HPO disease term)</td>
+<td>Prenatal / neonatal</td>
+<td>Helpful negative discriminator in classic description</td>
+<td>Hand (UBERON:0002398); foot (UBERON:0002399)</td>
+<td>(tompson2010fibrochondrogenesisresultsfrom pages 1-2)</td>
+</tr>
+<tr>
+<td>Short stature</td>
+<td>Short stature (HP:0004322)</td>
+<td>Prenatal to childhood</td>
+<td>Common among survivors; severity variable by genotype</td>
+<td>Whole body (UBERON:0000468)</td>
+<td>(jeon2024anovelcompound pages 1-3, handa2021radiologicfeaturesof pages 11-14)</td>
+</tr>
+<tr>
+<td>Myopia</td>
+<td>Myopia (HP:0000545)</td>
+<td>Childhood / later in survivors; also mild in some carriers</td>
+<td>Reported in affected individuals and some heterozygous carriers</td>
+<td>Eye (UBERON:0000970)</td>
+<td>(tompson2010fibrochondrogenesisresultsfrom pages 1-2, jeon2024anovelcompound pages 1-3)</td>
+</tr>
+<tr>
+<td>Cataracts</td>
+<td>Cataract (HP:0000518)</td>
+<td>Childhood / later in survivors</td>
+<td>Reported in clinical spectrum of FBCG1</td>
+<td>Lens of eye (UBERON:0001769)</td>
+<td>(jeon2024anovelcompound pages 1-3)</td>
+</tr>
+<tr>
+<td>Sensorineural hearing loss / early-onset hearing loss</td>
+<td>Sensorineural hearing impairment (HP:0000407)</td>
+<td>Childhood / early onset</td>
+<td>Reported in survivors; mild/early-onset in some carriers</td>
+<td>Inner ear (UBERON:0002517); cochlea (UBERON:0002245)</td>
+<td>(tompson2010fibrochondrogenesisresultsfrom pages 1-2, jeon2024anovelcompound pages 1-3)</td>
+</tr>
+<tr>
+<td>Micrognathia</td>
+<td>Micrognathia (HP:0000347)</td>
+<td>Prenatal / neonatal</td>
+<td>Recurrent craniofacial feature</td>
+<td>Mandible (UBERON:0001684)</td>
+<td>(reeck2022theshapeof pages 9-11, jeon2024anovelcompound pages 1-3)</td>
+</tr>
+<tr>
+<td>Clinodactyly of fifth digits</td>
+<td>Clinodactyly (HP:0030084); Fifth finger clinodactyly (HP:0004209)</td>
+<td>Childhood</td>
+<td>Observed in surviving 2024 case</td>
+<td>Fifth finger (UBERON:0006048)</td>
+<td>(jeon2024anovelcompound pages 1-3)</td>
+</tr>
+<tr>
+<td>Webbed neck</td>
+<td>Webbed neck (HP:0000465)</td>
+<td>Childhood</td>
+<td>Reported in surviving 2024 case; not clearly known as common</td>
+<td>Neck (UBERON:0000974)</td>
+<td>(jeon2024anovelcompound pages 1-3)</td>
+</tr>
+<tr>
+<td>Straight spine / abnormal spinal curvature reported in disease spectrum</td>
+<td>Abnormality of the vertebral column (HP:0000925); Kyphosis/Scoliosis if present (HP:0002808/HP:0002650 as applicable)</td>
+<td>Prenatal to childhood</td>
+<td>Spinal curvature abnormalities mentioned across reports/models; variable</td>
+<td>Vertebral column (UBERON:0001130)</td>
+<td>(reeck2022theshapeof pages 9-11, jeon2024anovelcompound pages 1-3)</td>
+</tr>
+<tr>
+<td>Fibroblastic appearance of chondrocytes and fibrous cartilage extracellular matrix on growth-plate histology</td>
+<td>Abnormal cartilage histology (HP:0031843); Fibrous cartilage matrix (suggested descriptive annotation)</td>
+<td>Prenatal / fetal pathology</td>
+<td>Defining pathologic feature underlying disease name</td>
+<td>Growth plate cartilage (UBERON:0001485); cartilage tissue (UBERON:0002418)</td>
+<td>(tompson2010fibrochondrogenesisresultsfrom pages 1-2, jeon2024anovelcompound pages 1-3, handa2021radiologicfeaturesof pages 11-14)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table maps major clinical, radiographic, and histopathologic features reported for fibrochondrogenesis to suggested HPO and anatomic UBERON terms. It is designed to support structured disease knowledge-base curation and phenotype annotation from the cited source contexts.</em></p>
+<h3>3.3 Quality-of-life impact</h3>
+<p>Direct quality-of-life instrument data (e.g., EQ-5D/SF-36) were not identified in retrieved texts. However, for survivors, the condition can involve chronic skeletal dysplasia with potential ophthalmic and auditory complications requiring ongoing surveillance (jeon2024anovelcompound pages 1-3).</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<h3>4.1 Causal genes</h3>
+<ul>
+<li><strong>COL11A1</strong> (type XI collagen α1 chain) is a key causal gene; Tompson et al. identify COL11A1 as the cartilage-selective candidate and report compound heterozygous pathogenic variants (tompson2010fibrochondrogenesisresultsfrom pages 1-2).</li>
+<li><strong>COL11A2</strong> (type XI collagen α2 chain) is a second locus; Tompson et al. report both recessive and dominant fibrochondrogenesis due to COL11A2 variants (tompson2012dominantandrecessive pages 1-3, tompson2012dominantandrecessive pages 4-6).</li>
+</ul>
+<h3>4.2 Pathogenic variants (representative examples from retrieved sources)</h3>
+<p>A structured gene/variant table is provided here:</p>
+<table>
+<thead>
+<tr>
+<th>Gene</th>
+<th>Disorder context</th>
+<th>Inheritance</th>
+<th>Variant(s) with HGVS as reported</th>
+<th>Variant type</th>
+<th>Evidence notes</th>
+<th>Source with URL and publication month/year</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>COL11A1</strong></td>
+<td>Fibrochondrogenesis / FBCG1</td>
+<td>Autosomal recessive</td>
+<td>Specific HGVS not fully shown in excerpt; two independent cases each had one <strong>loss-of-function</strong> allele plus one <strong>glycine-substitution missense</strong> allele in <strong>COL11A1</strong></td>
+<td>LoF + missense</td>
+<td>Landmark study establishing <strong>COL11A1</strong> as a fibrochondrogenesis locus; affected individuals were <strong>compound heterozygotes</strong>; carrier parents had myopia or early-onset hearing loss (tompson2010fibrochondrogenesisresultsfrom pages 1-2)</td>
+<td>Tompson et al. <em>Am J Hum Genet</em> (Nov 2010), https://doi.org/10.1016/j.ajhg.2010.10.009 (tompson2010fibrochondrogenesisresultsfrom pages 1-2)</td>
+</tr>
+<tr>
+<td><strong>COL11A1</strong></td>
+<td>Fibrochondrogenesis type 1 (FBCG1)</td>
+<td>Autosomal recessive</td>
+<td><strong>c.3478C&gt;G (p.Pro1160Ala)</strong>; <strong>c.2771C&gt;T (p.Pro924Leu)</strong></td>
+<td>Missense + missense</td>
+<td>Korean case; <strong>compound heterozygous</strong> variants confirmed <strong>in trans</strong> from father and mother; <strong>p.Pro1160Ala</strong> was novel and reclassified from VUS to likely pathogenic after segregation analysis (jeon2024anovelcompound pages 1-3)</td>
+<td>Jeon et al. <em>Ann Pediatr Endocrinol Metab</em> (Apr 2024), https://doi.org/10.6065/apem.2346150.075 (jeon2024anovelcompound pages 1-3)</td>
+</tr>
+<tr>
+<td><strong>COL11A2</strong></td>
+<td>Fibrochondrogenesis</td>
+<td>Autosomal recessive</td>
+<td><strong>IVS18+3insG</strong>; predicted protein effect <strong>p.556_573del18</strong></td>
+<td>Splice-site leading to in-frame exon-skipping deletion</td>
+<td>Recessive case at second locus; splice donor change caused <strong>exon 18 skipping</strong> and predicted deletion of 18 amino acids in the triple-helical domain (tompson2012dominantandrecessive pages 1-3, tompson2012dominantandrecessive pages 12-13)</td>
+<td>Tompson et al. <em>Am J Med Genet A</em> (Feb 2012), https://doi.org/10.1002/ajmg.a.34406 (tompson2012dominantandrecessive pages 1-3, tompson2012dominantandrecessive pages 12-13)</td>
+</tr>
+<tr>
+<td><strong>COL11A2</strong></td>
+<td>Fibrochondrogenesis</td>
+<td>Autosomal dominant</td>
+<td><strong>c.2899_2907del9</strong>; predicted protein effect <strong>p.967_969del3</strong></td>
+<td>In-frame deletion</td>
+<td>Dominant case at second locus; variant was <strong>de novo</strong>, providing evidence for an <strong>autosomal dominant form</strong> of fibrochondrogenesis (tompson2012dominantandrecessive pages 1-3, tompson2012dominantandrecessive pages 12-13, tompson2012dominantandrecessive pages 4-6)</td>
+<td>Tompson et al. <em>Am J Med Genet A</em> (Feb 2012), https://doi.org/10.1002/ajmg.a.34406 (tompson2012dominantandrecessive pages 1-3, tompson2012dominantandrecessive pages 4-6)</td>
+</tr>
+<tr>
+<td><strong>COL11A1</strong></td>
+<td>Fibrochondrogenesis (expanded molecular spectrum)</td>
+<td>Autosomal recessive</td>
+<td>“<strong>homozygous null mutations</strong>” (exact HGVS not provided in retrieved excerpt)</td>
+<td>LoF / null</td>
+<td>Review-style citation trail notes UAE patients with <strong>two COL11A1 homozygous null mutations</strong>, supporting recessive severe disease; exact variant strings were not present in the available excerpt (reeck2022theshapeof pages 11-13, hall2024fetalandperinatal pages 61-63)</td>
+<td>Referenced within Reeck et al. <em>J Dev Biol</em> (Sep 2022), https://doi.org/10.3390/jdb10040040; and Hall et al. cited in excerpt (reeck2022theshapeof pages 11-13, hall2024fetalandperinatal pages 61-63)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes causal genes and representative pathogenic variants reported for fibrochondrogenesis in the retrieved sources, including inheritance pattern, variant class, and the evidence context. It is useful for quickly mapping the molecular heterogeneity of COL11A1- and COL11A2-related fibrochondrogenesis.</em></p>
+<p>Key 2023–2024 update (prioritized):
+- <strong>2024 (Jeon et al.)</strong> report a Korean case of FBCG1 with compound heterozygous <strong>COL11A1</strong> missense variants <strong>c.3478C&gt;G (p.Pro1160Ala)</strong> (novel; absent from gnomAD v2.1.1/v3 in the report; REVEL 0.649) and <strong>c.2771C&gt;T (p.Pro924Leu)</strong>, with segregation demonstrating the variants are in trans (jeon2024anovelcompound pages 1-3).</p>
+<h3>4.3 Variant functional consequences (high-level)</h3>
+<p>The primary mechanism is <strong>extracellular matrix (ECM) structural failure</strong> from impaired type XI collagen, affecting cartilage collagen fibril organization and downstream endochondral skeletal development (tompson2012dominantandrecessive pages 4-6, lawrence2018themechanicalimpact pages 1-2).</p>
+<h3>4.4 Modifier genes / epigenetics / chromosomal abnormalities</h3>
+<p>No modifier genes, epigenetic signatures, or recurrent chromosomal abnormalities specific to fibrochondrogenesis were identified in the retrieved sources.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>No specific environmental, lifestyle, or infectious contributors were identified in the retrieved evidence; fibrochondrogenesis is treated as a primarily genetic disorder in these sources (tompson2010fibrochondrogenesisresultsfrom pages 1-2, tompson2012dominantandrecessive pages 1-3).</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>6.1 Current mechanistic model (genotype → phenotype causal chain)</h3>
+<p>Evidence across human pathology and animal models supports:
+1) <strong>COL11A1/COL11A2 variants</strong> disrupt type XI collagen in cartilage (tompson2010fibrochondrogenesisresultsfrom pages 1-2, tompson2012dominantandrecessive pages 4-6).
+2) Disruption of type XI collagen destabilizes the collagen network; in zebrafish <strong>col11a2</strong> mutants, <strong>type II collagen is made but prematurely degraded</strong> in maturing cartilage (lawrence2018themechanicalimpact pages 1-2).
+3) The abnormal ECM is linked to altered chondrocyte organization and tissue-level biomechanics; zebrafish mutants show altered joint morphology and increased stiffness measured by AFM (lawrence2018themechanicalimpact pages 1-2).
+4) These disruptions manifest as the characteristic fetal skeletal dysplasia pattern (short, flared long bones; platyspondyly; small thorax), often with perinatal respiratory compromise (tompson2010fibrochondrogenesisresultsfrom pages 1-2, tompson2012dominantandrecessive pages 1-3).</p>
+<h4>Direct abstract quotes supporting mechanism (model organism)</h4>
+<ul>
+<li>Lawrence et al. (2018) state: “<strong>in col11a2 mutants, type II collagen is made but is prematurely degraded</strong> in maturing cartilage” and that these changes correlate with increased stiffness of bone and cartilage (lawrence2018themechanicalimpact pages 1-2).</li>
+</ul>
+<h3>6.2 Ontology suggestions (GO, CL)</h3>
+<p>A structured mechanism table with suggested <strong>GO biological process</strong> and <strong>CL cell type</strong> terms is provided here:</p>
+<table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Mechanistic statement (genotype→phenotype causal chain)</th>
+<th>Evidence type (human/model)</th>
+<th>Suggested GO biological process terms and CL terms</th>
+<th>Supporting context IDs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Molecular</td>
+<td>Pathogenic variants in <strong>COL11A1</strong> or <strong>COL11A2</strong> disrupt type XI collagen, a minor but structurally critical cartilage collagen that helps organize and stabilize the type II/XI heterotypic fibril network; abnormal triple-helical chains or loss of chain production impair fibril assembly and matrix integrity, initiating fibrochondrogenesis/type XI collagenopathy phenotypes.</td>
+<td>Human genetics + model-organism mechanistic inference</td>
+<td>GO: collagen fibril organization (GO:0030199); extracellular matrix organization (GO:0030198); skeletal system development (GO:0001501). CL: chondrocyte (CL:0000138)</td>
+<td>(tompson2010fibrochondrogenesisresultsfrom pages 1-2, tompson2012dominantandrecessive pages 4-6, lawrence2018themechanicalimpact pages 1-2, hafez2015col11a1regulatesbone pages 1-3)</td>
+</tr>
+<tr>
+<td>Molecular</td>
+<td>In zebrafish <strong>col11a2</strong> mutants, type II collagen is still synthesized but becomes <strong>prematurely degraded</strong> in maturing cartilage and ectopically localized in the joint, indicating that type XI collagen is required upstream for type II collagen stability and correct matrix distribution.</td>
+<td>Model organism (zebrafish)</td>
+<td>GO: collagen catabolic process (GO:0030574); protein-containing complex assembly / extracellular matrix assembly (GO:0065003, GO:0030198); cartilage development (GO:0051216). CL: chondrocyte (CL:0000138)</td>
+<td>(lawrence2018themechanicalimpact pages 1-2, lawrence2018themechanicalimpact pages 12-12)</td>
+</tr>
+<tr>
+<td>Cellular</td>
+<td>Loss of <strong>col11a1a</strong> disrupts chondrocyte organization in Meckel’s cartilage: cells fail to intercalate and stack into normal columnar arrays, consistent with altered cell-matrix interactions during cartilage morphogenesis. This cellular disorganization plausibly contributes to shortened, misshapen skeletal elements.</td>
+<td>Model organism (zebrafish)</td>
+<td>GO: chondrocyte differentiation (GO:0002063); cartilage morphogenesis (GO:0060536); cell-matrix adhesion (GO:0007160); regulation of cell shape (GO:0008360). CL: chondrocyte (CL:0000138); fibroblast-like cell / mesenchymal cell (CL:0000057)</td>
+<td>(reeck2022theshapeof pages 9-11, reeck2017theroleof pages 40-45)</td>
+</tr>
+<tr>
+<td>Cellular</td>
+<td>Human fetal pathology shows <strong>fibroblastic-appearing chondrocytes</strong> and fibrous cartilage extracellular matrix; ultrastructurally, collagen fibrils are frayed and irregular. This links mutant collagen XI directly to abnormal chondrocyte phenotype and aberrant matrix ultrastructure.</td>
+<td>Human clinical pathology</td>
+<td>GO: cartilage development (GO:0051216); extracellular matrix organization (GO:0030198); endochondral bone morphogenesis (GO:0060350). CL: chondrocyte (CL:0000138); fibroblast (CL:0000057)</td>
+<td>(tompson2010fibrochondrogenesisresultsfrom pages 1-2, jeon2024anovelcompound pages 1-3)</td>
+</tr>
+<tr>
+<td>Tissue</td>
+<td>Matrix-level defects alter the <strong>mechanical properties</strong> of cartilage and bone: zebrafish <strong>col11a2</strong> mutants show increased stiffness and altered joint shape/material behavior, indicating that ECM disorganization is translated into abnormal tissue biomechanics.</td>
+<td>Model organism (zebrafish)</td>
+<td>GO: extracellular matrix organization (GO:0030198); cartilage development (GO:0051216); ossification (GO:0001503). CL: chondrocyte (CL:0000138); osteoblast (CL:0000062)</td>
+<td>(lawrence2018themechanicalimpact pages 1-2, lawrence2018themechanicalimpact pages 12-12)</td>
+</tr>
+<tr>
+<td>Tissue</td>
+<td>In mouse <strong>Col11a1</strong> deficiency, absent Col11a1 cannot be functionally compensated by alternate triple-helical assemblies, leading to defects in epiphyseal cartilage, periosteal/bone collar formation, vertebral body formation, and trabecular/cortical bone microarchitecture.</td>
+<td>Model organism (mouse)</td>
+<td>GO: collagen fibril organization (GO:0030199); endochondral ossification (GO:0001958); bone mineralization (GO:0030282); osteoblast differentiation (GO:0001649). CL: chondrocyte (CL:0000138); osteoblast (CL:0000062); osteocyte (CL:0000638)</td>
+<td>(hafez2015col11a1regulatesbone pages 1-3)</td>
+</tr>
+<tr>
+<td>Organ</td>
+<td>In the developing spine, <strong>COL11A2</strong> loss-of-function causes vertebral fusions due to mineralization across intervertebral segments; patient missense variants fail to rescue this phenotype in zebrafish, supporting a causal chain from collagen XI dysfunction to abnormal vertebral segmentation and “pinched”/fused vertebral phenotypes.</td>
+<td>Human genetics + zebrafish functional validation</td>
+<td>GO: vertebral development (broadly skeletal system development, GO:0001501); biomineral tissue development (GO:0031214); regulation of ossification (GO:0030278). CL: chondrocyte (CL:0000138); notochord-associated mesenchymal derivatives not specifically resolved in source</td>
+<td>(rebello2023col11a2asa pages 1-2)</td>
+</tr>
+<tr>
+<td>Organ</td>
+<td>Craniofacial abnormalities (midface hypoplasia, micrognathia, altered jaw cartilage shape) can be explained by impaired collagen XI-dependent craniofacial cartilage morphogenesis and abnormal adjacent mineralization, demonstrated in zebrafish <strong>col11a1a</strong> models and reflected in human fibrochondrogenesis.</td>
+<td>Human clinical + model organism</td>
+<td>GO: craniofacial cartilage development (related cartilage development, GO:0051216); biomineral tissue development (GO:0031214); skeletal system morphogenesis (GO:0048705). CL: chondrocyte (CL:0000138); osteoblast (CL:0000062)</td>
+<td>(reeck2022theshapeof pages 9-11, reeck2022theshapeof pages 11-13)</td>
+</tr>
+<tr>
+<td>Organ</td>
+<td>Small thorax and severe long-bone/vertebral dysplasia likely represent downstream consequences of generalized cartilage matrix failure during prenatal endochondral skeletal development, explaining frequent <strong>perinatal lethality</strong> from thoracic insufficiency/respiratory compromise in severe cases.</td>
+<td>Human clinical/radiographic inference</td>
+<td>GO: endochondral ossification (GO:0001958); skeletal system development (GO:0001501); cartilage development (GO:0051216). CL: chondrocyte (CL:0000138); osteoblast (CL:0000062)</td>
+<td>(tompson2012dominantandrecessive pages 1-3, tompson2010fibrochondrogenesisresultsfrom pages 1-2, handa2021radiologicfeaturesof pages 11-14, tompson2012dominantandrecessive pages 4-6)</td>
+</tr>
+<tr>
+<td>Pathway hypothesis</td>
+<td>Source authors propose that some downstream effects of <strong>col11a1a</strong> loss may involve disrupted <strong>non-canonical Wnt/planar cell polarity</strong>, integrin-matrix interactions, and possibly BMP/Wnt signaling, but these remain mechanistic hypotheses rather than established disease pathways in fibrochondrogenesis.</td>
+<td>Model-organism hypothesis / interpretive</td>
+<td>GO: planar cell polarity pathway involved in axis elongation (related PCP processes; exact GO uncertain); cell-matrix adhesion (GO:0007160); Wnt signaling pathway (GO:0016055); BMP signaling pathway (GO:0030509). CL: chondrocyte (CL:0000138)</td>
+<td>(reeck2022theshapeof pages 9-11)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes the main mechanistic links from COL11A1/COL11A2 variation to cartilage matrix dysfunction, abnormal skeletal morphogenesis, and organ-level phenotypes in fibrochondrogenesis and related type XI collagenopathies. It integrates human pathology/genetics with zebrafish and mouse model evidence and suggests ontology terms useful for structured annotation.</em></p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p>Primary affected systems are the <strong>skeletal system</strong> (appendicular and axial skeleton) and <strong>cartilage growth plates</strong>, with frequent involvement of the <strong>thoracic cage</strong> and <strong>vertebral bodies</strong> (tompson2010fibrochondrogenesisresultsfrom pages 1-2, handa2021radiologicfeaturesof pages 11-14). The phenotypic mapping table provides suggested UBERON terms for major sites (artifact-02).</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> typically <strong>prenatal</strong>, with suspicion often beginning when limb shortening is seen on screening ultrasound (nishimura2023prenataldiagnosisof pages 1-2, tompson2010fibrochondrogenesisresultsfrom pages 1-2).</li>
+<li><strong>Course:</strong> severe cases are often <strong>perinatal lethal</strong>; survivorship into childhood is possible in milder genotypes (e.g., 2024 case) (jeon2024anovelcompound pages 1-3).</li>
+</ul>
+<p>Formal staging systems are not described in the retrieved sources.</p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>9.1 Inheritance</h3>
+<ul>
+<li>Classic fibrochondrogenesis/FBCG1 is <strong>autosomal recessive</strong> with biallelic COL11A1 variants (tompson2010fibrochondrogenesisresultsfrom pages 1-2, jeon2024anovelcompound pages 1-3).</li>
+<li><strong>COL11A2</strong> can cause <strong>recessive</strong> disease (splice-associated in-frame deletion) and also <strong>autosomal dominant</strong> fibrochondrogenesis via <strong>de novo</strong> in-frame deletion; counseling should consider <strong>parental germline mosaicism</strong> (tompson2012dominantandrecessive pages 4-6).</li>
+</ul>
+<h3>9.2 Epidemiology and rarity</h3>
+<p>Quantitative population incidence/prevalence specifically for fibrochondrogenesis is sparse in the retrieved texts. Available estimates include:
+- Tompson et al. (2012) suggest: “<strong>perhaps less than 1 in 1,000,000 births in outbred populations</strong>,” implying a <strong>carrier frequency of ~1 in 500</strong> under Hardy–Weinberg assumptions (tompson2012dominantandrecessive pages 4-6).
+- Jeon et al. (2024) note: “<strong>About 22 cases have been reported worldwide</strong>” (case-report-based count) (jeon2024anovelcompound pages 1-3).</p>
+<p>For context on skeletal dysplasias more broadly (not fibrochondrogenesis-specific):
+- Nishimura et al. (2023) report prenatal bone dysplasias have prevalence <strong>2.1–2.4 per 10,000</strong>, and lethal bone dysplasias about <strong>1.1 per 10,000</strong>, contributing about <strong>1 out of 100 perinatal deaths</strong> (nishimura2023prenataldiagnosisof pages 1-2).</p>
+<h3>9.3 Risk/protective factors beyond genetics</h3>
+<p>No environmental or lifestyle risk modifiers were established for fibrochondrogenesis in the retrieved evidence.</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>10.1 Imaging and diagnostic workflow</h3>
+<p>A current, real-world prenatal skeletal dysplasia workflow emphasizes that:
+- Limb shortening on screening ultrasound prompts more detailed evaluation.
+- Additional imaging (detailed US, <strong>MRI</strong>, <strong>CT</strong>) can refine diagnosis.
+- <strong>Imaging remains critical</strong> because genetic testing identifies variants but not necessarily pathogenicity without phenotypic correlation (nishimura2023prenataldiagnosisof pages 1-2).</p>
+<p>Radiographic hallmarks specific to fibrochondrogenesis include dumbbell long bones with metaphyseal widening, platyspondyly and distinctive vertebral body changes, rib cupping, and severe thoracic narrowing in lethal cases (tompson2010fibrochondrogenesisresultsfrom pages 1-2, tompson2012dominantandrecessive pages 4-6, handa2021radiologicfeaturesof pages 11-14).</p>
+<h3>10.2 Genetic testing</h3>
+<p>Demonstrated approaches include:
+- Targeted sequencing of all coding exons/splice junctions in <strong>COL11A1</strong> (Tompson et al.) (tompson2010fibrochondrogenesisresultsfrom pages 1-2)
+- Whole-exome sequencing with parental segregation testing (Jeon et al. 2024) (jeon2024anovelcompound pages 1-3)
+- SNP genotyping for autozygosity mapping in recessive suspicion (tompson2010fibrochondrogenesisresultsfrom pages 1-2)</p>
+<h3>10.3 Pathology</h3>
+<p>The diagnosis is supported by characteristic cartilage histology (“fibroblastic” chondrocytes; fibrous matrix) and EM findings (frayed collagen fibrils) (tompson2010fibrochondrogenesisresultsfrom pages 1-2).</p>
+<h3>10.4 Differential diagnosis</h3>
+<p>Fibrochondrogenesis overlaps with other collagenopathies (e.g., Kniest dysplasia) but can be distinguished by severity and vertebral changes (e.g., multilevel coronal clefts and dorsally wedged vertebral bodies in type XI collagenopathies) (handa2021radiologicfeaturesof pages 11-14).</p>
+<p>A structured diagnostics/management summary is provided here:</p>
+<table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Key findings/approach</th>
+<th>Real-world implementation notes</th>
+<th>Treatment/management options</th>
+<th>Sources</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Prenatal suspicion</td>
+<td>Fibrochondrogenesis is typically suspected when fetal limb shortening is detected on screening ultrasound; lethal skeletal dysplasia workup should then assess thoracic size, vertebral abnormalities, and overall pattern of shortening. Prenatal diagnosis of skeletal dysplasias generally proceeds from detailed US to MRI and/or CT when needed.</td>
+<td>In practice, obstetric screening US is the entry point; multidisciplinary fetal imaging is emphasized because molecular findings require imaging correlation for pathogenic interpretation. Postmortem radiography/autopsy remains valuable when pregnancy is terminated or fetal demise occurs.</td>
+<td>No disease-specific prenatal therapy identified; management is diagnostic/prognostic counseling, delivery planning, and family counseling regarding lethality and recurrence risk. (nishimura2023prenataldiagnosisof pages 1-2, hall2024fetalandperinatal pages 61-63)</td>
+<td>(nishimura2023prenataldiagnosisof pages 1-2, hall2024fetalandperinatal pages 61-63)</td>
+</tr>
+<tr>
+<td>Imaging modalities</td>
+<td>Radiographic hallmarks include severely short dumbbell-shaped long bones with metaphyseal widening/flaring, short ribs with cupping, platyspondyly/flat vertebral bodies, pear-shaped or "pinched" vertebrae, and in some cases multilevel coronal clefts.</td>
+<td>Real-world diagnosis uses prenatal ultrasound first, with fetal/postnatal radiographs to refine differential diagnosis against other lethal dysplasias such as achondrogenesis, Kniest dysplasia, and otospondylomegaepiphyseal dysplasia. Example radiographs were reported at 21 and 32 weeks' gestation.</td>
+<td>Imaging primarily guides prognosis and differential diagnosis; no imaging-directed intervention was identified. Small thorax on imaging implies risk of perinatal respiratory compromise and need for anticipatory counseling.</td>
+<td>(tompson2010fibrochondrogenesisresultsfrom pages 1-2, handa2021radiologicfeaturesof pages 11-14, tompson2012dominantandrecessive pages 7-12, tompson2012dominantandrecessive pages 1-3)</td>
+</tr>
+<tr>
+<td>Genetic testing</td>
+<td>Confirmatory diagnosis is achieved by molecular testing of COL11A1 and COL11A2. Reported successful approaches include whole-exome sequencing, targeted sequencing of all coding exons/splice junctions, SNP genotyping for autozygosity/homozygosity mapping, and parental segregation testing.</td>
+<td>Current implementation includes WES in undiagnosed skeletal dysplasia and trio/segregation testing to establish variants in trans or de novo status. In the 2024 Korean case, WES identified compound heterozygous COL11A1 variants and segregation upgraded one novel variant from VUS to likely pathogenic.</td>
+<td>Genetic confirmation enables family testing, recurrence-risk counseling, and targeted surveillance of relatives/carriers where appropriate. Counseling must consider autosomal recessive disease, de novo dominant COL11A2 cases, and possible parental germline mosaicism.</td>
+<td>(jeon2024anovelcompound pages 1-3, tompson2010fibrochondrogenesisresultsfrom pages 1-2, tompson2012dominantandrecessive pages 4-6)</td>
+</tr>
+<tr>
+<td>Pathology / histology</td>
+<td>The disorder name derives from growth-plate pathology: chondrocytes have a fibroblastic appearance and there are regions of fibrous cartilage extracellular matrix; electron microscopy shows frayed, irregular collagen fibrils.</td>
+<td>Histopathology is most relevant in fetal pathology/postmortem confirmation and in difficult differential diagnosis when imaging is suggestive but not definitive.</td>
+<td>No pathology-directed treatment identified; pathology mainly supports definitive diagnosis and disease classification.</td>
+<td>(tompson2010fibrochondrogenesisresultsfrom pages 1-2, jeon2024anovelcompound pages 1-3)</td>
+</tr>
+<tr>
+<td>Supportive clinical management</td>
+<td>Surviving patients may require longitudinal orthopedic, audiologic, and ophthalmologic assessment because reported phenotypes can include short stature, hearing loss, myopia, and cataracts.</td>
+<td>A 2024 survivor case underwent ophthalmologic and audiometric assessments after genetic diagnosis, illustrating real-world surveillance after diagnosis.</td>
+<td>No specific therapy exists for FBCG1 according to the 2024 case report. Supportive care consists of surveillance for ophthalmic/hearing complications and standard multidisciplinary skeletal dysplasia management.</td>
+<td>(jeon2024anovelcompound pages 1-3)</td>
+</tr>
+<tr>
+<td>Growth-related treatment</td>
+<td>Evidence is extremely limited. A prior small report cited in the 2024 case noted growth hormone use in three COL11A1 cases.</td>
+<td>This is not established standard of care for fibrochondrogenesis; evidence appears anecdotal/case-based rather than trial-based. No fibrochondrogenesis-specific clinical trials were identified in retrieved records.</td>
+<td>Growth hormone was reported to increase growth velocity to 9.1 cm/year and height by +1.5 SDS during the first treatment year in three COL11A1 cases, but this should be interpreted cautiously due to sparse evidence.</td>
+<td>(jeon2024anovelcompound pages 1-3)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes how fibrochondrogenesis is recognized and confirmed in practice, from prenatal suspicion through imaging, genetics, and pathology. It also condenses the limited current management evidence, highlighting that care is mainly supportive and surveillance-based, with only sparse anecdotal treatment data.</em></p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<p>Most cases are described as <strong>perinatal lethal</strong> or <strong>variably fatal</strong> with lethality linked to thoracic hypoplasia/respiratory compromise (tompson2012dominantandrecessive pages 1-3, handa2021radiologicfeaturesof pages 11-14). Quantitative survival rates (e.g., 1-year survival) were not available in the retrieved excerpts.</p>
+<p>Survivors can have persistent skeletal dysplasia with potential ophthalmic/audiologic complications, illustrated by the 2024 survivor case under ongoing surveillance (jeon2024anovelcompound pages 1-3).</p>
+<hr />
+<h2>12. Treatment</h2>
+<h3>12.1 Standard of care</h3>
+<p>No disease-modifying therapy was identified in the retrieved evidence. The 2024 case report explicitly states: “<strong>there is no specific treatment for FBCG1</strong>” (jeon2024anovelcompound pages 1-3).</p>
+<h3>12.2 Supportive care and surveillance</h3>
+<p>After genetic diagnosis, surveillance for <strong>ophthalmic and hearing</strong> complications is emphasized (jeon2024anovelcompound pages 1-3).</p>
+<h3>12.3 Growth hormone (limited evidence)</h3>
+<p>Jeon et al. cite a small prior report that “treatment of three cases with COL11A1 mutations with growth hormone was effective,” increasing growth velocity to <strong>9.1 cm/year</strong> and improving height by <strong>+1.5 SDS</strong> in the first year (jeon2024anovelcompound pages 1-3). This is anecdotal/case-based and not supported by trial evidence in the retrieved material.</p>
+<h3>12.4 Clinical trials</h3>
+<p>A clinical-trial search did not retrieve fibrochondrogenesis-specific interventional trials in the current tool run (no relevant NCT evidence in context).</p>
+<p><strong>MAXO suggestions (supportive, not evidence-validated here):</strong> genetic counseling; prenatal diagnostic imaging; molecular genetic testing; audiologic evaluation; ophthalmologic surveillance (supported conceptually by sources but not encoded as MAXO IDs in retrieved texts).</p>
+<hr />
+<h2>13. Prevention</h2>
+<p>Because fibrochondrogenesis is genetic, prevention is primarily via <strong>reproductive/genetic counseling</strong>:
+- <strong>Carrier testing</strong> and family studies after molecular diagnosis (jeon2024anovelcompound pages 1-3)
+- <strong>Prenatal diagnosis</strong> using imaging plus molecular testing where appropriate (nishimura2023prenataldiagnosisof pages 1-2)
+- Counseling must consider <strong>autosomal recessive recurrence risk</strong> for COL11A1-related disease and also the possibility of <strong>parental germline mosaicism</strong> in dominant COL11A2-related cases (tompson2012dominantandrecessive pages 4-6).</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p>No naturally occurring fibrochondrogenesis in non-human species was identified in the retrieved evidence.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<p>Evidence supports multiple models relevant to type XI collagenopathy mechanisms:
+- <strong>Zebrafish col11a2 mutants</strong>: cartilage matrix defects, type II collagen premature degradation, altered stiffness, and joint pathology (lawrence2018themechanicalimpact pages 1-2).
+- <strong>Zebrafish col11a1a knockdown/LOF</strong>: disrupted Meckel’s cartilage organization and mineralization (reeck2022theshapeof pages 9-11).
+- <strong>Mouse Col11a1 deficiency (cho/Col11a1−/−)</strong>: defects in chondrogenesis and vertebral body formation and altered bone microarchitecture (hafez2015col11a1regulatesbone pages 1-3).</p>
+<hr />
+<h2>Real-world implementation snapshot (applications)</h2>
+<ul>
+<li><strong>Prenatal care:</strong> screening ultrasound identifies limb shortening; expert fetal imaging (US/MRI/CT) and multidisciplinary interpretation guide prognosis and decisions; imaging-genetics correlation is critical because variant pathogenicity is not guaranteed by sequence alone (nishimura2023prenataldiagnosisof pages 1-2).</li>
+<li><strong>Clinical genetics:</strong> WES and segregation analysis are used in contemporary practice to resolve diagnoses in atypical/surviving cases and to reclassify novel variants (jeon2024anovelcompound pages 1-3).</li>
+</ul>
+<hr />
+<h2>Key visual evidence</h2>
+<p>Radiographs from Tompson et al. (2010) show the classic fetal radiographic appearance (short long bones with broad metaphyses; rib and vertebral abnormalities) (tompson2010fibrochondrogenesisresultsfrom media 1bd9e7f7).</p>
+<hr />
+<h2>Evidence gaps / limitations (important for knowledge-base curation)</h2>
+<ul>
+<li>No Orphanet/ICD/MeSH/MONDO identifiers were available in the retrieved full-text excerpts; these should be added by direct lookup in the respective databases.</li>
+<li>No robust survival statistics, standardized diagnostic criteria statements (ICD/consensus criteria), or QoL instrument outcomes were found in the retrieved excerpts.</li>
+<li>Environmental risk factors, protective factors, and GxE interactions were not supported in this evidence set.</li>
+</ul>
+<hr />
+<h2>URLs and publication dates (most relevant, prioritized recent)</h2>
+<ul>
+<li>Jeon et al. <strong>Apr 2024</strong>. <em>Ann Pediatr Endocrinol Metab.</em> “A novel compound heterozygous variant of the COL11A1 gene…” https://doi.org/10.6065/apem.2346150.075 (jeon2024anovelcompound pages 1-3)</li>
+<li>Nishimura et al. <strong>Jul 2023</strong>. <em>Br J Radiol.</em> “Prenatal diagnosis of bone dysplasias.” https://doi.org/10.1259/bjr.20221025 (nishimura2023prenataldiagnosisof pages 1-2)</li>
+<li>Rebello et al. <strong>Jul 2023</strong>. <em>Hum Mol Genet.</em> “COL11A2 as a candidate gene for vertebral malformations…” https://doi.org/10.1093/hmg/ddad117 (rebello2023col11a2asa pages 1-2)</li>
+<li>Handa et al. <strong>Jan 2021</strong>. <em>RadioGraphics.</em> “Radiologic features of type II and type XI collagenopathies.” https://doi.org/10.1148/rg.2021200075 (handa2021radiologicfeaturesof pages 11-14)</li>
+<li>Tompson et al. <strong>Feb 2012</strong>. <em>Am J Med Genet A.</em> “Dominant and recessive forms of fibrochondrogenesis…” https://doi.org/10.1002/ajmg.a.34406 (tompson2012dominantandrecessive pages 1-3)</li>
+<li>Tompson et al. <strong>Nov 2010</strong>. <em>Am J Hum Genet.</em> “Fibrochondrogenesis results from mutations in the COL11A1 type XI collagen gene.” https://doi.org/10.1016/j.ajhg.2010.10.009 (tompson2010fibrochondrogenesisresultsfrom pages 1-2)</li>
+<li>Lawrence et al. <strong>Sep 2018</strong>. <em>Phil Trans R Soc B.</em> “The mechanical impact of col11a2 loss on joints…” https://doi.org/10.1098/rstb.2017.0335 (lawrence2018themechanicalimpact pages 1-2)</li>
+</ul>
+<hr />
+<h3>Appendix: quick-reference tables</h3>
+<p>(Embedded above)
+- Disease identifiers/nomenclature: artifact-00
+- Causal genes and representative variants: artifact-01
+- Phenotype → HPO/UBERON mapping: artifact-02
+- Diagnostics &amp; management: artifact-03
+- Mechanisms with GO/CL suggestions: artifact-04</p>
+<p>References</p>
+<ol>
+<li>
+<p>(tompson2010fibrochondrogenesisresultsfrom pages 1-2): Stuart W. Tompson, Carlos A. Bacino, Nicole P. Safina, Michael B. Bober, Virginia K. Proud, Tara Funari, Michael F. Wangler, Lisette Nevarez, Leena Ala-Kokko, William R. Wilcox, David R. Eyre, Deborah Krakow, and Daniel H. Cohn. Fibrochondrogenesis results from mutations in the col11a1 type xi collagen gene. American journal of human genetics, 87 5:708-12, Nov 2010. URL: https://doi.org/10.1016/j.ajhg.2010.10.009, doi:10.1016/j.ajhg.2010.10.009. This article has 96 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(tompson2012dominantandrecessive pages 1-3): Stuart W. Tompson, Eissa Ali Faqeih, Leena Ala‐Kokko, Jacqueline T. Hecht, Rika Miki, Tara Funari, Vincent A. Funari, Lisette Nevarez, Deborah Krakow, and Daniel H. Cohn. Dominant and recessive forms of fibrochondrogenesis resulting from mutations at a second locus, col11a2. American Journal of Medical Genetics Part A, 158A:309-314, Feb 2012. URL: https://doi.org/10.1002/ajmg.a.34406, doi:10.1002/ajmg.a.34406. This article has 23 citations.</p>
+</li>
+<li>
+<p>(tompson2010fibrochondrogenesisresultsfrom pages 5-5): Stuart W. Tompson, Carlos A. Bacino, Nicole P. Safina, Michael B. Bober, Virginia K. Proud, Tara Funari, Michael F. Wangler, Lisette Nevarez, Leena Ala-Kokko, William R. Wilcox, David R. Eyre, Deborah Krakow, and Daniel H. Cohn. Fibrochondrogenesis results from mutations in the col11a1 type xi collagen gene. American journal of human genetics, 87 5:708-12, Nov 2010. URL: https://doi.org/10.1016/j.ajhg.2010.10.009, doi:10.1016/j.ajhg.2010.10.009. This article has 96 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(jeon2024anovelcompound pages 1-3): Jaesung Jeon, Minji Kim, Sukdong Yoo, Yoomi Kim, and Chong Kun Cheon. A novel compound heterozygous variant of the col11a1 gene in a patient with fibrochondrogenesis type i: the first case in korea. Annals of Pediatric Endocrinology &amp; Metabolism, 29:135-137, Apr 2024. URL: https://doi.org/10.6065/apem.2346150.075, doi:10.6065/apem.2346150.075. This article has 0 citations.</p>
+</li>
+<li>
+<p>(handa2021radiologicfeaturesof pages 11-14): Atsuhiko Handa, Giedre Grigelioniene, and Gen Nishimura. Radiologic features of type ii and type xi collagenopathies. RadioGraphics, 41:192-209, Jan 2021. URL: https://doi.org/10.1148/rg.2021200075, doi:10.1148/rg.2021200075. This article has 20 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(lawrence2018themechanicalimpact pages 1-2): Elizabeth A. Lawrence, Erika Kague, Jessye A. Aggleton, Robert L. Harniman, Karen A. Roddy, and Chrissy L. Hammond. The mechanical impact of <i>col11a2</i> loss on joints; <i>col11a2</i> mutant zebrafish show changes to joint development and function, which leads to early-onset osteoarthritis. Philosophical Transactions of the Royal Society B: Biological Sciences, 373:20170335, Sep 2018. URL: https://doi.org/10.1098/rstb.2017.0335, doi:10.1098/rstb.2017.0335. This article has 73 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(reeck2022theshapeof pages 9-11): Jonathon C. Reeck and Julia Thom Oxford. The shape of the jaw—zebrafish col11a1a regulates meckel’s cartilage morphogenesis and mineralization. Journal of Developmental Biology, 10:40, Sep 2022. URL: https://doi.org/10.3390/jdb10040040, doi:10.3390/jdb10040040. This article has 12 citations.</p>
+</li>
+<li>
+<p>(hafez2015col11a1regulatesbone pages 1-3): Anthony Hafez, Ryan Squires, Amber Pedracini, Alark Joshi, Robert Seegmiller, and Julia Oxford. Col11a1 regulates bone microarchitecture during embryonic development. Journal of developmental biology, 3:158-176, Dec 2015. URL: https://doi.org/10.3390/jdb3040158, doi:10.3390/jdb3040158. This article has 49 citations.</p>
+</li>
+<li>
+<p>(tompson2012dominantandrecessive pages 4-6): Stuart W. Tompson, Eissa Ali Faqeih, Leena Ala‐Kokko, Jacqueline T. Hecht, Rika Miki, Tara Funari, Vincent A. Funari, Lisette Nevarez, Deborah Krakow, and Daniel H. Cohn. Dominant and recessive forms of fibrochondrogenesis resulting from mutations at a second locus, col11a2. American Journal of Medical Genetics Part A, 158A:309-314, Feb 2012. URL: https://doi.org/10.1002/ajmg.a.34406, doi:10.1002/ajmg.a.34406. This article has 23 citations.</p>
+</li>
+<li>
+<p>(tompson2012dominantandrecessive pages 12-13): Stuart W. Tompson, Eissa Ali Faqeih, Leena Ala‐Kokko, Jacqueline T. Hecht, Rika Miki, Tara Funari, Vincent A. Funari, Lisette Nevarez, Deborah Krakow, and Daniel H. Cohn. Dominant and recessive forms of fibrochondrogenesis resulting from mutations at a second locus, col11a2. American Journal of Medical Genetics Part A, 158A:309-314, Feb 2012. URL: https://doi.org/10.1002/ajmg.a.34406, doi:10.1002/ajmg.a.34406. This article has 23 citations.</p>
+</li>
+<li>
+<p>(tompson2012dominantandrecessive pages 7-12): Stuart W. Tompson, Eissa Ali Faqeih, Leena Ala‐Kokko, Jacqueline T. Hecht, Rika Miki, Tara Funari, Vincent A. Funari, Lisette Nevarez, Deborah Krakow, and Daniel H. Cohn. Dominant and recessive forms of fibrochondrogenesis resulting from mutations at a second locus, col11a2. American Journal of Medical Genetics Part A, 158A:309-314, Feb 2012. URL: https://doi.org/10.1002/ajmg.a.34406, doi:10.1002/ajmg.a.34406. This article has 23 citations.</p>
+</li>
+<li>
+<p>(handa2021radiologicfeaturesof pages 16-17): Atsuhiko Handa, Giedre Grigelioniene, and Gen Nishimura. Radiologic features of type ii and type xi collagenopathies. RadioGraphics, 41:192-209, Jan 2021. URL: https://doi.org/10.1148/rg.2021200075, doi:10.1148/rg.2021200075. This article has 20 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(rebello2023col11a2asa pages 1-2): Denise Rebello, Elizabeth Wohler, Vida Erfani, Guozhuang Li, Alexya N Aguilera, Alberto Santiago-Cornier, Sen Zhao, Steven W Hwang, Robert D Steiner, Terry Jianguo Zhang, Christina A Gurnett, Cathleen Raggio, Nan Wu, Nara Sobreira, Philip F Giampietro, and Brian Ciruna. Col11a2 as a candidate gene for vertebral malformations and congenital scoliosis. Human molecular genetics, 32:2913-2928, Jul 2023. URL: https://doi.org/10.1093/hmg/ddad117, doi:10.1093/hmg/ddad117. This article has 19 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(reeck2022theshapeof pages 11-13): Jonathon C. Reeck and Julia Thom Oxford. The shape of the jaw—zebrafish col11a1a regulates meckel’s cartilage morphogenesis and mineralization. Journal of Developmental Biology, 10:40, Sep 2022. URL: https://doi.org/10.3390/jdb10040040, doi:10.3390/jdb10040040. This article has 12 citations.</p>
+</li>
+<li>
+<p>(hall2024fetalandperinatal pages 61-63): Christine M Hall, Amaka C Offiah, Francesca Forzano, Mario Lituania, Gen Nishimura, and Valerie Cormier-Daire. Fetal and perinatal skeletal dysplasias. ArXiv, Mar 2024. URL: https://doi.org/10.1201/9781003166948, doi:10.1201/9781003166948. This article has 26 citations.</p>
+</li>
+<li>
+<p>(lawrence2018themechanicalimpact pages 12-12): Elizabeth A. Lawrence, Erika Kague, Jessye A. Aggleton, Robert L. Harniman, Karen A. Roddy, and Chrissy L. Hammond. The mechanical impact of <i>col11a2</i> loss on joints; <i>col11a2</i> mutant zebrafish show changes to joint development and function, which leads to early-onset osteoarthritis. Philosophical Transactions of the Royal Society B: Biological Sciences, 373:20170335, Sep 2018. URL: https://doi.org/10.1098/rstb.2017.0335, doi:10.1098/rstb.2017.0335. This article has 73 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(reeck2017theroleof pages 40-45): Jonathon Charles Reeck. The role of col11a1 expression during cartilage development. ArXiv, 2017. URL: https://doi.org/10.18122/b2dq43, doi:10.18122/b2dq43. This article has 1 citations.</p>
+</li>
+<li>
+<p>(nishimura2023prenataldiagnosisof pages 1-2): Gen Nishimura, Atsuhiko Handa, Osamu Miyazaki, Yuko Tsujioka, Jun Murotsuki, Hideaki Sawai, Takahiro Yamada, Yutaka Kozuma, Yuichiro Takahashi, Katsunori Ozawa, Ritusuko Pooh, and Masakatsu Sase. Prenatal diagnosis of bone dysplasias. The British journal of radiology, 96 1147:20221025, Jul 2023. URL: https://doi.org/10.1259/bjr.20221025, doi:10.1259/bjr.20221025. This article has 20 citations.</p>
+</li>
+<li>
+<p>(tompson2010fibrochondrogenesisresultsfrom media 1bd9e7f7): Stuart W. Tompson, Carlos A. Bacino, Nicole P. Safina, Michael B. Bober, Virginia K. Proud, Tara Funari, Michael F. Wangler, Lisette Nevarez, Leena Ala-Kokko, William R. Wilcox, David R. Eyre, Deborah Krakow, and Daniel H. Cohn. Fibrochondrogenesis results from mutations in the col11a1 type xi collagen gene. American journal of human genetics, 87 5:708-12, Nov 2010. URL: https://doi.org/10.1016/j.ajhg.2010.10.009, doi:10.1016/j.ajhg.2010.10.009. This article has 96 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
             
         </div>
         
@@ -5826,7 +7466,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Fibrochondrogenesis", "mondoId": "MONDO:0016068", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Fibrochondrogenesis", "yamlRevision": "7e1a0dd92000"};
+        const OS_CONFIG = {"diseaseName": "Fibrochondrogenesis", "mondoId": "MONDO:0016068", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Fibrochondrogenesis", "yamlRevision": "adaf8fe43163"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

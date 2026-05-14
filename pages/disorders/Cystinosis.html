@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,7 +2570,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 29</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 75</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Inborn disorder of lysosomal amino acid transport</span>
@@ -2587,7 +2740,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">29</div>
+                <div class="stat-value">75</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -2869,7 +3022,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -2983,7 +3136,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3066,7 +3219,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3149,7 +3302,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3207,6 +3360,26 @@
                 <div class="item-meta">
                     
                     <span class="tag tag-bio">
+                        L-cystine transport
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0015811" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    <span class="tag tag-bio">
                         lysosomal transport
                         
                         <a href="http://purl.obolibrary.org/obo/GO_0007041" target="_blank" class="linkout">link</a>
@@ -3250,6 +3423,26 @@
                 
                 
                 <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        L-cystine transmembrane transporter activity
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0015184" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
                     
                     <span class="tag tag-bio">
                         transmembrane transporter activity
@@ -3360,7 +3553,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3454,6 +3647,13 @@
 	                            
 	                        </div>
 	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Elevated leukocyte cystine</span>
+	                            
+	                            <span class="crosslink-desc">Lysosomal cystine storage is measured diagnostically as elevated cystine in leukocytes.</span>
+	                            
+	                        </div>
+	                        
 	                    </div>
 	                </div>
 	                
@@ -3494,7 +3694,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3514,7 +3714,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3608,6 +3808,90 @@
 	                            
 	                        </div>
 	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Renal Fanconi syndrome</span>
+	                            
+	                            <span class="crosslink-desc">Proximal tubular dysfunction presents clinically as renal Fanconi syndrome.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Renal tubular dysfunction</span>
+	                            
+	                            <span class="crosslink-desc">The proximal tubular defect produces broader renal tubular dysfunction.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Renal tubular solute wasting</span>
+	                            
+	                            <span class="crosslink-desc">Fanconi syndrome causes urinary wasting of electrolytes, minerals, glucose, amino acids, and low-molecular-weight solutes.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Decreased circulating carnitine concentration</span>
+	                            
+	                            <span class="crosslink-desc">Fanconi-related tubular solute and nutrient wasting can contribute to reduced circulating carnitine.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Proteinuria</span>
+	                            
+	                            <span class="crosslink-desc">Tubular injury includes urinary loss of low-molecular-weight proteins.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Glycosuria</span>
+	                            
+	                            <span class="crosslink-desc">Impaired proximal tubular reabsorption causes urinary glucose loss.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Aminoaciduria</span>
+	                            
+	                            <span class="crosslink-desc">Impaired proximal tubular reabsorption causes urinary amino-acid loss.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hyperphosphaturia</span>
+	                            
+	                            <span class="crosslink-desc">Impaired proximal tubular phosphate reabsorption causes phosphate wasting.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Aciduria</span>
+	                            
+	                            <span class="crosslink-desc">Tubular bicarbonate and acid-base handling abnormalities contribute to aciduria.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Nephrogenic diabetes insipidus</span>
+	                            
+	                            <span class="crosslink-desc">Proximal tubular disease and renal concentrating defects contribute to nephrogenic diabetes insipidus.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Polydipsia</span>
+	                            
+	                            <span class="crosslink-desc">Tubular dysfunction with concentrating defects produces polydipsia.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Dehydration</span>
+	                            
+	                            <span class="crosslink-desc">Polyuria and renal tubular wasting predispose affected children to dehydration.</span>
+	                            
+	                        </div>
+	                        
 	                    </div>
 	                </div>
 	                
@@ -3628,7 +3912,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3648,7 +3932,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3668,7 +3952,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3836,6 +4120,62 @@
 	                            
 	                        </div>
 	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hypocalcemia</span>
+	                            
+	                            <span class="crosslink-desc">Mineral wasting contributes to hypocalcemia.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hyponatremia</span>
+	                            
+	                            <span class="crosslink-desc">Sodium wasting can contribute to hyponatremia.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Elevated circulating alkaline phosphatase concentration</span>
+	                            
+	                            <span class="crosslink-desc">Rickets and mineral bone disease are accompanied by elevated alkaline phosphatase.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Osteomalacia</span>
+	                            
+	                            <span class="crosslink-desc">Chronic mineral wasting contributes to osteomalacia.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Failure to thrive</span>
+	                            
+	                            <span class="crosslink-desc">Tubular wasting, acidosis, and mineral depletion impair weight gain.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Growth delay</span>
+	                            
+	                            <span class="crosslink-desc">Chronic Fanconi syndrome and mineral losses impair growth.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Nephrocalcinosis</span>
+	                            
+	                            <span class="crosslink-desc">Disturbed renal mineral handling can contribute to nephrocalcinosis.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Nephrolithiasis</span>
+	                            
+	                            <span class="crosslink-desc">Disturbed renal mineral handling can contribute to nephrolithiasis.</span>
+	                            
+	                        </div>
+	                        
 	                    </div>
 	                </div>
 	                
@@ -3856,7 +4196,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3876,7 +4216,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3896,7 +4236,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3941,6 +4281,27 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Renal insufficiency</span>
+	                            
+	                            <span class="crosslink-desc">Progressive glomerular impairment manifests as renal insufficiency and end-stage kidney disease.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Nephropathy</span>
+	                            
+	                            <span class="crosslink-desc">Chronic tubular and glomerular injury produce nephropathic disease.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
@@ -3958,7 +4319,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3978,7 +4339,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -4023,6 +4384,41 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Photophobia</span>
+	                            
+	                            <span class="crosslink-desc">Corneal cystine crystal deposition causes photophobia.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Corneal opacity</span>
+	                            
+	                            <span class="crosslink-desc">Corneal crystal disease contributes to corneal opacity.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Band keratopathy</span>
+	                            
+	                            <span class="crosslink-desc">Chronic corneal involvement can present as band keratopathy.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Visual impairment</span>
+	                            
+	                            <span class="crosslink-desc">Ocular cystine crystal disease can impair vision.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
@@ -4040,7 +4436,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -4060,7 +4456,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -4094,6 +4490,195 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Retinopathy</span>
+	                            
+	                            <span class="crosslink-desc">Eye involvement beyond the cornea can include retinopathy.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hypothyroidism</span>
+	                            
+	                            <span class="crosslink-desc">Thyroid involvement causes hypothyroidism.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hypogonadism</span>
+	                            
+	                            <span class="crosslink-desc">Gonadal involvement contributes to hypogonadism.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Delayed puberty</span>
+	                            
+	                            <span class="crosslink-desc">Gonadal endocrine dysfunction can delay puberty.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Azoospermia</span>
+	                            
+	                            <span class="crosslink-desc">Male gonadal involvement can result in azoospermia.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Glucose intolerance</span>
+	                            
+	                            <span class="crosslink-desc">Pancreatic involvement can impair glucose handling.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Abnormality of endocrine pancreas physiology</span>
+	                            
+	                            <span class="crosslink-desc">Pancreatic involvement can alter endocrine pancreas function.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Type I diabetes mellitus</span>
+	                            
+	                            <span class="crosslink-desc">Pancreatic endocrine dysfunction can manifest as diabetes mellitus.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Myopathy</span>
+	                            
+	                            <span class="crosslink-desc">Muscle involvement contributes to cystinotic myopathy.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Muscle weakness</span>
+	                            
+	                            <span class="crosslink-desc">Myopathic involvement causes progressive muscle weakness.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">EMG myopathic abnormalities</span>
+	                            
+	                            <span class="crosslink-desc">Muscle involvement can produce myopathic abnormalities on electromyography.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hypotonia</span>
+	                            
+	                            <span class="crosslink-desc">Neuromuscular involvement can manifest as hypotonia.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Gait disturbance</span>
+	                            
+	                            <span class="crosslink-desc">Neuromuscular involvement can impair gait.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Dysphagia</span>
+	                            
+	                            <span class="crosslink-desc">Gastrointestinal and muscle involvement can produce swallowing difficulty.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Feeding difficulties</span>
+	                            
+	                            <span class="crosslink-desc">Gastrointestinal involvement contributes to feeding difficulties.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Vomiting</span>
+	                            
+	                            <span class="crosslink-desc">Gastrointestinal involvement contributes to vomiting.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Constipation</span>
+	                            
+	                            <span class="crosslink-desc">Gastrointestinal dysmotility can contribute to constipation.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Malabsorption</span>
+	                            
+	                            <span class="crosslink-desc">Gastrointestinal and pancreatic involvement can contribute to malabsorption.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Exocrine pancreatic insufficiency</span>
+	                            
+	                            <span class="crosslink-desc">Pancreatic involvement can impair exocrine pancreatic function.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hepatomegaly</span>
+	                            
+	                            <span class="crosslink-desc">Liver involvement can manifest as hepatomegaly.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Splenomegaly</span>
+	                            
+	                            <span class="crosslink-desc">Hepatic and portal-system involvement can manifest as splenomegaly.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Portal hypertension</span>
+	                            
+	                            <span class="crosslink-desc">Hepatobiliary involvement can contribute to portal hypertension.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Mild intellectual disability</span>
+	                            
+	                            <span class="crosslink-desc">Nervous-system involvement can affect neurocognitive development.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Aphasia</span>
+	                            
+	                            <span class="crosslink-desc">Nervous-system involvement can contribute to language impairment.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cranial nerve paralysis</span>
+	                            
+	                            <span class="crosslink-desc">Nervous-system involvement can manifest as cranial nerve dysfunction.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Fatigue</span>
+	                            
+	                            <span class="crosslink-desc">Multisystem cystinosis burden can contribute to fatigue.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
@@ -4111,7 +4696,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -4131,7 +4716,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -4174,7 +4759,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic pathogenic CTNS variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic CTNS variants establish the molecular diagnosis and produce the cystinosin transporter defect.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"CTNS lysosomal cystine transporter deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic CTNS variants impair cystinosin, the lysosomal cystine transporter, reducing cystine export from lysosomes and disrupting intracellular cysteine homeostasis.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"lysosomal transport\", \"intracellular cysteine homeostasis\"], \"molecular_functions\": [\"transmembrane transporter activity\"], \"genes\": [\"CTNS\"]}}, {\"id\": \"CTNS variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"CTNS\"], \"association\": \"Causative\", \"variant_count\": 2}}, {\"id\": \"Common 57-kb CTNS deletion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A recurrent 57-kb deletion affecting CTNS is the most common pathogenic variant in individuals from northern Europe and North America and is treated as an important founder variant in molecular diagnosis.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Corneal cystine crystal deposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cystine crystal deposition in the cornea is a hallmark ocular manifestation and causes photophobia; ocular cystinosis can present with photophobia from corneal cystine accumulation even without nephropathic disease.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"cornea\"]}}, {\"id\": \"Corneal opacity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Nephropathic infantile cystinosis\", \"Nephropathic juvenile cystinosis\", \"Non-nephropathic ocular cystinosis\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007957\"}}, {\"id\": \"Cysteamine ophthalmic drops\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cysteamine eye drops are used for corneal disease involvement and can relieve photophobia caused by corneal cystine crystals.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"cysteamine\"]}}, {\"id\": \"Dehydration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001944\"}}, {\"id\": \"Electrolyte wasting, rickets, and growth failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Renal Fanconi syndrome causes urinary wasting of electrolytes, bicarbonate, minerals, glucose, and amino acids. These losses drive metabolic acidosis, hypophosphatemia, hypocalcemia, hypokalemia, hypophosphatemic/calcipenic rickets, and impaired growth.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"monoatomic ion transport\", \"phosphate ion transport\", \"bicarbonate transport\", \"neutral amino acid transport\"], \"locations\": [\"proximal tubule\"]}}, {\"id\": \"Extrarenal tissue cystine accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Continued cystine storage affects multiple organs over time, including the eye, thyroid, gonads, pancreas, muscle, bone marrow, liver, nervous system, lungs, and bones, explaining the broad extrarenal phenotype burden.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Fanconi syndrome replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Replacement of renal tubular losses includes electrolytes, bicarbonate, minerals, and other small-molecular-weight nutrients, with free access to water and additional fluid/nutrient replacement during dehydration.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Growth hormone therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Growth hormone therapy is supportive endocrine management used as needed for impaired growth in cystinosis.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypokalemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002900\"}}, {\"id\": \"Hypophosphatemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002148\"}}, {\"id\": \"Hypothyroidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000821\"}}, {\"id\": \"Intralysosomal cystine accumulation and lysosomal dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure to export cystine causes cystine accumulation in lysosomes throughout the body. Lysosomal storage is accompanied by broader abnormalities in endolysosomal trafficking, proteolysis, lysosomal clearance, autophagy, and cellular energy balance.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"autophagy\"]}}, {\"id\": \"Kidney transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Kidney transplantation is indicated when medical treatment is no longer effective for progressive kidney failure in cystinosis.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"L-thyroxine therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"L-thyroxine is used as needed for cystinosis-associated hypothyroidism.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Metabolic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001942\"}}, {\"id\": \"Oral cysteamine bitartrate therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral cysteamine bitartrate is disease-directed cystine-depleting therapy. Early and lifelong treatment lowers lysosomal cystine burden, delays glomerular damage and ESRD, improves growth, and reduces extrarenal complications, although it does not fully correct the Fanconi syndrome.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"cysteamine\"]}}, {\"id\": \"Photophobia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Nephropathic infantile cystinosis\", \"Nephropathic juvenile cystinosis\", \"Non-nephropathic ocular cystinosis\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000613\"}}, {\"id\": \"Progressive kidney failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In untreated nephropathic cystinosis, renal Fanconi syndrome and glomerular impairment progress to end-stage kidney disease during childhood, although cysteamine and renal replacement therapy have improved survival.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"kidney\"]}}, {\"id\": \"Proximal tubule cell dysfunction and renal Fanconi syndrome\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cystinosin deficiency causes early and severe proximal tubule dysfunction. This produces renal Fanconi syndrome with urinary losses of electrolytes, bicarbonate, minerals, glucose, amino acids, and low-molecular-weight proteins, leading to dehydration, acidosis, rickets, poor growth, and progressive renal impairment.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"epithelial cell of proximal tubule\"], \"locations\": [\"proximal tubule\", \"kidney\"]}}, {\"id\": \"Renal Fanconi syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Nephropathic infantile cystinosis\", \"Nephropathic juvenile cystinosis\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001994\"}}, {\"id\": \"Renal dialysis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dialysis is used as renal replacement therapy when renal glomerular disease progresses despite medical treatment.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Renal insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Nephropathic infantile cystinosis\", \"Nephropathic juvenile cystinosis\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000083\"}}, {\"id\": \"Rickets\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002748\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004322\"}}], \"edges\": [{\"source\": \"CTNS lysosomal cystine transporter deficiency\", \"target\": \"Intralysosomal cystine accumulation and lysosomal dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Intralysosomal cystine accumulation and lysosomal dysfunction\", \"target\": \"Proximal tubule cell dysfunction and renal Fanconi syndrome\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Intralysosomal cystine accumulation and lysosomal dysfunction\", \"target\": \"Corneal cystine crystal deposition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Intralysosomal cystine accumulation and lysosomal dysfunction\", \"target\": \"Extrarenal tissue cystine accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Proximal tubule cell dysfunction and renal Fanconi syndrome\", \"target\": \"Progressive kidney failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Proximal tubule cell dysfunction and renal Fanconi syndrome\", \"target\": \"Electrolyte wasting, rickets, and growth failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Electrolyte wasting, rickets, and growth failure\", \"target\": \"Rickets\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Electrolyte wasting, rickets, and growth failure\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Electrolyte wasting, rickets, and growth failure\", \"target\": \"Hypophosphatemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Electrolyte wasting, rickets, and growth failure\", \"target\": \"Hypokalemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Electrolyte wasting, rickets, and growth failure\", \"target\": \"Metabolic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oral cysteamine bitartrate therapy\", \"target\": \"Intralysosomal cystine accumulation and lysosomal dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cysteamine ophthalmic drops\", \"target\": \"Corneal cystine crystal deposition\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cysteamine ophthalmic drops\", \"target\": \"Photophobia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cysteamine ophthalmic drops\", \"target\": \"Corneal opacity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Fanconi syndrome replacement therapy\", \"target\": \"Proximal tubule cell dysfunction and renal Fanconi syndrome\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Fanconi syndrome replacement therapy\", \"target\": \"Renal Fanconi syndrome\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Fanconi syndrome replacement therapy\", \"target\": \"Hypophosphatemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Fanconi syndrome replacement therapy\", \"target\": \"Hypokalemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Fanconi syndrome replacement therapy\", \"target\": \"Dehydration\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Growth hormone therapy\", \"target\": \"Short stature\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Growth hormone therapy\", \"target\": \"Failure to thrive\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"L-thyroxine therapy\", \"target\": \"Hypothyroidism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Renal dialysis\", \"target\": \"Progressive kidney failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Renal dialysis\", \"target\": \"Renal insufficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Kidney transplantation\", \"target\": \"Progressive kidney failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Kidney transplantation\", \"target\": \"Renal insufficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"CTNS variants\", \"target\": \"CTNS lysosomal cystine transporter deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic pathogenic CTNS variants\", \"target\": \"CTNS variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Common 57-kb CTNS deletion\", \"target\": \"CTNS variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormality of endocrine pancreas physiology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012093\"}}, {\"id\": \"Aciduria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012072\"}}, {\"id\": \"Aminoaciduria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003355\"}}, {\"id\": \"Aphasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002381\"}}, {\"id\": \"Azoospermia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000027\"}}, {\"id\": \"Band keratopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000585\"}}, {\"id\": \"Biallelic pathogenic CTNS variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic CTNS variants establish the molecular diagnosis and produce the cystinosin transporter defect.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"CTNS lysosomal cystine transporter deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic CTNS variants impair cystinosin, the lysosomal cystine transporter, reducing cystine export from lysosomes and disrupting intracellular cysteine homeostasis.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"L-cystine transport\", \"lysosomal transport\", \"intracellular cysteine homeostasis\"], \"molecular_functions\": [\"L-cystine transmembrane transporter activity\", \"transmembrane transporter activity\"], \"genes\": [\"CTNS\"]}}, {\"id\": \"CTNS variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"CTNS\"], \"association\": \"Causative\", \"variant_count\": 2}}, {\"id\": \"Common 57-kb CTNS deletion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A recurrent 57-kb deletion affecting CTNS is the most common pathogenic variant in individuals from northern Europe and North America and is treated as an important founder variant in molecular diagnosis.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002019\"}}, {\"id\": \"Corneal cystine crystal deposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cystine crystal deposition in the cornea is a hallmark ocular manifestation and causes photophobia; ocular cystinosis can present with photophobia from corneal cystine accumulation even without nephropathic disease.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"cornea\"]}}, {\"id\": \"Corneal opacity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Nephropathic infantile cystinosis\", \"Nephropathic juvenile cystinosis\", \"Non-nephropathic ocular cystinosis\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007957\"}}, {\"id\": \"Cranial nerve paralysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0006824\"}}, {\"id\": \"Cysteamine ophthalmic drops\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cysteamine eye drops are used for corneal disease involvement and can relieve photophobia caused by corneal cystine crystals.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"cysteamine\"]}}, {\"id\": \"Decreased circulating carnitine concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003234\"}}, {\"id\": \"Dehydration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001944\"}}, {\"id\": \"Delayed puberty\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000823\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Nephropathic infantile cystinosis\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002015\"}}, {\"id\": \"EMG myopathic abnormalities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003458\"}}, {\"id\": \"Electrolyte wasting, rickets, and growth failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Renal Fanconi syndrome causes urinary wasting of electrolytes, bicarbonate, minerals, glucose, and amino acids. These losses drive metabolic acidosis, hypophosphatemia, hypocalcemia, hypokalemia, hypophosphatemic/calcipenic rickets, and impaired growth.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"monoatomic ion transport\", \"phosphate ion transport\", \"bicarbonate transport\", \"neutral amino acid transport\"], \"locations\": [\"proximal tubule\"]}}, {\"id\": \"Elevated circulating alkaline phosphatase concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003155\"}}, {\"id\": \"Elevated leukocyte cystine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\"}}, {\"id\": \"Exocrine pancreatic insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001738\"}}, {\"id\": \"Extrarenal tissue cystine accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Continued cystine storage affects multiple organs over time, including the eye, thyroid, gonads, pancreas, muscle, bone marrow, liver, nervous system, lungs, and bones, explaining the broad extrarenal phenotype burden.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Fanconi syndrome replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Replacement of renal tubular losses includes electrolytes, bicarbonate, minerals, and other small-molecular-weight nutrients, with free access to water and additional fluid/nutrient replacement during dehydration.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012378\"}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Gait disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001288\"}}, {\"id\": \"Glucose intolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001952\"}}, {\"id\": \"Glycosuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003076\"}}, {\"id\": \"Growth delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001510\"}}, {\"id\": \"Growth hormone therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Growth hormone therapy is supportive endocrine management used as needed for impaired growth in cystinosis.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hyperphosphaturia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003109\"}}, {\"id\": \"Hypocalcemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002901\"}}, {\"id\": \"Hypogonadism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000135\"}}, {\"id\": \"Hypokalemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002900\"}}, {\"id\": \"Hyponatremia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002902\"}}, {\"id\": \"Hypophosphatemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002148\"}}, {\"id\": \"Hypothyroidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000821\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Intralysosomal cystine accumulation and lysosomal dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure to export cystine causes cystine accumulation in lysosomes throughout the body. Lysosomal storage is accompanied by broader abnormalities in endolysosomal trafficking, proteolysis, lysosomal clearance, autophagy, and cellular energy balance.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"autophagy\"]}}, {\"id\": \"Kidney transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Kidney transplantation is indicated when medical treatment is no longer effective for progressive kidney failure in cystinosis.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"L-thyroxine therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"L-thyroxine is used as needed for cystinosis-associated hypothyroidism.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Malabsorption\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002024\"}}, {\"id\": \"Metabolic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001942\"}}, {\"id\": \"Mild intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001256\"}}, {\"id\": \"Muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001324\"}}, {\"id\": \"Myopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003198\"}}, {\"id\": \"Nephrocalcinosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000121\"}}, {\"id\": \"Nephrogenic diabetes insipidus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0009806\"}}, {\"id\": \"Nephrolithiasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000787\"}}, {\"id\": \"Nephropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000112\"}}, {\"id\": \"Oral cysteamine bitartrate therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral cysteamine bitartrate is disease-directed cystine-depleting therapy. Early and lifelong treatment lowers lysosomal cystine burden, delays glomerular damage and ESRD, improves growth, and reduces extrarenal complications, although it does not fully correct the Fanconi syndrome.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"cysteamine\"]}}, {\"id\": \"Osteomalacia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002749\"}}, {\"id\": \"Photophobia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Nephropathic infantile cystinosis\", \"Nephropathic juvenile cystinosis\", \"Non-nephropathic ocular cystinosis\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000613\"}}, {\"id\": \"Polydipsia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001959\"}}, {\"id\": \"Portal hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001409\"}}, {\"id\": \"Progressive kidney failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In untreated nephropathic cystinosis, renal Fanconi syndrome and glomerular impairment progress to end-stage kidney disease during childhood, although cysteamine and renal replacement therapy have improved survival.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"kidney\"]}}, {\"id\": \"Proteinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Nephropathic infantile cystinosis\", \"Nephropathic juvenile cystinosis\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000093\"}}, {\"id\": \"Proximal tubule cell dysfunction and renal Fanconi syndrome\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cystinosin deficiency causes early and severe proximal tubule dysfunction. This produces renal Fanconi syndrome with urinary losses of electrolytes, bicarbonate, minerals, glucose, amino acids, and low-molecular-weight proteins, leading to dehydration, acidosis, rickets, poor growth, and progressive renal impairment.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"epithelial cell of proximal tubule\"], \"locations\": [\"proximal tubule\", \"kidney\"]}}, {\"id\": \"Renal Fanconi syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Nephropathic infantile cystinosis\", \"Nephropathic juvenile cystinosis\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001994\"}}, {\"id\": \"Renal dialysis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dialysis is used as renal replacement therapy when renal glomerular disease progresses despite medical treatment.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Renal insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Nephropathic infantile cystinosis\", \"Nephropathic juvenile cystinosis\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000083\"}}, {\"id\": \"Renal tubular dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000124\"}}, {\"id\": \"Renal tubular solute wasting\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Present\"}}, {\"id\": \"Retinopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000488\"}}, {\"id\": \"Rickets\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002748\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Splenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001744\"}}, {\"id\": \"Type I diabetes mellitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0100651\"}}, {\"id\": \"Visual impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000505\"}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002013\"}}], \"edges\": [{\"source\": \"CTNS lysosomal cystine transporter deficiency\", \"target\": \"Intralysosomal cystine accumulation and lysosomal dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Intralysosomal cystine accumulation and lysosomal dysfunction\", \"target\": \"Proximal tubule cell dysfunction and renal Fanconi syndrome\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Intralysosomal cystine accumulation and lysosomal dysfunction\", \"target\": \"Corneal cystine crystal deposition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Intralysosomal cystine accumulation and lysosomal dysfunction\", \"target\": \"Extrarenal tissue cystine accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Intralysosomal cystine accumulation and lysosomal dysfunction\", \"target\": \"Elevated leukocyte cystine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Proximal tubule cell dysfunction and renal Fanconi syndrome\", \"target\": \"Progressive kidney failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Proximal tubule cell dysfunction and renal Fanconi syndrome\", \"target\": \"Electrolyte wasting, rickets, and growth failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Proximal tubule cell dysfunction and renal Fanconi syndrome\", \"target\": \"Renal Fanconi syndrome\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Proximal tubule cell dysfunction and renal Fanconi syndrome\", \"target\": \"Renal tubular dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Proximal tubule cell dysfunction and renal Fanconi syndrome\", \"target\": \"Renal tubular solute wasting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Proximal tubule cell dysfunction and renal Fanconi syndrome\", \"target\": \"Decreased circulating carnitine concentration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Proximal tubule cell dysfunction and renal Fanconi syndrome\", \"target\": \"Proteinuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Proximal tubule cell dysfunction and renal Fanconi syndrome\", \"target\": \"Glycosuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Proximal tubule cell dysfunction and renal Fanconi syndrome\", \"target\": \"Aminoaciduria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Proximal tubule cell dysfunction and renal Fanconi syndrome\", \"target\": \"Hyperphosphaturia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Proximal tubule cell dysfunction and renal Fanconi syndrome\", \"target\": \"Aciduria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Proximal tubule cell dysfunction and renal Fanconi syndrome\", \"target\": \"Nephrogenic diabetes insipidus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Proximal tubule cell dysfunction and renal Fanconi syndrome\", \"target\": \"Polydipsia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Proximal tubule cell dysfunction and renal Fanconi syndrome\", \"target\": \"Dehydration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Electrolyte wasting, rickets, and growth failure\", \"target\": \"Rickets\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Electrolyte wasting, rickets, and growth failure\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Electrolyte wasting, rickets, and growth failure\", \"target\": \"Hypophosphatemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Electrolyte wasting, rickets, and growth failure\", \"target\": \"Hypokalemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Electrolyte wasting, rickets, and growth failure\", \"target\": \"Metabolic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Electrolyte wasting, rickets, and growth failure\", \"target\": \"Hypocalcemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Electrolyte wasting, rickets, and growth failure\", \"target\": \"Hyponatremia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Electrolyte wasting, rickets, and growth failure\", \"target\": \"Elevated circulating alkaline phosphatase concentration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Electrolyte wasting, rickets, and growth failure\", \"target\": \"Osteomalacia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Electrolyte wasting, rickets, and growth failure\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Electrolyte wasting, rickets, and growth failure\", \"target\": \"Growth delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Electrolyte wasting, rickets, and growth failure\", \"target\": \"Nephrocalcinosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Electrolyte wasting, rickets, and growth failure\", \"target\": \"Nephrolithiasis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive kidney failure\", \"target\": \"Renal insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive kidney failure\", \"target\": \"Nephropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Corneal cystine crystal deposition\", \"target\": \"Photophobia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Corneal cystine crystal deposition\", \"target\": \"Corneal opacity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Corneal cystine crystal deposition\", \"target\": \"Band keratopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Corneal cystine crystal deposition\", \"target\": \"Visual impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extrarenal tissue cystine accumulation\", \"target\": \"Retinopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extrarenal tissue cystine accumulation\", \"target\": \"Hypothyroidism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extrarenal tissue cystine accumulation\", \"target\": \"Hypogonadism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extrarenal tissue cystine accumulation\", \"target\": \"Delayed puberty\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extrarenal tissue cystine accumulation\", \"target\": \"Azoospermia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extrarenal tissue cystine accumulation\", \"target\": \"Glucose intolerance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extrarenal tissue cystine accumulation\", \"target\": \"Abnormality of endocrine pancreas physiology\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extrarenal tissue cystine accumulation\", \"target\": \"Type I diabetes mellitus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extrarenal tissue cystine accumulation\", \"target\": \"Myopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extrarenal tissue cystine accumulation\", \"target\": \"Muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extrarenal tissue cystine accumulation\", \"target\": \"EMG myopathic abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extrarenal tissue cystine accumulation\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extrarenal tissue cystine accumulation\", \"target\": \"Gait disturbance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extrarenal tissue cystine accumulation\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extrarenal tissue cystine accumulation\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extrarenal tissue cystine accumulation\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extrarenal tissue cystine accumulation\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extrarenal tissue cystine accumulation\", \"target\": \"Malabsorption\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extrarenal tissue cystine accumulation\", \"target\": \"Exocrine pancreatic insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extrarenal tissue cystine accumulation\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extrarenal tissue cystine accumulation\", \"target\": \"Splenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extrarenal tissue cystine accumulation\", \"target\": \"Portal hypertension\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extrarenal tissue cystine accumulation\", \"target\": \"Mild intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extrarenal tissue cystine accumulation\", \"target\": \"Aphasia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extrarenal tissue cystine accumulation\", \"target\": \"Cranial nerve paralysis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extrarenal tissue cystine accumulation\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oral cysteamine bitartrate therapy\", \"target\": \"Intralysosomal cystine accumulation and lysosomal dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cysteamine ophthalmic drops\", \"target\": \"Corneal cystine crystal deposition\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cysteamine ophthalmic drops\", \"target\": \"Photophobia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cysteamine ophthalmic drops\", \"target\": \"Corneal opacity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Fanconi syndrome replacement therapy\", \"target\": \"Proximal tubule cell dysfunction and renal Fanconi syndrome\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Fanconi syndrome replacement therapy\", \"target\": \"Renal Fanconi syndrome\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Fanconi syndrome replacement therapy\", \"target\": \"Hypophosphatemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Fanconi syndrome replacement therapy\", \"target\": \"Hypokalemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Fanconi syndrome replacement therapy\", \"target\": \"Dehydration\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Growth hormone therapy\", \"target\": \"Electrolyte wasting, rickets, and growth failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Growth hormone therapy\", \"target\": \"Short stature\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Growth hormone therapy\", \"target\": \"Failure to thrive\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"L-thyroxine therapy\", \"target\": \"Extrarenal tissue cystine accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"L-thyroxine therapy\", \"target\": \"Hypothyroidism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Renal dialysis\", \"target\": \"Progressive kidney failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Renal dialysis\", \"target\": \"Renal insufficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Kidney transplantation\", \"target\": \"Progressive kidney failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Kidney transplantation\", \"target\": \"Renal insufficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"CTNS variants\", \"target\": \"CTNS lysosomal cystine transporter deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic pathogenic CTNS variants\", \"target\": \"CTNS variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Common 57-kb CTNS deletion\", \"target\": \"CTNS variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4496,7 +5081,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -5094,7 +5679,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -5571,7 +6156,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -7616,7 +8201,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
             
@@ -7629,7 +8214,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -7649,7 +8234,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -7669,7 +8254,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -7680,6 +8265,8 @@
                 
             </div>
             
+            
+            <div class="evidence-more">+ 1 more reference</div>
             
         </div>
     </details>
@@ -7780,7 +8367,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -7819,7 +8406,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -7839,7 +8426,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -7923,6 +8510,36 @@
                         
                         
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301574" target="_blank">PMID:20301574</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Cysteamine ophthalmic drops can relieve photophobia."</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews supports topical cysteamine for symptoms caused by corneal cystine crystal disease.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
                     </div>
                     
@@ -7966,7 +8583,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -7986,7 +8603,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -8115,7 +8732,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -8174,6 +8791,54 @@
 </div>
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+                        <strong style="color: #5b21b6;">Electrolyte wasting, rickets, and growth failure</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Growth hormone is supportive management for impaired growth downstream of the Fanconi-syndrome growth-failure mechanism.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301574" target="_blank">PMID:20301574</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"growth hormone therapy as needed"</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews lists growth hormone therapy for growth problems in cystinosis.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
+                
                 
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
@@ -8212,7 +8877,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -8270,6 +8935,54 @@
                 <div class="item-desc">L-thyroxine is used as needed for cystinosis-associated hypothyroidism.</div>
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+                        <strong style="color: #5b21b6;">Extrarenal tissue cystine accumulation</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; L-thyroxine is supportive endocrine management for hypothyroidism downstream of extrarenal thyroid involvement.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301574" target="_blank">PMID:20301574</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"L-thyroxine as needed for hypothyroidism"</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews lists thyroid hormone replacement for cystinosis-associated hypothyroidism.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
+                
                 
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
@@ -8301,7 +9014,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -8409,7 +9122,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -8517,7 +9230,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -8562,6 +9275,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -8578,7 +9292,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -8608,6 +9322,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -8624,7 +9339,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -8733,7 +9448,7 @@
                 <pre class="yaml-preview">name: Cystinosis
 category: Mendelian
 creation_date: &#34;2026-05-03T00:00:00Z&#34;
-updated_date: &#34;2026-05-03T00:00:00Z&#34;
+updated_date: &#34;2026-05-05T12:34:37Z&#34;
 synonyms:
 - Protein defect of cystin transport
 - Cystine storage disease
@@ -8786,7 +9501,7 @@ has_subtypes:
   - reference: PMID:20301574
     reference_title: &#34;Cystinosis.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;This is the most common form (95% of individuals with cystinosis).&#34;
     explanation: GeneReviews identifies nephropathic infantile cystinosis as the dominant cystinosis subtype.
 - name: Nephropathic juvenile cystinosis
@@ -8812,7 +9527,7 @@ has_subtypes:
   - reference: PMID:20301574
     reference_title: &#34;Cystinosis.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;Renal glomerular failure occurs in untreated affected individuals, usually between ages 15 and 25 years.&#34;
     explanation: GeneReviews distinguishes later-onset juvenile disease by delayed renal failure.
 - name: Non-nephropathic ocular cystinosis
@@ -8838,7 +9553,7 @@ has_subtypes:
   - reference: PMID:20301574
     reference_title: &#34;Cystinosis.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;Non-nephropathic adult (ocular) cystinosis: Characterized by photophobia resulting from corneal cystine crystal accumulation.&#34;
     explanation: GeneReviews distinguishes the non-nephropathic ocular phenotype from nephropathic disease.
 external_assertions:
@@ -8889,7 +9604,7 @@ inheritance:
   - reference: PMID:20301574
     reference_title: &#34;Cystinosis.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;Cystinosis is inherited in an autosomal recessive manner.&#34;
     explanation: GeneReviews confirms autosomal recessive inheritance.
 pathophysiology:
@@ -8904,11 +9619,19 @@ pathophysiology:
       id: hgnc:2518
       label: CTNS
   molecular_functions:
+  - preferred_term: L-cystine transmembrane transporter activity
+    term:
+      id: GO:0015184
+      label: L-cystine transmembrane transporter activity
   - preferred_term: transmembrane transporter activity
     term:
       id: GO:0022857
       label: transmembrane transporter activity
   biological_processes:
+  - preferred_term: L-cystine transport
+    term:
+      id: GO:0015811
+      label: L-cystine transport
   - preferred_term: lysosomal transport
     term:
       id: GO:0007041
@@ -8938,7 +9661,7 @@ pathophysiology:
   - reference: PMID:29260317
     reference_title: Effects of long-term cysteamine treatment in patients with cystinosis.
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;caused by mutations in the CTNS gene that encodes&#34;
     explanation: Review evidence connects CTNS mutations to cystinosin deficiency in patients.
   downstream:
@@ -8975,13 +9698,13 @@ pathophysiology:
   - reference: PMID:27990015
     reference_title: &#34;The renal Fanconi syndrome in cystinosis: pathogenic insights and therapeutic perspectives.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;results in an accumulation of cystine in all organs&#34;
     explanation: Review evidence supports multisystem cystine accumulation from the transporter defect.
   - reference: PMID:27990015
     reference_title: &#34;The renal Fanconi syndrome in cystinosis: pathogenic insights and therapeutic perspectives.&#34;
     supports: SUPPORT
-    evidence_source: IN_VITRO
+    evidence_source: OTHER
     snippet: &#34;identified a role for cystinosin beyond cystine transport, in endolysosomal trafficking and proteolysis, lysosomal clearance, autophagy&#34;
     explanation: Mechanistic review links cystinosin deficiency to broader lysosomal and autophagy abnormalities.
   downstream:
@@ -8991,6 +9714,8 @@ pathophysiology:
     description: Cystine deposition in the cornea causes crystals and photophobia.
   - target: Extrarenal tissue cystine accumulation
     description: Multisystem cystine accumulation drives endocrine, myopathic, hepatic, pancreatic, and neurologic complications.
+  - target: Elevated leukocyte cystine
+    description: Lysosomal cystine storage is measured diagnostically as elevated cystine in leukocytes.
 - name: Proximal tubule cell dysfunction and renal Fanconi syndrome
   description: &gt;
     Cystinosin deficiency causes early and severe proximal tubule dysfunction.
@@ -9016,19 +9741,19 @@ pathophysiology:
   - reference: PMID:27990015
     reference_title: &#34;The renal Fanconi syndrome in cystinosis: pathogenic insights and therapeutic perspectives.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;renal Fanconi syndrome is often the first manifestation of cystinosis&#34;
     explanation: Review evidence identifies Fanconi syndrome as the early clinical manifestation.
   - reference: PMID:27990015
     reference_title: &#34;The renal Fanconi syndrome in cystinosis: pathogenic insights and therapeutic perspectives.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;dysfunction of proximal tubule cells&#34;
     explanation: Supports proximal tubule cell dysfunction as the renal mechanism.
   - reference: PMID:20301574
     reference_title: &#34;Cystinosis.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;signs of renal tubular Fanconi syndrome (polyuria, polydipsia, dehydration, and acidosis)&#34;
     explanation: GeneReviews ties the renal tubular defect to characteristic clinical and biochemical losses.
   downstream:
@@ -9036,6 +9761,30 @@ pathophysiology:
     description: Chronic glomerular damage and tubular disease progress to kidney failure when untreated.
   - target: Electrolyte wasting, rickets, and growth failure
     description: Tubular wasting drives mineral/electrolyte abnormalities, skeletal disease, and impaired growth.
+  - target: Renal Fanconi syndrome
+    description: Proximal tubular dysfunction presents clinically as renal Fanconi syndrome.
+  - target: Renal tubular dysfunction
+    description: The proximal tubular defect produces broader renal tubular dysfunction.
+  - target: Renal tubular solute wasting
+    description: Fanconi syndrome causes urinary wasting of electrolytes, minerals, glucose, amino acids, and low-molecular-weight solutes.
+  - target: Decreased circulating carnitine concentration
+    description: Fanconi-related tubular solute and nutrient wasting can contribute to reduced circulating carnitine.
+  - target: Proteinuria
+    description: Tubular injury includes urinary loss of low-molecular-weight proteins.
+  - target: Glycosuria
+    description: Impaired proximal tubular reabsorption causes urinary glucose loss.
+  - target: Aminoaciduria
+    description: Impaired proximal tubular reabsorption causes urinary amino-acid loss.
+  - target: Hyperphosphaturia
+    description: Impaired proximal tubular phosphate reabsorption causes phosphate wasting.
+  - target: Aciduria
+    description: Tubular bicarbonate and acid-base handling abnormalities contribute to aciduria.
+  - target: Nephrogenic diabetes insipidus
+    description: Proximal tubular disease and renal concentrating defects contribute to nephrogenic diabetes insipidus.
+  - target: Polydipsia
+    description: Tubular dysfunction with concentrating defects produces polydipsia.
+  - target: Dehydration
+    description: Polyuria and renal tubular wasting predispose affected children to dehydration.
 - name: Electrolyte wasting, rickets, and growth failure
   description: &gt;
     Renal Fanconi syndrome causes urinary wasting of electrolytes, bicarbonate,
@@ -9068,19 +9817,19 @@ pathophysiology:
   - reference: PMID:20301574
     reference_title: &#34;Cystinosis.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;poor growth, hypophosphatemic/calcipenic rickets&#34;
     explanation: GeneReviews connects nephropathic cystinosis to poor growth and rickets.
   - reference: PMID:20301574
     reference_title: &#34;Cystinosis.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;increased urinary excretion of electrolytes (sodium, potassium, bicarbonate), minerals&#34;
     explanation: GeneReviews documents the renal tubular wasting mechanism.
   - reference: PMID:20301574
     reference_title: &#34;Cystinosis.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;elevated serum alkaline phosphatase; and hypocalcemia,&#34;
     explanation: GeneReviews supports downstream mineral and biochemical abnormalities from tubular wasting.
   downstream:
@@ -9094,6 +9843,22 @@ pathophysiology:
     description: Potassium wasting causes hypokalemia.
   - target: Metabolic acidosis
     description: Bicarbonate wasting contributes to metabolic acidosis.
+  - target: Hypocalcemia
+    description: Mineral wasting contributes to hypocalcemia.
+  - target: Hyponatremia
+    description: Sodium wasting can contribute to hyponatremia.
+  - target: Elevated circulating alkaline phosphatase concentration
+    description: Rickets and mineral bone disease are accompanied by elevated alkaline phosphatase.
+  - target: Osteomalacia
+    description: Chronic mineral wasting contributes to osteomalacia.
+  - target: Failure to thrive
+    description: Tubular wasting, acidosis, and mineral depletion impair weight gain.
+  - target: Growth delay
+    description: Chronic Fanconi syndrome and mineral losses impair growth.
+  - target: Nephrocalcinosis
+    description: Disturbed renal mineral handling can contribute to nephrocalcinosis.
+  - target: Nephrolithiasis
+    description: Disturbed renal mineral handling can contribute to nephrolithiasis.
 - name: Progressive kidney failure
   description: &gt;
     In untreated nephropathic cystinosis, renal Fanconi syndrome and glomerular
@@ -9108,15 +9873,20 @@ pathophysiology:
   - reference: PMID:20301574
     reference_title: &#34;Cystinosis.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;within the first 12 years of life if untreated&#34;
     explanation: GeneReviews describes childhood progression to end-stage kidney disease without treatment.
   - reference: PMID:29260317
     reference_title: Effects of long-term cysteamine treatment in patients with cystinosis.
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;develop end-stage renal disease (ESRD) by 10-12 years of age.&#34;
     explanation: Treatment review confirms the natural-history timing of untreated kidney failure.
+  downstream:
+  - target: Renal insufficiency
+    description: Progressive glomerular impairment manifests as renal insufficiency and end-stage kidney disease.
+  - target: Nephropathy
+    description: Chronic tubular and glomerular injury produce nephropathic disease.
 - name: Corneal cystine crystal deposition
   description: &gt;
     Cystine crystal deposition in the cornea is a hallmark ocular manifestation
@@ -9136,15 +9906,24 @@ pathophysiology:
   - reference: PMID:20301574
     reference_title: &#34;Cystinosis.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;resulting from corneal cystine crystal accumulation.&#34;
     explanation: GeneReviews directly links ocular symptoms to corneal cystine crystal accumulation.
   - reference: PMID:29260317
     reference_title: Effects of long-term cysteamine treatment in patients with cystinosis.
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;Early corneal cystine crystal deposition is a hallmark of the disease.&#34;
     explanation: Review evidence supports corneal crystal deposition as a hallmark feature.
+  downstream:
+  - target: Photophobia
+    description: Corneal cystine crystal deposition causes photophobia.
+  - target: Corneal opacity
+    description: Corneal crystal disease contributes to corneal opacity.
+  - target: Band keratopathy
+    description: Chronic corneal involvement can present as band keratopathy.
+  - target: Visual impairment
+    description: Ocular cystine crystal disease can impair vision.
 - name: Extrarenal tissue cystine accumulation
   description: &gt;
     Continued cystine storage affects multiple organs over time, including the
@@ -9159,15 +9938,68 @@ pathophysiology:
   - reference: PMID:20301574
     reference_title: &#34;Cystinosis.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;accumulation of cystine in almost all cells, leading to cellular dysfunction&#34;
     explanation: GeneReviews connects widespread cystine accumulation to cellular and organ dysfunction.
   - reference: PMID:29260317
     reference_title: Effects of long-term cysteamine treatment in patients with cystinosis.
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;may affect several other organs over time, including the eye, thyroid gland, gonads, pancreas, muscles&#34;
     explanation: Treatment review enumerates the multi-organ complications of cystinosis.
+  downstream:
+  - target: Retinopathy
+    description: Eye involvement beyond the cornea can include retinopathy.
+  - target: Hypothyroidism
+    description: Thyroid involvement causes hypothyroidism.
+  - target: Hypogonadism
+    description: Gonadal involvement contributes to hypogonadism.
+  - target: Delayed puberty
+    description: Gonadal endocrine dysfunction can delay puberty.
+  - target: Azoospermia
+    description: Male gonadal involvement can result in azoospermia.
+  - target: Glucose intolerance
+    description: Pancreatic involvement can impair glucose handling.
+  - target: Abnormality of endocrine pancreas physiology
+    description: Pancreatic involvement can alter endocrine pancreas function.
+  - target: Type I diabetes mellitus
+    description: Pancreatic endocrine dysfunction can manifest as diabetes mellitus.
+  - target: Myopathy
+    description: Muscle involvement contributes to cystinotic myopathy.
+  - target: Muscle weakness
+    description: Myopathic involvement causes progressive muscle weakness.
+  - target: EMG myopathic abnormalities
+    description: Muscle involvement can produce myopathic abnormalities on electromyography.
+  - target: Hypotonia
+    description: Neuromuscular involvement can manifest as hypotonia.
+  - target: Gait disturbance
+    description: Neuromuscular involvement can impair gait.
+  - target: Dysphagia
+    description: Gastrointestinal and muscle involvement can produce swallowing difficulty.
+  - target: Feeding difficulties
+    description: Gastrointestinal involvement contributes to feeding difficulties.
+  - target: Vomiting
+    description: Gastrointestinal involvement contributes to vomiting.
+  - target: Constipation
+    description: Gastrointestinal dysmotility can contribute to constipation.
+  - target: Malabsorption
+    description: Gastrointestinal and pancreatic involvement can contribute to malabsorption.
+  - target: Exocrine pancreatic insufficiency
+    description: Pancreatic involvement can impair exocrine pancreatic function.
+  - target: Hepatomegaly
+    description: Liver involvement can manifest as hepatomegaly.
+  - target: Splenomegaly
+    description: Hepatic and portal-system involvement can manifest as splenomegaly.
+  - target: Portal hypertension
+    description: Hepatobiliary involvement can contribute to portal hypertension.
+  - target: Mild intellectual disability
+    description: Nervous-system involvement can affect neurocognitive development.
+  - target: Aphasia
+    description: Nervous-system involvement can contribute to language impairment.
+  - target: Cranial nerve paralysis
+    description: Nervous-system involvement can manifest as cranial nerve dysfunction.
+  - target: Fatigue
+    description: Multisystem cystinosis burden can contribute to fatigue.
 phenotypes:
 - name: Azoospermia
   category: Reproductive
@@ -9336,7 +10168,7 @@ phenotypes:
   - reference: PMID:20301574
     reference_title: &#34;Cystinosis.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;photophobia resulting from corneal cystine crystal accumulation.&#34;
     explanation: GeneReviews links photophobia directly to corneal cystine crystal accumulation.
 - name: Nephrolithiasis
@@ -9597,7 +10429,7 @@ phenotypes:
   - reference: PMID:29260317
     reference_title: Effects of long-term cysteamine treatment in patients with cystinosis.
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;present with renal Fanconi syndrome by 6-12 months of age&#34;
     explanation: Review evidence supports early renal Fanconi syndrome in nephropathic cystinosis.
 - name: Vomiting
@@ -9628,7 +10460,7 @@ phenotypes:
   - reference: DOI:10.1007/s00467-023-06211-6
     reference_title: &#34;Gastrointestinal challenges in nephropathic cystinosis: clinical perspectives&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;vomiting, hyperacidity, dysphagia, dysmotility, and diarrhea, are nearly universal among patients with nephropathic cystinosis.&#34;
     explanation: Gastrointestinal review evidence supports dysphagia as a common sequela of nephropathic cystinosis.
 - name: Constipation
@@ -10010,7 +10842,7 @@ biochemical:
   - reference: PMID:20301574
     reference_title: &#34;Cystinosis.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;elevated cystine concentration in polymorphonuclear leukocytes&#34;
     explanation: GeneReviews lists elevated leukocyte cystine as a diagnostic criterion.
 - name: Renal tubular solute wasting
@@ -10022,7 +10854,7 @@ biochemical:
   - reference: PMID:20301574
     reference_title: &#34;Cystinosis.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;increased urinary excretion of electrolytes (sodium, potassium, bicarbonate), minerals&#34;
     explanation: GeneReviews describes the characteristic renal tubular losses.
 diagnosis:
@@ -10035,7 +10867,7 @@ diagnosis:
   - reference: PMID:20301574
     reference_title: &#34;Cystinosis.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;cystine crystals in the cornea identified on slit lamp examination&#34;
     explanation: GeneReviews lists slit-lamp identification of corneal crystals as diagnostic evidence.
 - name: Leukocyte or fibroblast cystine measurement
@@ -10048,7 +10880,7 @@ diagnosis:
   - reference: PMID:20301574
     reference_title: &#34;Cystinosis.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;elevated cystine concentration in polymorphonuclear leukocytes&#34;
     explanation: GeneReviews identifies elevated leukocyte cystine as a diagnostic criterion.
 - name: CTNS molecular genetic testing
@@ -10061,7 +10893,7 @@ diagnosis:
   - reference: PMID:20301574
     reference_title: &#34;Cystinosis.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;biallelic pathogenic variants in CTNS identified by molecular&#34;
     explanation: GeneReviews includes biallelic CTNS pathogenic variants in diagnostic testing.
 genetic:
@@ -10083,7 +10915,7 @@ genetic:
     - reference: PMID:20301574
       reference_title: &#34;Cystinosis.&#34;
       supports: SUPPORT
-      evidence_source: HUMAN_CLINICAL
+      evidence_source: OTHER
       snippet: &#34;Cystinosis is inherited in an autosomal recessive manner.&#34;
       explanation: GeneReviews confirms autosomal recessive inheritance.
   variants:
@@ -10095,7 +10927,7 @@ genetic:
     - reference: PMID:20301574
       reference_title: &#34;Cystinosis.&#34;
       supports: SUPPORT
-      evidence_source: HUMAN_CLINICAL
+      evidence_source: OTHER
       snippet: &#34;biallelic pathogenic variants in CTNS identified by molecular&#34;
       explanation: GeneReviews includes biallelic CTNS pathogenic variants in diagnostic testing.
   - name: Common 57-kb CTNS deletion
@@ -10107,7 +10939,7 @@ genetic:
     - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK1400/
       reference_title: Cystinosis - GeneReviews - NCBI Bookshelf
       supports: SUPPORT
-      evidence_source: HUMAN_CLINICAL
+      evidence_source: OTHER
       snippet: &#34;This deletion accounts for 50%-70% of pathogenic variants identified in individuals from these regions&#34;
       explanation: GeneReviews summarizes the regional frequency of the recurrent 57-kb CTNS deletion.
   features: &gt;
@@ -10120,21 +10952,27 @@ genetic:
   - reference: PMID:20301574
     reference_title: &#34;Cystinosis.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;caused by pathogenic variants in CTNS.&#34;
     explanation: GeneReviews identifies CTNS pathogenic variants as causative.
   - reference: PMID:29260317
     reference_title: Effects of long-term cysteamine treatment in patients with cystinosis.
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;It is caused by mutations in the CTNS gene that encodes&#34;
     explanation: Review evidence confirms CTNS encodes cystinosin and causes cystinosis.
   - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK1400/
     reference_title: Cystinosis - GeneReviews - NCBI Bookshelf
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;Founder variants have been identified in several populations&#34;
     explanation: GeneReviews supports founder-variant considerations for CTNS molecular testing.
+  - reference: CGGV:assertion_51c40c8e-b9e5-4f2e-a587-f75b029397af-2022-03-02T170000.000Z
+    reference_title: &#34;CTNS / cystinosis (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;CTNS | HGNC:2518 | cystinosis | MONDO:0016239 | AR | Definitive&#34;
+    explanation: ClinGen classifies the CTNS-cystinosis gene-disease relationship as definitive with autosomal recessive inheritance.
 environmental: []
 treatments:
 - name: Oral cysteamine bitartrate therapy
@@ -10161,20 +10999,20 @@ treatments:
     - reference: PMID:27990015
       reference_title: &#34;The renal Fanconi syndrome in cystinosis: pathogenic insights and therapeutic perspectives.&#34;
       supports: SUPPORT
-      evidence_source: HUMAN_CLINICAL
+      evidence_source: OTHER
       snippet: &#34;cysteamine, facilitates lysosomal cystine clearance&#34;
       explanation: Review evidence directly supports lysosomal cystine clearance as the treatment mechanism.
   evidence:
   - reference: PMID:20301574
     reference_title: &#34;Cystinosis.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;cystine depletion therapy (cysteamine bitartrate) significantly delays progression of glomerular damage.&#34;
     explanation: GeneReviews supports cysteamine bitartrate as disease-directed therapy that delays kidney damage.
   - reference: PMID:29260317
     reference_title: Effects of long-term cysteamine treatment in patients with cystinosis.
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;long-term cysteamine treatment delays progression to ESRD&#34;
     explanation: Treatment review supports long-term clinical benefit of cysteamine.
 - name: Cysteamine ophthalmic drops
@@ -10195,6 +11033,13 @@ treatments:
   - target: Corneal cystine crystal deposition
     treatment_effect: INHIBITS
     description: Topical cysteamine treats corneal cystine crystal disease.
+    evidence:
+    - reference: PMID:20301574
+      reference_title: &#34;Cystinosis.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Cysteamine ophthalmic drops can relieve photophobia.&#34;
+      explanation: GeneReviews supports topical cysteamine for symptoms caused by corneal cystine crystal disease.
   target_phenotypes:
   - preferred_term: Photophobia
     term:
@@ -10208,13 +11053,13 @@ treatments:
   - reference: PMID:20301574
     reference_title: &#34;Cystinosis.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;Cysteamine ophthalmic drops can relieve photophobia.&#34;
     explanation: GeneReviews supports ophthalmic cysteamine for photophobia.
   - reference: PMID:29260317
     reference_title: Effects of long-term cysteamine treatment in patients with cystinosis.
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;needs to be combined with cysteamine eye drops for&#34;
     explanation: Treatment review supports combining oral cysteamine with eye drops for corneal involvement.
 - name: Fanconi syndrome replacement therapy
@@ -10252,7 +11097,7 @@ treatments:
   - reference: PMID:20301574
     reference_title: &#34;Cystinosis.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;Renal Fanconi syndrome is treated by replacement of tubular losses of electrolytes&#34;
     explanation: GeneReviews supports replacement of tubular losses as Fanconi syndrome management.
 - name: Growth hormone therapy
@@ -10273,11 +11118,22 @@ treatments:
     term:
       id: HP:0001508
       label: Failure to thrive
+  target_mechanisms:
+  - target: Electrolyte wasting, rickets, and growth failure
+    treatment_effect: MODULATES
+    description: Growth hormone is supportive management for impaired growth downstream of the Fanconi-syndrome growth-failure mechanism.
+    evidence:
+    - reference: PMID:20301574
+      reference_title: &#34;Cystinosis.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;growth hormone therapy as needed&#34;
+      explanation: GeneReviews lists growth hormone therapy for growth problems in cystinosis.
   evidence:
   - reference: PMID:20301574
     reference_title: &#34;Cystinosis.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;growth hormone therapy as needed&#34;
     explanation: GeneReviews lists growth hormone therapy as supportive management when needed for growth problems.
 - name: L-thyroxine therapy
@@ -10292,11 +11148,22 @@ treatments:
     term:
       id: HP:0000821
       label: Hypothyroidism
+  target_mechanisms:
+  - target: Extrarenal tissue cystine accumulation
+    treatment_effect: MODULATES
+    description: L-thyroxine is supportive endocrine management for hypothyroidism downstream of extrarenal thyroid involvement.
+    evidence:
+    - reference: PMID:20301574
+      reference_title: &#34;Cystinosis.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;L-thyroxine as needed for hypothyroidism&#34;
+      explanation: GeneReviews lists thyroid hormone replacement for cystinosis-associated hypothyroidism.
   evidence:
   - reference: PMID:20301574
     reference_title: &#34;Cystinosis.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;L-thyroxine as needed for hypothyroidism&#34;
     explanation: GeneReviews lists L-thyroxine as supportive treatment for hypothyroidism.
 - name: Renal dialysis
@@ -10321,7 +11188,7 @@ treatments:
   - reference: PMID:20301574
     reference_title: &#34;Cystinosis.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;additional treatment of renal glomerular disease include dialysis and kidney transplant&#34;
     explanation: GeneReviews lists dialysis as additional treatment for renal glomerular disease.
 - name: Kidney transplantation
@@ -10346,7 +11213,7 @@ treatments:
   - reference: PMID:20301574
     reference_title: &#34;Cystinosis.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;Kidney transplantation is indicated when other medical treatments are no longer effective.&#34;
     explanation: GeneReviews supports kidney transplantation for refractory renal disease.
 clinical_trials:
@@ -11858,7 +12725,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Cystinosis", "mondoId": "MONDO:0016239", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cystinosis", "yamlRevision": "97a1a3f7dd9d"};
+        const OS_CONFIG = {"diseaseName": "Cystinosis", "mondoId": "MONDO:0016239", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cystinosis", "yamlRevision": "fdcd87a3e199"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

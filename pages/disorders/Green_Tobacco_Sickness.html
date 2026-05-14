@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2624,6 +2777,20 @@
             
             
             
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-value">8</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -4768,14 +4935,18 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Green Tobacco Sickness
 creation_date: &#34;2026-03-23T00:00:00Z&#34;
-updated_date: &#34;2026-03-23T20:00:00Z&#34;
+updated_date: &#34;2026-05-09T03:15:56Z&#34;
 category: Environmental
 description: &gt;
-  Green tobacco sickness (GTS) is an occupational illness caused by dermal absorption of
-  nicotine from contact with wet tobacco leaves. It predominantly affects tobacco farmworkers
-  during harvesting, topping, and curing activities. The condition is a form of acute nicotine
+  Green tobacco sickness (GTS) is an occupational illness caused by dermal absorption
+  of
+  nicotine from contact with wet tobacco leaves. It predominantly affects tobacco
+  farmworkers
+  during harvesting, topping, and curing activities. The condition is a form of acute
+  nicotine
   poisoning presenting with nausea, vomiting, dizziness, headache, and weakness. Symptoms
-  typically onset 3-17 hours after exposure and resolve within 1-3 days with supportive care.
+  typically onset 3-17 hours after exposure and resolve within 1-3 days with supportive
+  care.
   GTS prevalence varies from 8.2 to 47% globally among tobacco harvesters.
 disease_term:
   preferred_term: green tobacco sickness
@@ -5390,11 +5561,1030 @@ treatments:
     explanation: Proposed pharmacotherapy based on the nicotinic mechanism of GTS, but not yet tested in clinical trials for this indication.
   notes: &gt;-
     These are proposed therapeutics not yet tested in clinical trials for GTS.
+references:
+- reference: DOI:10.1016/j.shaw.2017.06.007
+  title: Green Tobacco Sickness Among Tobacco Harvesters in a Korean Village
+  found_in:
+  - Green_Tobacco_Sickness-deep-research-falcon.md
+  findings:
+  - statement: Green Tobacco Sickness Among Tobacco Harvesters in a Korean Village
+    supporting_text: Green Tobacco Sickness Among Tobacco Harvesters in a Korean Village
+- reference: DOI:10.1038/s43856-024-00584-x
+  title: Recent and projected changes in global climate may increase nicotine absorption and the risk of green tobacco sickness
+  found_in:
+  - Green_Tobacco_Sickness-deep-research-falcon.md
+  findings:
+  - statement: Recent and projected changes in global climate may increase nicotine absorption and the risk of green tobacco sickness
+    supporting_text: Recent and projected changes in global climate may increase nicotine absorption and the risk of green tobacco sickness
+- reference: DOI:10.1080/00039896.1995.9935972
+  title: &#39;Green Tobacco Sickness: Occupational Nicotine Poisoning in Tobacco Workers&#39;
+  found_in:
+  - Green_Tobacco_Sickness-deep-research-falcon.md
+  findings:
+  - statement: &#39;Green Tobacco Sickness: Occupational Nicotine Poisoning in Tobacco Workers&#39;
+    supporting_text: &#39;Green Tobacco Sickness: Occupational Nicotine Poisoning in Tobacco Workers&#39;
+- reference: DOI:10.1080/17512433.2019.1570844
+  title: &#39;Green tobacco sickness: mecamylamine, varenicline, and nicotine vaccine as clinical research tools and potential therapeutics&#39;
+  found_in:
+  - Green_Tobacco_Sickness-deep-research-falcon.md
+  findings:
+  - statement: &#39;Green tobacco sickness: mecamylamine, varenicline, and nicotine vaccine as clinical research tools and potential therapeutics&#39;
+    supporting_text: &#39;Green tobacco sickness: mecamylamine, varenicline, and nicotine vaccine as clinical research tools and potential therapeutics&#39;
+- reference: DOI:10.11606/s1518-8787.2018052000287
+  title: Urinary cotinine in tobacco farmers in Southern Brazil
+  found_in:
+  - Green_Tobacco_Sickness-deep-research-falcon.md
+  findings:
+  - statement: To describe urinary cotinine levels in tobacco farmers.
+    supporting_text: To describe urinary cotinine levels in tobacco farmers.
+    evidence:
+    - reference: DOI:10.11606/s1518-8787.2018052000287
+      reference_title: Urinary cotinine in tobacco farmers in Southern Brazil
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: To describe urinary cotinine levels in tobacco farmers.
+      explanation: Deep research cited this publication as relevant literature for Green Tobacco Sickness.
+- reference: DOI:10.1300/j096v10n02_05
+  title: Cotinine Levels and Green Tobacco Sickness Among Shade Tobacco Workersx
+  found_in:
+  - Green_Tobacco_Sickness-deep-research-falcon.md
+  findings:
+  - statement: Cotinine Levels and Green Tobacco Sickness Among Shade Tobacco Workersx
+    supporting_text: Cotinine Levels and Green Tobacco Sickness Among Shade Tobacco Workersx
+- reference: DOI:10.1590/s0102-311x2010001200005
+  title: First reported outbreak of green tobacco sickness in Brazil
+  found_in:
+  - Green_Tobacco_Sickness-deep-research-falcon.md
+  findings:
+  - statement: Dermal absorption of nicotine by people harvesting tobacco may cause an acute intoxication called green tobacco sickness.
+    supporting_text: Dermal absorption of nicotine by people harvesting tobacco may cause an acute intoxication called green tobacco sickness.
+    evidence:
+    - reference: DOI:10.1590/s0102-311x2010001200005
+      reference_title: First reported outbreak of green tobacco sickness in Brazil
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Dermal absorption of nicotine by people harvesting tobacco may cause an acute intoxication called green tobacco sickness.
+      explanation: Deep research cited this publication as relevant literature for Green Tobacco Sickness.
+- reference: DOI:10.3390/ijerph21050606
+  title: Qualitative Study to Explore the Occupational and Reproductive Health Challenges among Women Tobacco Farm Laborers in Mysore District, India
+  found_in:
+  - Green_Tobacco_Sickness-deep-research-falcon.md
+  findings:
+  - statement: Tobacco farm laborers are primarily women and children working for very low wages.
+    supporting_text: Tobacco farm laborers are primarily women and children working for very low wages.
+    evidence:
+    - reference: DOI:10.3390/ijerph21050606
+      reference_title: Qualitative Study to Explore the Occupational and Reproductive Health Challenges among Women Tobacco Farm Laborers in Mysore District, India
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Tobacco farm laborers are primarily women and children working for very low wages.
+      explanation: Deep research cited this publication as relevant literature for Green Tobacco Sickness.
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
+        
+        <div class="card reference-card" id="references-deep-research">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+            
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">8</span>
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1016/j.shaw.2017.06.007" target="_blank">DOI:10.1016/j.shaw.2017.06.007</a>
+                            </div>
+                            
+                            <div class="reference-title">Green Tobacco Sickness Among Tobacco Harvesters in a Korean Village</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Green Tobacco Sickness Among Tobacco Harvesters in a Korean Village</div>
+            
+            
+            <div class="reference-finding-supporting">"Green Tobacco Sickness Among Tobacco Harvesters in a Korean Village"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1038/s43856-024-00584-x" target="_blank">DOI:10.1038/s43856-024-00584-x</a>
+                            </div>
+                            
+                            <div class="reference-title">Recent and projected changes in global climate may increase nicotine absorption and the risk of green tobacco sickness</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Recent and projected changes in global climate may increase nicotine absorption and the risk of green tobacco sickness</div>
+            
+            
+            <div class="reference-finding-supporting">"Recent and projected changes in global climate may increase nicotine absorption and the risk of green tobacco sickness"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1080/00039896.1995.9935972" target="_blank">DOI:10.1080/00039896.1995.9935972</a>
+                            </div>
+                            
+                            <div class="reference-title">Green Tobacco Sickness: Occupational Nicotine Poisoning in Tobacco Workers</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Green Tobacco Sickness: Occupational Nicotine Poisoning in Tobacco Workers</div>
+            
+            
+            <div class="reference-finding-supporting">"Green Tobacco Sickness: Occupational Nicotine Poisoning in Tobacco Workers"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1080/17512433.2019.1570844" target="_blank">DOI:10.1080/17512433.2019.1570844</a>
+                            </div>
+                            
+                            <div class="reference-title">Green tobacco sickness: mecamylamine, varenicline, and nicotine vaccine as clinical research tools and potential therapeutics</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Green tobacco sickness: mecamylamine, varenicline, and nicotine vaccine as clinical research tools and potential therapeutics</div>
+            
+            
+            <div class="reference-finding-supporting">"Green tobacco sickness: mecamylamine, varenicline, and nicotine vaccine as clinical research tools and potential therapeutics"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.11606/s1518-8787.2018052000287" target="_blank">DOI:10.11606/s1518-8787.2018052000287</a>
+                            </div>
+                            
+                            <div class="reference-title">Urinary cotinine in tobacco farmers in Southern Brazil</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">To describe urinary cotinine levels in tobacco farmers.</div>
+            
+            
+            <div class="reference-finding-supporting">"To describe urinary cotinine levels in tobacco farmers."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.11606/s1518-8787.2018052000287" target="_blank">DOI:10.11606/s1518-8787.2018052000287</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"To describe urinary cotinine levels in tobacco farmers."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Green Tobacco Sickness.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1300/j096v10n02_05" target="_blank">DOI:10.1300/j096v10n02_05</a>
+                            </div>
+                            
+                            <div class="reference-title">Cotinine Levels and Green Tobacco Sickness Among Shade Tobacco Workersx</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Cotinine Levels and Green Tobacco Sickness Among Shade Tobacco Workersx</div>
+            
+            
+            <div class="reference-finding-supporting">"Cotinine Levels and Green Tobacco Sickness Among Shade Tobacco Workersx"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1590/s0102-311x2010001200005" target="_blank">DOI:10.1590/s0102-311x2010001200005</a>
+                            </div>
+                            
+                            <div class="reference-title">First reported outbreak of green tobacco sickness in Brazil</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Dermal absorption of nicotine by people harvesting tobacco may cause an acute intoxication called green tobacco sickness.</div>
+            
+            
+            <div class="reference-finding-supporting">"Dermal absorption of nicotine by people harvesting tobacco may cause an acute intoxication called green tobacco sickness."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1590/s0102-311x2010001200005" target="_blank">DOI:10.1590/s0102-311x2010001200005</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Dermal absorption of nicotine by people harvesting tobacco may cause an acute intoxication called green tobacco sickness."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Green Tobacco Sickness.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/ijerph21050606" target="_blank">DOI:10.3390/ijerph21050606</a>
+                            </div>
+                            
+                            <div class="reference-title">Qualitative Study to Explore the Occupational and Reproductive Health Challenges among Women Tobacco Farm Laborers in Mysore District, India</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Tobacco farm laborers are primarily women and children working for very low wages.</div>
+            
+            
+            <div class="reference-finding-supporting">"Tobacco farm laborers are primarily women and children working for very low wages."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/ijerph21050606" target="_blank">DOI:10.3390/ijerph21050606</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Tobacco farm laborers are primarily women and children working for very low wages."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Green Tobacco Sickness.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">Green Tobacco Sickness (GTS) — Comprehensive Disease Characteristics Report</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">30 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-08T18:34:41.478389</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <h1>Green Tobacco Sickness (GTS) — Comprehensive Disease Characteristics Report</h1>
+<h2>Target Disease</h2>
+<ul>
+<li><strong>Disease name:</strong> Green Tobacco Sickness (GTS)</li>
+<li><strong>Category:</strong> Environmental / occupational intoxication</li>
+<li><strong>MONDO ID:</strong> Not identified from the retrieved sources in this run (gap).</li>
+</ul>
+<hr />
+<h2>1. Disease information</h2>
+<h3>Overview (current understanding)</h3>
+<p>Green tobacco sickness is an <strong>acute occupational nicotine intoxication</strong> occurring primarily during <strong>handling/harvest of green (uncured) tobacco</strong>, especially when leaves/clothing are wet, leading to <strong>transdermal nicotine absorption</strong> and systemic cholinergic/toxic effects. It is generally <strong>self-limited</strong> (often resolving within ~1–2 days), but may require medical care for dehydration or physiologic instability. (quandt2000migrantfarmworkersand pages 1-2, ballard1995greentobaccosickness pages 1-3)</p>
+<h3>Synonyms / alternative names</h3>
+<ul>
+<li>“Green tobacco sickness” (most common)</li>
+<li>“Green tobacco disease” / “doença da folha verde do tabaco” (Portuguese-language literature term for the same syndrome) (oliveira2010firstreportedoutbreak pages 1-2)</li>
+</ul>
+<h3>Key identifiers</h3>
+<ul>
+<li><strong>ICD-10/ICD-11, MeSH, MONDO:</strong> Not recoverable from the full-text evidence obtained in this run (gap).</li>
+</ul>
+<h3>Evidence source type</h3>
+<p>Evidence is derived primarily from:
+- <strong>Human outbreak investigations and case-control studies</strong> (e.g., Brazil outbreak) (oliveira2010firstreportedoutbreak pages 1-2)
+- <strong>Occupational cohort/survey studies</strong> among farmworkers/harvesters (quandt2000migrantfarmworkersand pages 1-2, fassa2018urinarycotininein pages 1-3, ballard1995greentobaccosickness pages 1-3)
+- <strong>Narrative/expert reviews</strong> synthesizing multiple studies (mcmahon2019greentobaccosickness pages 1-6, mcmahon2019greentobaccosickness pages 14-18)</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>Disease causal factors (environmental/occupational)</h3>
+<p><strong>Primary cause:</strong> systemic nicotine toxicity from <strong>transdermal absorption</strong> of nicotine during contact with <strong>wet tobacco leaves</strong> (and wet clothing contaminated with leaf nicotine). (quandt2000migrantfarmworkersand pages 1-2, ballard1995greentobaccosickness pages 1-3)</p>
+<p><strong>Key mechanistic note:</strong> nicotine can diffuse through the stratum corneum into the bloodstream; absorption increases with skin moisture and damaged skin. (quandt2000migrantfarmworkersand pages 1-2)</p>
+<h3>Risk factors</h3>
+<p>Across studies and reviews, risk is increased by:
+- <strong>Harvesting/handling wet leaves</strong> and <strong>wet clothing/shoes</strong> (fassa2018urinarycotininein pages 1-3, ballard1995greentobaccosickness pages 1-3)
+- <strong>Heat/humidity</strong> (increasing sweating and dermal absorption; also reduces PPE tolerance) (mcmahon2019greentobaccosickness pages 1-6, ziska2024recentandprojected pages 5-6)
+- <strong>High-intensity contact tasks</strong> (e.g., harvesting wet leaves; barn tasks; transporting bales; bundling/tying) (fassa2018urinarycotininein pages 1-3)
+- <strong>Non-smoking status</strong> (observed in Brazil outbreak; also seen in other epidemiologic work) (oliveira2010firstreportedoutbreak pages 1-2, fassa2018urinarycotininein pages 1-3)
+- <strong>Younger age</strong> and working in wet conditions (Kentucky outbreak) (ballard1995greentobaccosickness pages 1-3)</p>
+<h4>Genetic risk factors / gene–environment interactions</h4>
+<ul>
+<li>A genetic-polymorphism study exists in the retrieved corpus but genotype-specific associations were not extractable from the evidence snippets available in this run; overall, GTS is best supported as an exposure-driven occupational intoxication rather than a Mendelian disease in the retrieved evidence. (mcmahon2019greentobaccosickness pages 1-6)</li>
+</ul>
+<h3>Protective factors</h3>
+<ul>
+<li><strong>Avoiding work when plants are wet</strong> and reducing skin contact with leaves. (trapecardoso2005cotininelevelsand pages 1-3, ballard1995greentobaccosickness pages 1-3)</li>
+<li><strong>Personal protective equipment (PPE)</strong> (water-resistant/chemical-resistant gloves, aprons, rain suits/boots) and prompt changing of wet clothing are repeatedly recommended in occupational health contexts. (ravi2024qualitativestudyto pages 1-2)</li>
+<li><strong>Nicotine tolerance from prior nicotine use (e.g., smoking)</strong> is sometimes described as potentially protective but is inconsistent and should not be relied upon. (mcmahon2019greentobaccosickness pages 1-6, mcmahon2019greentobaccosickness pages 14-18)</li>
+</ul>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>Core clinical phenotype (symptoms/signs)</h3>
+<p>Common symptoms across outbreak reports and surveys include:
+- nausea, vomiting
+- dizziness, headache
+- weakness/asthenia
+- pallor and sweating; sometimes hypersalivation</p>
+<p>Brazil outbreak report (human outbreak investigation) explicitly lists: <strong>“dizziness, weakness, vomit, nausea and headache”</strong> as the main observed signs/symptoms. (oliveira2010firstreportedoutbreak pages 1-2)</p>
+<p>A 2024 qualitative study (women tobacco laborers, India) summarizes reported symptoms including: <strong>“nausea, dizziness, increased salivation, poor appetite, insomnia, and increased sweating.”</strong> (ravi2024qualitativestudyto pages 2-3)</p>
+<h3>Additional/severe manifestations</h3>
+<p>Severe cases can involve dehydration and physiologic instability; earlier U.S. outbreak work reported hospitalizations and ICU admissions (see epidemiology section). (ballard1995greentobaccosickness pages 1-3)</p>
+<h3>Temporal pattern</h3>
+<p>Symptoms typically occur <strong>several hours after exposure</strong>, often later the same day, and resolve in <strong>~1–2 days</strong>; one expert review reports onset often around <strong>~10 hours</strong> after exposure and mean duration <strong>~2.4 days</strong>. (mcmahon2019greentobaccosickness pages 1-6, quandt2000migrantfarmworkersand pages 1-2)</p>
+<h3>Suggested HPO terms (examples)</h3>
+<ul>
+<li><strong>Nausea</strong> (HP:0002018)</li>
+<li><strong>Vomiting</strong> (HP:0002013)</li>
+<li><strong>Dizziness</strong> (HP:0002321)</li>
+<li><strong>Headache</strong> (HP:0002315)</li>
+<li><strong>Asthenia / Weakness</strong> (HP:0025406)</li>
+<li><strong>Hyperhidrosis</strong> (HP:0000975)</li>
+<li><strong>Sialorrhea</strong> (HP:0002307)</li>
+<li><strong>Abdominal pain</strong> (HP:0002027)</li>
+<li><strong>Diarrhea</strong> (HP:0002014)</li>
+<li><strong>Dehydration</strong> (HP:0001944)</li>
+</ul>
+<p>(oliveira2010firstreportedoutbreak pages 1-2, mcmahon2019greentobaccosickness pages 1-6, quandt2000migrantfarmworkersand pages 1-2, ballard1995greentobaccosickness pages 1-3, ravi2024qualitativestudyto pages 2-3)</p>
+<h3>Quality-of-life impact</h3>
+<p>Workforce studies emphasize lost work time and functional impairment during symptomatic episodes; among migrant farmworkers, most self-managed but some sought care and missed work. (quandt2000migrantfarmworkersand pages 1-2)</p>
+<hr />
+<h2>4. Genetic / molecular information</h2>
+<h3>Causal genes / pathogenic variants</h3>
+<ul>
+<li><strong>Not applicable as a primary disease model</strong> based on retrieved evidence. GTS is an <strong>exposure-mediated intoxication syndrome</strong>.</li>
+</ul>
+<h3>Molecular entities (CHEBI)</h3>
+<ul>
+<li><strong>Nicotine</strong> (CHEBI:18723) — principal toxicant in this syndrome (quandt2000migrantfarmworkersand pages 1-2, ballard1995greentobaccosickness pages 1-3)</li>
+<li><strong>Cotinine</strong> (CHEBI:39941) — primary nicotine metabolite used as exposure biomarker (oliveira2010firstreportedoutbreak pages 1-2, fassa2018urinarycotininein pages 1-3)</li>
+</ul>
+<hr />
+<h2>5. Environmental information</h2>
+<h3>Environmental/occupational exposure</h3>
+<ul>
+<li>Direct exposure to <strong>green tobacco leaves</strong>, especially <strong>wet leaves</strong>, is the key environmental driver; moisture increases dermal uptake. (quandt2000migrantfarmworkersand pages 1-2, ballard1995greentobaccosickness pages 1-3)</li>
+</ul>
+<h3>Lifestyle factors</h3>
+<ul>
+<li>Smoking status is repeatedly associated with differing risk patterns, plausibly via tolerance; however, it is not a recommended preventive strategy. (oliveira2010firstreportedoutbreak pages 1-2, mcmahon2019greentobaccosickness pages 1-6)</li>
+</ul>
+<h3>Infectious agents</h3>
+<ul>
+<li>Not applicable.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / pathophysiology</h2>
+<h3>Causal chain (trigger → manifestations)</h3>
+<ol>
+<li><strong>Trigger:</strong> harvesting/handling wet tobacco leaves; sweat/wet clothing increases dermal transfer. (quandt2000migrantfarmworkersand pages 1-2, ballard1995greentobaccosickness pages 1-3)</li>
+<li><strong>Exposure:</strong> nicotine crosses the <strong>stratum corneum</strong> into systemic circulation; absorption varies by body site and increases with moisture/skin damage. (quandt2000migrantfarmworkersand pages 1-2)</li>
+<li><strong>Downstream physiology:</strong> systemic nicotine affects nicotinic acetylcholine receptor pathways and autonomic function, producing GI symptoms (nausea/vomiting/abdominal symptoms), neurologic symptoms (headache/dizziness/weakness), and sometimes cardiovascular instability. (mcmahon2019greentobaccosickness pages 1-6, ballard1995greentobaccosickness pages 1-3)</li>
+</ol>
+<h3>Biomarker kinetics / interpretation</h3>
+<ul>
+<li><strong>Cotinine</strong> (urine/saliva/plasma) is widely used to assess nicotine exposure, but symptom–biomarker correlation can be imperfect due to <strong>timing</strong> and <strong>tolerance</strong>.</li>
+<li>In a large Brazilian study with urine sampling, overall urinary cotinine means did not differ between symptomatic and asymptomatic groups, but among non-smokers, recent picking was associated with higher cotinine and there was symptom-day–dependent decline patterns. (fassa2018urinarycotininein pages 1-3)</li>
+</ul>
+<h3>Suggested GO terms (biological processes; high-level)</h3>
+<ul>
+<li>Response to nicotine (GO concept; exact GO ID not validated in this run)</li>
+<li>Cholinergic signaling</li>
+<li>Xenobiotic transport and metabolism</li>
+</ul>
+<h3>Suggested CL (cell types; high-level)</h3>
+<ul>
+<li><strong>Keratinocyte</strong> (epidermal barrier/absorption interface)</li>
+</ul>
+<hr />
+<h2>7. Anatomical structures affected</h2>
+<h3>Primary interface (route of entry)</h3>
+<ul>
+<li><strong>Skin</strong> (UBERON concept: skin; epidermis/stratum corneum). (quandt2000migrantfarmworkersand pages 1-2)</li>
+</ul>
+<h3>Systems affected (clinical manifestations)</h3>
+<ul>
+<li><strong>Gastrointestinal system</strong> (nausea/vomiting/abdominal symptoms) (oliveira2010firstreportedoutbreak pages 1-2, mcmahon2019greentobaccosickness pages 1-6)</li>
+<li><strong>Nervous system</strong> (headache, dizziness, weakness) (oliveira2010firstreportedoutbreak pages 1-2, quandt2000migrantfarmworkersand pages 1-2)</li>
+<li><strong>Cardiovascular/autonomic</strong> (occasionally blood pressure/heart-rate instability in severe cases) (ballard1995greentobaccosickness pages 1-3)</li>
+</ul>
+<hr />
+<h2>8. Temporal development</h2>
+<ul>
+<li><strong>Onset:</strong> acute/subacute after work exposure, often later the same day or evening (quandt2000migrantfarmworkersand pages 1-2)</li>
+<li><strong>Course/duration:</strong> self-limited, often ~1–2 days; review estimate mean ~2.4 days (mcmahon2019greentobaccosickness pages 1-6, ballard1995greentobaccosickness pages 1-3)</li>
+<li><strong>Pattern:</strong> episodic, linked to harvesting periods and wet/heat conditions (ballard1995greentobaccosickness pages 1-3, ziska2024recentandprojected pages 5-6)</li>
+</ul>
+<hr />
+<h2>9. Inheritance and population</h2>
+<h3>Inheritance</h3>
+<ul>
+<li>Not a genetic inheritance condition in the primary disease model; exposure-driven.</li>
+</ul>
+<h3>Epidemiology (recent data prioritized when available)</h3>
+<p>Quantitative estimates vary by population, design, and tobacco type:
+- <strong>Kentucky, USA (1992–1993 outbreak):</strong> crude incidence <strong>10.0 per 1,000</strong> tobacco workers (1992) and <strong>14.0 per 1,000</strong> (1993); 12 hospitalizations and 2 ICU admissions reported in 1992. (ballard1995greentobaccosickness pages 1-3)
+- <strong>Southern Brazil (cross-sectional, 2014):</strong> previous-month prevalence <strong>6.6% (men)</strong> and <strong>11.9% (women)</strong>. (fassa2018urinarycotininein pages 1-3)
+- <strong>Northeastern Brazil (outbreak investigation, 2010):</strong> <strong>107 case-patients</strong> identified, using urinary cotinine &gt;10 ng/mL in the case definition; cases had higher median urinary cotinine than controls (p&lt;0.05). (oliveira2010firstreportedoutbreak pages 1-2)
+- <strong>North Carolina migrant/seasonal farmworkers (survey):</strong> <strong>41%</strong> reported GTS at least once during a summer season. (quandt2000migrantfarmworkersand pages 1-2)
+- <strong>Global prevalence ranges (review-level):</strong> estimates across settings commonly range roughly <strong>8.2%–47%</strong> (review synthesis). (mcmahon2019greentobaccosickness pages 1-6, ravi2024qualitativestudyto pages 1-2)</p>
+<h3>Demographics / geography</h3>
+<ul>
+<li>Occurs in multiple major tobacco-growing regions (Americas, Asia).</li>
+<li>Vulnerable groups include migrant/seasonal laborers and children/younger workers (quandt2000migrantfarmworkersand pages 1-2, ballard1995greentobaccosickness pages 1-3), and women workers with PPE access inequities (ravi2024qualitativestudyto pages 1-2).</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>Clinical diagnosis (typical approach)</h3>
+<p>A practical clinical approach combines:
+1) recent occupational exposure to green tobacco (especially wet leaves/clothing),
+2) compatible symptom cluster,
+3) supportive biomarker evidence (cotinine),
+while considering key differentials such as pesticide poisoning and heat illness. (oliveira2010firstreportedoutbreak pages 1-2, ballard1995greentobaccosickness pages 1-3)</p>
+<h3>Laboratory tests / biomarkers</h3>
+<ul>
+<li><strong>Cotinine</strong> measurement in <strong>urine</strong>, <strong>saliva</strong>, or <strong>blood/plasma</strong> is the most common biomarker approach. (oliveira2010firstreportedoutbreak pages 1-2, trapecardoso2005cotininelevelsand pages 1-3, fassa2018urinarycotininein pages 1-3)</li>
+<li>In the Brazil outbreak investigation, a case-patient definition used <strong>urinary cotinine &gt;10 ng/mL</strong> (assayed by HPLC) plus clinical diagnosis of acute intoxication during the period. (oliveira2010firstreportedoutbreak pages 1-2)</li>
+</ul>
+<h3>Differential diagnosis</h3>
+<ul>
+<li><strong>Organophosphate/carbamate pesticide poisoning</strong> (symptom overlap)</li>
+<li><strong>Heat illness/heat exhaustion</strong></li>
+<li><strong>Acute gastroenteritis or other intoxications</strong></li>
+</ul>
+<p>Diagnostic confusion is explicitly raised in occupational studies. (ballard1995greentobaccosickness pages 1-3)</p>
+<h3>Genetic testing</h3>
+<ul>
+<li>Not indicated as standard-of-care; exposure-mediated condition.</li>
+</ul>
+<hr />
+<h2>11. Outcome / prognosis</h2>
+<ul>
+<li>Generally <strong>self-limited</strong> with recovery in ~1–2 days (ballard1995greentobaccosickness pages 1-3).</li>
+<li>Morbidity can be significant (dehydration, medical visits, lost work); severe outbreaks included hospitalizations and ICU care. (ballard1995greentobaccosickness pages 1-3)</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<h3>Supportive management (current practice)</h3>
+<ul>
+<li><strong>Immediate removal from exposure</strong>, rest, symptomatic treatment.</li>
+<li><strong>Rehydration</strong> (oral/IV) and <strong>antiemetic</strong> management as needed.</li>
+<li>Medical evaluation/admission for severe dehydration or instability. (quandt2000migrantfarmworkersand pages 1-2, ballard1995greentobaccosickness pages 1-3)</li>
+</ul>
+<h3>Experimental / proposed pharmacologic strategies (not standard)</h3>
+<p>An expert review proposes evaluating nicotine-receptor–targeting agents (e.g., mecamylamine, varenicline, cytisine) and nicotine immunization strategies as research tools/potential therapeutics; these are not established standard care for GTS. (mcmahon2019greentobaccosickness pages 14-18)</p>
+<h3>Suggested MAXO terms (examples)</h3>
+<ul>
+<li>Supportive care</li>
+<li>Fluid replacement therapy</li>
+<li>Antiemetic therapy</li>
+<li>Occupational exposure cessation</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<h3>Primary prevention (most important)</h3>
+<ul>
+<li>Avoid harvesting/handling when leaves are <strong>wet</strong> where feasible.</li>
+<li>Use <strong>PPE</strong> (water-resistant/chemical-resistant gloves; protective outerwear; boots) and change out of wet clothing quickly.</li>
+<li>Worker education and occupational health training. (ravi2024qualitativestudyto pages 1-2)</li>
+</ul>
+<h3>System-level implementations</h3>
+<ul>
+<li>Training clinicians to recognize GTS and distinguish it from pesticide poisoning.</li>
+<li>Occupational surveillance (e.g., poison-center detection reported historically in the U.S. context). (ballard1995greentobaccosickness pages 1-3)</li>
+</ul>
+<hr />
+<h2>14. Other species / natural disease</h2>
+<p>No veterinary/animal natural disease analogs were identified in the retrieved sources; GTS is primarily characterized as a <strong>human occupational intoxication</strong>.</p>
+<hr />
+<h2>15. Model organisms</h2>
+<p>No dedicated model organism systems for “green tobacco sickness” as a distinct disease entity were identified in the retrieved sources.</p>
+<hr />
+<h2>Recent developments and latest research (2023–2024 prioritized)</h2>
+<h3>Climate change as an emerging risk multiplier (2024)</h3>
+<p>A 2024 paper in <em>Communications Medicine</em> analyzed historical and projected harvest-season climate patterns across major tobacco-growing regions (Brazil, China, India, North Carolina USA) using CMIP6 scenarios and estimated that higher temperatures could increase dermal nicotine absorption. Projected nicotine-uptake increases (proxy-based) were on the order of <strong>~28.7% to ~49.6%</strong> under moderate-to-high emissions scenarios, depending on location. (ziska2024recentandprojected pages 5-6)</p>
+<p><strong>Interpretation:</strong> While based on proxy modeling (therapeutic nicotine patch temperature relationships), the study reframes GTS as a climate-sensitive occupational illness and provides quantitative scenario estimates relevant for long-term planning and worker protections. (ziska2024recentandprojected pages 2-5, ziska2024recentandprojected pages 5-6)</p>
+<h3>Women’s occupational health and reproductive context (2024)</h3>
+<p>A 2024 qualitative study of women tobacco farm laborers in Mysore District, India reported GTS symptoms (e.g., headaches, gastric complaints, weakness) and emphasized barriers to PPE access/use and occupational health education, particularly around menstruation, pregnancy, and the postnatal period. (ravi2024qualitativestudyto pages 16-17, ravi2024qualitativestudyto pages 1-2)</p>
+<hr />
+<h2>Summary artifact for knowledge base population</h2>
+<p>The following table compiles the most KB-ready facts (definition/synonyms, epidemiology, risks/protection, phenotypes with HPO, diagnostics, management/prevention with MAXO, and chemicals with CHEBI IDs):</p>
+<table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Item</th>
+<th>Details</th>
+<th>Ontology suggestions</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Definition / classification</td>
+<td>Green Tobacco Sickness (GTS)</td>
+<td>Occupational/environmental illness; acute nicotine poisoning caused primarily by dermal absorption of nicotine from wet green tobacco leaves; typically self-limited over 1–2 days, though severe dehydration/hospitalization can occur (oliveira2010firstreportedoutbreak pages 1-2, quandt2000migrantfarmworkersand pages 1-2, ballard1995greentobaccosickness pages 1-3)</td>
+<td>MONDO: not clearly established in retrieved sources; MeSH/ICD: not confirmed in retrieved sources</td>
+<td>(oliveira2010firstreportedoutbreak pages 1-2, quandt2000migrantfarmworkersand pages 1-2, ballard1995greentobaccosickness pages 1-3)</td>
+</tr>
+<tr>
+<td>Synonyms</td>
+<td>Alternative names</td>
+<td>Green tobacco disease; tobacco harvesters’ acute nicotine poisoning; nicotine poisoning from wet tobacco leaves; Portuguese literature uses “doença da folha verde do tabaco” (oliveira2010firstreportedoutbreak pages 1-2, mcmahon2019greentobaccosickness pages 1-6)</td>
+<td>Related concept: nicotine poisoning</td>
+<td>(oliveira2010firstreportedoutbreak pages 1-2, mcmahon2019greentobaccosickness pages 1-6)</td>
+</tr>
+<tr>
+<td>Epidemiology</td>
+<td>Prevalence range across studies/reviews</td>
+<td>Literature review reported prevalence ranging from 6.6% to 56.9% across included studies; another review cited global prevalence 8.2%–47% (mcmahon2019greentobaccosickness pages 1-6, ravi2024qualitativestudyto pages 1-2)</td>
+<td>Not applicable</td>
+<td>(mcmahon2019greentobaccosickness pages 1-6, ravi2024qualitativestudyto pages 1-2)</td>
+</tr>
+<tr>
+<td>Epidemiology</td>
+<td>Southern Brazil, 2014</td>
+<td>Previous-month prevalence: 6.6% in men and 11.9% in women among tobacco farmers (fassa2018urinarycotininein pages 1-3)</td>
+<td>Not applicable</td>
+<td>(fassa2018urinarycotininein pages 1-3)</td>
+</tr>
+<tr>
+<td>Epidemiology</td>
+<td>Northeastern Brazil, 2018 study population</td>
+<td>Total prevalence 56.9%; women 71.7%, men 35.3% (oliveira2010firstreportedoutbreak pages 1-2)</td>
+<td>Not applicable</td>
+<td>(oliveira2010firstreportedoutbreak pages 1-2)</td>
+</tr>
+<tr>
+<td>Epidemiology</td>
+<td>Kentucky, USA, 1992–1993</td>
+<td>Incidence 10.0 per 1,000 tobacco workers in 1992 and 14.0 per 1,000 in 1993; 12 hospitalizations and 2 ICU admissions in 1992 outbreak (ballard1995greentobaccosickness pages 1-3)</td>
+<td>Not applicable</td>
+<td>(ballard1995greentobaccosickness pages 1-3)</td>
+</tr>
+<tr>
+<td>Epidemiology</td>
+<td>North Carolina migrant/seasonal farmworkers</td>
+<td>41% reported GTS at least once during one summer season (quandt2000migrantfarmworkersand pages 1-2)</td>
+<td>Not applicable</td>
+<td>(quandt2000migrantfarmworkersand pages 1-2)</td>
+</tr>
+<tr>
+<td>Epidemiology</td>
+<td>Brazil outbreak count</td>
+<td>107 laboratory-supported case-patients identified in outbreak investigation (oliveira2010firstreportedoutbreak pages 1-2)</td>
+<td>Not applicable</td>
+<td>(oliveira2010firstreportedoutbreak pages 1-2)</td>
+</tr>
+<tr>
+<td>Risk factors</td>
+<td>Exposure-related</td>
+<td>Harvesting wet leaves; direct skin contact with tobacco; wet clothing/shoes; heat/humidity; physical exertion; leaf bundling/barn tasks/transporting bales; younger age in some studies (mcmahon2019greentobaccosickness pages 1-6, quandt2000migrantfarmworkersand pages 1-2, fassa2018urinarycotininein pages 1-3, ballard1995greentobaccosickness pages 1-3)</td>
+<td>Exposure to nicotine (CHEBI: nicotine)</td>
+<td>(mcmahon2019greentobaccosickness pages 1-6, quandt2000migrantfarmworkersand pages 1-2, fassa2018urinarycotininein pages 1-3, ballard1995greentobaccosickness pages 1-3)</td>
+</tr>
+<tr>
+<td>Risk factors</td>
+<td>Individual / contextual</td>
+<td>Non-smoker status in several studies; male sex in some outbreaks; female sex in some prevalence studies; dermatosis/skin damage; long work history; abnormal BMI; concomitant pesticide contact can complicate risk/recognition (oliveira2010firstreportedoutbreak pages 1-2, quandt2000migrantfarmworkersand pages 1-2, fassa2018urinarycotininein pages 1-3)</td>
+<td>CL/GO not specific; skin barrier compromise relevant</td>
+<td>(oliveira2010firstreportedoutbreak pages 1-2, quandt2000migrantfarmworkersand pages 1-2, fassa2018urinarycotininein pages 1-3)</td>
+</tr>
+<tr>
+<td>Protective factors</td>
+<td>Behavioral / occupational</td>
+<td>Avoiding harvest when leaves are wet; reducing skin contact; prompt change from wet clothes; PPE use (water-resistant clothing, gloves, boots, aprons/rain suits); mechanization proposed as exposure-reduction strategy (trapecardoso2005cotininelevelsand pages 1-3, fassa2018urinarycotininein pages 1-3, ravi2024qualitativestudyto pages 1-2)</td>
+<td>MAXO: personal protective equipment use; exposure avoidance; health education</td>
+<td>(trapecardoso2005cotininelevelsand pages 1-3, fassa2018urinarycotininein pages 1-3, ravi2024qualitativestudyto pages 1-2)</td>
+</tr>
+<tr>
+<td>Protective factors</td>
+<td>Biological / tolerance</td>
+<td>Prior nicotine exposure from smoking or other nicotine use may be partially protective via tolerance in some reports, but protection is inconsistent and not reliable (mcmahon2019greentobaccosickness pages 1-6, mcmahon2019greentobaccosickness pages 14-18)</td>
+<td>Not applicable</td>
+<td>(mcmahon2019greentobaccosickness pages 1-6, mcmahon2019greentobaccosickness pages 14-18)</td>
+</tr>
+<tr>
+<td>Clinical features</td>
+<td>Core symptom cluster</td>
+<td>Nausea, vomiting, dizziness, headache, weakness, pallor, sweating/hypersalivation; often begins several hours after exposure and may peak later the same day/evening (oliveira2010firstreportedoutbreak pages 1-2, mcmahon2019greentobaccosickness pages 1-6, quandt2000migrantfarmworkersand pages 1-2, ballard1995greentobaccosickness pages 1-3)</td>
+<td>HPO: Nausea HP:0002018; Vomiting HP:0002013; Dizziness HP:0002321; Headache HP:0002315; Asthenia/Weakness HP:0025406; Pallor HP:0000980; Hyperhidrosis HP:0000975; Sialorrhea HP:0002307</td>
+<td>(oliveira2010firstreportedoutbreak pages 1-2, mcmahon2019greentobaccosickness pages 1-6, quandt2000migrantfarmworkersand pages 1-2, ballard1995greentobaccosickness pages 1-3)</td>
+</tr>
+<tr>
+<td>Clinical features</td>
+<td>Additional manifestations</td>
+<td>Abdominal cramps/pain, diarrhea, chills, poor appetite, insomnia, labored respiration; severe cases may involve dehydration, blood pressure/heart-rate instability, seizures, ICU care (trapecardoso2005cotininelevelsand pages 1-3, mcmahon2019greentobaccosickness pages 1-6, ballard1995greentobaccosickness pages 1-3, ravi2024qualitativestudyto pages 2-3)</td>
+<td>HPO: Abdominal pain HP:0002027; Diarrhea HP:0002014; Chills HP:0025143; Decreased appetite HP:0004396; Insomnia HP:0100785; Dyspnea HP:0002094; Dehydration HP:0001944; Seizure HP:0001250</td>
+<td>(trapecardoso2005cotininelevelsand pages 1-3, mcmahon2019greentobaccosickness pages 1-6, ballard1995greentobaccosickness pages 1-3, ravi2024qualitativestudyto pages 2-3)</td>
+</tr>
+<tr>
+<td>Temporal development</td>
+<td>Onset / course</td>
+<td>Acute onset after harvest exposure; onset often ~10 hours after exposure; self-limited, mean duration about 2.4 days, usually recovery within 1–2 days (mcmahon2019greentobaccosickness pages 1-6, quandt2000migrantfarmworkersand pages 1-2, ballard1995greentobaccosickness pages 1-3)</td>
+<td>HPO: Acute episode; recurrent/episodic occupational exposure pattern</td>
+<td>(mcmahon2019greentobaccosickness pages 1-6, quandt2000migrantfarmworkersand pages 1-2, ballard1995greentobaccosickness pages 1-3)</td>
+</tr>
+<tr>
+<td>Diagnostics</td>
+<td>Clinical recognition</td>
+<td>No universally standardized diagnostic criteria in retrieved sources; common approach combines recent tobacco harvest exposure + compatible symptoms + nicotine/cotinine biomarker evidence, while excluding pesticide poisoning and heat illness (oliveira2010firstreportedoutbreak pages 1-2, quandt2000migrantfarmworkersand pages 1-2, ballard1995greentobaccosickness pages 1-3)</td>
+<td>MAXO not applicable</td>
+<td>(oliveira2010firstreportedoutbreak pages 1-2, quandt2000migrantfarmworkersand pages 1-2, ballard1995greentobaccosickness pages 1-3)</td>
+</tr>
+<tr>
+<td>Diagnostics / biomarkers</td>
+<td>Cotinine</td>
+<td>Cotinine is the main nicotine metabolite and widely used biomarker of nicotine exposure; useful in urine, saliva, blood/plasma, but symptom severity does not perfectly track cotinine because tolerance and timing matter (oliveira2010firstreportedoutbreak pages 1-2, mcmahon2019greentobaccosickness pages 1-6, fassa2018urinarycotininein pages 1-3)</td>
+<td>CHEBI: cotinine</td>
+<td>(oliveira2010firstreportedoutbreak pages 1-2, mcmahon2019greentobaccosickness pages 1-6, fassa2018urinarycotininein pages 1-3)</td>
+</tr>
+<tr>
+<td>Diagnostics / biomarkers</td>
+<td>Sample types and thresholds</td>
+<td>Urine: outbreak case definition used urinary cotinine &gt;10 ng/mL; salivary cotinine used in shade tobacco workers; plasma/blood cotinine also studied; urinary cotinine higher soon after symptom onset and declines over days (oliveira2010firstreportedoutbreak pages 1-2, trapecardoso2005cotininelevelsand pages 1-3, fassa2018urinarycotininein pages 1-3)</td>
+<td>LOINC not established from retrieved sources</td>
+<td>(oliveira2010firstreportedoutbreak pages 1-2, trapecardoso2005cotininelevelsand pages 1-3, fassa2018urinarycotininein pages 1-3)</td>
+</tr>
+<tr>
+<td>Differential diagnosis</td>
+<td>Key rule-outs</td>
+<td>Organophosphate/carbamate or other pesticide poisoning, heat illness/heat exhaustion, dehydration, viral gastroenteritis, other acute intoxications (fassa2018urinarycotininein pages 1-3, ballard1995greentobaccosickness pages 1-3, ravi2024qualitativestudyto pages 2-3)</td>
+<td>Not applicable</td>
+<td>(fassa2018urinarycotininein pages 1-3, ballard1995greentobaccosickness pages 1-3, ravi2024qualitativestudyto pages 2-3)</td>
+</tr>
+<tr>
+<td>Management</td>
+<td>Acute treatment</td>
+<td>Primarily supportive care: removal from exposure, rest, oral/IV rehydration, antiemetics/symptom management, medical evaluation for severe dehydration or cardiovascular instability; evidence base for specific pharmacotherapy remains limited (quandt2000migrantfarmworkersand pages 1-2, ballard1995greentobaccosickness pages 1-3)</td>
+<td>MAXO: supportive care; fluid replacement; antiemetic therapy; hospital admission when severe</td>
+<td>(quandt2000migrantfarmworkersand pages 1-2, ballard1995greentobaccosickness pages 1-3)</td>
+</tr>
+<tr>
+<td>Management</td>
+<td>Experimental / proposed pharmacology</td>
+<td>Review proposed studying nicotinic receptor antagonists/partial agonists such as mecamylamine, varenicline, cytisine, and nicotine vaccines, but these are not established standard care for GTS (mcmahon2019greentobaccosickness pages 14-18)</td>
+<td>MAXO: investigational drug therapy</td>
+<td>(mcmahon2019greentobaccosickness pages 14-18)</td>
+</tr>
+<tr>
+<td>Prevention</td>
+<td>Worker-level prevention</td>
+<td>Wear chemical-/water-resistant gloves and clothing, boots, aprons/rain suits; avoid working with wet leaves when possible; change wet clothes quickly; reduce duration/intensity of contact; worker education/first-aid knowledge improves preparedness (trapecardoso2005cotininelevelsand pages 1-3, ballard1995greentobaccosickness pages 1-3, ravi2024qualitativestudyto pages 1-2)</td>
+<td>MAXO: personal protective equipment use; occupational health education; behavior modification</td>
+<td>(trapecardoso2005cotininelevelsand pages 1-3, ballard1995greentobaccosickness pages 1-3, ravi2024qualitativestudyto pages 1-2)</td>
+</tr>
+<tr>
+<td>Prevention</td>
+<td>System / policy / implementation</td>
+<td>Train clinicians to distinguish GTS from pesticide poisoning; improve occupational surveillance; expand PPE access and adoption; community campaigns and educational videos increased farmer first-aid knowledge in Indonesia; mechanization suggested where feasible (fassa2018urinarycotininein pages 1-3, ravi2024qualitativestudyto pages 1-2)</td>
+<td>MAXO: clinician training; surveillance; preventive counseling; mechanized harvesting</td>
+<td>(fassa2018urinarycotininein pages 1-3, ravi2024qualitativestudyto pages 1-2)</td>
+</tr>
+<tr>
+<td>Recent developments (2023–2024)</td>
+<td>Climate change and GTS risk</td>
+<td>2024 analysis projected higher harvest-season temperatures could increase estimated nicotine dermal absorption by ~28.7%–49.6% under moderate/high emissions scenarios across Brazil, China, India, and North Carolina; rainfall and heat may amplify GTS risk (ziska2024recentandprojected pages 2-5, ziska2024recentandprojected pages 5-6)</td>
+<td>Environmental exposure context</td>
+<td>(ziska2024recentandprojected pages 2-5, ziska2024recentandprojected pages 5-6)</td>
+</tr>
+<tr>
+<td>Recent developments (2024)</td>
+<td>Women’s occupational health</td>
+<td>2024 qualitative study in Mysore, India documented GTS symptoms among women laborers, especially around menstruation/pregnancy/postnatal periods, and highlighted poor awareness, unequal PPE access, and reproductive-health concerns (ravi2024qualitativestudyto pages 16-17, ravi2024qualitativestudyto pages 2-3, ravi2024qualitativestudyto pages 1-2)</td>
+<td>HPO terms above; MAXO: maternal occupational health support, PPE provision, health education</td>
+<td>(ravi2024qualitativestudyto pages 16-17, ravi2024qualitativestudyto pages 2-3, ravi2024qualitativestudyto pages 1-2)</td>
+</tr>
+<tr>
+<td>Key chemicals</td>
+<td>Nicotine</td>
+<td>Principal tobacco alkaloid causing toxicity after dermal absorption from wet leaves; water soluble and readily absorbed through skin (mcmahon2019greentobaccosickness pages 1-6, quandt2000migrantfarmworkersand pages 1-2, ballard1995greentobaccosickness pages 1-3)</td>
+<td>CHEBI: nicotine (CHEBI:18723)</td>
+<td>(mcmahon2019greentobaccosickness pages 1-6, quandt2000migrantfarmworkersand pages 1-2, ballard1995greentobaccosickness pages 1-3)</td>
+</tr>
+<tr>
+<td>Key chemicals</td>
+<td>Cotinine</td>
+<td>Major metabolite of nicotine used as biomarker in urine, saliva, blood/plasma for exposure assessment (oliveira2010firstreportedoutbreak pages 1-2, fassa2018urinarycotininein pages 1-3)</td>
+<td>CHEBI: cotinine (CHEBI:39941)</td>
+<td>(oliveira2010firstreportedoutbreak pages 1-2, fassa2018urinarycotininein pages 1-3)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table compiles the core structured facts needed for a Green Tobacco Sickness knowledge base entry, including definition, epidemiology, risk/protective factors, phenotypes, diagnostics, treatment/prevention, and ontology term suggestions. It emphasizes evidence-backed details and recent 2024 developments relevant to occupational and environmental health.</em></p>
+<hr />
+<h2>Key evidence gaps (for curation)</h2>
+<ul>
+<li><strong>ICD-10/ICD-11, MeSH, MONDO identifiers</strong> were not retrievable from the collected sources in this run.</li>
+<li><strong>Standardized diagnostic criteria</strong> and <strong>validated cotinine thresholds</strong> for toxicity remain non-uniform across studies; timing and nicotine tolerance complicate biomarker interpretation. (fassa2018urinarycotininein pages 1-3, ballard1995greentobaccosickness pages 1-3)</li>
+<li>Limited controlled intervention evidence for PPE/behavioral strategies within the retrieved full texts.</li>
+</ul>
+<hr />
+<h2>References (URLs and publication dates)</h2>
+<ul>
+<li>de Oliveira PPV et al. <em>First reported outbreak of green tobacco sickness in Brazil.</em> <strong>Dec 2010</strong>. https://doi.org/10.1590/s0102-311x2010001200005 (oliveira2010firstreportedoutbreak pages 1-2)</li>
+<li>Park SJ et al. <em>Green tobacco sickness among tobacco harvesters in a Korean village.</em> <strong>Mar 2018</strong>. https://doi.org/10.1016/j.shaw.2017.06.007 (park2018greentobaccosickness pages 4-4)</li>
+<li>Trapé-Cardoso M et al. <em>Cotinine levels and green tobacco sickness among shade tobacco workers.</em> <strong>Oct 2005</strong>. https://doi.org/10.1300/j096v10n02_05 (trapecardoso2005cotininelevelsand pages 1-3)</li>
+<li>McMahon LR. <em>Green tobacco sickness: mecamylamine, varenicline, and nicotine vaccine as clinical research tools and potential therapeutics.</em> <strong>Jan 2019</strong>. https://doi.org/10.1080/17512433.2019.1570844 (mcmahon2019greentobaccosickness pages 14-18)</li>
+<li>Quandt SA et al. <em>Migrant farmworkers and green tobacco sickness: new issues for an understudied disease.</em> <strong>Mar 2000</strong>. https://doi.org/10.1002/(sici)1097-0274(200003)37:3&lt;307::aid-ajim10&gt;3.0.co;2-z (quandt2000migrantfarmworkersand pages 1-2)</li>
+<li>Fassa AG et al. <em>Urinary cotinine in tobacco farmers in Southern Brazil.</em> <strong>Aug 2018</strong>. https://doi.org/10.11606/s1518-8787.2018052000287 (fassa2018urinarycotininein pages 1-3)</li>
+<li>Ballard T et al. <em>Green tobacco sickness: occupational nicotine poisoning in tobacco workers.</em> <strong>Oct 1995</strong>. https://doi.org/10.1080/00039896.1995.9935972 (ballard1995greentobaccosickness pages 1-3)</li>
+<li>Ziska L, Parks R. <em>Recent and projected changes in global climate may increase nicotine absorption and the risk of green tobacco sickness.</em> <strong>Aug 2024</strong>. https://doi.org/10.1038/s43856-024-00584-x (ziska2024recentandprojected pages 2-5, ziska2024recentandprojected pages 5-6)</li>
+<li>Ravi P et al. <em>Qualitative study to explore the occupational and reproductive health challenges among women tobacco farm laborers in Mysore District, India.</em> <strong>May 2024</strong>. https://doi.org/10.3390/ijerph21050606 (ravi2024qualitativestudyto pages 16-17, ravi2024qualitativestudyto pages 2-3, ravi2024qualitativestudyto pages 1-2)</li>
+</ul>
+<p>References</p>
+<ol>
+<li>
+<p>(quandt2000migrantfarmworkersand pages 1-2): Sara A. Quandt, Thomas A Arcury, John S. Preisser, Deborah Norton, and Colin Austin. Migrant farmworkers and green tobacco sickness: new issues for an understudied disease. American journal of industrial medicine, 37 3:307-15, Mar 2000. URL: https://doi.org/10.1002/(sici)1097-0274(200003)37:3&lt;307::aid-ajim10&gt;3.0.co;2-z, doi:10.1002/(sici)1097-0274(200003)37:3&lt;307::aid-ajim10&gt;3.0.co;2-z. This article has 89 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(ballard1995greentobaccosickness pages 1-3): Terri Ballard, Janet Ehlers, Eugene Freund, Michael Auslander, Victoria Brandt, and William Halperin. Green tobacco sickness: occupational nicotine poisoning in tobacco workers. Archives of Environmental Health: An International Journal, 50:384-389, Oct 1995. URL: https://doi.org/10.1080/00039896.1995.9935972, doi:10.1080/00039896.1995.9935972. This article has 55 citations.</p>
+</li>
+<li>
+<p>(oliveira2010firstreportedoutbreak pages 1-2): Patricia Pereira Vasconcelos de Oliveira, Camila Brederode Sihler, Lenildo de Moura, Deborah Carvalho Malta, Maria Célia de Albuquerque Torres, Sandra Márcia da Costa Pereira Lima, Ana Lucia Alves de Lima, Carlos Eduardo Leite, Vera Luiza da Costa-e-Silva, Jeremy Sobel, and Tatiana Miranda Lanzieri. First reported outbreak of green tobacco sickness in brazil. Cadernos de saude publica, 26 12:2263-9, Dec 2010. URL: https://doi.org/10.1590/s0102-311x2010001200005, doi:10.1590/s0102-311x2010001200005. This article has 62 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(fassa2018urinarycotininein pages 1-3): Anaclaudia Gastal Fassa, Rodrigo Dalke Meucci, Nadia Spada Fiori, Maria Laura Vidal Carrett, and Neice Muller Xavier Faria. Urinary cotinine in tobacco farmers in southern brazil. Revista de Saúde Pública, 52:70, Aug 2018. URL: https://doi.org/10.11606/s1518-8787.2018052000287, doi:10.11606/s1518-8787.2018052000287. This article has 12 citations.</p>
+</li>
+<li>
+<p>(mcmahon2019greentobaccosickness pages 1-6): Lance R. McMahon. Green tobacco sickness: mecamylamine, varenicline, and nicotine vaccine as clinical research tools and potential therapeutics. Expert Review of Clinical Pharmacology, 12:189-195, Jan 2019. URL: https://doi.org/10.1080/17512433.2019.1570844, doi:10.1080/17512433.2019.1570844. This article has 15 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(mcmahon2019greentobaccosickness pages 14-18): Lance R. McMahon. Green tobacco sickness: mecamylamine, varenicline, and nicotine vaccine as clinical research tools and potential therapeutics. Expert Review of Clinical Pharmacology, 12:189-195, Jan 2019. URL: https://doi.org/10.1080/17512433.2019.1570844, doi:10.1080/17512433.2019.1570844. This article has 15 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(ziska2024recentandprojected pages 5-6): Lewis Ziska and Robbie Parks. Recent and projected changes in global climate may increase nicotine absorption and the risk of green tobacco sickness. Communications Medicine, Aug 2024. URL: https://doi.org/10.1038/s43856-024-00584-x, doi:10.1038/s43856-024-00584-x. This article has 4 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(trapecardoso2005cotininelevelsand pages 1-3): Marcia Trapé-Cardoso, Anne Bracker, Deborah Dauser, Cheryl Oncken, Laura Victoria Barrera, Bruce Gould, and Michael R. Grey. Cotinine levels and green tobacco sickness among shade tobacco workersx. Journal of Agromedicine, 10:27-37, Oct 2005. URL: https://doi.org/10.1300/j096v10n02_05, doi:10.1300/j096v10n02_05. This article has 18 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(ravi2024qualitativestudyto pages 1-2): Priyanka Ravi, Kiranmayee Muralidhar, Maiya G. Block Ngaybe, Shivamma Nayaka, Poornima Jayakrishna, Ashley A. Lowe, Karl Krupp, Amanda M. Wilson, Frank A. von Hippel, Zhao Chen, Lynn B. Gerald, and Purnima Madhivanan. Qualitative study to explore the occupational and reproductive health challenges among women tobacco farm laborers in mysore district, india. International Journal of Environmental Research and Public Health, May 2024. URL: https://doi.org/10.3390/ijerph21050606, doi:10.3390/ijerph21050606. This article has 5 citations.</p>
+</li>
+<li>
+<p>(ravi2024qualitativestudyto pages 2-3): Priyanka Ravi, Kiranmayee Muralidhar, Maiya G. Block Ngaybe, Shivamma Nayaka, Poornima Jayakrishna, Ashley A. Lowe, Karl Krupp, Amanda M. Wilson, Frank A. von Hippel, Zhao Chen, Lynn B. Gerald, and Purnima Madhivanan. Qualitative study to explore the occupational and reproductive health challenges among women tobacco farm laborers in mysore district, india. International Journal of Environmental Research and Public Health, May 2024. URL: https://doi.org/10.3390/ijerph21050606, doi:10.3390/ijerph21050606. This article has 5 citations.</p>
+</li>
+<li>
+<p>(ziska2024recentandprojected pages 2-5): Lewis Ziska and Robbie Parks. Recent and projected changes in global climate may increase nicotine absorption and the risk of green tobacco sickness. Communications Medicine, Aug 2024. URL: https://doi.org/10.1038/s43856-024-00584-x, doi:10.1038/s43856-024-00584-x. This article has 4 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(ravi2024qualitativestudyto pages 16-17): Priyanka Ravi, Kiranmayee Muralidhar, Maiya G. Block Ngaybe, Shivamma Nayaka, Poornima Jayakrishna, Ashley A. Lowe, Karl Krupp, Amanda M. Wilson, Frank A. von Hippel, Zhao Chen, Lynn B. Gerald, and Purnima Madhivanan. Qualitative study to explore the occupational and reproductive health challenges among women tobacco farm laborers in mysore district, india. International Journal of Environmental Research and Public Health, May 2024. URL: https://doi.org/10.3390/ijerph21050606, doi:10.3390/ijerph21050606. This article has 5 citations.</p>
+</li>
+<li>
+<p>(park2018greentobaccosickness pages 4-4): Sung-Jun Park, Hyun-Sul Lim, Kwan Lee, and Seok-Ju Yoo. Green tobacco sickness among tobacco harvesters in a korean village. Safety and Health at Work, 9:71-74, Mar 2018. URL: https://doi.org/10.1016/j.shaw.2017.06.007, doi:10.1016/j.shaw.2017.06.007. This article has 47 citations and is from a peer-reviewed journal.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </div>
         
 
         <footer class="page-footer">
@@ -5445,7 +6635,7 @@ treatments:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Green Tobacco Sickness", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Green_Tobacco_Sickness", "yamlRevision": "e7cbffef5016"};
+        const OS_CONFIG = {"diseaseName": "Green Tobacco Sickness", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Green_Tobacco_Sickness", "yamlRevision": "6c91022b256e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2415,7 +2568,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 3</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 4</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">thyroid carcinoma</span>
@@ -2550,7 +2703,7 @@
             
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
-                <div class="stat-value">3</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Pathophysiology</div>
             </div>
             </a>
@@ -2574,7 +2727,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">3</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -2582,7 +2735,7 @@
             
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
@@ -2631,7 +2784,7 @@
             
             <a class="stat-link" href="#references">
             <div class="stat-item">
-                <div class="stat-value">20</div>
+                <div class="stat-value">100</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
@@ -2639,7 +2792,7 @@
             
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
@@ -2782,7 +2935,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">4</span>
             </div>
             
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-braf-v600e-constitutive-activation">
@@ -2901,9 +3054,9 @@
                 <div class="item-meta">
                     
                     <span class="tag tag-bio">
-                        signal transduction
+                        ERK1/2 pathway activation
                         
-                        <a href="http://purl.obolibrary.org/obo/GO_0007165" target="_blank" class="linkout">link</a>
+                        <a href="http://purl.obolibrary.org/obo/GO_0070371" target="_blank" class="linkout">link</a>
                         
                     </span>
                     
@@ -2980,7 +3133,110 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">PD-L1/PD-1 Immune Evasion</span>
+	                            
+	                            <span class="crosslink-desc">BRAF V600E-positive tumors show correlated PD-L1 and PD-1 expression.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
 	                
+	                
+    
+    
+	            </div>
+	            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-pd-l1-pd-1-immune-evasion">
+                <div class="item-name">PD-L1/PD-1 Immune Evasion</div>
+                
+                <div class="item-desc">BRAF V600E-positive papillary thyroid carcinoma is associated with increased PD-L1 and PD-1 expression in the tumor microenvironment. This checkpoint pattern provides a mechanistic immune-evasion axis relevant to refractory BRAF-mutant thyroid cancer.</div>
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-gene">
+                        CD274
+                        
+                        <a href="https://bioregistry.io/hgnc:17635" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        negative regulation of immune response
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0050777" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+	                
+	                
+	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29651624" target="_blank">PMID:29651624</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Significant correlations were found between expression of BRAF V600E and that of PD-L1 and PD-1."</div>
+                
+                
+                <div class="evidence-explanation">Supports adding a PD-L1/PD-1 immune-evasion mechanism linked to BRAF V600E-positive papillary thyroid carcinoma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
 	            </div>
@@ -3062,7 +3318,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"BRAF V600E Constitutive Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The BRAF V600E mutation causes constitutive activation of the RAF kinase by mimicking the phosphorylated active state. This results in ligand-independent activation of the MAPK pathway driving thyroid follicular cell proliferation and dedifferentiation.\", \"meta\": {\"cell_types\": [\"thyroid follicular cell\"], \"biological_processes\": [\"MAPK cascade\"], \"locations\": [\"thyroid gland\"]}}, {\"id\": \"MEK-ERK Pathway Hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutant BRAF constitutively phosphorylates and activates MEK1/2, leading to sustained ERK1/2 activation. This drives uncontrolled proliferation and is the rationale for combined BRAF/MEK inhibition therapy.\", \"meta\": {\"biological_processes\": [\"signal transduction\"]}}, {\"id\": \"Thyroid Dedifferentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BRAF V600E-driven MAPK activation suppresses expression of thyroid differentiation genes including NIS (sodium-iodide symporter), leading to radioiodine refractoriness. This loss of differentiation is associated with more aggressive disease behavior.\", \"meta\": {\"biological_processes\": [\"cell differentiation\"]}}], \"edges\": [{\"source\": \"BRAF V600E Constitutive Activation\", \"target\": \"MEK-ERK Pathway Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"BRAF V600E Constitutive Activation\", \"target\": \"Thyroid Dedifferentiation\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"BRAF V600E Constitutive Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The BRAF V600E mutation causes constitutive activation of the RAF kinase by mimicking the phosphorylated active state. This results in ligand-independent activation of the MAPK pathway driving thyroid follicular cell proliferation and dedifferentiation.\", \"meta\": {\"cell_types\": [\"thyroid follicular cell\"], \"biological_processes\": [\"MAPK cascade\"], \"locations\": [\"thyroid gland\"]}}, {\"id\": \"MEK-ERK Pathway Hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutant BRAF constitutively phosphorylates and activates MEK1/2, leading to sustained ERK1/2 activation. This drives uncontrolled proliferation and is the rationale for combined BRAF/MEK inhibition therapy.\", \"meta\": {\"biological_processes\": [\"ERK1/2 pathway activation\"]}}, {\"id\": \"PD-L1/PD-1 Immune Evasion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BRAF V600E-positive papillary thyroid carcinoma is associated with increased PD-L1 and PD-1 expression in the tumor microenvironment. This checkpoint pattern provides a mechanistic immune-evasion axis relevant to refractory BRAF-mutant thyroid cancer.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"negative regulation of immune response\"], \"genes\": [\"CD274\"]}}, {\"id\": \"Thyroid Dedifferentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BRAF V600E-driven MAPK activation suppresses expression of thyroid differentiation genes including NIS (sodium-iodide symporter), leading to radioiodine refractoriness. This loss of differentiation is associated with more aggressive disease behavior.\", \"meta\": {\"biological_processes\": [\"cell differentiation\"]}}], \"edges\": [{\"source\": \"BRAF V600E Constitutive Activation\", \"target\": \"MEK-ERK Pathway Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"BRAF V600E Constitutive Activation\", \"target\": \"Thyroid Dedifferentiation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Thyroid Dedifferentiation\", \"target\": \"PD-L1/PD-1 Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3230,7 +3486,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">1</span>
+                <span class="card-count">2</span>
             </div>
             
             <div class="item-box genetic-box">
@@ -3264,6 +3520,49 @@
                 
                 
                 <div class="evidence-explanation">Supports BRAF V600E as a common mutation in papillary thyroid carcinoma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    TERT
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Somatic Promoter Modifier Mutation)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40988283" target="_blank">PMID:40988283</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Coexisting BRAF V600E and TERT mutations independently elevated the risk of loss of radioiodine avidity (OR = 4.8, P = .009)."</div>
+                
+                
+                <div class="evidence-explanation">Supports TERT promoter mutation as a prognostic modifier in BRAF V600E differentiated thyroid cancer.</div>
                 
             </div>
             
@@ -3531,6 +3830,7 @@
                 </div>
                 
                 
+                
     
     
             </div>
@@ -3540,6 +3840,7 @@
                     BRAF V600E Mutation Testing
                     
                 </div>
+                
                 
                 
     
@@ -3577,7 +3878,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: BRAF-Mutant Papillary Thyroid Cancer
 creation_date: &#39;2026-01-26T02:55:13Z&#39;
-updated_date: &#39;2026-04-22T20:13:21Z&#39;
+updated_date: &#39;2026-05-05T23:03:08Z&#39;
 description: &gt;-
   BRAF-mutant papillary thyroid cancer (PTC) is a molecularly-defined subset of
   differentiated thyroid cancer harboring activating BRAF mutations, most commonly
@@ -3637,11 +3938,11 @@ pathophysiology:
     sustained ERK1/2 activation. This drives uncontrolled proliferation and is
     the rationale for combined BRAF/MEK inhibition therapy.
   biological_processes:
-  - preferred_term: signal transduction
+  - preferred_term: ERK1/2 pathway activation
     modifier: INCREASED
     term:
-      id: GO:0007165
-      label: signal transduction
+      id: GO:0070371
+      label: ERK1 and ERK2 cascade
 - name: Thyroid Dedifferentiation
   description: &gt;-
     BRAF V600E-driven MAPK activation suppresses expression of thyroid differentiation
@@ -3653,6 +3954,33 @@ pathophysiology:
     term:
       id: GO:0030154
       label: cell differentiation
+  downstream:
+  - target: PD-L1/PD-1 Immune Evasion
+    description: BRAF V600E-positive tumors show correlated PD-L1 and PD-1 expression.
+- name: PD-L1/PD-1 Immune Evasion
+  description: &gt;-
+    BRAF V600E-positive papillary thyroid carcinoma is associated with increased
+    PD-L1 and PD-1 expression in the tumor microenvironment. This checkpoint
+    pattern provides a mechanistic immune-evasion axis relevant to refractory
+    BRAF-mutant thyroid cancer.
+  genes:
+  - preferred_term: CD274
+    term:
+      id: hgnc:17635
+      label: CD274
+  biological_processes:
+  - preferred_term: negative regulation of immune response
+    modifier: INCREASED
+    term:
+      id: GO:0050777
+      label: negative regulation of immune response
+  evidence:
+  - reference: PMID:29651624
+    reference_title: &#34;In papillary thyroid carcinoma, expression by immunohistochemistry of BRAF V600E, PD-L1, and PD-1 is closely related.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Significant correlations were found between expression of BRAF V600E and that of PD-L1 and PD-1.&#34;
+    explanation: Supports adding a PD-L1/PD-1 immune-evasion mechanism linked to BRAF V600E-positive papillary thyroid carcinoma.
 histopathology:
 - name: Papillary Thyroid Carcinoma
   finding_term:
@@ -3729,6 +4057,24 @@ genetic:
     supports: SUPPORT
     snippet: &#34;The common gene mutations in PTC include BRAF V600E,RET/PTC rearrangement,and RAS mutations.&#34;
     explanation: &#34;Supports BRAF V600E as a common mutation in papillary thyroid carcinoma.&#34;
+- name: TERT
+  gene_term:
+    preferred_term: TERT
+    term:
+      id: hgnc:11730
+      label: TERT
+  association: Somatic Promoter Modifier Mutation
+  notes: &gt;-
+    TERT promoter mutations co-occur with BRAF V600E in a clinically important
+    subset of differentiated thyroid cancers and increase risk of radioiodine
+    avidity loss, recurrence, and poor prognosis.
+  evidence:
+  - reference: PMID:40988283
+    reference_title: Prognostic significance of BRAF V600E and TERT promoter mutations in radioiodine resistance and recurrence of differentiated thyroid cancer.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Coexisting BRAF V600E and TERT mutations independently elevated the risk of loss of radioiodine avidity (OR = 4.8, P = .009).&#34;
+    explanation: Supports TERT promoter mutation as a prognostic modifier in BRAF V600E differentiated thyroid cancer.
 treatments:
 - name: Thyroidectomy
   description: &gt;-
@@ -3836,6 +4182,7 @@ references:
   title: Prevalence and Clinical Impact of BRAF p.V600E Mutation in Papillary Thyroid Carcinoma
   found_in:
   - BRAF_Mutant_Thyroid_Cancer-deep-research-falcon.md
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
   findings:
   - statement: Identifying risk factors in papillary thyroid carcinoma (PTC) that warrant more aggressive treatment is paramount.
     supporting_text: Identifying risk factors in papillary thyroid carcinoma (PTC) that warrant more aggressive treatment is paramount.
@@ -4056,6 +4403,406 @@ references:
       evidence_source: HUMAN_CLINICAL
       snippet: Patients with differentiated thyroid cancer usually present with early-stage disease and undergo surgery followed by adjuvant radioactive iodine ablation, resulting in excellent clinical outcomes and prognosis.
       explanation: Deep research cited this publication as relevant literature for BRAF Mutant Thyroid Cancer.
+- reference: PMID:23014067
+  title: New and old knowledge on differentiated thyroid cancer epidemiology and risk factors.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:23132514
+  title: The epidemiology of thyroid cancer in the Czech Republic in comparison with other countries.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:23682579
+  title: &#39;Tall cell variant of papillary thyroid microcarcinoma: clinicopathologic features with BRAF(V600E) mutational analysis.&#39;
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:23894154
+  title: Genome-wide association study on differentiated thyroid cancer.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:25029422
+  title: Novel genome-wide association study-based candidate loci for differentiated thyroid cancer risk.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:25879635
+  title: Common variants at the 9q22.33, 14q13.3 and ATM loci, and risk of differentiated thyroid cancer in the Cuban population.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:26271724
+  title: &#39;BRAF V600E and risk stratification of thyroid microcarcinoma: a multicenter pathological and clinical study.&#39;
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:28703219
+  title: Genome-wide association and expression quantitative trait loci studies identify multiple susceptibility loci for thyroid cancer.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:29651624
+  title: In papillary thyroid carcinoma, expression by immunohistochemistry of BRAF V600E, PD-L1, and PD-1 is closely related.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:30104523
+  title: Nutritional and Environmental Factors in Thyroid Carcinogenesis.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:31006665
+  title: Methylation of tumour suppressor genes associated with thyroid cancer.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:31558473
+  title: &#39;Analysis of Biomarkers and Association With Clinical Outcomes in Patients With Differentiated Thyroid Cancer: Subanalysis of the Sorafenib Phase III DECISION Trial.&#39;
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:33112199
+  title: &#39;Update on ACR TI-RADS: Successes, Challenges, and Future Directions, From the AJR Special Series on Radiology Reporting and Data Systems.&#39;
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:34072194
+  title: BRAF Inhibitors Induce Feedback Activation of RAS Pathway in Thyroid Cancer Cells.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:34224366
+  title: β-Catenin Attenuation Inhibits Tumor Growth and Promotes Differentiation in a BRAF(V600E)-Driven Thyroid Cancer Animal Model.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:34237250
+  title: &#39;Cabozantinib for radioiodine-refractory differentiated thyroid cancer (COSMIC-311): a randomised, double-blind, placebo-controlled, phase 3 trial.&#39;
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:36193717
+  title: &#39;Update from the 2022 World Health Organization Classification of Thyroid Tumors: A Standardized Diagnostic Approach.&#39;
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:36326739
+  title: American Thyroid Association Guidelines and National Trends in Management of Papillary Thyroid Carcinoma.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:36696026
+  title: Prevalence and impact of non-alcoholic fatty liver disease in patients with papillary thyroid carcinoma.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:36744987
+  title: Detection of driver mutations in plasma cell-free nucleic acids in differentiated thyroid neoplasm.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:37074727
+  title: A Phase II Redifferentiation Trial with Dabrafenib-Trametinib and 131I in Metastatic Radioactive Iodine Refractory BRAF p.V600E-Mutated Differentiated Thyroid Cancer.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:37336036
+  title: Predictive factors for nodal recurrence in differentiated thyroid cancers.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:38261444
+  title: A phase 1 study of triple-targeted therapy with BRAF, MEK, and AKT inhibitors for patients with BRAF-mutated cancers.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:38384638
+  title: Assessment of Patients&#39; Quality-of-Life Post-Thyroidectomy.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:38787506
+  title: &#39;Interplay of metabolic dysfunction-associated fatty liver disease and papillary thyroid carcinoma: insights from a Chinese cohort.&#39;
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:38940753
+  title: &#39;The Association between Lymphocytic Thyroiditis and Papillary Thyroid Cancer Harboring Mutant BRAF: A Systematic Review and Meta-Analysis.&#39;
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:39087407
+  title: Epidemiologic changes in thyroid disease.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:39330046
+  title: &#39;Estimating the Proportion of Overdiagnosis among Prostate, Breast, and Thyroid Cancers in China: Findings from the Global Burden of Disease 2019.&#39;
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:39389067
+  title: &#39;Evolving epidemiological patterns of thyroid cancer and estimates of overdiagnosis in 2013-17 in 63 countries worldwide: a population-based study.&#39;
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:39395384
+  title: &#39;Combination kinase inhibitors and immunotherapy for unresectable anaplastic thyroid carcinoma: A retrospective single-center study.&#39;
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:39577552
+  title: A comprehensive review of targeting RAF kinase in cancer.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:39600146
+  title: Proteomic Analysis of Tissue Proteins Related to Lateral Lymph Node Metastasis in Papillary Thyroid Microcarcinoma.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:39821955
+  title: &#39;Multicenter Retrospective Analysis of Pediatric Differentiated Thyroid Carcinoma: Treatment Practices and Outcomes Prior to Pediatric American Thyroid Association Guidelines Implementation.&#39;
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:39961465
+  title: &#39;BRAF V600E in cancer: Exploring structural complexities, mutation profiles, and pathway dysregulation.&#39;
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:39962344
+  title: Study Protocol of Expanded Multicenter Prospective Cohort Study of Active Surveillance on Papillary Thyroid Microcarcinoma (MAeSTro-EXP).
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:39982551
+  title: &#39;Identification of Oncogenic Alterations in 124 Cases of Pediatric Papillary Thyroid Carcinoma: BEND7::ALK, DLG5::RET, and CCDC30::ROS1 Fusions Induce MAPK Pathway Activation.&#39;
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:40050757
+  title: &#39;Location based BRAF V600E mutation status and dimension patterns of sporadic thyroid nodules: a population-based study.&#39;
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:40132388
+  title: PIS as a regulator of cellular heterogeneity, prognostic significance, and immune landscape in thyroid cancer.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:40184730
+  title: Associations of clinicopathologic features and mutation status with lateral lymph node metastasis as a predictor of disease-free survival in papillary thyroid carcinoma.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:40235071
+  title: Multigene Detection Analysis of Multifocal Papillary Thyroid Carcinoma.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:40402541
+  title: &#39;Unmet Care Needs of Adult Survivors of Thyroid Cancer: A Systematic Review.&#39;
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:40425952
+  title: &#39;A decade of active surveillance for low-risk papillary thyroid carcinoma in Argentina: persistent challenges in acceptance and discontinuation rates.&#39;
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:40560352
+  title: &#39;Distinctive hobnail subtype of papillary thyroid carcinoma: a case series and short review of literature.&#39;
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:40598902
+  title: 2025 Korean Thyroid Association Clinical Management Guideline on Active Surveillance for Low-Risk Papillary Thyroid Carcinoma.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:40614342
+  title: Tiered approach to molecular testing of thyroid fine needle aspiration samples may improve preoperative diagnosis.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:40770138
+  title: &#39;Propensity-matched comparison of microwave ablation and surgical resection for preoperative T1N0M0 papillary thyroid carcinoma: 5-year follow-up.&#39;
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:40887557
+  title: &#39;Progression of Follicular Thyroid Carcinomas to Anaplastic Thyroid Carcinomas: Molecular and Clinicopathologic Characteristics with Comparison to Papillary Thyroid Carcinoma-Derived Anaplastic Thyroid Carcinomas.&#39;
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:40927298
+  title: Mutation-based, neoadjuvant treatment for advanced anaplastic thyroid carcinoma.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:40980146
+  title: &#39;Thyroid cancer: From molecular insights to therapy (Review).&#39;
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:40988283
+  title: Prognostic significance of BRAF V600E and TERT promoter mutations in radioiodine resistance and recurrence of differentiated thyroid cancer.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:41006152
+  title: Patient preferences in papillary thyroid microcarcinoma management are driven by aversion toward complications rather than treatment pathway.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:41196684
+  title: Active surveillance for small papillary thyroid carcinoma.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:41215859
+  title: &#39;Prognostic factors for survival and recurrence in papillary thyroid carcinoma: a retrospective study.&#39;
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:41275349
+  title: Age, not tumor size, modifies the association between extrathyroidal extension and long-term outcomes in patients with follicular cell-derived thyroid carcinoma.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:41296188
+  title: &#39;Retroelements in thyroid cancer: epigenetic plasticity, dedifferentiation, and therapeutic opportunities.&#39;
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:41350156
+  title: &#39;Comparative Long-term Outcomes of RFA vs. MWA for T1N0M0 Papillary Thyroid Carcinoma in the Danger Triangle: A Dual-Center Retrospective Study.&#39;
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:41368991
+  title: &#39;BRAF V600E in thyroid cancer: navigating prognostic uncertainty and therapeutic opportunity.&#39;
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:41370117
+  title: &#39;Molecular profiling of thyroid nodules on cytologic samples: Findings from an Italian multi-institutional cohort.&#39;
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:41370693
+  title: PREVALENCE OF THE BRAF V600E MUTATION AMONG INDIGENOUS INDIVIDUALS WITH PAPILLARY THYROID CARCINOMA RESIDING IN A RADIATION-EXPOSED AREA.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:41411004
+  title: Thyroid Lobectomy and Neck Dissection for N1b Papillary Thyroid Carcinoma.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:41419184
+  title: &#39;Prognostic Value of BRAF V600E Mutation in Papillary Thyroid Carcinoma: A Meta-Analysis of Nodal Involvement, Distant Metastases, Recurrence, and Mortality.&#39;
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:41452620
+  title: &#39;Patient-Reported Outcomes Across Treatment Strategies in Papillary Thyroid Microcarcinoma: A Meta-Analysis.&#39;
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:41462994
+  title: &#39;Dedifferentiation and Redifferentiation of Follicular-Cell-Derived Thyroid Carcinoma: Mechanisms and Therapeutic Implications.&#39;
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:41499172
+  title: The influence of age-independent somatic driver alterations on clinical outcomes in paediatric and young adult thyroid cancer.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:41562080
+  title: &#39;Single-cell sequencing reveals the tumor immune microenvironment in thyroid cancer: a narrow review.&#39;
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:41565294
+  title: &#39;Lenvatinib in radioiodine-refractory differentiated thyroid cancer: a real-world institutional analysis.&#39;
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:41660935
+  title: Prognostic Stratification of Highly Differentiated Thyroid Cancer Based on Molecular Genetic Studies.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:41675569
+  title: Correlations between iodine status and the risk of thyroid nodules, a systematic review and dose-response meta-analysis.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:41679192
+  title: Disulfiram metabolite Cu(DDC)(2) enhances radionuclide uptake in vivo revealing insights into tumoural ablation resistance.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:41685247
+  title: Leveraging the transcriptome-phenotype relationship to guide clinical management of papillary thyroid cancer.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:41694580
+  title: NOX4-derived oxidative DNA damage impairs thyroid differentiation through an epigenetic mechanism in BRAF-mutated radioactive iodine refractory papillary thyroid cancer cells.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:41697551
+  title: Comparative evaluation of dynamic risk stratification according to ATA 2015 and ATA 2025 in low-risk differentiated thyroid cancer without radioiodine ablation.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:41726144
+  title: &#39;Global epidemiology of thyroid cancer: trends in incidence, mortality, and DALYs from 1990 to 2021.&#39;
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:41761289
+  title: Microfluidic-based patient-derived organoids recapitulate thyroid cancer heterogeneity and reveal NF-κB-driven maturation for precision therapy.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:41817109
+  title: &#39;Selective Use of Radioiodine Therapy in Differentiated Thyroid Carcinoma: A Population-Based Cohort Study.&#39;
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:41862440
+  title: Fatty acid oxidation drives acetyl-CoA-dependent H3K9ac reprogramming to promote adaptive resistance to BRAF(V600E) inhibition in thyroid cancer.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:41935217
+  title: Deciphering functional intra-tumoral heterogeneity in BRAF(V600E)-driven mouse thyroid cancer reveals EMT trajectory and metabolic remodeling.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:42035477
+  title: CRISPR-Based Gene Dependency Screens Reveal Mechanism of BRAF Inhibitor Resistance in Anaplastic Thyroid Cancer.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:42083301
+  title: &#39;Diagnostic Utility of a Cost-Effective Four-Gene Next Generation Sequencing Panel for Predicting Papillary Thyroid Carcinoma in Indeterminate Thyroid Cytology: A Multicenter Study in China.&#39;
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
+- reference: PMID:40237893
+  title: Prevalence and Clinical Impact of BRAF p.V600E Mutation in Papillary Thyroid Carcinoma.
+  found_in:
+  - BRAF_Mutant_Thyroid_Cancer-deep-research-openscientist.md
+  findings: []
 </pre>
             </div>
         </div>
@@ -4071,7 +4818,7 @@ references:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">20</span>
+                    <span class="card-count">100</span>
                 </div>
                 
                 <div class="reference-entry">
@@ -5324,13 +6071,1373 @@ references:
                     
                 </div>
                 
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/23014067" target="_blank">PMID:23014067</a>
+                            </div>
+                            
+                            <div class="reference-title">New and old knowledge on differentiated thyroid cancer epidemiology and risk factors.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/23132514" target="_blank">PMID:23132514</a>
+                            </div>
+                            
+                            <div class="reference-title">The epidemiology of thyroid cancer in the Czech Republic in comparison with other countries.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/23682579" target="_blank">PMID:23682579</a>
+                            </div>
+                            
+                            <div class="reference-title">Tall cell variant of papillary thyroid microcarcinoma: clinicopathologic features with BRAF(V600E) mutational analysis.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/23894154" target="_blank">PMID:23894154</a>
+                            </div>
+                            
+                            <div class="reference-title">Genome-wide association study on differentiated thyroid cancer.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/25029422" target="_blank">PMID:25029422</a>
+                            </div>
+                            
+                            <div class="reference-title">Novel genome-wide association study-based candidate loci for differentiated thyroid cancer risk.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/25879635" target="_blank">PMID:25879635</a>
+                            </div>
+                            
+                            <div class="reference-title">Common variants at the 9q22.33, 14q13.3 and ATM loci, and risk of differentiated thyroid cancer in the Cuban population.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/26271724" target="_blank">PMID:26271724</a>
+                            </div>
+                            
+                            <div class="reference-title">BRAF V600E and risk stratification of thyroid microcarcinoma: a multicenter pathological and clinical study.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/28703219" target="_blank">PMID:28703219</a>
+                            </div>
+                            
+                            <div class="reference-title">Genome-wide association and expression quantitative trait loci studies identify multiple susceptibility loci for thyroid cancer.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/29651624" target="_blank">PMID:29651624</a>
+                            </div>
+                            
+                            <div class="reference-title">In papillary thyroid carcinoma, expression by immunohistochemistry of BRAF V600E, PD-L1, and PD-1 is closely related.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/30104523" target="_blank">PMID:30104523</a>
+                            </div>
+                            
+                            <div class="reference-title">Nutritional and Environmental Factors in Thyroid Carcinogenesis.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/31006665" target="_blank">PMID:31006665</a>
+                            </div>
+                            
+                            <div class="reference-title">Methylation of tumour suppressor genes associated with thyroid cancer.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/31558473" target="_blank">PMID:31558473</a>
+                            </div>
+                            
+                            <div class="reference-title">Analysis of Biomarkers and Association With Clinical Outcomes in Patients With Differentiated Thyroid Cancer: Subanalysis of the Sorafenib Phase III DECISION Trial.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/33112199" target="_blank">PMID:33112199</a>
+                            </div>
+                            
+                            <div class="reference-title">Update on ACR TI-RADS: Successes, Challenges, and Future Directions, From the AJR Special Series on Radiology Reporting and Data Systems.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/34072194" target="_blank">PMID:34072194</a>
+                            </div>
+                            
+                            <div class="reference-title">BRAF Inhibitors Induce Feedback Activation of RAS Pathway in Thyroid Cancer Cells.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/34224366" target="_blank">PMID:34224366</a>
+                            </div>
+                            
+                            <div class="reference-title">β-Catenin Attenuation Inhibits Tumor Growth and Promotes Differentiation in a BRAF(V600E)-Driven Thyroid Cancer Animal Model.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/34237250" target="_blank">PMID:34237250</a>
+                            </div>
+                            
+                            <div class="reference-title">Cabozantinib for radioiodine-refractory differentiated thyroid cancer (COSMIC-311): a randomised, double-blind, placebo-controlled, phase 3 trial.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/36193717" target="_blank">PMID:36193717</a>
+                            </div>
+                            
+                            <div class="reference-title">Update from the 2022 World Health Organization Classification of Thyroid Tumors: A Standardized Diagnostic Approach.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/36326739" target="_blank">PMID:36326739</a>
+                            </div>
+                            
+                            <div class="reference-title">American Thyroid Association Guidelines and National Trends in Management of Papillary Thyroid Carcinoma.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/36696026" target="_blank">PMID:36696026</a>
+                            </div>
+                            
+                            <div class="reference-title">Prevalence and impact of non-alcoholic fatty liver disease in patients with papillary thyroid carcinoma.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/36744987" target="_blank">PMID:36744987</a>
+                            </div>
+                            
+                            <div class="reference-title">Detection of driver mutations in plasma cell-free nucleic acids in differentiated thyroid neoplasm.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/37074727" target="_blank">PMID:37074727</a>
+                            </div>
+                            
+                            <div class="reference-title">A Phase II Redifferentiation Trial with Dabrafenib-Trametinib and 131I in Metastatic Radioactive Iodine Refractory BRAF p.V600E-Mutated Differentiated Thyroid Cancer.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/37336036" target="_blank">PMID:37336036</a>
+                            </div>
+                            
+                            <div class="reference-title">Predictive factors for nodal recurrence in differentiated thyroid cancers.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/38261444" target="_blank">PMID:38261444</a>
+                            </div>
+                            
+                            <div class="reference-title">A phase 1 study of triple-targeted therapy with BRAF, MEK, and AKT inhibitors for patients with BRAF-mutated cancers.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/38384638" target="_blank">PMID:38384638</a>
+                            </div>
+                            
+                            <div class="reference-title">Assessment of Patients&#39; Quality-of-Life Post-Thyroidectomy.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/38787506" target="_blank">PMID:38787506</a>
+                            </div>
+                            
+                            <div class="reference-title">Interplay of metabolic dysfunction-associated fatty liver disease and papillary thyroid carcinoma: insights from a Chinese cohort.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/38940753" target="_blank">PMID:38940753</a>
+                            </div>
+                            
+                            <div class="reference-title">The Association between Lymphocytic Thyroiditis and Papillary Thyroid Cancer Harboring Mutant BRAF: A Systematic Review and Meta-Analysis.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/39087407" target="_blank">PMID:39087407</a>
+                            </div>
+                            
+                            <div class="reference-title">Epidemiologic changes in thyroid disease.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/39330046" target="_blank">PMID:39330046</a>
+                            </div>
+                            
+                            <div class="reference-title">Estimating the Proportion of Overdiagnosis among Prostate, Breast, and Thyroid Cancers in China: Findings from the Global Burden of Disease 2019.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/39389067" target="_blank">PMID:39389067</a>
+                            </div>
+                            
+                            <div class="reference-title">Evolving epidemiological patterns of thyroid cancer and estimates of overdiagnosis in 2013-17 in 63 countries worldwide: a population-based study.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/39395384" target="_blank">PMID:39395384</a>
+                            </div>
+                            
+                            <div class="reference-title">Combination kinase inhibitors and immunotherapy for unresectable anaplastic thyroid carcinoma: A retrospective single-center study.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/39577552" target="_blank">PMID:39577552</a>
+                            </div>
+                            
+                            <div class="reference-title">A comprehensive review of targeting RAF kinase in cancer.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/39600146" target="_blank">PMID:39600146</a>
+                            </div>
+                            
+                            <div class="reference-title">Proteomic Analysis of Tissue Proteins Related to Lateral Lymph Node Metastasis in Papillary Thyroid Microcarcinoma.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/39821955" target="_blank">PMID:39821955</a>
+                            </div>
+                            
+                            <div class="reference-title">Multicenter Retrospective Analysis of Pediatric Differentiated Thyroid Carcinoma: Treatment Practices and Outcomes Prior to Pediatric American Thyroid Association Guidelines Implementation.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/39961465" target="_blank">PMID:39961465</a>
+                            </div>
+                            
+                            <div class="reference-title">BRAF V600E in cancer: Exploring structural complexities, mutation profiles, and pathway dysregulation.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/39962344" target="_blank">PMID:39962344</a>
+                            </div>
+                            
+                            <div class="reference-title">Study Protocol of Expanded Multicenter Prospective Cohort Study of Active Surveillance on Papillary Thyroid Microcarcinoma (MAeSTro-EXP).</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/39982551" target="_blank">PMID:39982551</a>
+                            </div>
+                            
+                            <div class="reference-title">Identification of Oncogenic Alterations in 124 Cases of Pediatric Papillary Thyroid Carcinoma: BEND7::ALK, DLG5::RET, and CCDC30::ROS1 Fusions Induce MAPK Pathway Activation.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40050757" target="_blank">PMID:40050757</a>
+                            </div>
+                            
+                            <div class="reference-title">Location based BRAF V600E mutation status and dimension patterns of sporadic thyroid nodules: a population-based study.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40132388" target="_blank">PMID:40132388</a>
+                            </div>
+                            
+                            <div class="reference-title">PIS as a regulator of cellular heterogeneity, prognostic significance, and immune landscape in thyroid cancer.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40184730" target="_blank">PMID:40184730</a>
+                            </div>
+                            
+                            <div class="reference-title">Associations of clinicopathologic features and mutation status with lateral lymph node metastasis as a predictor of disease-free survival in papillary thyroid carcinoma.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40235071" target="_blank">PMID:40235071</a>
+                            </div>
+                            
+                            <div class="reference-title">Multigene Detection Analysis of Multifocal Papillary Thyroid Carcinoma.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40402541" target="_blank">PMID:40402541</a>
+                            </div>
+                            
+                            <div class="reference-title">Unmet Care Needs of Adult Survivors of Thyroid Cancer: A Systematic Review.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40425952" target="_blank">PMID:40425952</a>
+                            </div>
+                            
+                            <div class="reference-title">A decade of active surveillance for low-risk papillary thyroid carcinoma in Argentina: persistent challenges in acceptance and discontinuation rates.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40560352" target="_blank">PMID:40560352</a>
+                            </div>
+                            
+                            <div class="reference-title">Distinctive hobnail subtype of papillary thyroid carcinoma: a case series and short review of literature.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40598902" target="_blank">PMID:40598902</a>
+                            </div>
+                            
+                            <div class="reference-title">2025 Korean Thyroid Association Clinical Management Guideline on Active Surveillance for Low-Risk Papillary Thyroid Carcinoma.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40614342" target="_blank">PMID:40614342</a>
+                            </div>
+                            
+                            <div class="reference-title">Tiered approach to molecular testing of thyroid fine needle aspiration samples may improve preoperative diagnosis.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40770138" target="_blank">PMID:40770138</a>
+                            </div>
+                            
+                            <div class="reference-title">Propensity-matched comparison of microwave ablation and surgical resection for preoperative T1N0M0 papillary thyroid carcinoma: 5-year follow-up.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40887557" target="_blank">PMID:40887557</a>
+                            </div>
+                            
+                            <div class="reference-title">Progression of Follicular Thyroid Carcinomas to Anaplastic Thyroid Carcinomas: Molecular and Clinicopathologic Characteristics with Comparison to Papillary Thyroid Carcinoma-Derived Anaplastic Thyroid Carcinomas.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40927298" target="_blank">PMID:40927298</a>
+                            </div>
+                            
+                            <div class="reference-title">Mutation-based, neoadjuvant treatment for advanced anaplastic thyroid carcinoma.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40980146" target="_blank">PMID:40980146</a>
+                            </div>
+                            
+                            <div class="reference-title">Thyroid cancer: From molecular insights to therapy (Review).</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40988283" target="_blank">PMID:40988283</a>
+                            </div>
+                            
+                            <div class="reference-title">Prognostic significance of BRAF V600E and TERT promoter mutations in radioiodine resistance and recurrence of differentiated thyroid cancer.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41006152" target="_blank">PMID:41006152</a>
+                            </div>
+                            
+                            <div class="reference-title">Patient preferences in papillary thyroid microcarcinoma management are driven by aversion toward complications rather than treatment pathway.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41196684" target="_blank">PMID:41196684</a>
+                            </div>
+                            
+                            <div class="reference-title">Active surveillance for small papillary thyroid carcinoma.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41215859" target="_blank">PMID:41215859</a>
+                            </div>
+                            
+                            <div class="reference-title">Prognostic factors for survival and recurrence in papillary thyroid carcinoma: a retrospective study.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41275349" target="_blank">PMID:41275349</a>
+                            </div>
+                            
+                            <div class="reference-title">Age, not tumor size, modifies the association between extrathyroidal extension and long-term outcomes in patients with follicular cell-derived thyroid carcinoma.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41296188" target="_blank">PMID:41296188</a>
+                            </div>
+                            
+                            <div class="reference-title">Retroelements in thyroid cancer: epigenetic plasticity, dedifferentiation, and therapeutic opportunities.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41350156" target="_blank">PMID:41350156</a>
+                            </div>
+                            
+                            <div class="reference-title">Comparative Long-term Outcomes of RFA vs. MWA for T1N0M0 Papillary Thyroid Carcinoma in the Danger Triangle: A Dual-Center Retrospective Study.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41368991" target="_blank">PMID:41368991</a>
+                            </div>
+                            
+                            <div class="reference-title">BRAF V600E in thyroid cancer: navigating prognostic uncertainty and therapeutic opportunity.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41370117" target="_blank">PMID:41370117</a>
+                            </div>
+                            
+                            <div class="reference-title">Molecular profiling of thyroid nodules on cytologic samples: Findings from an Italian multi-institutional cohort.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41370693" target="_blank">PMID:41370693</a>
+                            </div>
+                            
+                            <div class="reference-title">PREVALENCE OF THE BRAF V600E MUTATION AMONG INDIGENOUS INDIVIDUALS WITH PAPILLARY THYROID CARCINOMA RESIDING IN A RADIATION-EXPOSED AREA.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41411004" target="_blank">PMID:41411004</a>
+                            </div>
+                            
+                            <div class="reference-title">Thyroid Lobectomy and Neck Dissection for N1b Papillary Thyroid Carcinoma.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41419184" target="_blank">PMID:41419184</a>
+                            </div>
+                            
+                            <div class="reference-title">Prognostic Value of BRAF V600E Mutation in Papillary Thyroid Carcinoma: A Meta-Analysis of Nodal Involvement, Distant Metastases, Recurrence, and Mortality.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41452620" target="_blank">PMID:41452620</a>
+                            </div>
+                            
+                            <div class="reference-title">Patient-Reported Outcomes Across Treatment Strategies in Papillary Thyroid Microcarcinoma: A Meta-Analysis.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41462994" target="_blank">PMID:41462994</a>
+                            </div>
+                            
+                            <div class="reference-title">Dedifferentiation and Redifferentiation of Follicular-Cell-Derived Thyroid Carcinoma: Mechanisms and Therapeutic Implications.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41499172" target="_blank">PMID:41499172</a>
+                            </div>
+                            
+                            <div class="reference-title">The influence of age-independent somatic driver alterations on clinical outcomes in paediatric and young adult thyroid cancer.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41562080" target="_blank">PMID:41562080</a>
+                            </div>
+                            
+                            <div class="reference-title">Single-cell sequencing reveals the tumor immune microenvironment in thyroid cancer: a narrow review.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41565294" target="_blank">PMID:41565294</a>
+                            </div>
+                            
+                            <div class="reference-title">Lenvatinib in radioiodine-refractory differentiated thyroid cancer: a real-world institutional analysis.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41660935" target="_blank">PMID:41660935</a>
+                            </div>
+                            
+                            <div class="reference-title">Prognostic Stratification of Highly Differentiated Thyroid Cancer Based on Molecular Genetic Studies.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41675569" target="_blank">PMID:41675569</a>
+                            </div>
+                            
+                            <div class="reference-title">Correlations between iodine status and the risk of thyroid nodules, a systematic review and dose-response meta-analysis.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41679192" target="_blank">PMID:41679192</a>
+                            </div>
+                            
+                            <div class="reference-title">Disulfiram metabolite Cu(DDC)(2) enhances radionuclide uptake in vivo revealing insights into tumoural ablation resistance.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41685247" target="_blank">PMID:41685247</a>
+                            </div>
+                            
+                            <div class="reference-title">Leveraging the transcriptome-phenotype relationship to guide clinical management of papillary thyroid cancer.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41694580" target="_blank">PMID:41694580</a>
+                            </div>
+                            
+                            <div class="reference-title">NOX4-derived oxidative DNA damage impairs thyroid differentiation through an epigenetic mechanism in BRAF-mutated radioactive iodine refractory papillary thyroid cancer cells.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41697551" target="_blank">PMID:41697551</a>
+                            </div>
+                            
+                            <div class="reference-title">Comparative evaluation of dynamic risk stratification according to ATA 2015 and ATA 2025 in low-risk differentiated thyroid cancer without radioiodine ablation.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41726144" target="_blank">PMID:41726144</a>
+                            </div>
+                            
+                            <div class="reference-title">Global epidemiology of thyroid cancer: trends in incidence, mortality, and DALYs from 1990 to 2021.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41761289" target="_blank">PMID:41761289</a>
+                            </div>
+                            
+                            <div class="reference-title">Microfluidic-based patient-derived organoids recapitulate thyroid cancer heterogeneity and reveal NF-κB-driven maturation for precision therapy.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41817109" target="_blank">PMID:41817109</a>
+                            </div>
+                            
+                            <div class="reference-title">Selective Use of Radioiodine Therapy in Differentiated Thyroid Carcinoma: A Population-Based Cohort Study.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41862440" target="_blank">PMID:41862440</a>
+                            </div>
+                            
+                            <div class="reference-title">Fatty acid oxidation drives acetyl-CoA-dependent H3K9ac reprogramming to promote adaptive resistance to BRAF(V600E) inhibition in thyroid cancer.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41935217" target="_blank">PMID:41935217</a>
+                            </div>
+                            
+                            <div class="reference-title">Deciphering functional intra-tumoral heterogeneity in BRAF(V600E)-driven mouse thyroid cancer reveals EMT trajectory and metabolic remodeling.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/42035477" target="_blank">PMID:42035477</a>
+                            </div>
+                            
+                            <div class="reference-title">CRISPR-Based Gene Dependency Screens Reveal Mechanism of BRAF Inhibitor Resistance in Anaplastic Thyroid Cancer.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/42083301" target="_blank">PMID:42083301</a>
+                            </div>
+                            
+                            <div class="reference-title">Diagnostic Utility of a Cost-Effective Four-Gene Next Generation Sequencing Panel for Predicting Papillary Thyroid Carcinoma in Indeterminate Thyroid Cytology: A Multicenter Study in China.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40237893" target="_blank">PMID:40237893</a>
+                            </div>
+                            
+                            <div class="reference-title">Prevalence and Clinical Impact of BRAF p.V600E Mutation in Papillary Thyroid Carcinoma.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
             </div>
             
             
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
-                    <span class="card-count">1</span>
+                    <span class="card-count">2</span>
                 </div>
                 
                 <div style="margin-bottom: 4px;">
@@ -5718,6 +7825,973 @@ These are referenced as the standard backbone in RAIR‑DTC reviews as the pre�
                     </div>
                 </div>
                 
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>OpenScientist</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">1. Disease Information</div>
+                            
+                            
+                            <span class="report-badge">openscientist-autonomous</span>
+                            
+                            
+                            <span class="report-badge">80 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-05T20:23:11.811033</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <h2>1. Disease Information</h2>
+<h3>Overview</h3>
+<p>BRAF-mutant papillary thyroid cancer is a molecular subtype of papillary thyroid carcinoma (PTC) defined by the presence of activating mutations in the BRAF serine/threonine kinase gene, most commonly the V600E hotspot mutation. PTC itself accounts for 85–90% of all thyroid malignancies, making it the most common endocrine cancer worldwide (<a href="https://pubmed.ncbi.nlm.nih.gov/40980146/">PMID: 40980146</a>). The BRAF V600E mutation occurs as a somatic (acquired) event in thyroid follicular cells and results in constitutive activation of the MAPK signaling pathway independent of upstream receptor tyrosine kinase stimulation.</p>
+<h3>Key Identifiers</h3>
+<table>
+<thead>
+<tr>
+<th>Database</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>ICD-10</strong></td>
+<td>C73 (Malignant neoplasm of thyroid gland)</td>
+</tr>
+<tr>
+<td><strong>ICD-11</strong></td>
+<td>2D10.0 (Papillary adenocarcinoma of thyroid gland)</td>
+</tr>
+<tr>
+<td><strong>ICD-O-3 Morphology</strong></td>
+<td>8260/3 (Papillary adenocarcinoma, NOS)</td>
+</tr>
+<tr>
+<td><strong>MeSH</strong></td>
+<td>D000077273 (Papillary Thyroid Cancer); D020032 (Proto-Oncogene Proteins B-raf)</td>
+</tr>
+<tr>
+<td><strong>MONDO</strong></td>
+<td>MONDO:0005031 (Thyroid gland papillary carcinoma)</td>
+</tr>
+<tr>
+<td><strong>OMIM</strong></td>
+<td>164757 (BRAF gene); 188550 (Thyroid carcinoma, papillary)</td>
+</tr>
+<tr>
+<td><strong>COSMIC</strong></td>
+<td>COSM476 (BRAF p.V600E)</td>
+</tr>
+<tr>
+<td><strong>Orphanet</strong></td>
+<td>ORPHA:146 (Papillary thyroid carcinoma)</td>
+</tr>
+</tbody>
+</table>
+<h3>Synonyms and Alternative Names</h3>
+<ul>
+<li>BRAF V600E-positive papillary thyroid carcinoma</li>
+<li>BRAF-like PTC (TCGA molecular classification)</li>
+<li>BRAF-mutated differentiated thyroid cancer (DTC)</li>
+<li>Papillary thyroid cancer, classic variant (most commonly BRAF V600E-driven)</li>
+<li>PTC with BRAF V600E mutation</li>
+</ul>
+<h3>Information Sources</h3>
+<p>This characterization integrates aggregated disease-level resources (TCGA, COSMIC, GBD, SEER) with findings from individual patient cohorts, clinical trials, meta-analyses, and single-cell transcriptomic studies. The evidence base spans human clinical data, model organism studies, in vitro experiments, and computational analyses.</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>Disease Causal Factors</h3>
+<p>The primary causal event in BRAF-mutant PTC is the somatic acquisition of the BRAF V600E mutation (chr7:140453136 A&gt;T, GRCh37) in thyroid follicular epithelial cells. This missense mutation substitutes valine with glutamic acid at position 600 in the activation segment of the BRAF kinase domain, mimicking phosphorylation and locking the kinase in a constitutively active conformation. This results in continuous signaling through the RAS-RAF-MEK-ERK pathway, driving uncontrolled cell proliferation and survival (<a href="https://pubmed.ncbi.nlm.nih.gov/39961465/">PMID: 39961465</a>).</p>
+<p>The BRAF V600E mutation is classified as a Class I BRAF mutation—a point mutation that activates BRAF as a monomer, independent of RAS signaling or dimerization (<a href="https://pubmed.ncbi.nlm.nih.gov/39961465/">PMID: 39961465</a>). This distinguishes it from Class II (in-frame insertions/deletions) and Class III (gene fusions) BRAF alterations.</p>
+<h3>Risk Factors</h3>
+<p><strong>Genetic Risk Factors:</strong></p>
+<ul>
+<li><strong>BRAF V600E somatic mutation</strong>: The defining oncogenic driver, present in 40–80% of PTC across studies. A 2025 single-institution study found 78.7% of 301 PTC patients harbored BRAF V600E (<a href="https://pubmed.ncbi.nlm.nih.gov/40237893/">PMID: 40237893</a>). Among TCGA PTC samples, 48.4% (240/496) had BRAF mutations, with V600E comprising 97.9% (235/240).</li>
+<li><strong>GWAS susceptibility loci</strong>: Multiple genome-wide association studies have identified DTC risk loci that may modify BRAF-mutant PTC susceptibility:</li>
+<li><strong>9q22.33 (FOXE1)</strong>: rs965513, OR=1.7 per A allele (95% CI 1.2–2.3) (<a href="https://pubmed.ncbi.nlm.nih.gov/25879635/">PMID: 25879635</a>)</li>
+<li><strong>14q13.3 (NKX2-1)</strong>: rs944289, OR=1.6 per A allele (95% CI 1.2–2.1) (<a href="https://pubmed.ncbi.nlm.nih.gov/25879635/">PMID: 25879635</a>)</li>
+<li><strong>2q35 (DIRC3)</strong>: Confirmed across multiple populations (<a href="https://pubmed.ncbi.nlm.nih.gov/23894154/">PMID: 23894154</a>)</li>
+<li><strong>8p12 (NRG1)</strong>: rs6996585, P=1.08×10⁻⁸ in Korean GWAS (<a href="https://pubmed.ncbi.nlm.nih.gov/28703219/">PMID: 28703219</a>)</li>
+<li><strong>BATF and DHX35</strong>: rs10136427 (OR=1.30) and rs7267944 (OR=1.32) in Italian populations (<a href="https://pubmed.ncbi.nlm.nih.gov/25029422/">PMID: 25029422</a>)</li>
+<li><strong>TERT promoter co-mutation</strong>: Synergistically worsens prognosis (see Section 4)</li>
+</ul>
+<p><strong>Environmental Risk Factors:</strong></p>
+<ul>
+<li><strong>Ionizing radiation exposure</strong>: The most well-established environmental risk factor for DTC. A study of indigenous populations near the former Semipalatinsk Nuclear Test Site found BRAF V600E exclusively in papillary carcinoma samples among radiation-exposed individuals (<a href="https://pubmed.ncbi.nlm.nih.gov/41370693/">PMID: 41370693</a>).</li>
+<li><strong>Iodine intake</strong>: Dose-response meta-analysis of 25 studies (54,621 participants) revealed a U-shaped nonlinear relationship between urinary iodine concentration and thyroid nodule risk (P for nonlinearity &lt;0.001), with increased risks at both deficient and excessive iodine levels (<a href="https://pubmed.ncbi.nlm.nih.gov/41675569/">PMID: 41675569</a>).</li>
+<li><strong>Volcanic area residence</strong>: Exposure to volcanic emissions (gas, ash, lava) contaminates food chains with toxic compounds (<a href="https://pubmed.ncbi.nlm.nih.gov/30104523/">PMID: 30104523</a>).</li>
+<li><strong>Obesity/metabolic dysfunction</strong>: NAFLD (non-alcoholic fatty liver disease) is an independent risk factor for lymph node metastasis in PTC (OR=1.285, 95% CI 1.052–1.570) and is associated with higher incidence of BRAF V600E mutation (<a href="https://pubmed.ncbi.nlm.nih.gov/36696026/">PMID: 36696026</a>).</li>
+<li><strong>Sex</strong>: Female predominance (2–4:1 female-to-male ratio), with women accounting for 67% of all thyroid cancer cases globally (<a href="https://pubmed.ncbi.nlm.nih.gov/41726144/">PMID: 41726144</a>).</li>
+<li><strong>Age</strong>: Mean age at diagnosis 40–45 years for PTC (<a href="https://pubmed.ncbi.nlm.nih.gov/23014067/">PMID: 23014067</a>).</li>
+</ul>
+<h3>Protective Factors</h3>
+<ul>
+<li><strong>Adequate iodine intake</strong>: More-than-adequate iodine showed a trend toward lower thyroid nodule prevalence (<a href="https://pubmed.ncbi.nlm.nih.gov/41675569/">PMID: 41675569</a>).</li>
+<li><strong>Iodine prophylaxis legislation</strong>: Adoption of iodine prophylaxis programs improved thyroid cancer epidemiological outcomes in subsequent generations (<a href="https://pubmed.ncbi.nlm.nih.gov/41370693/">PMID: 41370693</a>).</li>
+</ul>
+<h3>Gene–Environment Interactions</h3>
+<p>The shift in PTC oncogenic patterns over recent decades—from RET/PTC rearrangements to BRAF V600E dominance—suggests changing environmental exposures interact with genetic susceptibility. Radiation exposure correlates with RET/PTC rearrangements, while the increasing BRAF V600E prevalence may reflect different environmental carcinogens or detection biases (<a href="https://pubmed.ncbi.nlm.nih.gov/23014067/">PMID: 23014067</a>).</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>Clinical Presentation</h3>
+<table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>HPO Term</th>
+<th>Frequency</th>
+<th>Severity</th>
+<th>Onset</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Thyroid nodule</td>
+<td>HP:0002890</td>
+<td>&gt;95%</td>
+<td>Variable</td>
+<td>Adult</td>
+</tr>
+<tr>
+<td>Cervical lymphadenopathy</td>
+<td>HP:0002716</td>
+<td>30–80%</td>
+<td>Variable</td>
+<td>Adult</td>
+</tr>
+<tr>
+<td>Neck swelling</td>
+<td>HP:0025164</td>
+<td>56%</td>
+<td>Mild–Moderate</td>
+<td>Adult</td>
+</tr>
+<tr>
+<td>Palpable neck mass</td>
+<td>HP:0100548</td>
+<td>49%</td>
+<td>Variable</td>
+<td>Adult</td>
+</tr>
+<tr>
+<td>Hoarseness/Dysphonia</td>
+<td>HP:0001609</td>
+<td>5–15%</td>
+<td>Mild–Severe</td>
+<td>Adult</td>
+</tr>
+<tr>
+<td>Dysphagia</td>
+<td>HP:0002015</td>
+<td>5–10%</td>
+<td>Mild–Moderate</td>
+<td>Adult</td>
+</tr>
+<tr>
+<td>Elevated serum thyroglobulin</td>
+<td>HP:0031508</td>
+<td>60–80%</td>
+<td>Variable</td>
+<td>Adult</td>
+</tr>
+<tr>
+<td>Microcalcifications on ultrasound</td>
+<td>—</td>
+<td>47.7%</td>
+<td>—</td>
+<td>Adult</td>
+</tr>
+<tr>
+<td>Hypoechogenicity on ultrasound</td>
+<td>—</td>
+<td>39.0%</td>
+<td>—</td>
+<td>Adult</td>
+</tr>
+</tbody>
+</table>
+<p><strong>BRAF V600E-specific associations</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/40237893/">PMID: 40237893</a>):
+- Classic PTC morphology: 88% of classic subtype PTCs express BRAF V600E
+- Tall cell variant: 100% express BRAF V600E (most aggressive histological subtype)
+- Follicular variant: Only 38% express BRAF V600E
+- Association with infiltrative borders, extrathyroidal extension, and intraglandular tumor spread (<a href="https://pubmed.ncbi.nlm.nih.gov/26271724/">PMID: 26271724</a>)</p>
+<h3>Quality of Life Impact</h3>
+<p>HRQOL meta-analysis of PTMC treatments found uncomplicated QALY weights ranging from 0.975 to 0.992, with no significant difference between active surveillance, thermal ablation, and surgery (P=.15) (<a href="https://pubmed.ncbi.nlm.nih.gov/41452620/">PMID: 41452620</a>). Patient treatment preferences are driven by aversion to treatment complications rather than to the treatments themselves (<a href="https://pubmed.ncbi.nlm.nih.gov/41006152/">PMID: 41006152</a>). Post-thyroidectomy patients report challenges in sensory function, body satisfaction, eating, speaking, and social interactions (<a href="https://pubmed.ncbi.nlm.nih.gov/38384638/">PMID: 38384638</a>). Thyroid cancer survivors report significant unmet informational, psychological, emotional, and practical support needs, often influenced by the "good cancer" label (<a href="https://pubmed.ncbi.nlm.nih.gov/40402541/">PMID: 40402541</a>).</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<h3>Causal Gene: BRAF</h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Detail</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Gene</strong></td>
+<td>BRAF (v-Raf murine sarcoma viral oncogene homolog B)</td>
+</tr>
+<tr>
+<td><strong>HGNC ID</strong></td>
+<td>HGNC:1097</td>
+</tr>
+<tr>
+<td><strong>OMIM</strong></td>
+<td>164757</td>
+</tr>
+<tr>
+<td><strong>Chromosomal location</strong></td>
+<td>7q34</td>
+</tr>
+<tr>
+<td><strong>UniProt</strong></td>
+<td>P15056</td>
+</tr>
+<tr>
+<td><strong>COSMIC ID</strong></td>
+<td>COSM476 (V600E)</td>
+</tr>
+</tbody>
+</table>
+<h3>Pathogenic Variants</h3>
+<p><strong>BRAF V600E (c.1799T&gt;A, p.Val600Glu)</strong>:
+- <strong>Variant type</strong>: Missense (Class I BRAF mutation)
+- <strong>Somatic origin</strong>: Acquired in thyroid follicular cells; not inherited
+- <strong>Frequency in PTC</strong>: 40–80% across studies; TCGA: 48.4% (240/496 samples)
+- <strong>Functional consequence</strong>: Gain-of-function; constitutive kinase activation (~500-fold increased activity)
+- <strong>ACMG classification</strong>: Pathogenic (somatic oncogenic variant)
+- <strong>Population frequency</strong>: Extremely rare as germline variant in gnomAD; functionally exclusive to somatic tumors</p>
+<p><strong>Rare non-V600E BRAF variants in PTC</strong> (TCGA data):
+- K601E (n=1), N581_A598dup (n=1), K591_A598dup (n=1), P490_Q494del (n=1), T488_P492del (n=1)
+- Mutation types: 236 missense, 2 in-frame insertions, 2 in-frame deletions</p>
+<h3>Co-occurring Mutations and Modifier Genes</h3>
+<p><strong>TERT promoter mutations</strong> (C228T, C250T):
+- Found in 38.2% of DTC patients harboring BRAF V600E (<a href="https://pubmed.ncbi.nlm.nih.gov/40988283/">PMID: 40988283</a>)
+- Coexisting BRAF V600E + TERT independently elevates risk of loss of RAI avidity (OR=4.8, P=.009) and accelerates recurrence (<a href="https://pubmed.ncbi.nlm.nih.gov/40988283/">PMID: 40988283</a>)
+- TERT is an independent predictor of lateral lymph node metastasis (OR=2.272, 95% CI 1.078–4.786) (<a href="https://pubmed.ncbi.nlm.nih.gov/40184730/">PMID: 40184730</a>)</p>
+<p><strong>TP53 mutations</strong>: Observed in the ATC component during dedifferentiation from PTC; not typically found in well-differentiated PTC (<a href="https://pubmed.ncbi.nlm.nih.gov/40887557/">PMID: 40887557</a>)</p>
+<p><strong>Additional co-occurring alterations</strong>: DICER1 (7%), PTEN (6%), RET (4%) in multifocal PTC (<a href="https://pubmed.ncbi.nlm.nih.gov/40235071/">PMID: 40235071</a>)</p>
+<h3>Epigenetic Information</h3>
+<ul>
+<li><strong>Promoter methylation</strong>: BRAF V600E correlates with methylation of TIMP3, CDH13, RASSF1A, and RARB tumor suppressor genes (<a href="https://pubmed.ncbi.nlm.nih.gov/31006665/">PMID: 31006665</a>)</li>
+<li><strong>miRNA dysregulation</strong>: miR-146b, miR-221/222, and miR-375 are upregulated in BRAF V600E PTC and associated with aggressive behavior (<a href="https://pubmed.ncbi.nlm.nih.gov/41660935/">PMID: 41660935</a>)</li>
+<li><strong>NOX4-mediated epigenetic mechanism</strong>: NOX4-derived oxidative DNA damage impairs thyroid differentiation through epigenetic reprogramming in BRAF-mutated RAI-refractory cells (<a href="https://pubmed.ncbi.nlm.nih.gov/41694580/">PMID: 41694580</a>)</li>
+<li><strong>Global hypomethylation</strong>: Associated with chromosomal instability in aggressive PTC (<a href="https://pubmed.ncbi.nlm.nih.gov/41660935/">PMID: 41660935</a>)</li>
+</ul>
+<hr />
+<h2>5. Environmental Information</h2>
+<h3>Environmental Factors</h3>
+<ul>
+<li><strong>Ionizing radiation</strong>: Most established risk factor; includes external radiation exposure, nuclear fallout, and therapeutic radiation (<a href="https://pubmed.ncbi.nlm.nih.gov/41370693/">PMID: 41370693</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/23132514/">PMID: 23132514</a>)</li>
+<li><strong>Volcanic emissions</strong>: Toxic compounds in gas, ash, and lava contaminate ground water and food chains (<a href="https://pubmed.ncbi.nlm.nih.gov/30104523/">PMID: 30104523</a>)</li>
+<li><strong>Xenobiotic compounds</strong>: Environmental pollutants (PCBs, nitrates) accumulate and exert carcinogenic effects (<a href="https://pubmed.ncbi.nlm.nih.gov/30104523/">PMID: 30104523</a>)</li>
+</ul>
+<h3>Lifestyle Factors</h3>
+<ul>
+<li><strong>Obesity</strong>: BMI associated with altered clinicopathological features; MAFLD/NAFLD associated with higher BRAF V600E incidence and lymph node metastasis (<a href="https://pubmed.ncbi.nlm.nih.gov/36696026/">PMID: 36696026</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/38787506/">PMID: 38787506</a>)</li>
+<li><strong>Iodine intake</strong>: Both deficiency and excess modify thyroid cancer risk in a U-shaped relationship (<a href="https://pubmed.ncbi.nlm.nih.gov/41675569/">PMID: 41675569</a>)</li>
+</ul>
+<h3>Infectious Agents</h3>
+<p>Not directly applicable. No established infectious etiology for BRAF-mutant PTC, though chronic lymphocytic thyroiditis (Hashimoto's) shows complex immunological relationships with PTC (<a href="https://pubmed.ncbi.nlm.nih.gov/38940753/">PMID: 38940753</a>).</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Molecular Pathways</h3>
+<p><strong>Primary pathway — MAPK/ERK cascade:</strong></p>
+<pre><code>BRAF V600E (constitutively active)
+    |
+    v
+MEK1/2 phosphorylation (constitutive)
+    |
+    v
+ERK1/2 phosphorylation (constitutive)
+    |
+    |---&gt; Cell proliferation (Cyclin D1, c-Myc)
+    |---&gt; Survival (BCL-2 family)
+    |---&gt; NIS suppression --&gt; RAI refractoriness
+    |---&gt; Dedifferentiation gene silencing
+    |---&gt; PD-L1 upregulation --&gt; Immune evasion
+    +---&gt; Tumor invasion/migration (MMP, EMT)
+</code></pre>
+<p>The BRAF V600E mutation "activates the MAPK pathway and suppresses genes involved in iodine metabolism and differentiation" (<a href="https://pubmed.ncbi.nlm.nih.gov/41368991/">PMID: 41368991</a>). This constitutive signaling operates independently of extracellular growth factor stimulation.</p>
+<p><strong>Secondary pathway involvement:</strong>
+- <strong>PI3K/AKT/mTOR</strong>: Dysregulated in concert with MAPK; contributes to resistance (<a href="https://pubmed.ncbi.nlm.nih.gov/39961465/">PMID: 39961465</a>)
+- <strong>WNT/beta-Catenin</strong>: Beta-catenin attenuation inhibits tumor growth and promotes differentiation in BRAF-mutant models (<a href="https://pubmed.ncbi.nlm.nih.gov/34224366/">PMID: 34224366</a>)
+- <strong>NF-kB signaling</strong>: Drives organoid maturation; inhibition synergistically enhances therapeutic efficacy (<a href="https://pubmed.ncbi.nlm.nih.gov/41761289/">PMID: 41761289</a>)</p>
+<h3>Cellular Processes</h3>
+<ul>
+<li><strong>NIS suppression and RAI refractoriness</strong>: Up to 60% of PTC harbor BRAF V600E and may become RAI-refractory. NOX4-derived oxidative DNA damage impairs thyroid differentiation through an epigenetic mechanism, silencing NIS expression (<a href="https://pubmed.ncbi.nlm.nih.gov/41694580/">PMID: 41694580</a>). GO: GO:0006882 (cellular zinc ion homeostasis); GO:0055085 (transmembrane transport)</li>
+<li><strong>Immune evasion</strong>: BRAF V600E positively correlates with PD-L1 and PD-1 expression in PTC tumor microenvironment (Type 1 PD-L1+/PD-1+ in 41% of cases), suggesting immune checkpoint therapies may be effective (<a href="https://pubmed.ncbi.nlm.nih.gov/29651624/">PMID: 29651624</a>)</li>
+<li><strong>Dedifferentiation cascade</strong>: Progressive accumulation of TERT, TP53 mutations drives transition from PTC to PDTC to ATC, with LINE-1 retrotransposons and endogenous retroviruses reactivated during this process (<a href="https://pubmed.ncbi.nlm.nih.gov/41462994/">PMID: 41462994</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41296188/">PMID: 41296188</a>)</li>
+<li><strong>Metabolic reprogramming</strong>: Fatty acid oxidation drives acetyl-CoA-dependent H3K9ac epigenetic reprogramming to promote adaptive resistance to BRAF-targeted therapy (<a href="https://pubmed.ncbi.nlm.nih.gov/41862440/">PMID: 41862440</a>)</li>
+</ul>
+<h3>Protein Dysfunction</h3>
+<p>BRAF V600E results in a constitutively active kinase domain (gain-of-function). The glutamic acid substitution at position 600 mimics the phosphorylated state of the activation segment, resulting in approximately 500-fold increased basal kinase activity. This removes the requirement for upstream RAS activation and RAF dimerization for signaling (<a href="https://pubmed.ncbi.nlm.nih.gov/39577552/">PMID: 39577552</a>).</p>
+<h3>Resistance Mechanisms</h3>
+<p>Three major resistance pathways to BRAF inhibitors have been identified:</p>
+<ol>
+<li><strong>TAZ/Hippo pathway</strong>: CRISPR screens identified TAZ (WWTR1) deficiency as synthetically lethal with BRAF inhibitor in ATC; TAZ loss triggers ferroptosis (<a href="https://pubmed.ncbi.nlm.nih.gov/42035477/">PMID: 42035477</a>)</li>
+<li><strong>Fatty acid oxidation (FAO)</strong>: FAO drives acetyl-CoA-dependent H3K9ac epigenetic reprogramming mediating adaptive resistance (<a href="https://pubmed.ncbi.nlm.nih.gov/41862440/">PMID: 41862440</a>)</li>
+<li><strong>RAS pathway feedback activation</strong>: BRAF inhibitors induce feedback activation of RAS signaling in thyroid cancer cells (<a href="https://pubmed.ncbi.nlm.nih.gov/34072194/">PMID: 34072194</a>)</li>
+</ol>
+<h3>Molecular Profiling</h3>
+<p><strong>Transcriptomics (TCGA):</strong>
+- BRAF-like vs. RAS-like molecular classification based on gene expression profiles
+- BRAF-like tumors characterized by MAPK pathway activation signature
+- Transcriptomic classifiers ("BRAF-like" and "RAS-like") more accurately predict iodine avidity, tumor aggressiveness, and treatment response than histology or genotype alone (<a href="https://pubmed.ncbi.nlm.nih.gov/41685247/">PMID: 41685247</a>)</p>
+<p><strong>Single-cell RNA sequencing:</strong>
+- scRNA-seq reveals "differentiation-dependent trajectory of tumor immune microenvironment remodeling—from immune activation/suppression coexistence in PTC, to immune exclusion in PDTC, and terminal exhaustion in ATC" (<a href="https://pubmed.ncbi.nlm.nih.gov/41562080/">PMID: 41562080</a>)
+- RGS5+ tumor subpopulation identified with prognostic significance; high prognostic immune score linked to genetic instability (<a href="https://pubmed.ncbi.nlm.nih.gov/40132388/">PMID: 40132388</a>)
+- Intra-tumoral heterogeneity in BRAF V600E PTC includes differentiation-dependent functional states (<a href="https://pubmed.ncbi.nlm.nih.gov/41935217/">PMID: 41935217</a>)</p>
+<p><strong>Proteomics:</strong>
+- Differential activation of MAPK and PI3K pathways critical for enhancing lateral lymph node metastatic potential (<a href="https://pubmed.ncbi.nlm.nih.gov/39600146/">PMID: 39600146</a>)
+- Patient-derived organoids (DEOs) achieve 92% driver gene concordance with parental tumors and faithfully recapitulate histopathological architecture and immune microenvironment (<a href="https://pubmed.ncbi.nlm.nih.gov/41761289/">PMID: 41761289</a>)</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<h3>Organ Level</h3>
+<table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Structure</th>
+<th>UBERON Term</th>
+<th>Involvement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Primary</strong></td>
+<td>Thyroid gland</td>
+<td>UBERON:0002046</td>
+<td>Direct malignant transformation</td>
+</tr>
+<tr>
+<td><strong>Secondary</strong></td>
+<td>Cervical lymph nodes</td>
+<td>UBERON:0002429</td>
+<td>Metastatic (30–80%)</td>
+</tr>
+<tr>
+<td><strong>Secondary</strong></td>
+<td>Lung</td>
+<td>UBERON:0002048</td>
+<td>Distant metastasis (2–15%)</td>
+</tr>
+<tr>
+<td><strong>Secondary</strong></td>
+<td>Bone</td>
+<td>UBERON:0002481</td>
+<td>Distant metastasis (rare)</td>
+</tr>
+<tr>
+<td><strong>System</strong></td>
+<td>Endocrine system</td>
+<td>UBERON:0000949</td>
+<td>TSH/thyroid hormone axis</td>
+</tr>
+</tbody>
+</table>
+<h3>Tissue and Cell Level</h3>
+<ul>
+<li><strong>Thyroid follicular epithelial cells</strong> (CL:0002258): Primary cell of origin for BRAF-mutant PTC</li>
+<li><strong>Thyroid follicular tissue</strong>: Papillary architecture with fibrovascular cores, psammoma bodies</li>
+<li><strong>Tumor microenvironment</strong>: CD3+, CD56+, CD68+, alpha-SMA+ cells recapitulated in patient-derived organoids (<a href="https://pubmed.ncbi.nlm.nih.gov/41761289/">PMID: 41761289</a>)</li>
+</ul>
+<h3>Subcellular Level</h3>
+<ul>
+<li><strong>Cytoplasm/cytosol</strong> (GO:0005829): BRAF kinase signaling</li>
+<li><strong>Cell membrane</strong> (GO:0005886): NIS (SLC5A5) expression loss</li>
+<li><strong>Nucleus</strong> (GO:0005634): ERK-mediated transcriptional changes</li>
+<li><strong>Endoplasmic reticulum</strong> (GO:0005783): Unfolded protein response under BRAF inhibitor treatment (<a href="https://pubmed.ncbi.nlm.nih.gov/42035477/">PMID: 42035477</a>)</li>
+</ul>
+<h3>Localization</h3>
+<p>Thyroid nodules demonstrate right-side predominance (P=0.0004), and right-sided PTC with lymph node metastasis shows significantly more right-side-affected LNM (P=0.0007) (<a href="https://pubmed.ncbi.nlm.nih.gov/40050757/">PMID: 40050757</a>). The tumor can be unilateral or bilateral, unifocal or multifocal.</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<h3>Onset</h3>
+<ul>
+<li><strong>Typical age of onset</strong>: Adults aged 40–45 years for PTC (<a href="https://pubmed.ncbi.nlm.nih.gov/23014067/">PMID: 23014067</a>); median age 56 years for tall cell variant (<a href="https://pubmed.ncbi.nlm.nih.gov/23682579/">PMID: 23682579</a>)</li>
+<li><strong>Pediatric PTC</strong>: BRAF V600E found in 50.8% of pediatric PTC (Chinese cohort, n=124); independently predicts non-excellent ATA outcomes (aOR=3.45, 95% CI 1.37–8.70) (<a href="https://pubmed.ncbi.nlm.nih.gov/41499172/">PMID: 41499172</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39982551/">PMID: 39982551</a>)</li>
+<li><strong>Onset pattern</strong>: Insidious; typically discovered incidentally on imaging or as palpable thyroid nodule</li>
+</ul>
+<h3>Progression</h3>
+<p><strong>AJCC 8th Edition Staging</strong> (age-dependent for DTC):
+- <strong>Stage I</strong>: Age &lt;55 with any T, any N, M0; or age &gt;=55 with T1-T2, N0, M0
+- <strong>Stage II</strong>: Age &lt;55 with any T, any N, M1; or age &gt;=55 with T1-T2, N1, M0 or T3, N0-N1, M0
+- <strong>Stage III-IV</strong>: Age &gt;=55 with advanced T-stage, extensive nodal disease, or distant metastases</p>
+<p><strong>Disease course</strong>: Most patients (79.1%) present with early-stage disease. The 2022 WHO classification introduced "differentiated high-grade thyroid carcinoma" (DHGTC) as an intermediate entity between well-differentiated PTC and ATC (<a href="https://pubmed.ncbi.nlm.nih.gov/36193717/">PMID: 36193717</a>).</p>
+<p><strong>Dedifferentiation pathway</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/41462994/">PMID: 41462994</a>):</p>
+<pre><code>Well-differentiated PTC (BRAF V600E)
+    | + TERT promoter mutation
+    v
+Poorly differentiated TC (PDTC)
+    | + TP53 mutation
+    v
+Anaplastic thyroid carcinoma (ATC)
+</code></pre>
+<p><strong>Recurrence patterns</strong>: Most recurrences occur within the first year (23.3%) or after 10 years post-thyroidectomy (35.7%). Patients with very early recurrences (&lt;6 months) had TERT/BRAF V600E mutations in 69% of cases (<a href="https://pubmed.ncbi.nlm.nih.gov/37336036/">PMID: 37336036</a>).</p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>Epidemiology</h3>
+<ul>
+<li><strong>Global thyroid cancer incidence</strong>: Age-standardized incidence rate increased from 2.06 to 2.91 per 100,000 (1990–2021), EAPC=1.25 (<a href="https://pubmed.ncbi.nlm.nih.gov/41726144/">PMID: 41726144</a>)</li>
+<li><strong>Global mortality</strong>: Modest decline (EAPC=-0.23), but DALYs remained high (14.57 million in 2021) (<a href="https://pubmed.ncbi.nlm.nih.gov/41726144/">PMID: 41726144</a>)</li>
+<li><strong>Overdiagnosis</strong>: Estimated at approximately 25% globally; population-based study across 63 countries found 75.6% of 2.3 million thyroid cancer cases attributable to overdiagnosis (<a href="https://pubmed.ncbi.nlm.nih.gov/39389067/">PMID: 39389067</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39330046/">PMID: 39330046</a>)</li>
+</ul>
+<h3>Genetic Inheritance</h3>
+<p>BRAF V600E in PTC is a <strong>somatic mutation</strong> (not inherited). However:
+- <strong>Multifactorial/polygenic susceptibility</strong>: GWAS loci (FOXE1, NKX2-1, DIRC3, NRG1, BATF) confer inherited susceptibility to DTC
+- <strong>Familial non-medullary thyroid carcinoma</strong>: ~5% of PTC cases show familial clustering; modifier genes influence susceptibility
+- <strong>No Mendelian inheritance pattern</strong> for BRAF-mutant PTC specifically</p>
+<h3>Population Demographics</h3>
+<ul>
+<li><strong>Sex ratio</strong>: Female-to-male ~2.5–4:1; women account for 67% of cases globally (<a href="https://pubmed.ncbi.nlm.nih.gov/41726144/">PMID: 41726144</a>)</li>
+<li><strong>Geographic variation</strong>: Highest incidence in South Korea, Cyprus, Ecuador, China, and Turkiye; high-SDI regions account for 72% of cases due to intensive screening, while low-SDI regions contribute 68% of deaths due to delayed diagnosis (<a href="https://pubmed.ncbi.nlm.nih.gov/41726144/">PMID: 41726144</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39389067/">PMID: 39389067</a>)</li>
+<li><strong>BRAF V600E prevalence varies geographically</strong>: From 40% to &gt;78% depending on population and study design</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>Clinical Tests</h3>
+<p><strong>Imaging:</strong>
+- <strong>Thyroid ultrasound</strong> (primary modality): ACR TI-RADS risk stratification system for thyroid nodules (<a href="https://pubmed.ncbi.nlm.nih.gov/33112199/">PMID: 33112199</a>)
+- <strong>CT neck with contrast</strong>: Optional for baseline AS assessment; evaluates extrathyroidal extension
+- <strong>I-123/I-131 whole-body scan</strong>: Assesses RAI avidity post-thyroidectomy
+- <strong>F-18-FDG PET/CT</strong>: For RAI-refractory disease and ATC</p>
+<p><strong>Laboratory tests:</strong>
+- Serum thyroglobulin (Tg): Primary tumor marker; ATA 2025 raised excellent-response threshold to 2.5 ng/mL (<a href="https://pubmed.ncbi.nlm.nih.gov/41697551/">PMID: 41697551</a>)
+- Anti-thyroglobulin antibodies (TgAb)
+- TSH, free T4</p>
+<p><strong>Biopsy:</strong>
+- Fine-needle aspiration biopsy (FNAB) with Bethesda System cytological classification
+- BRAF V600E immunohistochemistry (VE1 antibody): 88% concordance with NGS (<a href="https://pubmed.ncbi.nlm.nih.gov/40614342/">PMID: 40614342</a>)</p>
+<h3>Genetic/Molecular Testing</h3>
+<ul>
+<li><strong>BRAF V600E testing</strong>: Single-gene PCR, pyrosequencing, or allele-specific PCR from FNA or surgical specimens</li>
+<li><strong>NGS panels</strong>: Myriapod panel (16 genes), Archer DX VariantPlex (31 genes) + FusionPlex (40 genes) achieve 100% sensitivity, 95.5% specificity (<a href="https://pubmed.ncbi.nlm.nih.gov/41370117/">PMID: 41370117</a>)</li>
+<li><strong>4-gene NGS panel</strong> (BRAF + 3 others): Cost-effective for predicting PTC in indeterminate cytology (<a href="https://pubmed.ncbi.nlm.nih.gov/42083301/">PMID: 42083301</a>)</li>
+<li><strong>Liquid biopsy</strong>: ctDNA detection of BRAF V600E in plasma feasible; detected in 79.7% of malignant cases using 8-gene panel (<a href="https://pubmed.ncbi.nlm.nih.gov/36744987/">PMID: 36744987</a>)</li>
+<li><strong>Transcriptomic classifiers</strong>: Thyroid GuidePx and similar tools classify tumors as "BRAF-like" vs "RAS-like" (<a href="https://pubmed.ncbi.nlm.nih.gov/41685247/">PMID: 41685247</a>)</li>
+</ul>
+<h3>Clinical Criteria</h3>
+<ul>
+<li><strong>ATA 2015 / ATA 2025 risk stratification</strong>: Low, intermediate, and high-risk categories based on clinicopathological features</li>
+<li><strong>ATA 2025 update</strong>: Reclassified 89.1% of low-risk DTC as excellent response at baseline vs. 49.2% under ATA 2015 (P&lt;0.001) (<a href="https://pubmed.ncbi.nlm.nih.gov/41697551/">PMID: 41697551</a>)</li>
+</ul>
+<h3>Differential Diagnosis</h3>
+<table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Distinguishing Feature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Follicular thyroid carcinoma</td>
+<td>RAS-driven; encapsulated; no papillary architecture</td>
+</tr>
+<tr>
+<td>Medullary thyroid carcinoma</td>
+<td>C-cell origin; RET mutations; elevated calcitonin</td>
+</tr>
+<tr>
+<td>NIFTP</td>
+<td>Non-invasive; follicular growth; RAS-like molecular profile</td>
+</tr>
+<tr>
+<td>Hashimoto thyroiditis</td>
+<td>Autoimmune; may coexist with PTC</td>
+</tr>
+<tr>
+<td>Follicular adenoma</td>
+<td>Benign; encapsulated without invasion</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>11. Outcome/Prognosis</h2>
+<h3>Survival and Mortality</h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Value</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>10-year DSS (all DTC)</td>
+<td>97.2%</td>
+<td>Population-based cohort, n=3,330 (<a href="https://pubmed.ncbi.nlm.nih.gov/41817109/">PMID: 41817109</a>)</td>
+</tr>
+<tr>
+<td>10-year OS (PTC, Saudi Arabia)</td>
+<td>95.8%</td>
+<td>Retrospective cohort, n=293 (<a href="https://pubmed.ncbi.nlm.nih.gov/41215859/">PMID: 41215859</a>)</td>
+</tr>
+<tr>
+<td>Recurrence rate</td>
+<td>2.1–30%</td>
+<td>Depends on risk stratification</td>
+</tr>
+<tr>
+<td>5-year PFS (low-risk pediatric)</td>
+<td>86%</td>
+<td>Multi-center, n=216 (<a href="https://pubmed.ncbi.nlm.nih.gov/39821955/">PMID: 39821955</a>)</td>
+</tr>
+<tr>
+<td>5-year PFS (high-risk pediatric)</td>
+<td>43%</td>
+<td>Same cohort</td>
+</tr>
+<tr>
+<td>Disease-specific survival (pediatric)</td>
+<td>100%</td>
+<td>Pediatric DTC series</td>
+</tr>
+</tbody>
+</table>
+<h3>Prognostic Factors</h3>
+<p><strong>Adverse prognostic factors:</strong>
+- BRAF V600E + TERT co-mutation (OR for RAI refractoriness = 4.8)
+- Age &gt;=55 years with extrathyroidal extension (26.47-fold higher odds of incomplete response) (<a href="https://pubmed.ncbi.nlm.nih.gov/41275349/">PMID: 41275349</a>)
+- Tall cell variant histology (92.6% BRAF V600E positive; 36% present at stage III/IVA) (<a href="https://pubmed.ncbi.nlm.nih.gov/23682579/">PMID: 23682579</a>)
+- Hobnail variant (75% BRAF and p53 positivity) (<a href="https://pubmed.ncbi.nlm.nih.gov/40560352/">PMID: 40560352</a>)
+- Distant metastasis, incomplete resection, male sex, non-papillary histology</p>
+<p><strong>Favorable prognostic factors:</strong>
+- Young age at diagnosis (&lt;55 years)
+- Classic PTC without high-grade features
+- Absence of TERT co-mutation
+- RAS-mutant or DICER1-mutant molecular profile (in pediatric PTC) (<a href="https://pubmed.ncbi.nlm.nih.gov/41499172/">PMID: 41499172</a>)</p>
+<h3>Prognostic Biomarkers</h3>
+<ul>
+<li><strong>BRAF V600E + TERT promoter co-mutation</strong>: Strongest molecular predictor of aggressive behavior</li>
+<li><strong>Serum VEGFA</strong>: Elevated baseline independently associated with poor PFS (<a href="https://pubmed.ncbi.nlm.nih.gov/31558473/">PMID: 31558473</a>)</li>
+<li><strong>RGS5+ tumor subpopulation</strong>: Outperforms existing models in predicting patient outcomes (<a href="https://pubmed.ncbi.nlm.nih.gov/40132388/">PMID: 40132388</a>)</li>
+<li><strong>miR-146b, miR-221, miR-375</strong>: Promising predictors of aggressive disease progression (<a href="https://pubmed.ncbi.nlm.nih.gov/41660935/">PMID: 41660935</a>)</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<h3>Surgical Treatment (MAXO:0000136 — Thyroidectomy)</h3>
+<table>
+<thead>
+<tr>
+<th>Procedure</th>
+<th>Indication</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Total thyroidectomy</strong></td>
+<td>Standard for PTC &gt;4 cm, bilateral, or high-risk</td>
+<td>Decreasing utilization per ATA guidelines</td>
+</tr>
+<tr>
+<td><strong>Thyroid lobectomy</strong></td>
+<td>Low-risk PTC 1–4 cm, unilateral, N0</td>
+<td>Increasing use (13.7% to 22.9% after 2015 ATA) (<a href="https://pubmed.ncbi.nlm.nih.gov/36326739/">PMID: 36326739</a>)</td>
+</tr>
+<tr>
+<td><strong>Central compartment dissection</strong></td>
+<td>Clinically apparent N1a disease</td>
+<td>Prophylactic role limited</td>
+</tr>
+<tr>
+<td><strong>Lateral neck dissection</strong></td>
+<td>N1b disease</td>
+<td>Lobectomy non-inferior to TT+RAI for select N1b (5-yr OS 96.9% vs 96.8%) (<a href="https://pubmed.ncbi.nlm.nih.gov/41411004/">PMID: 41411004</a>)</td>
+</tr>
+<tr>
+<td><strong>Thermal ablation (RFA/MWA)</strong></td>
+<td>T1N0M0, select candidates</td>
+<td>Comparable long-term DFS to surgery with fewer complications (<a href="https://pubmed.ncbi.nlm.nih.gov/41350156/">PMID: 41350156</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/40770138/">PMID: 40770138</a>)</td>
+</tr>
+</tbody>
+</table>
+<h3>Radioactive Iodine Therapy (MAXO:0001298)</h3>
+<ul>
+<li>Selective use recommended based on risk stratification</li>
+<li>RAI not significantly associated with DSS overall, but associated with &gt;80% risk reduction in metastatic DTC (HR 0.192; CI 0.088–0.417) (<a href="https://pubmed.ncbi.nlm.nih.gov/41817109/">PMID: 41817109</a>)</li>
+<li>Decreasing utilization: adjuvant RAI rates fell from 48.7% to 19.3% after 2015 guidelines (<a href="https://pubmed.ncbi.nlm.nih.gov/36326739/">PMID: 36326739</a>)</li>
+</ul>
+<h3>Targeted Therapy (MAXO:0001525 — Targeted molecular therapy)</h3>
+<p><strong>BRAF/MEK Inhibitor Redifferentiation:</strong></p>
+<p>Dabrafenib (150 mg BID) + trametinib (2 mg daily) for RAI-refractory BRAF V600E DTC:
+- Phase II trial (n=24): Restored abnormal I-131 uptake from 5% at baseline to 95% on post-therapy scan
+- At 6 months: PR 38%, SD 52%, PD 10%
+- 12-month PFS 82%, 24-month PFS 68% (<a href="https://pubmed.ncbi.nlm.nih.gov/37074727/">PMID: 37074727</a>)</p>
+<p><strong>Multikinase Inhibitors for RAI-Refractory DTC:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Trial</th>
+<th>Drug</th>
+<th>Line</th>
+<th>PFS (median)</th>
+<th>HR</th>
+<th>Key Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SELECT</td>
+<td>Lenvatinib</td>
+<td>1st</td>
+<td>18.3 vs 3.6 mo</td>
+<td>0.21</td>
+<td>P&lt;0.001</td>
+</tr>
+<tr>
+<td>DECISION</td>
+<td>Sorafenib</td>
+<td>1st</td>
+<td>10.8 vs 5.8 mo</td>
+<td>0.59</td>
+<td>P&lt;0.001</td>
+</tr>
+<tr>
+<td>COSMIC-311</td>
+<td>Cabozantinib</td>
+<td>2nd+</td>
+<td>—</td>
+<td>0.22</td>
+<td>P&lt;0.0001 (<a href="https://pubmed.ncbi.nlm.nih.gov/34237250/">PMID: 34237250</a>)</td>
+</tr>
+</tbody>
+</table>
+<p>Real-world lenvatinib data: median PFS 36.0 months, OS 76.7 months, ORR 52.3%, DCR 95.5% (<a href="https://pubmed.ncbi.nlm.nih.gov/41565294/">PMID: 41565294</a>).</p>
+<h3>Immunotherapy</h3>
+<ul>
+<li><strong>BRAF V600E ATC</strong>: Kinase inhibitors + anti-PD-1 achieved mOS not reached for BRAF V600E ATC vs. 4.0 months for non-BRAF (P=0.049); ORR 61.1% (<a href="https://pubmed.ncbi.nlm.nih.gov/39395384/">PMID: 39395384</a>)</li>
+<li><strong>Neoadjuvant mutation-based therapy</strong>: Converted 9/12 unresectable ATC to resectable (<a href="https://pubmed.ncbi.nlm.nih.gov/40927298/">PMID: 40927298</a>)</li>
+<li><strong>PD-L1/PD-1 correlation</strong>: BRAF V600E positively correlates with PD-L1 expression, suggesting potential immunotherapy targets (<a href="https://pubmed.ncbi.nlm.nih.gov/29651624/">PMID: 29651624</a>)</li>
+</ul>
+<h3>Active Surveillance (MAXO:0000950)</h3>
+<p>For low-risk PTMC (Bethesda V–VI, &lt;=1 cm, no adverse features):
+- Initiated 1993 at Kuma Hospital; zero thyroid-cancer-related deaths reported in 30+ years (<a href="https://pubmed.ncbi.nlm.nih.gov/41196684/">PMID: 41196684</a>)
+- Argentine cohort (n=104): 5- and 10-year cumulative tumor growth 7% and 8%; LN metastasis 0.9% (<a href="https://pubmed.ncbi.nlm.nih.gov/40425952/">PMID: 40425952</a>)
+- 2025 Korean guideline: Recommends AS for adults with confirmed PTMC without adverse features (<a href="https://pubmed.ncbi.nlm.nih.gov/40598902/">PMID: 40598902</a>)
+- HRQOL: No significant difference between AS, ablation, and surgery for uncomplicated PTMC (P=.15) (<a href="https://pubmed.ncbi.nlm.nih.gov/41452620/">PMID: 41452620</a>)</p>
+<h3>Experimental Therapies</h3>
+<ul>
+<li><strong>Triple therapy (BRAF + MEK + AKT)</strong>: Phase I study showed tolerability and objective responses (<a href="https://pubmed.ncbi.nlm.nih.gov/38261444/">PMID: 38261444</a>)</li>
+<li><strong>Disulfiram metabolite Cu(DDC)2</strong>: Enhances NIS function via proteostasis modulation for RAI therapy (<a href="https://pubmed.ncbi.nlm.nih.gov/41679192/">PMID: 41679192</a>)</li>
+<li><strong>Reverse transcriptase inhibitors</strong>: Suppress retroelement activity and may restore RAI uptake (<a href="https://pubmed.ncbi.nlm.nih.gov/41296188/">PMID: 41296188</a>)</li>
+<li><strong>Patient-derived organoids</strong>: Microfluidic DEOs with 76% success rate enable personalized drug screening (<a href="https://pubmed.ncbi.nlm.nih.gov/41761289/">PMID: 41761289</a>)</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<h3>Primary Prevention</h3>
+<ul>
+<li><strong>Radiation protection</strong>: Minimize unnecessary radiation exposure; iodine prophylaxis for nuclear emergencies</li>
+<li><strong>Iodine supplementation</strong>: Maintain adequate iodine intake to prevent both deficiency and excess-related risk</li>
+<li><strong>Obesity management</strong>: Address metabolic risk factors (MAFLD/NAFLD)</li>
+</ul>
+<h3>Secondary Prevention (Screening and Early Detection)</h3>
+<ul>
+<li><strong>Avoiding overdiagnosis</strong>: Global thyroid cancer overdiagnosis estimated at ~25%; "incidence has risen exponentially, mostly driven by overdiagnosis of low-risk tumors; however, a small rise in incidence of higher risk tumors has been noted" (<a href="https://pubmed.ncbi.nlm.nih.gov/39087407/">PMID: 39087407</a>)</li>
+<li><strong>ACR TI-RADS</strong>: Ultrasound-based risk stratification reduces unnecessary biopsies by 19.9–46.5% compared to other systems (<a href="https://pubmed.ncbi.nlm.nih.gov/33112199/">PMID: 33112199</a>)</li>
+<li><strong>Molecular testing of indeterminate nodules</strong>: BRAF V600E testing on FNA reduces unnecessary surgery</li>
+</ul>
+<h3>Tertiary Prevention</h3>
+<ul>
+<li><strong>Dynamic risk stratification</strong>: ATA 2025 response assessment categories (excellent, indeterminate, biochemical incomplete, structural incomplete)</li>
+<li><strong>Active surveillance protocols</strong>: Follow-up ultrasound every 6 months for 2 years, then annually (<a href="https://pubmed.ncbi.nlm.nih.gov/40598902/">PMID: 40598902</a>)</li>
+<li><strong>TSH suppression</strong>: Tailored to risk category</li>
+<li><strong>Genetic counseling</strong>: For familial non-medullary thyroid cancer families</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<h3>Comparative Biology</h3>
+<ul>
+<li><strong>BRAF ortholog</strong>: BRAF is highly conserved across vertebrates</li>
+<li>Mouse (<em>Mus musculus</em>): NCBI Gene ID 109880</li>
+<li>Zebrafish (<em>Danio rerio</em>): NCBI Gene ID 403065</li>
+<li>
+<p>Dog (<em>Canis lupus familiaris</em>): NCBI Gene ID 475526</p>
+</li>
+<li>
+<p><strong>Canine thyroid carcinoma</strong>: Dogs develop follicular thyroid carcinoma naturally, though BRAF V600E is not a prominent driver in canine thyroid tumors. Canine thyroid cancer shares some histopathological features with human DTC.</p>
+</li>
+<li>
+<p><strong>Evolutionary conservation</strong>: The MAPK/ERK signaling pathway is evolutionarily conserved from invertebrates to humans, with BRAF orthologs present in Drosophila (dRaf) and C. elegans (lin-45). Mutations in these orthologs produce developmental phenotypes relevant to understanding BRAF oncogenesis.</p>
+</li>
+</ul>
+<h3>Zoonotic Potential</h3>
+<p>Not applicable — BRAF-mutant PTC is not an infectious or transmissible disease.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<h3>Mouse Models</h3>
+<ul>
+<li><strong>BrafV600E knock-in mice</strong> (thyroid-specific): Thyroid-targeted expression of BrafV600E using Tg-Cre or TPO-Cre drivers produces autochthonous PTC that recapitulates human disease features, including papillary architecture and loss of differentiation markers. scRNA-seq analysis of these models reveals transcriptional heterogeneity and hierarchical trajectories of malignant thyrocytes (<a href="https://pubmed.ncbi.nlm.nih.gov/41935217/">PMID: 41935217</a>).</li>
+<li><strong>Beta-catenin attenuation studies</strong>: Demonstrated that WNT pathway inhibition can promote differentiation in BRAF-mutant thyroid tumors (<a href="https://pubmed.ncbi.nlm.nih.gov/34224366/">PMID: 34224366</a>)</li>
+<li><strong>Limitations</strong>: Mouse models may not fully recapitulate human immune microenvironment or dedifferentiation dynamics</li>
+</ul>
+<h3>Cell Lines</h3>
+<ul>
+<li><strong>BCPAP</strong>: Human PTC cell line harboring BRAF V600E; widely used for signaling and drug sensitivity studies</li>
+<li><strong>8505C</strong>: ATC cell line with BRAF V600E; used for resistance mechanism studies</li>
+<li><strong>KTC-1</strong>: PTC cell line for BRAF inhibitor studies</li>
+<li><strong>Patient-derived organoids (PDOs/DEOs)</strong>: Microfluidic-generated organoids achieve 92% driver gene concordance, recapitulate immune microenvironment (CD3+/CD56+/CD68+/alpha-SMA+), and enable personalized drug screening (<a href="https://pubmed.ncbi.nlm.nih.gov/41761289/">PMID: 41761289</a>)</li>
+</ul>
+<h3>Zebrafish Models</h3>
+<p>Zebrafish expressing human BRAF V600E develop thyroid hyperplasia, useful for high-throughput drug screening and studying early oncogenic events.</p>
+<hr />
+<h2>Key Findings — Statistical Evidence Summary</h2>
+<h3>Finding 1: BRAF V600E Prevalence and Prognostic Impact</h3>
+<p>BRAF V600E is the most common oncogenic driver in PTC (40–80% prevalence). Meta-analysis of 46 studies (20,570 patients) confirmed significant association with lymph node metastasis (OR=1.38, 95% CI 1.17–1.61) and borderline recurrence risk (OR=1.56, 95% CI 1.00–2.41) (<a href="https://pubmed.ncbi.nlm.nih.gov/41419184/">PMID: 41419184</a>). A 2025 study found 78.7% prevalence, with subtype-specific distribution: 88% classic, 38% follicular variant, 100% tall cell (<a href="https://pubmed.ncbi.nlm.nih.gov/40237893/">PMID: 40237893</a>).</p>
+<h3>Finding 2: MAPK Activation and NIS Suppression</h3>
+<p>BRAF V600E constitutively activates the MAPK pathway and suppresses iodine metabolism genes (<a href="https://pubmed.ncbi.nlm.nih.gov/41368991/">PMID: 41368991</a>). NOX4-derived oxidative DNA damage impairs differentiation via epigenetic mechanisms (<a href="https://pubmed.ncbi.nlm.nih.gov/41694580/">PMID: 41694580</a>).</p>
+<h3>Finding 3: BRAF + TERT Synergy</h3>
+<p>Coexisting mutations independently elevated RAI refractoriness risk (OR=4.8, P=.009) (<a href="https://pubmed.ncbi.nlm.nih.gov/40988283/">PMID: 40988283</a>). TERT alone predicts lateral LN metastasis (OR=2.272) (<a href="https://pubmed.ncbi.nlm.nih.gov/40184730/">PMID: 40184730</a>).</p>
+<h3>Finding 4: Redifferentiation Therapy Success</h3>
+<p>Dabrafenib-trametinib restored RAI uptake from 5% to 95% in BRAF V600E RAI-refractory DTC, with PR in 38% and 24-month PFS of 68% (<a href="https://pubmed.ncbi.nlm.nih.gov/37074727/">PMID: 37074727</a>).</p>
+<h3>Finding 5: Resistance Mechanisms</h3>
+<p>Three validated mechanisms: TAZ/Hippo (ferroptosis) (<a href="https://pubmed.ncbi.nlm.nih.gov/42035477/">PMID: 42035477</a>), FAO-driven epigenetic reprogramming (<a href="https://pubmed.ncbi.nlm.nih.gov/41862440/">PMID: 41862440</a>), and RAS feedback activation (<a href="https://pubmed.ncbi.nlm.nih.gov/34072194/">PMID: 34072194</a>).</p>
+<h3>Finding 6: Active Surveillance Safety</h3>
+<p>Over 30 years of AS data with zero thyroid-cancer-related deaths (<a href="https://pubmed.ncbi.nlm.nih.gov/41196684/">PMID: 41196684</a>). MAeSTro study (n=1,177) and multiple international cohorts validate this approach (<a href="https://pubmed.ncbi.nlm.nih.gov/39962344/">PMID: 39962344</a>).</p>
+<h3>Finding 7: Immunotherapy in BRAF-Mutant ATC</h3>
+<p>Kinase inhibitors + anti-PD-1 achieved ORR 61.1% and mOS not reached in BRAF V600E ATC vs. 4.0 months for non-BRAF (P=0.049) (<a href="https://pubmed.ncbi.nlm.nih.gov/39395384/">PMID: 39395384</a>).</p>
+<h3>Finding 8: Global Overdiagnosis</h3>
+<p>Estimated at ~25% of thyroid cancers globally, driven by screening intensity in high-SDI regions (<a href="https://pubmed.ncbi.nlm.nih.gov/39389067/">PMID: 39389067</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39330046/">PMID: 39330046</a>).</p>
+<hr />
+<h2>Mechanistic Model: From Mutation to Clinical Phenotype</h2>
+<pre><code>+----------------------------------------------------------------+
+|                    INITIATING EVENT                             |
+|         Somatic BRAF V600E mutation (c.1799T&gt;A)                |
+|              in thyroid follicular cell                          |
++----------------------------+-----------------------------------+
+             |
+             v
++----------------------------------------------------------------+
+|              CONSTITUTIVE MAPK ACTIVATION                       |
+|    BRAF V600E --&gt; MEK1/2 --&gt; ERK1/2 (independent of RAS)       |
++------+----------+----------+----------+----------+-------------+
+       |          |          |          |          |
+       v          v          v          v          v
+  Proliferation  NIS loss   PD-L1 up  TSG silenc  EMT/Invasion
+  (Cyclin D1)   (RAI-R)   (immune    (RASSF1A,   (MMP, TGFb)
+           evasion)   TIMP3 meth)
+       |          |          |          |          |
+       +----------+----------+----------+----------+
+             |
+  +------------------+------------------+
+  v                  v                  v
+    Low-risk PTC    Intermediate PTC    High-risk PTC
+    (indolent)      (moderate risk)     (aggressive)
+  |                  |                  |
+  |         + TERT mutation              |
+  |                  |                  v
+  |                  v             Dedifferentiation
+  |          RAI-refractory        + TP53 mutation
+  |           disease                   |
+  |                  |                  v
+  |                  |              ATC (lethal)
+  v                  v                  v
+    Active            BRAF/MEK inhibitor   Immunotherapy +
+    surveillance      redifferentiation    targeted therapy
+    (safe)            (RAI restored)       (ORR 61%)
++----------------------------------------------------------------+
+</code></pre>
+<hr />
+<h2>Evidence Base — Key Literature</h2>
+<table>
+<thead>
+<tr>
+<th>Citation</th>
+<th>Key Contribution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41419184/">PMID: 41419184</a></td>
+<td>Largest meta-analysis (46 studies, 20,570 patients) of BRAF V600E prognostic impact</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41368991/">PMID: 41368991</a></td>
+<td>Mechanistic review of BRAF V600E in PTC: MAPK activation and differentiation loss</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40988283/">PMID: 40988283</a></td>
+<td>BRAF + TERT co-mutation synergy: OR=4.8 for RAI refractoriness</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37074727/">PMID: 37074727</a></td>
+<td>Landmark phase II trial: dabrafenib-trametinib redifferentiation therapy</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34237250/">PMID: 34237250</a></td>
+<td>COSMIC-311: cabozantinib as 2nd-line for RAI-R DTC (HR=0.22)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41196684/">PMID: 41196684</a></td>
+<td>30+ years of active surveillance safety data from Kuma Hospital</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39395384/">PMID: 39395384</a></td>
+<td>Immunotherapy + kinase inhibitors in BRAF V600E ATC: ORR 61.1%</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41562080/">PMID: 41562080</a></td>
+<td>scRNA-seq revealing immune trajectory across thyroid cancer differentiation spectrum</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41726144/">PMID: 41726144</a></td>
+<td>GBD 2021: comprehensive global thyroid cancer epidemiology</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39389067/">PMID: 39389067</a></td>
+<td>63-country overdiagnosis estimate (75.6% attributable)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41697551/">PMID: 41697551</a></td>
+<td>ATA 2025 vs ATA 2015 reclassification: 89.1% vs 49.2% excellent response</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41499172/">PMID: 41499172</a></td>
+<td>Pediatric BRAF V600E: aOR=3.45 for non-excellent outcomes</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42035477/">PMID: 42035477</a></td>
+<td>CRISPR screen identifies TAZ as BRAF inhibitor resistance target</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41761289/">PMID: 41761289</a></td>
+<td>Patient-derived organoids with 92% driver gene concordance</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36193717/">PMID: 36193717</a></td>
+<td>WHO 2022 classification update introducing DHGTC</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li>
+<p><strong>BRAF V600E prognostic independence</strong>: While meta-analyses show significant associations with aggressive features, the independent prognostic value of BRAF V600E after multivariate adjustment remains debated. The borderline recurrence OR (1.56, 95% CI 1.00–2.41) underscores uncertainty (<a href="https://pubmed.ncbi.nlm.nih.gov/41419184/">PMID: 41419184</a>).</p>
+</li>
+<li>
+<p><strong>Overdiagnosis confounding</strong>: The substantial overdiagnosis of thyroid cancer (~25%) confounds epidemiological analyses and may inflate the apparent indolent behavior of BRAF-mutant PTMC in surveillance studies.</p>
+</li>
+<li>
+<p><strong>Redifferentiation durability</strong>: Phase II redifferentiation data (24-month PFS 68%) require longer follow-up and phase III confirmation. Optimal sequencing of redifferentiation vs. MKI therapy is undefined.</p>
+</li>
+<li>
+<p><strong>Resistance mechanisms</strong>: While three mechanisms have been identified (TAZ, FAO, RAS feedback), clinical strategies to overcome them remain largely preclinical. The interplay between multiple resistance pathways in individual patients is poorly understood.</p>
+</li>
+<li>
+<p><strong>Pediatric data gaps</strong>: Pediatric BRAF-mutant PTC has distinct biology (more aggressive despite excellent survival), but dedicated pediatric clinical trials for targeted therapies are lacking.</p>
+</li>
+<li>
+<p><strong>Single-cell resolution limitations</strong>: scRNA-seq studies have revealed immune trajectory and heterogeneity, but spatial transcriptomics data for BRAF-mutant PTC remain limited. Translating single-cell findings to clinical biomarkers requires validation.</p>
+</li>
+<li>
+<p><strong>Geographic and ethnic variation</strong>: BRAF V600E prevalence varies widely (40–80%), and GWAS susceptibility loci show population specificity (e.g., NRG1 in Korean, BATF/DHX35 in Italian populations). Cross-ethnic validation of molecular risk models is needed.</p>
+</li>
+<li>
+<p><strong>Active surveillance expansion</strong>: MAeSTro-EXP is extending AS to tumors up to 1.5 cm, but long-term outcomes for this expanded cohort are not yet available.</p>
+</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments/Actions</h2>
+<h3>Near-Term (1–2 years)</h3>
+<ol>
+<li>
+<p><strong>Phase III redifferentiation trial</strong>: Prospective randomized trial comparing dabrafenib-trametinib redifferentiation + RAI vs. standard MKI therapy in BRAF V600E RAI-refractory DTC.</p>
+</li>
+<li>
+<p><strong>Combinatorial resistance studies</strong>: Clinical trials testing TAZ inhibitors or FAO inhibitors in combination with BRAF/MEK inhibitors in patients progressing on monotherapy.</p>
+</li>
+<li>
+<p><strong>ctDNA monitoring validation</strong>: Prospective study validating BRAF V600E ctDNA as a minimal residual disease biomarker after thyroidectomy, with sensitivity analysis against serum thyroglobulin.</p>
+</li>
+<li>
+<p><strong>Expanded active surveillance cohort</strong>: Long-term outcomes from MAeSTro-EXP (1.0–1.5 cm tumors) to define safe upper size limit for observation.</p>
+</li>
+</ol>
+<h3>Medium-Term (2–5 years)</h3>
+<ol>
+<li>
+<p><strong>Immunotherapy biomarker discovery</strong>: Prospective correlation of PD-L1 expression, BRAF V600E status, and tumor immune microenvironment features with immunotherapy response in advanced DTC/ATC.</p>
+</li>
+<li>
+<p><strong>Multi-ethnic GWAS integration</strong>: Pan-ancestry GWAS combining existing data with African, South Asian, and Latin American cohorts to identify universal and population-specific PTC susceptibility loci.</p>
+</li>
+<li>
+<p><strong>Spatial multi-omics of dedifferentiation</strong>: Spatial transcriptomics and proteomics profiling of BRAF V600E PTC to PDTC to ATC transition specimens to map the molecular geography of dedifferentiation.</p>
+</li>
+<li>
+<p><strong>Organoid-guided personalized therapy</strong>: Clinical trial using patient-derived organoid drug sensitivity testing to guide second-line therapy selection in RAI-refractory DTC.</p>
+</li>
+</ol>
+<h3>Long-Term (5+ years)</h3>
+<ol>
+<li>
+<p><strong>AI-integrated risk stratification</strong>: Development and validation of machine learning models integrating ultrasound features, molecular profiling, liquid biopsy, and clinical data for precision risk assessment.</p>
+</li>
+<li>
+<p><strong>Prevention trials</strong>: Interventional studies testing whether metabolic syndrome management (weight loss, NAFLD treatment) reduces PTC incidence or modifies BRAF V600E positivity rates.</p>
+</li>
+</ol>
+<hr />
+<h2>Ontology Term Summary</h2>
+<table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Suggested Terms</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>MONDO</strong></td>
+<td>MONDO:0005031 (Thyroid gland papillary carcinoma)</td>
+</tr>
+<tr>
+<td><strong>HPO</strong></td>
+<td>HP:0002890 (Thyroid carcinoma), HP:0002716 (Lymphadenopathy), HP:0001609 (Hoarseness), HP:0002015 (Dysphagia)</td>
+</tr>
+<tr>
+<td><strong>GO (Biological Process)</strong></td>
+<td>GO:0000165 (MAPK cascade), GO:0006915 (Apoptotic process), GO:0055085 (Transmembrane transport), GO:0008283 (Cell population proliferation)</td>
+</tr>
+<tr>
+<td><strong>GO (Cellular Component)</strong></td>
+<td>GO:0005829 (Cytosol), GO:0005886 (Plasma membrane), GO:0005634 (Nucleus)</td>
+</tr>
+<tr>
+<td><strong>CL (Cell Ontology)</strong></td>
+<td>CL:0002258 (Thyroid follicular cell)</td>
+</tr>
+<tr>
+<td><strong>UBERON</strong></td>
+<td>UBERON:0002046 (Thyroid gland), UBERON:0002429 (Cervical lymph node)</td>
+</tr>
+<tr>
+<td><strong>CHEBI</strong></td>
+<td>CHEBI:24859 (Iodide), CHEBI:68481 (Dabrafenib), CHEBI:75998 (Trametinib), CHEBI:90227 (Lenvatinib), CHEBI:50924 (Sorafenib)</td>
+</tr>
+<tr>
+<td><strong>MAXO</strong></td>
+<td>MAXO:0000136 (Thyroidectomy), MAXO:0001298 (Radioiodine therapy), MAXO:0001525 (Targeted molecular therapy), MAXO:0000950 (Active surveillance)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<p><em>Report generated from 5 investigation iterations, 17 confirmed findings, 182 papers reviewed. Last updated: 2026-05-05.</em></p>
+                        </div>
+                    </div>
+                </div>
+                
             </div>
             
         </div>
@@ -5771,7 +8845,7 @@ These are referenced as the standard backbone in RAIR‑DTC reviews as the pre�
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "BRAF-Mutant Papillary Thyroid Cancer", "mondoId": "MONDO:0005075", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "BRAF-Mutant_Papillary_Thyroid_Cancer", "yamlRevision": "569237cc1747"};
+        const OS_CONFIG = {"diseaseName": "BRAF-Mutant Papillary Thyroid Cancer", "mondoId": "MONDO:0005075", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "BRAF-Mutant_Papillary_Thyroid_Cancer", "yamlRevision": "16c9492f6381"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

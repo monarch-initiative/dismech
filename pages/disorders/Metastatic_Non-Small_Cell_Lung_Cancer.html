@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2588,10 +2741,12 @@
             </a>
             
             
+            <a class="stat-link" href="#treatments">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">1</div>
                 <div class="stat-label">Treatments</div>
             </div>
+            </a>
             
             
             <div class="stat-item">
@@ -2625,6 +2780,20 @@
             
             
             
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-value">26</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -3350,6 +3519,36 @@
                 
                 
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_49342c73-96d7-45ba-9c90-d2d5e5710636-2020-07-30T202207.418Z" target="_blank">CGGV:assertion_49342c73-96d7-45ba-9c90-d2d5e5710636-2020-07-30T202207.418Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"EGFR | HGNC:3236 | non-small cell lung carcinoma | MONDO:0005233 | AD | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the EGFR-non-small cell lung carcinoma gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
             </div>
             
@@ -3396,6 +3595,106 @@
         
 
         <!-- Treatments -->
+        
+        <div class="card" id="treatments">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
+                <h2 class="card-title">Treatments</h2>
+                <span class="card-count">1</span>
+            </div>
+            
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    Pembrolizumab-Based Immune Checkpoint Therapy
+                </div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">immunotherapy</span>
+                    
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
+                    
+                    
+                    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15262</a>
+                    
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                </div>
+                
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        pembrolizumab
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C106432" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+                
+                <div class="item-desc">Immune checkpoint inhibitor therapy is a major systemic treatment class in metastatic non-small cell lung cancer, with pembrolizumab-based regimens selected according to PD-L1 expression, tumor genotype, histology, and chemotherapy eligibility.</div>
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/jnci/djae118" target="_blank">DOI:10.1093/jnci/djae118</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Immune checkpoint inhibitors have profoundly impacted survival among patients with metastatic non–small cell lung cancer."</div>
+                
+                
+                <div class="evidence-explanation">Population-level metastatic NSCLC evidence supports immune checkpoint inhibitors as survival-impacting systemic therapy.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+        </div>
         
 
         <!-- Environmental Factors -->
@@ -3453,7 +3752,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Metastatic Non-Small Cell Lung Cancer
 creation_date: &#39;2026-03-28T21:20:00Z&#39;
-updated_date: &#39;2026-03-29T02:21:26Z&#39;
+updated_date: &#39;2026-05-10T08:24:09Z&#39;
 description: &gt;-
   Metastatic non-small cell lung cancer (NSCLC) is advanced NSCLC with dissemination
   to distant organs, particularly brain, bone, liver, adrenal gland, and pleura.
@@ -3492,7 +3791,8 @@ prevalence:
 pathophysiology:
 - name: Oncogenic RTK Addiction
   description: &gt;-
-    Metastatic NSCLC is often driven by EGFR mutations, ALK fusions, ROS1 fusions, MET
+    Metastatic NSCLC is often driven by EGFR mutations, ALK fusions, ROS1 fusions,
+    MET
     activation, or other kinase alterations that sustain growth, survival, and metastatic
     spread. These drivers create both therapeutic vulnerabilities and resistance trajectories.
   evidence:
@@ -3514,7 +3814,8 @@ pathophysiology:
       label: MAPK cascade
 - name: EMT and Invasion
   description: &gt;-
-    NSCLC cells adopt EMT programs to detach from primary lesions, invade surrounding stroma,
+    NSCLC cells adopt EMT programs to detach from primary lesions, invade surrounding
+    stroma,
     and survive transit to distant sites. EMT also contributes to resistance to targeted
     therapy and immune-mediated clearance.
   biological_processes:
@@ -3535,8 +3836,10 @@ pathophysiology:
       label: positive regulation of cell migration
 - name: PD-L1 Adaptive Immune Resistance
   description: &gt;-
-    PD-L1 expression in metastatic NSCLC reflects adaptive immune resistance in response to
-    interferon-rich T-cell infiltrates and can blunt antitumor immunity at primary and
+    PD-L1 expression in metastatic NSCLC reflects adaptive immune resistance in response
+    to
+    interferon-rich T-cell infiltrates and can blunt antitumor immunity at primary
+    and
     metastatic sites.
   evidence:
   - reference: PMID:31627272
@@ -3552,7 +3855,8 @@ pathophysiology:
       label: negative regulation of immune response
 - name: Brain Metastasis Seed-and-Soil Biology
   description: &gt;-
-    Brain metastases arise when circulating NSCLC cells survive vascular arrest, cross the
+    Brain metastases arise when circulating NSCLC cells survive vascular arrest, cross
+    the
     blood-brain barrier, and adapt to the neural microenvironment. Organ microenvironmental
     interactions are major determinants of treatment resistance in cerebral disease.
   evidence:
@@ -3569,7 +3873,8 @@ pathophysiology:
       label: cell migration
 - name: Angiogenesis and Vascular Remodeling
   description: &gt;-
-    Metastatic NSCLC lesions require neovascular support, and vascular remodeling contributes
+    Metastatic NSCLC lesions require neovascular support, and vascular remodeling
+    contributes
     to tumor growth in lung, brain, and bone niches.
   biological_processes:
   - preferred_term: angiogenesis
@@ -3626,6 +3931,13 @@ phenotypes:
 genetic:
 - name: EGFR
   association: Somatic activating mutation
+  evidence:
+  - reference: CGGV:assertion_49342c73-96d7-45ba-9c90-d2d5e5710636-2020-07-30T202207.418Z
+    reference_title: &#34;EGFR / non-small cell lung carcinoma (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;EGFR | HGNC:3236 | non-small cell lung carcinoma | MONDO:0005233 | AD | Definitive&#34;
+    explanation: ClinGen classifies the EGFR-non-small cell lung carcinoma gene-disease relationship as definitive with autosomal dominant inheritance.
   notes: EGFR mutations drive metastatic behavior and create dependence on EGFR signaling.
 - name: ALK
   association: Oncogenic rearrangement
@@ -3640,14 +3952,2566 @@ environmental:
 - name: Tobacco smoking
   notes: Tobacco exposure remains the dominant NSCLC risk factor and shapes mutational complexity.
 notes: &gt;-
-  Metastatic NSCLC couples oncogenic kinase addiction with immune checkpoint adaptation and
+  Metastatic NSCLC couples oncogenic kinase addiction with immune checkpoint adaptation
+  and
   strong organotropism to brain and bone. Brain metastasis biology is especially dependent
   on seed-and-soil interactions with the neural microenvironment.
+treatments:
+- name: Pembrolizumab-Based Immune Checkpoint Therapy
+  description: Immune checkpoint inhibitor therapy is a major systemic treatment class in metastatic non-small cell lung cancer, with pembrolizumab-based regimens selected according to PD-L1 expression, tumor genotype, histology, and chemotherapy eligibility.
+  treatment_term:
+    preferred_term: immunotherapy
+    term:
+      id: NCIT:C15262
+      label: Immunotherapy
+    therapeutic_agent:
+    - preferred_term: pembrolizumab
+      term:
+        id: NCIT:C106432
+        label: Pembrolizumab
+  evidence:
+  - reference: DOI:10.1093/jnci/djae118
+    reference_title: Racial and socioeconomic disparities in survival among patients with metastatic non–small cell lung cancer
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Immune checkpoint inhibitors have profoundly impacted survival among patients with metastatic non–small cell lung cancer.
+    explanation: Population-level metastatic NSCLC evidence supports immune checkpoint inhibitors as survival-impacting systemic therapy.
+references:
+- reference: DOI:10.1016/j.xcrm.2024.101777
+  title: Modeling lung adenocarcinoma metastases using patient-derived organoids
+  found_in:
+  - Metastatic_NSCLC-deep-research-falcon.md
+  findings:
+  - statement: Modeling lung adenocarcinoma metastases using patient-derived organoids
+    supporting_text: Modeling lung adenocarcinoma metastases using patient-derived organoids
+- reference: DOI:10.1038/s41392-024-01897-y
+  title: &#39;SHR-A1811 (antibody-drug conjugate) in advanced HER2-mutant non-small cell lung cancer: a multicenter, open-label, phase 1/2 study&#39;
+  found_in:
+  - Metastatic_NSCLC-deep-research-falcon.md
+  findings:
+  - statement: A dose-escalation and expansion, phase 1/2 study (ClinicalTrials.gov, NCT04818333) was conducted to assess the novel antibody-drug conjugate SHR-A1811 in pretreated HER2-altered advanced non-small cell lung cancer (NSCLC).
+    supporting_text: A dose-escalation and expansion, phase 1/2 study (ClinicalTrials.gov, NCT04818333) was conducted to assess the novel antibody-drug conjugate SHR-A1811 in pretreated HER2-altered advanced non-small cell lung cancer (NSCLC).
+    evidence:
+    - reference: DOI:10.1038/s41392-024-01897-y
+      reference_title: &#39;SHR-A1811 (antibody-drug conjugate) in advanced HER2-mutant non-small cell lung cancer: a multicenter, open-label, phase 1/2 study&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: A dose-escalation and expansion, phase 1/2 study (ClinicalTrials.gov, NCT04818333) was conducted to assess the novel antibody-drug conjugate SHR-A1811 in pretreated HER2-altered advanced non-small cell lung cancer (NSCLC).
+      explanation: Deep research cited this publication as relevant literature for Metastatic NSCLC.
+- reference: DOI:10.1038/s41416-024-02895-1
+  title: &#39;Real-world evidence for pembrolizumab in non-small cell lung cancer: a nationwide cohort study&#39;
+  found_in:
+  - Metastatic_NSCLC-deep-research-falcon.md
+  findings:
+  - statement: &#39;Real-world evidence for pembrolizumab in non-small cell lung cancer: a nationwide cohort study&#39;
+    supporting_text: Based on favourable results from clinical trials, immune checkpoint inhibitors (ICI) have become the standard first line (1 L) systemic anticancer treatment (SACT) for advanced stage non-small cell lung cancer (NSCLC) without targetable mutations.
+    evidence:
+    - reference: DOI:10.1038/s41416-024-02895-1
+      reference_title: &#39;Real-world evidence for pembrolizumab in non-small cell lung cancer: a nationwide cohort study&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Based on favourable results from clinical trials, immune checkpoint inhibitors (ICI) have become the standard first line (1 L) systemic anticancer treatment (SACT) for advanced stage non-small cell lung cancer (NSCLC) without targetable mutations.
+      explanation: Deep research cited this publication as relevant literature for Metastatic NSCLC.
+- reference: DOI:10.1038/s41467-024-47547-3
+  title: Representation of genomic intratumor heterogeneity in multi-region non-small cell lung cancer patient-derived xenograft models
+  found_in:
+  - Metastatic_NSCLC-deep-research-falcon.md
+  findings:
+  - statement: Patient-derived xenograft (PDX) models are widely used in cancer research.
+    supporting_text: Patient-derived xenograft (PDX) models are widely used in cancer research.
+    evidence:
+    - reference: DOI:10.1038/s41467-024-47547-3
+      reference_title: Representation of genomic intratumor heterogeneity in multi-region non-small cell lung cancer patient-derived xenograft models
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Patient-derived xenograft (PDX) models are widely used in cancer research.
+      explanation: Deep research cited this publication as relevant literature for Metastatic NSCLC.
+- reference: DOI:10.1038/s41598-024-73389-6
+  title: Distant metastasis patterns among lung cancer subtypes and impact of primary tumor resection on survival in metastatic lung cancer using SEER database
+  found_in:
+  - Metastatic_NSCLC-deep-research-falcon.md
+  findings:
+  - statement: Distant metastasis patterns among lung cancer subtypes and impact of primary tumor resection on survival in metastatic lung cancer using SEER database
+    supporting_text: Distant metastasis patterns among lung cancer subtypes and impact of primary tumor resection on survival in metastatic lung cancer using SEER database
+- reference: DOI:10.1038/s41698-024-00609-7
+  title: Prediction of TKI response in EGFR-mutant lung cancer patients-derived organoids using malignant pleural effusion
+  found_in:
+  - Metastatic_NSCLC-deep-research-falcon.md
+  findings:
+  - statement: Patient-derived organoids (PDOs) are valuable in predicting response to cancer therapy.
+    supporting_text: Patient-derived organoids (PDOs) are valuable in predicting response to cancer therapy.
+    evidence:
+    - reference: DOI:10.1038/s41698-024-00609-7
+      reference_title: Prediction of TKI response in EGFR-mutant lung cancer patients-derived organoids using malignant pleural effusion
+      supports: SUPPORT
+      evidence_source: COMPUTATIONAL
+      snippet: Patient-derived organoids (PDOs) are valuable in predicting response to cancer therapy.
+      explanation: Deep research cited this publication as relevant literature for Metastatic NSCLC.
+- reference: DOI:10.1056/nejmoa2403614
+  title: Amivantamab plus Lazertinib in Previously Untreated &lt;i&gt;EGFR&lt;/i&gt; -Mutated Advanced NSCLC
+  found_in:
+  - Metastatic_NSCLC-deep-research-falcon.md
+  findings:
+  - statement: Amivantamab plus Lazertinib in Previously Untreated &lt;i&gt;EGFR&lt;/i&gt; -Mutated Advanced NSCLC
+    supporting_text: Amivantamab plus Lazertinib in Previously Untreated &lt;i&gt;EGFR&lt;/i&gt; -Mutated Advanced NSCLC
+- reference: DOI:10.1093/jnci/djae118
+  title: Racial and socioeconomic disparities in survival among patients with metastatic non–small cell lung cancer
+  found_in:
+  - Metastatic_NSCLC-deep-research-falcon.md
+  findings:
+  - statement: Immune checkpoint inhibitors have profoundly impacted survival among patients with metastatic non–small cell lung cancer.
+    supporting_text: Immune checkpoint inhibitors have profoundly impacted survival among patients with metastatic non–small cell lung cancer.
+    evidence:
+    - reference: DOI:10.1093/jnci/djae118
+      reference_title: Racial and socioeconomic disparities in survival among patients with metastatic non–small cell lung cancer
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Immune checkpoint inhibitors have profoundly impacted survival among patients with metastatic non–small cell lung cancer.
+      explanation: Deep research cited this publication as relevant literature for Metastatic NSCLC.
+- reference: DOI:10.1177/17588359241231260
+  title: &#39;Geographic differences in lung cancer: focus on carcinogens, genetic predisposition, and molecular epidemiology&#39;
+  found_in:
+  - Metastatic_NSCLC-deep-research-falcon.md
+  findings:
+  - statement: Lung cancer poses a global health challenge and stands as the leading cause of cancer-related deaths worldwide.
+    supporting_text: Lung cancer poses a global health challenge and stands as the leading cause of cancer-related deaths worldwide.
+    evidence:
+    - reference: DOI:10.1177/17588359241231260
+      reference_title: &#39;Geographic differences in lung cancer: focus on carcinogens, genetic predisposition, and molecular epidemiology&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Lung cancer poses a global health challenge and stands as the leading cause of cancer-related deaths worldwide.
+      explanation: Deep research cited this publication as relevant literature for Metastatic NSCLC.
+- reference: DOI:10.1177/17588359241303090
+  title: &#39;Femoral bone metastasis is a poor prognostic factor in EGFR-TKIs-treated patients with &lt;i&gt;EGFR&lt;/i&gt; -mutated non-small-cell lung cancer: a retrospective, multicenter cohort study&#39;
+  found_in:
+  - Metastatic_NSCLC-deep-research-falcon.md
+  findings:
+  - statement: Epidermal growth factor receptor ( EGFR)-mutant non-small-cell lung cancers (NSCLCs) have higher frequencies of bone metastases than those of wild type; however, the metastatic pattern and influence on clinical outcome remain unclear.
+    supporting_text: Epidermal growth factor receptor ( EGFR)-mutant non-small-cell lung cancers (NSCLCs) have higher frequencies of bone metastases than those of wild type; however, the metastatic pattern and influence on clinical outcome remain unclear.
+    evidence:
+    - reference: DOI:10.1177/17588359241303090
+      reference_title: &#39;Femoral bone metastasis is a poor prognostic factor in EGFR-TKIs-treated patients with &lt;i&gt;EGFR&lt;/i&gt; -mutated non-small-cell lung cancer: a retrospective, multicenter cohort study&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Epidermal growth factor receptor ( EGFR)-mutant non-small-cell lung cancers (NSCLCs) have higher frequencies of bone metastases than those of wild type; however, the metastatic pattern and influence on clinical outcome remain unclear.
+      explanation: Deep research cited this publication as relevant literature for Metastatic NSCLC.
+- reference: DOI:10.1186/s10020-024-00934-4
+  title: Utility of patient-derived xenografts to evaluate drug sensitivity and select optimal treatments for individual non-small-cell lung cancer patients
+  found_in:
+  - Metastatic_NSCLC-deep-research-falcon.md
+  findings:
+  - statement: Patient-derived xenograft (PDX) is currently considered a preferred preclinical model to evaluate drug sensitivity, explore drug resistance mechanisms, and select individualized treatment regimens.
+    supporting_text: Patient-derived xenograft (PDX) is currently considered a preferred preclinical model to evaluate drug sensitivity, explore drug resistance mechanisms, and select individualized treatment regimens.
+    evidence:
+    - reference: DOI:10.1186/s10020-024-00934-4
+      reference_title: Utility of patient-derived xenografts to evaluate drug sensitivity and select optimal treatments for individual non-small-cell lung cancer patients
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Patient-derived xenograft (PDX) is currently considered a preferred preclinical model to evaluate drug sensitivity, explore drug resistance mechanisms, and select individualized treatment regimens.
+      explanation: Deep research cited this publication as relevant literature for Metastatic NSCLC.
+- reference: DOI:10.1186/s12957-024-03449-8
+  title: &#39;Efficacy and toxicity of KRASG12C inhibitors in advanced solid tumors: a meta-analysis&#39;
+  found_in:
+  - Metastatic_NSCLC-deep-research-falcon.md
+  findings:
+  - statement: The efficacy and toxicity of KRASG12C inhibitors were evaluated for advanced solid tumors in several studies; however, the results were not fully consistent.
+    supporting_text: The efficacy and toxicity of KRASG12C inhibitors were evaluated for advanced solid tumors in several studies; however, the results were not fully consistent.
+    evidence:
+    - reference: DOI:10.1186/s12957-024-03449-8
+      reference_title: &#39;Efficacy and toxicity of KRASG12C inhibitors in advanced solid tumors: a meta-analysis&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: The efficacy and toxicity of KRASG12C inhibitors were evaluated for advanced solid tumors in several studies; however, the results were not fully consistent.
+      explanation: Deep research cited this publication as relevant literature for Metastatic NSCLC.
+- reference: DOI:10.1200/oa.24.00008
+  title: &#39;Disparities in Utilization of Immune Checkpoint Inhibitor Therapy Among Older Patients With Advanced Non–Small Cell Lung Cancer: A SEER-Medicare Analysis&#39;
+  found_in:
+  - Metastatic_NSCLC-deep-research-falcon.md
+  findings:
+  - statement: In the United States, there are disparities in access to care for patients with non–small cell lung cancer (NSCLC) on the basis of socioeconomic and racial/ethnic factors.
+    supporting_text: In the United States, there are disparities in access to care for patients with non–small cell lung cancer (NSCLC) on the basis of socioeconomic and racial/ethnic factors.
+    evidence:
+    - reference: DOI:10.1200/oa.24.00008
+      reference_title: &#39;Disparities in Utilization of Immune Checkpoint Inhibitor Therapy Among Older Patients With Advanced Non–Small Cell Lung Cancer: A SEER-Medicare Analysis&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: In the United States, there are disparities in access to care for patients with non–small cell lung cancer (NSCLC) on the basis of socioeconomic and racial/ethnic factors.
+      explanation: Deep research cited this publication as relevant literature for Metastatic NSCLC.
+- reference: DOI:10.18502/jhsw.v14i1.17131
+  title: &#39;Investigating the Relationship Between Exposure to Cadmium and Lung Cancer Risk: A Systematic Review and Meta-analysis&#39;
+  found_in:
+  - Metastatic_NSCLC-deep-research-falcon.md
+  findings:
+  - statement: Lung cancer is the second most common cancer in the world.
+    supporting_text: Lung cancer is the second most common cancer in the world.
+    evidence:
+    - reference: DOI:10.18502/jhsw.v14i1.17131
+      reference_title: &#39;Investigating the Relationship Between Exposure to Cadmium and Lung Cancer Risk: A Systematic Review and Meta-analysis&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Lung cancer is the second most common cancer in the world.
+      explanation: Deep research cited this publication as relevant literature for Metastatic NSCLC.
+- reference: DOI:10.21037/tlcr-24-856
+  title: A potential central nervous system niche for trastuzumab deruxtecan in patients with HER2-expressing non-small cell lung cancer
+  found_in:
+  - Metastatic_NSCLC-deep-research-falcon.md
+  findings:
+  - statement: A potential central nervous system niche for trastuzumab deruxtecan in patients with HER2-expressing non-small cell lung cancer
+    supporting_text: A potential central nervous system niche for trastuzumab deruxtecan in patients with HER2-expressing non-small cell lung cancer
+- reference: DOI:10.2147/dddt.s466217
+  title: &#39;Adagrasib in the Treatment of KRAS p.G12C Positive Advanced NSCLC: Design, Development and Place in Therapy&#39;
+  found_in:
+  - Metastatic_NSCLC-deep-research-falcon.md
+  findings:
+  - statement: &#39;Adagrasib in the Treatment of KRAS p.G12C Positive Advanced NSCLC: Design, Development and Place in Therapy&#39;
+    supporting_text: &#39;Adagrasib in the Treatment of KRAS p.G12C Positive Advanced NSCLC: Design, Development and Place in Therapy&#39;
+- reference: DOI:10.3322/caac.21811
+  title: &#39;Screening for lung cancer: 2023 guideline update from the American Cancer Society&#39;
+  found_in:
+  - Metastatic_NSCLC-deep-research-falcon.md
+  findings:
+  - statement: Lung cancer is the leading cause of mortality and person‐years of life lost from cancer among US men and women.
+    supporting_text: Lung cancer is the leading cause of mortality and person‐years of life lost from cancer among US men and women.
+    evidence:
+    - reference: DOI:10.3322/caac.21811
+      reference_title: &#39;Screening for lung cancer: 2023 guideline update from the American Cancer Society&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Lung cancer is the leading cause of mortality and person‐years of life lost from cancer among US men and women.
+      explanation: Deep research cited this publication as relevant literature for Metastatic NSCLC.
+- reference: DOI:10.3389/fonc.2023.1241402
+  title: &#39;Non-small cell lung cancer with MET amplification: review of epidemiology, associated disease characteristics, testing procedures, burden, and treatments&#39;
+  found_in:
+  - Metastatic_NSCLC-deep-research-falcon.md
+  findings:
+  - statement: Mesenchymal-epidermal transition factor gene amplification (METamp) is being investigated as a therapeutic target in advanced non-small cell lung cancer (NSCLC).
+    supporting_text: Mesenchymal-epidermal transition factor gene amplification (METamp) is being investigated as a therapeutic target in advanced non-small cell lung cancer (NSCLC).
+    evidence:
+    - reference: DOI:10.3389/fonc.2023.1241402
+      reference_title: &#39;Non-small cell lung cancer with MET amplification: review of epidemiology, associated disease characteristics, testing procedures, burden, and treatments&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Mesenchymal-epidermal transition factor gene amplification (METamp) is being investigated as a therapeutic target in advanced non-small cell lung cancer (NSCLC).
+      explanation: Deep research cited this publication as relevant literature for Metastatic NSCLC.
+- reference: DOI:10.3389/fonc.2024.1328728
+  title: Mechanisms of resistance to KRASG12C inhibitors in KRASG12C-mutated non-small cell lung cancer
+  found_in:
+  - Metastatic_NSCLC-deep-research-falcon.md
+  findings:
+  - statement: The KRAS protein, a product of the KRAS gene (V-ki-ras2 Kirsten rat sarcoma viral oncogene homolog), functions as a small GTPase that alternates between an active GTP-bound state (KRAS(ON)) and an inactive GDP-bound state (KRAS(OFF)).
+    supporting_text: The KRAS protein, a product of the KRAS gene (V-ki-ras2 Kirsten rat sarcoma viral oncogene homolog), functions as a small GTPase that alternates between an active GTP-bound state (KRAS(ON)) and an inactive GDP-bound state (KRAS(OFF)).
+    evidence:
+    - reference: DOI:10.3389/fonc.2024.1328728
+      reference_title: Mechanisms of resistance to KRASG12C inhibitors in KRASG12C-mutated non-small cell lung cancer
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The KRAS protein, a product of the KRAS gene (V-ki-ras2 Kirsten rat sarcoma viral oncogene homolog), functions as a small GTPase that alternates between an active GTP-bound state (KRAS(ON)) and an inactive GDP-bound state (KRAS(OFF)).
+      explanation: Deep research cited this publication as relevant literature for Metastatic NSCLC.
+- reference: DOI:10.3389/fonc.2024.1442909
+  title: Real-world treatment patterns, biomarker testing, and clinical outcomes of metastatic non-small cell lung cancer patients in the immunotherapy era
+  found_in:
+  - Metastatic_NSCLC-deep-research-falcon.md
+  findings:
+  - statement: Treatment for first-line (1L) metastatic non-small cell cancer (mNSCLC) changed with the introduction of immunotherapy.
+    supporting_text: Treatment for first-line (1L) metastatic non-small cell cancer (mNSCLC) changed with the introduction of immunotherapy.
+    evidence:
+    - reference: DOI:10.3389/fonc.2024.1442909
+      reference_title: Real-world treatment patterns, biomarker testing, and clinical outcomes of metastatic non-small cell lung cancer patients in the immunotherapy era
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Treatment for first-line (1L) metastatic non-small cell cancer (mNSCLC) changed with the introduction of immunotherapy.
+      explanation: Deep research cited this publication as relevant literature for Metastatic NSCLC.
+- reference: DOI:10.3390/cancers16112018
+  title: &#39;HER2-Altered Non-Small Cell Lung Cancer: A Journey from Current Approaches to Emerging Strategies&#39;
+  found_in:
+  - Metastatic_NSCLC-deep-research-falcon.md
+  findings:
+  - statement: For patients diagnosed with advanced HER2-altered non-small cell lung cancer (NSCLC), the current standard of care is represented by a platinum-pemetrexed-based chemotherapy, eventually in combination with immunotherapy.
+    supporting_text: For patients diagnosed with advanced HER2-altered non-small cell lung cancer (NSCLC), the current standard of care is represented by a platinum-pemetrexed-based chemotherapy, eventually in combination with immunotherapy.
+    evidence:
+    - reference: DOI:10.3390/cancers16112018
+      reference_title: &#39;HER2-Altered Non-Small Cell Lung Cancer: A Journey from Current Approaches to Emerging Strategies&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: For patients diagnosed with advanced HER2-altered non-small cell lung cancer (NSCLC), the current standard of care is represented by a platinum-pemetrexed-based chemotherapy, eventually in combination with immunotherapy.
+      explanation: Deep research cited this publication as relevant literature for Metastatic NSCLC.
+- reference: DOI:10.3390/cancers16112136
+  title: Site-Specific Response and Resistance Patterns in Patients with Advanced Non-Small-Cell Lung Cancer Treated with First-Line Systemic Therapy
+  found_in:
+  - Metastatic_NSCLC-deep-research-falcon.md
+  findings:
+  - statement: Patients with advanced NSCLC have heterogenous responses to immune checkpoint inhibitors (ICIs) with or without chemotherapy.
+    supporting_text: Patients with advanced NSCLC have heterogenous responses to immune checkpoint inhibitors (ICIs) with or without chemotherapy.
+    evidence:
+    - reference: DOI:10.3390/cancers16112136
+      reference_title: Site-Specific Response and Resistance Patterns in Patients with Advanced Non-Small-Cell Lung Cancer Treated with First-Line Systemic Therapy
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Patients with advanced NSCLC have heterogenous responses to immune checkpoint inhibitors (ICIs) with or without chemotherapy.
+      explanation: Deep research cited this publication as relevant literature for Metastatic NSCLC.
+- reference: DOI:10.3390/cancers16132338
+  title: &#39;Identification and Application of Emerging Biomarkers in Treatment of Non-Small-Cell Lung Cancer: Systematic Review&#39;
+  found_in:
+  - Metastatic_NSCLC-deep-research-falcon.md
+  findings:
+  - statement: Non-small-cell lung cancer (NSCLC) comprises approximately 85% of all lung cancer cases, often diagnosed at advanced stages, which diminishes the effective treatment options and survival rates.
+    supporting_text: Non-small-cell lung cancer (NSCLC) comprises approximately 85% of all lung cancer cases, often diagnosed at advanced stages, which diminishes the effective treatment options and survival rates.
+    evidence:
+    - reference: DOI:10.3390/cancers16132338
+      reference_title: &#39;Identification and Application of Emerging Biomarkers in Treatment of Non-Small-Cell Lung Cancer: Systematic Review&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Non-small-cell lung cancer (NSCLC) comprises approximately 85% of all lung cancer cases, often diagnosed at advanced stages, which diminishes the effective treatment options and survival rates.
+      explanation: Deep research cited this publication as relevant literature for Metastatic NSCLC.
+- reference: DOI:10.3390/cancers16132350
+  title: Evolving Precision First-Line Systemic Treatment for Patients with Unresectable Non-Small Cell Lung Cancer
+  found_in:
+  - Metastatic_NSCLC-deep-research-falcon.md
+  findings:
+  - statement: First-line systemic therapy for patients with advanced or metastatic non-small cell lung cancer (NSCLC) has rapidly evolved over the past two decades.
+    supporting_text: First-line systemic therapy for patients with advanced or metastatic non-small cell lung cancer (NSCLC) has rapidly evolved over the past two decades.
+    evidence:
+    - reference: DOI:10.3390/cancers16132350
+      reference_title: Evolving Precision First-Line Systemic Treatment for Patients with Unresectable Non-Small Cell Lung Cancer
+      supports: SUPPORT
+      evidence_source: COMPUTATIONAL
+      snippet: First-line systemic therapy for patients with advanced or metastatic non-small cell lung cancer (NSCLC) has rapidly evolved over the past two decades.
+      explanation: Deep research cited this publication as relevant literature for Metastatic NSCLC.
+- reference: DOI:10.37349/etat.2024.00277
+  title: Addressing the unmet need in NSCLC progression with advances in second-line therapeutics
+  found_in:
+  - Metastatic_NSCLC-deep-research-falcon.md
+  findings:
+  - statement: Lung cancer is the leading cause of cancer mortality globally, with non-small cell lung cancer (NSCLC) accounting for 85% of cases.
+    supporting_text: Lung cancer is the leading cause of cancer mortality globally, with non-small cell lung cancer (NSCLC) accounting for 85% of cases.
+    evidence:
+    - reference: DOI:10.37349/etat.2024.00277
+      reference_title: Addressing the unmet need in NSCLC progression with advances in second-line therapeutics
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Lung cancer is the leading cause of cancer mortality globally, with non-small cell lung cancer (NSCLC) accounting for 85% of cases.
+      explanation: Deep research cited this publication as relevant literature for Metastatic NSCLC.
+- reference: DOI:10.4046/trd.2024.0092
+  title: Update in Association between Lung Cancer and Air Pollution
+  found_in:
+  - Metastatic_NSCLC-deep-research-falcon.md
+  findings:
+  - statement: A significant portion of newly diagnosed lung cancer cases occurs in populations exposed to air pollution.
+    supporting_text: A significant portion of newly diagnosed lung cancer cases occurs in populations exposed to air pollution.
+    evidence:
+    - reference: DOI:10.4046/trd.2024.0092
+      reference_title: Update in Association between Lung Cancer and Air Pollution
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: A significant portion of newly diagnosed lung cancer cases occurs in populations exposed to air pollution.
+      explanation: Deep research cited this publication as relevant literature for Metastatic NSCLC.
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
+        
+        <div class="card reference-card" id="references-deep-research">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+            
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">26</span>
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1016/j.xcrm.2024.101777" target="_blank">DOI:10.1016/j.xcrm.2024.101777</a>
+                            </div>
+                            
+                            <div class="reference-title">Modeling lung adenocarcinoma metastases using patient-derived organoids</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Modeling lung adenocarcinoma metastases using patient-derived organoids</div>
+            
+            
+            <div class="reference-finding-supporting">"Modeling lung adenocarcinoma metastases using patient-derived organoids"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1038/s41392-024-01897-y" target="_blank">DOI:10.1038/s41392-024-01897-y</a>
+                            </div>
+                            
+                            <div class="reference-title">SHR-A1811 (antibody-drug conjugate) in advanced HER2-mutant non-small cell lung cancer: a multicenter, open-label, phase 1/2 study</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">A dose-escalation and expansion, phase 1/2 study (ClinicalTrials.gov, NCT04818333) was conducted to assess the novel antibody-drug conjugate SHR-A1811 in pretreated HER2-altered advanced non-small cell lung cancer (NSCLC).</div>
+            
+            
+            <div class="reference-finding-supporting">"A dose-escalation and expansion, phase 1/2 study (ClinicalTrials.gov, NCT04818333) was conducted to assess the novel antibody-drug conjugate SHR-A1811 in pretreated HER2-altered advanced non-small cell lung cancer (NSCLC)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41392-024-01897-y" target="_blank">DOI:10.1038/s41392-024-01897-y</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"A dose-escalation and expansion, phase 1/2 study (ClinicalTrials.gov, NCT04818333) was conducted to assess the novel antibody-drug conjugate SHR-A1811 in pretreated HER2-altered advanced non-small cell lung cancer (NSCLC)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic NSCLC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1038/s41416-024-02895-1" target="_blank">DOI:10.1038/s41416-024-02895-1</a>
+                            </div>
+                            
+                            <div class="reference-title">Real-world evidence for pembrolizumab in non-small cell lung cancer: a nationwide cohort study</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Real-world evidence for pembrolizumab in non-small cell lung cancer: a nationwide cohort study</div>
+            
+            
+            <div class="reference-finding-supporting">"Based on favourable results from clinical trials, immune checkpoint inhibitors (ICI) have become the standard first line (1 L) systemic anticancer treatment (SACT) for advanced stage non-small cell lung cancer (NSCLC) without targetable mutations."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41416-024-02895-1" target="_blank">DOI:10.1038/s41416-024-02895-1</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Based on favourable results from clinical trials, immune checkpoint inhibitors (ICI) have become the standard first line (1 L) systemic anticancer treatment (SACT) for advanced stage non-small cell lung cancer (NSCLC) without targetable mutations."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic NSCLC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1038/s41467-024-47547-3" target="_blank">DOI:10.1038/s41467-024-47547-3</a>
+                            </div>
+                            
+                            <div class="reference-title">Representation of genomic intratumor heterogeneity in multi-region non-small cell lung cancer patient-derived xenograft models</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Patient-derived xenograft (PDX) models are widely used in cancer research.</div>
+            
+            
+            <div class="reference-finding-supporting">"Patient-derived xenograft (PDX) models are widely used in cancer research."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41467-024-47547-3" target="_blank">DOI:10.1038/s41467-024-47547-3</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Patient-derived xenograft (PDX) models are widely used in cancer research."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic NSCLC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1038/s41598-024-73389-6" target="_blank">DOI:10.1038/s41598-024-73389-6</a>
+                            </div>
+                            
+                            <div class="reference-title">Distant metastasis patterns among lung cancer subtypes and impact of primary tumor resection on survival in metastatic lung cancer using SEER database</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Distant metastasis patterns among lung cancer subtypes and impact of primary tumor resection on survival in metastatic lung cancer using SEER database</div>
+            
+            
+            <div class="reference-finding-supporting">"Distant metastasis patterns among lung cancer subtypes and impact of primary tumor resection on survival in metastatic lung cancer using SEER database"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1038/s41698-024-00609-7" target="_blank">DOI:10.1038/s41698-024-00609-7</a>
+                            </div>
+                            
+                            <div class="reference-title">Prediction of TKI response in EGFR-mutant lung cancer patients-derived organoids using malignant pleural effusion</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Patient-derived organoids (PDOs) are valuable in predicting response to cancer therapy.</div>
+            
+            
+            <div class="reference-finding-supporting">"Patient-derived organoids (PDOs) are valuable in predicting response to cancer therapy."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41698-024-00609-7" target="_blank">DOI:10.1038/s41698-024-00609-7</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Patient-derived organoids (PDOs) are valuable in predicting response to cancer therapy."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic NSCLC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1056/nejmoa2403614" target="_blank">DOI:10.1056/nejmoa2403614</a>
+                            </div>
+                            
+                            <div class="reference-title">Amivantamab plus Lazertinib in Previously Untreated &lt;i&gt;EGFR&lt;/i&gt; -Mutated Advanced NSCLC</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Amivantamab plus Lazertinib in Previously Untreated &lt;i&gt;EGFR&lt;/i&gt; -Mutated Advanced NSCLC</div>
+            
+            
+            <div class="reference-finding-supporting">"Amivantamab plus Lazertinib in Previously Untreated &lt;i&gt;EGFR&lt;/i&gt; -Mutated Advanced NSCLC"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1093/jnci/djae118" target="_blank">DOI:10.1093/jnci/djae118</a>
+                            </div>
+                            
+                            <div class="reference-title">Racial and socioeconomic disparities in survival among patients with metastatic non–small cell lung cancer</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Immune checkpoint inhibitors have profoundly impacted survival among patients with metastatic non–small cell lung cancer.</div>
+            
+            
+            <div class="reference-finding-supporting">"Immune checkpoint inhibitors have profoundly impacted survival among patients with metastatic non–small cell lung cancer."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/jnci/djae118" target="_blank">DOI:10.1093/jnci/djae118</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Immune checkpoint inhibitors have profoundly impacted survival among patients with metastatic non–small cell lung cancer."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic NSCLC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1177/17588359241231260" target="_blank">DOI:10.1177/17588359241231260</a>
+                            </div>
+                            
+                            <div class="reference-title">Geographic differences in lung cancer: focus on carcinogens, genetic predisposition, and molecular epidemiology</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Lung cancer poses a global health challenge and stands as the leading cause of cancer-related deaths worldwide.</div>
+            
+            
+            <div class="reference-finding-supporting">"Lung cancer poses a global health challenge and stands as the leading cause of cancer-related deaths worldwide."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1177/17588359241231260" target="_blank">DOI:10.1177/17588359241231260</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Lung cancer poses a global health challenge and stands as the leading cause of cancer-related deaths worldwide."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic NSCLC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1177/17588359241303090" target="_blank">DOI:10.1177/17588359241303090</a>
+                            </div>
+                            
+                            <div class="reference-title">Femoral bone metastasis is a poor prognostic factor in EGFR-TKIs-treated patients with &lt;i&gt;EGFR&lt;/i&gt; -mutated non-small-cell lung cancer: a retrospective, multicenter cohort study</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Epidermal growth factor receptor ( EGFR)-mutant non-small-cell lung cancers (NSCLCs) have higher frequencies of bone metastases than those of wild type; however, the metastatic pattern and influence on clinical outcome remain unclear.</div>
+            
+            
+            <div class="reference-finding-supporting">"Epidermal growth factor receptor ( EGFR)-mutant non-small-cell lung cancers (NSCLCs) have higher frequencies of bone metastases than those of wild type; however, the metastatic pattern and influence on clinical outcome remain unclear."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1177/17588359241303090" target="_blank">DOI:10.1177/17588359241303090</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Epidermal growth factor receptor ( EGFR)-mutant non-small-cell lung cancers (NSCLCs) have higher frequencies of bone metastases than those of wild type; however, the metastatic pattern and influence on clinical outcome remain unclear."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic NSCLC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1186/s10020-024-00934-4" target="_blank">DOI:10.1186/s10020-024-00934-4</a>
+                            </div>
+                            
+                            <div class="reference-title">Utility of patient-derived xenografts to evaluate drug sensitivity and select optimal treatments for individual non-small-cell lung cancer patients</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Patient-derived xenograft (PDX) is currently considered a preferred preclinical model to evaluate drug sensitivity, explore drug resistance mechanisms, and select individualized treatment regimens.</div>
+            
+            
+            <div class="reference-finding-supporting">"Patient-derived xenograft (PDX) is currently considered a preferred preclinical model to evaluate drug sensitivity, explore drug resistance mechanisms, and select individualized treatment regimens."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s10020-024-00934-4" target="_blank">DOI:10.1186/s10020-024-00934-4</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Patient-derived xenograft (PDX) is currently considered a preferred preclinical model to evaluate drug sensitivity, explore drug resistance mechanisms, and select individualized treatment regimens."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic NSCLC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1186/s12957-024-03449-8" target="_blank">DOI:10.1186/s12957-024-03449-8</a>
+                            </div>
+                            
+                            <div class="reference-title">Efficacy and toxicity of KRASG12C inhibitors in advanced solid tumors: a meta-analysis</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The efficacy and toxicity of KRASG12C inhibitors were evaluated for advanced solid tumors in several studies; however, the results were not fully consistent.</div>
+            
+            
+            <div class="reference-finding-supporting">"The efficacy and toxicity of KRASG12C inhibitors were evaluated for advanced solid tumors in several studies; however, the results were not fully consistent."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s12957-024-03449-8" target="_blank">DOI:10.1186/s12957-024-03449-8</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The efficacy and toxicity of KRASG12C inhibitors were evaluated for advanced solid tumors in several studies; however, the results were not fully consistent."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic NSCLC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1200/oa.24.00008" target="_blank">DOI:10.1200/oa.24.00008</a>
+                            </div>
+                            
+                            <div class="reference-title">Disparities in Utilization of Immune Checkpoint Inhibitor Therapy Among Older Patients With Advanced Non–Small Cell Lung Cancer: A SEER-Medicare Analysis</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">In the United States, there are disparities in access to care for patients with non–small cell lung cancer (NSCLC) on the basis of socioeconomic and racial/ethnic factors.</div>
+            
+            
+            <div class="reference-finding-supporting">"In the United States, there are disparities in access to care for patients with non–small cell lung cancer (NSCLC) on the basis of socioeconomic and racial/ethnic factors."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1200/oa.24.00008" target="_blank">DOI:10.1200/oa.24.00008</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"In the United States, there are disparities in access to care for patients with non–small cell lung cancer (NSCLC) on the basis of socioeconomic and racial/ethnic factors."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic NSCLC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.18502/jhsw.v14i1.17131" target="_blank">DOI:10.18502/jhsw.v14i1.17131</a>
+                            </div>
+                            
+                            <div class="reference-title">Investigating the Relationship Between Exposure to Cadmium and Lung Cancer Risk: A Systematic Review and Meta-analysis</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Lung cancer is the second most common cancer in the world.</div>
+            
+            
+            <div class="reference-finding-supporting">"Lung cancer is the second most common cancer in the world."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.18502/jhsw.v14i1.17131" target="_blank">DOI:10.18502/jhsw.v14i1.17131</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Lung cancer is the second most common cancer in the world."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic NSCLC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.21037/tlcr-24-856" target="_blank">DOI:10.21037/tlcr-24-856</a>
+                            </div>
+                            
+                            <div class="reference-title">A potential central nervous system niche for trastuzumab deruxtecan in patients with HER2-expressing non-small cell lung cancer</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">A potential central nervous system niche for trastuzumab deruxtecan in patients with HER2-expressing non-small cell lung cancer</div>
+            
+            
+            <div class="reference-finding-supporting">"A potential central nervous system niche for trastuzumab deruxtecan in patients with HER2-expressing non-small cell lung cancer"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.2147/dddt.s466217" target="_blank">DOI:10.2147/dddt.s466217</a>
+                            </div>
+                            
+                            <div class="reference-title">Adagrasib in the Treatment of KRAS p.G12C Positive Advanced NSCLC: Design, Development and Place in Therapy</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Adagrasib in the Treatment of KRAS p.G12C Positive Advanced NSCLC: Design, Development and Place in Therapy</div>
+            
+            
+            <div class="reference-finding-supporting">"Adagrasib in the Treatment of KRAS p.G12C Positive Advanced NSCLC: Design, Development and Place in Therapy"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3322/caac.21811" target="_blank">DOI:10.3322/caac.21811</a>
+                            </div>
+                            
+                            <div class="reference-title">Screening for lung cancer: 2023 guideline update from the American Cancer Society</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Lung cancer is the leading cause of mortality and person‐years of life lost from cancer among US men and women.</div>
+            
+            
+            <div class="reference-finding-supporting">"Lung cancer is the leading cause of mortality and person‐years of life lost from cancer among US men and women."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3322/caac.21811" target="_blank">DOI:10.3322/caac.21811</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Lung cancer is the leading cause of mortality and person‐years of life lost from cancer among US men and women."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic NSCLC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3389/fonc.2023.1241402" target="_blank">DOI:10.3389/fonc.2023.1241402</a>
+                            </div>
+                            
+                            <div class="reference-title">Non-small cell lung cancer with MET amplification: review of epidemiology, associated disease characteristics, testing procedures, burden, and treatments</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Mesenchymal-epidermal transition factor gene amplification (METamp) is being investigated as a therapeutic target in advanced non-small cell lung cancer (NSCLC).</div>
+            
+            
+            <div class="reference-finding-supporting">"Mesenchymal-epidermal transition factor gene amplification (METamp) is being investigated as a therapeutic target in advanced non-small cell lung cancer (NSCLC)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fonc.2023.1241402" target="_blank">DOI:10.3389/fonc.2023.1241402</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Mesenchymal-epidermal transition factor gene amplification (METamp) is being investigated as a therapeutic target in advanced non-small cell lung cancer (NSCLC)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic NSCLC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3389/fonc.2024.1328728" target="_blank">DOI:10.3389/fonc.2024.1328728</a>
+                            </div>
+                            
+                            <div class="reference-title">Mechanisms of resistance to KRASG12C inhibitors in KRASG12C-mutated non-small cell lung cancer</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The KRAS protein, a product of the KRAS gene (V-ki-ras2 Kirsten rat sarcoma viral oncogene homolog), functions as a small GTPase that alternates between an active GTP-bound state (KRAS(ON)) and an inactive GDP-bound state (KRAS(OFF)).</div>
+            
+            
+            <div class="reference-finding-supporting">"The KRAS protein, a product of the KRAS gene (V-ki-ras2 Kirsten rat sarcoma viral oncogene homolog), functions as a small GTPase that alternates between an active GTP-bound state (KRAS(ON)) and an inactive GDP-bound state (KRAS(OFF))."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fonc.2024.1328728" target="_blank">DOI:10.3389/fonc.2024.1328728</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The KRAS protein, a product of the KRAS gene (V-ki-ras2 Kirsten rat sarcoma viral oncogene homolog), functions as a small GTPase that alternates between an active GTP-bound state (KRAS(ON)) and an inactive GDP-bound state (KRAS(OFF))."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic NSCLC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3389/fonc.2024.1442909" target="_blank">DOI:10.3389/fonc.2024.1442909</a>
+                            </div>
+                            
+                            <div class="reference-title">Real-world treatment patterns, biomarker testing, and clinical outcomes of metastatic non-small cell lung cancer patients in the immunotherapy era</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Treatment for first-line (1L) metastatic non-small cell cancer (mNSCLC) changed with the introduction of immunotherapy.</div>
+            
+            
+            <div class="reference-finding-supporting">"Treatment for first-line (1L) metastatic non-small cell cancer (mNSCLC) changed with the introduction of immunotherapy."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fonc.2024.1442909" target="_blank">DOI:10.3389/fonc.2024.1442909</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Treatment for first-line (1L) metastatic non-small cell cancer (mNSCLC) changed with the introduction of immunotherapy."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic NSCLC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/cancers16112018" target="_blank">DOI:10.3390/cancers16112018</a>
+                            </div>
+                            
+                            <div class="reference-title">HER2-Altered Non-Small Cell Lung Cancer: A Journey from Current Approaches to Emerging Strategies</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">For patients diagnosed with advanced HER2-altered non-small cell lung cancer (NSCLC), the current standard of care is represented by a platinum-pemetrexed-based chemotherapy, eventually in combination with immunotherapy.</div>
+            
+            
+            <div class="reference-finding-supporting">"For patients diagnosed with advanced HER2-altered non-small cell lung cancer (NSCLC), the current standard of care is represented by a platinum-pemetrexed-based chemotherapy, eventually in combination with immunotherapy."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers16112018" target="_blank">DOI:10.3390/cancers16112018</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"For patients diagnosed with advanced HER2-altered non-small cell lung cancer (NSCLC), the current standard of care is represented by a platinum-pemetrexed-based chemotherapy, eventually in combination with immunotherapy."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic NSCLC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/cancers16112136" target="_blank">DOI:10.3390/cancers16112136</a>
+                            </div>
+                            
+                            <div class="reference-title">Site-Specific Response and Resistance Patterns in Patients with Advanced Non-Small-Cell Lung Cancer Treated with First-Line Systemic Therapy</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Patients with advanced NSCLC have heterogenous responses to immune checkpoint inhibitors (ICIs) with or without chemotherapy.</div>
+            
+            
+            <div class="reference-finding-supporting">"Patients with advanced NSCLC have heterogenous responses to immune checkpoint inhibitors (ICIs) with or without chemotherapy."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers16112136" target="_blank">DOI:10.3390/cancers16112136</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Patients with advanced NSCLC have heterogenous responses to immune checkpoint inhibitors (ICIs) with or without chemotherapy."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic NSCLC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/cancers16132338" target="_blank">DOI:10.3390/cancers16132338</a>
+                            </div>
+                            
+                            <div class="reference-title">Identification and Application of Emerging Biomarkers in Treatment of Non-Small-Cell Lung Cancer: Systematic Review</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Non-small-cell lung cancer (NSCLC) comprises approximately 85% of all lung cancer cases, often diagnosed at advanced stages, which diminishes the effective treatment options and survival rates.</div>
+            
+            
+            <div class="reference-finding-supporting">"Non-small-cell lung cancer (NSCLC) comprises approximately 85% of all lung cancer cases, often diagnosed at advanced stages, which diminishes the effective treatment options and survival rates."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers16132338" target="_blank">DOI:10.3390/cancers16132338</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Non-small-cell lung cancer (NSCLC) comprises approximately 85% of all lung cancer cases, often diagnosed at advanced stages, which diminishes the effective treatment options and survival rates."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic NSCLC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/cancers16132350" target="_blank">DOI:10.3390/cancers16132350</a>
+                            </div>
+                            
+                            <div class="reference-title">Evolving Precision First-Line Systemic Treatment for Patients with Unresectable Non-Small Cell Lung Cancer</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">First-line systemic therapy for patients with advanced or metastatic non-small cell lung cancer (NSCLC) has rapidly evolved over the past two decades.</div>
+            
+            
+            <div class="reference-finding-supporting">"First-line systemic therapy for patients with advanced or metastatic non-small cell lung cancer (NSCLC) has rapidly evolved over the past two decades."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers16132350" target="_blank">DOI:10.3390/cancers16132350</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"First-line systemic therapy for patients with advanced or metastatic non-small cell lung cancer (NSCLC) has rapidly evolved over the past two decades."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic NSCLC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.37349/etat.2024.00277" target="_blank">DOI:10.37349/etat.2024.00277</a>
+                            </div>
+                            
+                            <div class="reference-title">Addressing the unmet need in NSCLC progression with advances in second-line therapeutics</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Lung cancer is the leading cause of cancer mortality globally, with non-small cell lung cancer (NSCLC) accounting for 85% of cases.</div>
+            
+            
+            <div class="reference-finding-supporting">"Lung cancer is the leading cause of cancer mortality globally, with non-small cell lung cancer (NSCLC) accounting for 85% of cases."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.37349/etat.2024.00277" target="_blank">DOI:10.37349/etat.2024.00277</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Lung cancer is the leading cause of cancer mortality globally, with non-small cell lung cancer (NSCLC) accounting for 85% of cases."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic NSCLC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.4046/trd.2024.0092" target="_blank">DOI:10.4046/trd.2024.0092</a>
+                            </div>
+                            
+                            <div class="reference-title">Update in Association between Lung Cancer and Air Pollution</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">A significant portion of newly diagnosed lung cancer cases occurs in populations exposed to air pollution.</div>
+            
+            
+            <div class="reference-finding-supporting">"A significant portion of newly diagnosed lung cancer cases occurs in populations exposed to air pollution."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.4046/trd.2024.0092" target="_blank">DOI:10.4046/trd.2024.0092</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"A significant portion of newly diagnosed lung cancer cases occurs in populations exposed to air pollution."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic NSCLC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">1. Disease Information</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">75 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-10T01:24:07.978161</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <h2>1. Disease Information</h2>
+<h3>Overview / definition</h3>
+<p>mNSCLC refers to non-small cell lung cancers that have spread beyond the lung/hemithorax to distant organs (clinically aligned with <strong>stage IV/M1</strong> disease in many registries and studies). Contemporary studies use “metastatic NSCLC,” “advanced NSCLC,” and “stage IV NSCLC” as overlapping operational terms depending on inclusion criteria and data source. (apter2024realworldtreatmentpatterns pages 1-2, uprety2024racialandsocioeconomic pages 3-4, yang2024disparitiesinutilization pages 1-2)</p>
+<h3>Key identifiers (as available in retrieved sources)</h3>
+<ul>
+<li><strong>Open Targets / EFO:</strong> non-small cell lung carcinoma <strong>EFO_0003060</strong>. (OpenTargets Search: Non-small cell lung carcinoma,Lung adenocarcinoma,Lung squamous cell carcinoma)</li>
+<li><strong>MONDO:</strong> non-small cell squamous lung carcinoma <strong>MONDO_0056806</strong> (related histology entity). (OpenTargets Search: Non-small cell lung carcinoma,Lung adenocarcinoma,Lung squamous cell carcinoma)</li>
+<li><strong>MeSH / ICD-10 / ICD-11 / OMIM / Orphanet:</strong> Not found in the retrieved evidence for mNSCLC or stage IV NSCLC; these would typically be obtained from ontology resources (e.g., MeSH browser, ICD-10/11, MONDO) outside the currently retrieved corpus.</li>
+</ul>
+<h3>Common synonyms</h3>
+<ul>
+<li>Metastatic NSCLC, advanced NSCLC (when metastatic), stage IV NSCLC, M1 NSCLC. (apter2024realworldtreatmentpatterns pages 1-2, uprety2024racialandsocioeconomic pages 3-4, yang2024disparitiesinutilization pages 1-2)</li>
+</ul>
+<h3>Evidence source types</h3>
+<ul>
+<li><strong>Aggregated disease-level resources:</strong> SEER/SEER-Medicare population datasets and national registries (Norway). (hektoen2024realworldevidencefor pages 1-2, uprety2024racialandsocioeconomic pages 3-4)</li>
+<li><strong>Real-world evidence (RWE):</strong> health system cohorts and EMR datasets. (apter2024realworldtreatmentpatterns pages 1-2, hektoen2024realworldevidencefor pages 5-6)</li>
+<li><strong>Clinical trials:</strong> phase 3 biomarker-selected trials (e.g., EGFR-mutant MARIPOSA). (cho2024amivantamabpluslazertinib pages 8-9)</li>
+</ul>
+<hr />
+<h2>2. Etiology</h2>
+<h3>Primary causal factors (multifactorial)</h3>
+<p>NSCLC (and thus mNSCLC) arises through a combination of carcinogen exposures and acquired somatic genomic alterations (driver mutations/fusions), with strong contributions from tobacco smoke and additional environmental/occupational carcinogens.</p>
+<h4>Tobacco smoking</h4>
+<p>Tobacco is the dominant risk factor in Western settings; a 2024 review of geographic differences states tobacco accounts for “<strong>up to 80–90% of cases</strong>” in Western societies. (laguna2024geographicdifferencesin pages 1-3)</p>
+<h4>Ambient air pollution (particulate matter)</h4>
+<p>Air pollution is classified as carcinogenic to humans, and long-term PM2.5 exposure shows dose–response associations with lung cancer risk and mortality. A 2024 review reports, for example, <strong>AHSMOG-2</strong>: a <strong>10 μg/m³</strong> PM2.5 increase associated with <strong>HR 1.43</strong> (95% CI 1.03–2.00) for lung cancer. (yoo2024updateinassociation pages 2-3)</p>
+<p><strong>Mechanistic plausibility</strong> described in the same review includes oxidative stress, inflammation, and DNA damage/mutagenesis pathways induced by PM components (e.g., PAHs, metals) and ROS signaling. (yoo2024updateinassociation pages 2-3)</p>
+<h4>Occupational carcinogens: cadmium (example with quantitative meta-analysis)</h4>
+<p>A 2024 systematic review/meta-analysis reported higher cadmium exposure associated with increased lung cancer risk: <strong>OR 1.31</strong> (95% CI 1.06–1.62; p=0.024), interpreted as a 31% increase. (farahmandian2024investigatingtherelationship pages 1-2)</p>
+<h4>Radon</h4>
+<p>Radon is commonly described as a leading non-tobacco cause (particularly in the US) and has no known safe level; the EPA remediation threshold <strong>4 pCi/L (148 Bq/m³)</strong> is cited in a 2024 review. (laguna2024geographicdifferencesin pages 1-3)</p>
+<h3>Protective factors</h3>
+<p>Direct protective-factor estimates were not retrieved in the current evidence set. In practice, major protective factors include tobacco cessation and reduction of carcinogen exposures; smoking cessation is emphasized as a key preventive action within screening guidelines. (wolf2024screeningforlung pages 7-7)</p>
+<h3>Gene–environment interactions</h3>
+<p>A 2024 review notes associations between exposure patterns and driver distributions: EGFR mutations are more common in never-smokers and some populations, while <strong>KRAS G12C</strong> is associated with smoking history. (laguna2024geographicdifferencesin pages 1-3)</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>Clinical presentation (metastatic disease)</h3>
+<p>mNSCLC can present with pulmonary symptoms (cough, dyspnea), systemic symptoms (weight loss), and/or organ-specific symptoms from metastases. In a SEER-M1 analysis, common metastatic organs vary by histology (see “Anatomical structures affected”). (xie2024distantmetastasispatterns pages 1-2, xie2024distantmetastasispatterns pages 2-3)</p>
+<h3>Metastasis-associated phenotypes &amp; HPO term suggestions</h3>
+<p>Below are common metastasis-related phenotype groupings relevant to mNSCLC knowledge-base annotation. Frequencies are not uniformly available across all studies in the retrieved evidence; where available, they are provided.</p>
+<ol>
+<li><strong>Bone metastasis / skeletal complications</strong></li>
+<li>Evidence of frequency/pattern: In SEER M1 lung cancer, bone metastasis was most common in lung adenocarcinoma (ADC), squamous (SCC), adenosquamous (ASC), and large cell carcinoma (LCC) (e.g., ADC bone metastasis 35.15%). (xie2024distantmetastasispatterns pages 2-3)</li>
+<li>EGFR-mutant cohort: vertebrae (76.3%) and pelvis (60.9%) were frequent bone sites. (tanaka2024femoralbonemetastasis pages 1-3)</li>
+<li>
+<p>Suggested HPO: <strong>HP:0002652</strong> (Skeletal metastasis), <strong>HP:0002653</strong> (Bone pain), <strong>HP:0012655</strong> (Pathologic fracture).</p>
+</li>
+<li>
+<p><strong>Brain metastasis / neurologic manifestations</strong></p>
+</li>
+<li>Epidemiology note: brain metastases present in a meaningful subset; a real-world US cohort reported brain metastases present in <strong>22.9%</strong> of advanced NSCLC patients at treatment initiation. (hektoen2024realworldevidencefor pages 3-5)</li>
+<li>
+<p>Suggested HPO: <strong>HP:0002506</strong> (Brain metastasis), <strong>HP:0001288</strong> (Gait disturbance), <strong>HP:0001250</strong> (Seizures), <strong>HP:0002315</strong> (Headache).</p>
+</li>
+<li>
+<p><strong>Liver metastasis / hepatic dysfunction</strong></p>
+</li>
+<li>In SEER, liver metastases were particularly common in SCLC rather than NSCLC, but liver involvement in advanced NSCLC is prognostically important (see prognosis section). (xie2024distantmetastasispatterns pages 2-3, brown2024sitespecificresponseand pages 11-12)</li>
+<li>
+<p>Suggested HPO: <strong>HP:0001410</strong> (Hepatomegaly), <strong>HP:0001397</strong> (Hepatic metastasis), <strong>HP:0002904</strong> (Elevated hepatic transaminases) (laboratory abnormality).</p>
+</li>
+<li>
+<p><strong>Adrenal metastasis</strong></p>
+</li>
+<li>Mentioned as a common extrathoracic site in advanced NSCLC cohorts. (brown2024sitespecificresponseand pages 1-2)</li>
+<li>Suggested HPO: <strong>HP:0031909</strong> (Adrenal metastasis) (if available in HPO; otherwise annotate as adrenal mass + cancer).</li>
+</ol>
+<h3>Quality of life impact</h3>
+<p>Direct QoL instrument data (e.g., EQ-5D, SF-36) specific to metastatic NSCLC were not retrieved in the current evidence set; however, the metastatic burden and organ involvement (bone/brain) are consistently associated with poorer survival and often correlate with functional decline. (brown2024sitespecificresponseand pages 11-12, tanaka2024femoralbonemetastasis pages 1-3)</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<h3>Core concept: actionable somatic drivers and biomarkers</h3>
+<p>Modern mNSCLC management is biomarker-driven: actionable genomic alterations and immune biomarkers (PD-L1, sometimes TMB) are used to select targeted therapy or immunotherapy.</p>
+<p>A 2024 review lists actionable first-line targets in unresectable/advanced/metastatic NSCLC including <strong>EGFR</strong>, <strong>ALK</strong>, <strong>ROS1</strong>, <strong>RET</strong>, <strong>NTRK1/2/3</strong> fusions, <strong>BRAF V600E</strong>, and <strong>MET exon 14</strong> skipping; immune selection includes <strong>PD-L1 TPS ≥50%</strong> for PD-1/PD-L1 monotherapy when no sensitizing EGFR/ALK alterations are present. (li2024evolvingprecisionfirstline pages 1-2)</p>
+<p>A separate 2024 review emphasizes broad panels and includes additional emerging targets such as <strong>ERBB2 (HER2)</strong> and <strong>KRAS G12C</strong>. (li2024evolvingprecisionfirstline pages 4-6)</p>
+<h4>Suggested genes (HGNC symbols)</h4>
+<p>EGFR, KRAS, ALK, ROS1, MET, RET, ERBB2, BRAF, NTRK1, NTRK2, NTRK3, TP53, STK11, KEAP1.</p>
+<h3>Pathogenic variants (somatic)</h3>
+<ul>
+<li><strong>EGFR</strong> activating variants: exon 19 deletions, L858R (used as eligibility in EGFR-mutant metastatic trials). (cho2024amivantamabpluslazertinib pages 1-4)</li>
+<li><strong>KRAS G12C</strong>: occurs in ~13% of lung adenocarcinomas; KRAS mutations overall ~25–30% of NSCLC; G12C ~40% of KRAS-mutated NSCLC. (chour2024mechanismsofresistance pages 1-2, warnecke2024adagrasibinthe pages 1-2)</li>
+<li><strong>ERBB2 (HER2)</strong>: HER2 mutations occur in ~4% of NSCLC; common exon 20 insertion A775_G776insYVMA ~34% of HER2 mutations. (ferrari2024her2alterednonsmallcell pages 1-2)</li>
+</ul>
+<h3>Molecular biomarkers (immune)</h3>
+<ul>
+<li><strong>PD-L1 TPS ≥50%</strong>: used to select PD-1/PD-L1 monotherapy as standard of care in biomarker-driven algorithms. (li2024evolvingprecisionfirstline pages 1-2)</li>
+<li>A large combined trial + real-world analysis found tumor <strong>PD-L1 ≥50%</strong> specifically associated with CPI response, and <strong>TMB ≥10.44 mut/Mb</strong> associated with durable CPI response; combined high TMB + high PD-L1 was the strongest predictor reported (OR 0.04). (hektoen2024realworldevidencefor pages 3-5, cho2024amivantamabpluslazertinib pages 7-8)</li>
+</ul>
+<h3>Resistance mechanisms (selected examples)</h3>
+<ul>
+<li><strong>KRAS G12C inhibitors:</strong> resistance frequently acquired; includes on-target KRAS mutations affecting inhibitor binding and off-target bypass via NRAS, BRAF, RET activation, PTEN loss, EMT, and histologic transformation. (chour2024mechanismsofresistance pages 1-2)</li>
+</ul>
+<h3>Epigenetic / chromosomal abnormalities</h3>
+<p>Specific epigenetic or chromosomal-abnormality datasets were not retrieved in the current evidence set.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<h3>Environmental and lifestyle factors</h3>
+<ul>
+<li><strong>Ambient PM2.5</strong> exposure shows increased risk and mortality with mechanistic links to ROS/oxidative stress and DNA damage. (yoo2024updateinassociation pages 2-3)</li>
+<li><strong>Cadmium</strong> exposure is associated with increased risk (meta-analysis OR 1.31). (farahmandian2024investigatingtherelationship pages 1-2)</li>
+<li><strong>Radon</strong> exposure is emphasized as a major residential risk and policy target (EPA action level 4 pCi/L). (laguna2024geographicdifferencesin pages 1-3)</li>
+</ul>
+<h3>Infectious agents</h3>
+<p>No specific infectious causal agents for NSCLC were retrieved in the current evidence set.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Core oncogenic signaling pathways</h3>
+<ul>
+<li><strong>EGFR pathway</strong> and downstream MAPK/PI3K signaling drive EGFR-mutant NSCLC; EGFR-directed therapies improve outcomes in biomarker-selected metastatic disease (see Treatments). (cho2024amivantamabpluslazertinib pages 1-4)</li>
+<li><strong>KRAS</strong> is a small GTPase cycling between GDP/GTP states; KRAS G12C inhibitors covalently target the inactive GDP-bound state and suppress downstream <strong>MAPK</strong> and <strong>PI3K</strong> signaling. (chour2024mechanismsofresistance pages 1-2)</li>
+</ul>
+<h3>Tumor microenvironment (TME) and immune evasion</h3>
+<p>Organ-specific microenvironments influence immunotherapy response: bone and liver metastases are associated with lower response and worse outcomes, suggesting site-specific immune resistance. (brown2024sitespecificresponseand pages 11-12, brown2024sitespecificresponseand pages 1-2)</p>
+<h3>Mechanistic chain (example: KRAS G12C targeted therapy)</h3>
+<p>1) KRAS G12C mutation → accumulation of KRAS(GDP)-bound fraction amenable to covalent inhibitors → initial MAPK/PI3K suppression → tumor response. (chour2024mechanismsofresistance pages 1-2)
+2) Adaptive feedback and bypass signaling (e.g., NRAS/BRAF/RET activation; PTEN loss) and phenotypic shifts (EMT, transformation) → acquired resistance and progression. (chour2024mechanismsofresistance pages 1-2)</p>
+<h3>Suggested GO biological process terms (illustrative)</h3>
+<ul>
+<li><strong>GO:0007169</strong> (transmembrane receptor protein tyrosine kinase signaling pathway)</li>
+<li><strong>GO:0000165</strong> (MAPK cascade)</li>
+<li><strong>GO:0008285</strong> (negative regulation of cell population proliferation) / dysregulation in cancer</li>
+<li><strong>GO:0042110</strong> (T cell activation) (immune context)</li>
+</ul>
+<h3>Suggested Cell Ontology (CL) terms (illustrative)</h3>
+<ul>
+<li><strong>CL:0000182</strong> (T cell)</li>
+<li><strong>CL:0000236</strong> (B cell)</li>
+<li><strong>CL:0000624</strong> (CD4-positive, alpha-beta T cell)</li>
+<li><strong>CL:0000625</strong> (CD8-positive, alpha-beta T cell)</li>
+<li><strong>CL:0000451</strong> (dendritic cell)</li>
+<li><strong>CL:0000235</strong> (macrophage)</li>
+</ul>
+<p>(These ontology suggestions are generic to tumor/immune interactions; the retrieved evidence supports immune and microenvironment involvement but does not enumerate CL/GO terms explicitly.) (yoo2024updateinassociation pages 2-3, brown2024sitespecificresponseand pages 11-12)</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<h3>Organ-level sites (metastases)</h3>
+<p>A SEER-based analysis (2010–2019; 77,827 M1 cases) found histology-specific metastatic patterns:
+- <strong>Bone</strong>: most common in ADC, SCC, ASC, LCC (e.g., ADC 35.15%). (xie2024distantmetastasispatterns pages 2-3)
+- <strong>Brain</strong>: particularly common in LCNEC. (xie2024distantmetastasispatterns pages 1-2)
+- <strong>Liver</strong>: particularly common in SCLC (included here for lung cancer context). (xie2024distantmetastasispatterns pages 2-3)
+- <strong>Lung-to-lung (intrapulmonary)</strong>: common in carcinoid tumors and SCC. (xie2024distantmetastasispatterns pages 1-2)</p>
+<h3>UBERON term suggestions (common sites)</h3>
+<ul>
+<li>Lung: <strong>UBERON:0002048</strong></li>
+<li>Bone tissue: <strong>UBERON:0002481</strong></li>
+<li>Brain: <strong>UBERON:0000955</strong></li>
+<li>Liver: <strong>UBERON:0002107</strong></li>
+<li>Adrenal gland: <strong>UBERON:0002369</strong></li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<h3>Onset and progression</h3>
+<p>Most lung cancer is diagnosed at advanced stages in many populations; a review notes that “most cases are diagnosed in advanced stages,” emphasizing prevention/early diagnosis importance. (laguna2024geographicdifferencesin pages 1-3)</p>
+<h3>Disease stages</h3>
+<p>mNSCLC corresponds to metastatic (M1) disease; SEER data indicate substantial proportion present with metastasis at diagnosis (e.g., 41.22% M1 lung cancers with distant metastasis at presentation in one SEER analysis). (xie2024distantmetastasispatterns pages 1-2)</p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>Epidemiology (selected, recent population-based data)</h3>
+<ul>
+<li><strong>SEER-Medicare metastatic NSCLC (2015–2019; n=17,134):</strong> overall median OS <strong>7 months</strong>, 1-year OS <strong>34%</strong>, 2-year OS <strong>21%</strong>. (uprety2024racialandsocioeconomic pages 3-4)</li>
+<li><strong>ICI utilization:</strong> ~<strong>39%</strong> received an immune checkpoint inhibitor; utilization increased from <strong>21.9% (2015)</strong> to <strong>55.4% (2019)</strong>. (uprety2024racialandsocioeconomic pages 3-4)</li>
+<li><strong>Survival disparity:</strong> 2-year OS from diagnosis differed by race (White 22%, Asian 23%, Black 15%, Hispanic 17%); among ICI recipients, racial differences in survival were not statistically significant, suggesting access/utilization drives disparity. (uprety2024racialandsocioeconomic pages 1-2)</li>
+</ul>
+<h3>Genetic etiology and inheritance</h3>
+<p>mNSCLC is primarily driven by <strong>somatic</strong> alterations; a 2024 review notes pathogenic germline variants in high/moderate penetrance genes in <strong>4.3%</strong> of a cohort (germline susceptibility signal, not typically a Mendelian inheritance pattern for mNSCLC). (laguna2024geographicdifferencesin pages 1-3)</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>Tissue diagnosis and immunohistochemistry</h3>
+<p>Histologic classification in small biopsies often uses IHC panels: <strong>TTF-1 / napsin A</strong> (adenocarcinoma) and <strong>p40 / p63</strong> (squamous). (li2024evolvingprecisionfirstline pages 2-4)</p>
+<h3>Molecular testing (tissue NGS and fusions)</h3>
+<p>CAP/IASLC/AMP guidance (as summarized in a 2024 review) recommends testing all advanced lung cancers for sensitizing <strong>EGFR</strong> and <strong>ALK</strong>, with expansion to <strong>ROS1</strong> and <strong>BRAF</strong> and then <strong>RET, MET, ERBB2, KRAS</strong> if earlier drivers are negative; NGS is emphasized for SNVs/CNVs/fusions and high yield. (li2024evolvingprecisionfirstline pages 2-4)</p>
+<p>RNA-based NGS can improve fusion detection (ALK/ROS1/RET/NTRK). (li2024evolvingprecisionfirstline pages 4-6)</p>
+<h3>Immune biomarker testing</h3>
+<p><strong>PD-L1 IHC</strong> is used for PD-1/PD-L1 selection; PD-L1 <strong>TPS ≥50%</strong> is used as a key threshold for monotherapy selection in biomarker algorithms. (li2024evolvingprecisionfirstline pages 1-2)</p>
+<h3>Liquid biopsy / ctDNA</h3>
+<p>When tissue is insufficient or re-biopsy may delay care, plasma ctDNA can accelerate profiling and capture alterations from primary and metastatic sites. (li2024evolvingprecisionfirstline pages 4-6)</p>
+<p>ctDNA is also used for resistance monitoring (e.g., EGFR T790M) and treatment decision support. (restrepo2024identificationandapplication pages 15-16)</p>
+<h3>MET amplification testing thresholds (example of concrete numeric definitions)</h3>
+<p>A 2024 review of MET amplification reports:
+- Primary METamp prevalence ~<strong>4.8%</strong>; secondary (post-EGFR-TKI) METamp ~<strong>15%</strong>. (yang2024nonsmallcelllung pages 1-2)
+- Definition variability: FISH ratios (MET:CEP7 ≥1.8 to ≥3.0) or gene copy number (GCN ≥5 to ≥10); NGS tissue thresholds (GCN ≥6); liquid biopsy thresholds reported (MET copy number ≥2.1 to &gt;5). (yang2024nonsmallcelllung pages 1-2)
+- NCCN notes copy number <strong>&gt;10</strong> consistent with high-level MET amplification (NGS). (yang2024nonsmallcelllung pages 3-5)</p>
+<h3>Differential diagnosis</h3>
+<p>Specific differential-diagnosis algorithms were not retrieved in the current evidence set.</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<h3>Survival statistics (recent)</h3>
+<ul>
+<li><strong>Population-based metastatic NSCLC (SEER-Medicare 2015–2019):</strong> median OS <strong>7 months</strong>; 2-year OS <strong>21%</strong>. (uprety2024racialandsocioeconomic pages 3-4)</li>
+<li><strong>Real-world first-line immunotherapy era (Norway 2012–2021):</strong> median OS improved from <strong>8.0 months</strong> (historical chemo) to <strong>13.8 months</strong> (pembrolizumab monotherapy) and <strong>12.8 months</strong> (pembrolizumab + chemotherapy). (hektoen2024realworldevidencefor pages 1-2)</li>
+</ul>
+<h3>Prognostic factors (metastatic site)</h3>
+<ul>
+<li>Bone metastases are repeatedly associated with worse outcomes.</li>
+<li>In a 2024 cohort, bone metastases were linked to shorter OS (median <strong>10 vs 21 months</strong>; HR <strong>1.95</strong>) and shorter PFS (HR <strong>1.70</strong>). (brown2024sitespecificresponseand pages 11-12)</li>
+<li>A multicenter immunotherapy cohort found presence of bone metastases independently worsened OS (HR <strong>1.26</strong>). (xie2024distantmetastasispatterns pages 2-3)</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<h3>Current first-line paradigms (conceptual)</h3>
+<p>For metastatic NSCLC without sensitizing oncogenic drivers, ICIs as monotherapy (PD-L1-high) or chemoimmunotherapy (PD-L1 low/negative) are standard approaches; for biomarker-defined drivers (EGFR/ALK/ROS1/RET/MET/BRAF/etc.) targeted therapies are prioritized. (li2024evolvingprecisionfirstline pages 1-2)</p>
+<h3>Recent developments / latest research (prioritizing 2023–2024)</h3>
+<h4>EGFR-mutant metastatic NSCLC: MARIPOSA (practice-changing 2024)</h4>
+<p><strong>MARIPOSA (NEJM, Oct 2024)</strong> compared <strong>amivantamab + lazertinib</strong> vs <strong>osimertinib</strong> first-line in EGFR exon19del/L858R advanced/metastatic NSCLC.
+- <strong>Efficacy:</strong> median PFS <strong>23.7 vs 16.6 months</strong>, HR <strong>0.70</strong> (95% CI 0.58–0.85; P&lt;0.001). ORR <strong>86% vs 85%</strong>; median DoR <strong>25.8 vs 16.8 months</strong>; interim OS HR <strong>0.80</strong> (95% CI 0.61–1.05). (cho2024amivantamabpluslazertinib pages 8-9, cho2024amivantamabpluslazertinib pages 9-11)
+- <strong>Safety:</strong> grade ≥3 AEs <strong>75% vs 43%</strong>; infusion reactions <strong>63%</strong>; venous thromboembolism <strong>37% vs 9%</strong>; AE-related discontinuation <strong>35% vs 14%</strong>. (cho2024amivantamabpluslazertinib pages 9-11)</p>
+<p><strong>Figure evidence:</strong> Kaplan–Meier PFS separation and hazard ratio are shown in the extracted figure. (cho2024amivantamabpluslazertinib media ee6afa38)</p>
+<p><strong>Abstract quote:</strong> “<em>The median progression-free survival was significantly longer in the amivantamab-lazertinib group than in the osimertinib group (23.7 vs. 16.6 months; hazard ratio … 0.70 …; P&lt;0.001).</em>” (cho2024amivantamabpluslazertinib pages 1-4)</p>
+<p><strong>Suggested MAXO terms</strong> (illustrative): tyrosine kinase inhibitor therapy; monoclonal antibody therapy; combination antineoplastic therapy.</p>
+<h4>KRAS G12C metastatic NSCLC (targeted therapy; resistance-focused 2024 synthesis)</h4>
+<ul>
+<li><strong>Frequency:</strong> KRAS G12C is found in ~<strong>13%</strong> of lung adenocarcinomas. (chour2024mechanismsofresistance pages 1-2)</li>
+<li><strong>Phase 3 evidence:</strong> in CodeBreaK 200, sotorasib vs docetaxel improved PFS (<strong>5.6 vs 4.5 months</strong>, HR 0.66) and ORR (<strong>28.1% vs 13.2%</strong>) but not OS (10.6 vs 11.3 months). (warnecke2024adagrasibinthe pages 4-5)</li>
+<li><strong>Adagrasib CNS activity (summary):</strong> intracranial ORR <strong>42%</strong> with intracranial PFS <strong>5.4 months</strong>; systemic ORR <strong>30%</strong>, PFS <strong>5.3 months</strong>. (warnecke2024adagrasibinthe pages 4-5)</li>
+<li><strong>Mechanisms of resistance:</strong> bypass activation (NRAS/BRAF/RET), PTEN loss, EMT, histologic transformation; on-target KRAS mutations preventing binding. (chour2024mechanismsofresistance pages 1-2)</li>
+</ul>
+<p><strong>Suggested MAXO:</strong> targeted small molecule therapy; molecularly targeted therapy; tumor sequencing-guided therapy.</p>
+<h4>HER2 (ERBB2)-mutant metastatic NSCLC: ADCs (2024 state-of-the-art)</h4>
+<ul>
+<li><strong>Frequency:</strong> HER2 mutations ~<strong>4%</strong> of NSCLC; common exon 20 insertion A775_G776insYVMA ~<strong>34%</strong> of HER2 mutations. (ferrari2024her2alterednonsmallcell pages 1-2)</li>
+<li><strong>Trastuzumab deruxtecan (T-DXd):</strong> DESTINY-Lung01 (HER2-mutant; N=91) ORR ~<strong>55%</strong>, median PFS <strong>8.2 months</strong>, median OS <strong>17.8–18.6 months</strong>. (lazaratos2024apotentialcentral pages 1-2, wang2024addressingtheunmet pages 3-5)</li>
+<li><strong>DESTINY-Lung02 (dose cohorts):</strong> ORR around <strong>53.8% vs 42.9%</strong> (5.4 vs 6.4 mg/kg) in one summary. (wang2024addressingtheunmet pages 3-5)</li>
+<li><strong>Intracranial relevance:</strong> reviews emphasize CNS activity and report subgroup outcomes in patients with stable brain metastases. (lazaratos2024apotentialcentral pages 2-4, ferrari2024her2alterednonsmallcell pages 1-2)</li>
+</ul>
+<p><strong>Suggested MAXO:</strong> antibody–drug conjugate therapy; HER2-targeted therapy.</p>
+<h4>Immunotherapy real-world implementation (effectiveness)</h4>
+<ul>
+<li>In a nationwide Norwegian cohort, first-line pembrolizumab OS improved versus historical chemotherapy (median OS <strong>13.8</strong> months for pembrolizumab monotherapy and <strong>12.8</strong> months for pembrolizumab+chemo vs <strong>8.0</strong> months pre-ICI). (hektoen2024realworldevidencefor pages 1-2)</li>
+<li>In an Israeli health-system cohort (mNSCLC), median real-world OS from first-line was <strong>12.5 months</strong> for PD-1 monotherapy and <strong>14.8 months</strong> for PD-1 + chemotherapy among nonsquamous patients without EGFR/ALK/ROS1; outcomes were better in ECOG 0–1 and PD-L1 ≥50% (e.g., median rwOS <strong>25.1 months</strong> for ECOG 0–1 with monotherapy). (apter2024realworldtreatmentpatterns pages 1-2)</li>
+</ul>
+<p><strong>Expert analysis in authoritative sources:</strong> Real-world cohorts repeatedly observe lower OS than pivotal trials but preservation of the relative benefit compared with chemotherapy, supporting generalizability while highlighting trial-to-practice gaps (age, ECOG, comorbidities). (hektoen2024realworldevidencefor pages 1-2)</p>
+<hr />
+<h2>13. Prevention</h2>
+<h3>Primary prevention</h3>
+<ul>
+<li>Reduce tobacco exposure and implement smoking-cessation interventions; ACS guideline emphasizes cessation counseling and connection to resources for current smokers. (wolf2024screeningforlung pages 7-7)</li>
+<li>Reduce environmental/occupational exposures (PM2.5 reduction, radon mitigation, carcinogen control) supported by risk estimates and mechanistic plausibility. (yoo2024updateinassociation pages 2-3, laguna2024geographicdifferencesin pages 1-3)</li>
+</ul>
+<h3>Secondary prevention: Screening (ACS 2023 update; published Nov 2024)</h3>
+<p>ACS recommends <strong>annual LDCT</strong> lung cancer screening for asymptomatic individuals:
+- <strong>Age:</strong> <strong>50–80 years</strong>
+- <strong>Smoking:</strong> <strong>≥20 pack-years</strong>
+- <strong>Smoking status:</strong> current or former smokers; <strong>years-since-quitting is not used</strong> as an eligibility criterion. (wolf2024screeningforlung pages 2-3, wolf2024screeningforlung pages 7-7)</p>
+<p><strong>Abstract quote:</strong> “<em>The ACS recommends annual LCS with low‐dose computed tomography for asymptomatic individuals aged 50–80 years who currently smoke or formerly smoked and have a ≥20 pack‐year smoking history.</em>” (wolf2024screeningforlung pages 1-2)</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p>Direct comparative pathology or naturally occurring non-human mNSCLC content was not retrieved in the current evidence set.</p>
+<hr />
+<h2>15. Model Organisms / Model Systems</h2>
+<h3>Patient-derived xenografts (PDX)</h3>
+<ul>
+<li>A 2024 study established <strong>13 NSCLC-PDXs from 62 patients</strong>, reporting preservation of histology/genetics and concordant chemotherapy responses between PDX and matched patients; an osimertinib-resistant PDX implicated <strong>DUSP6 M62I</strong> and MAPK-ERK overactivation, with trametinib slowing resistant tumor growth. (wang2024utilityofpatientderived pages 1-2)</li>
+<li>TRACERx multi-region analysis generated <strong>48 PDX models from 22 patients</strong>, showing multi-region sampling improves engraftment but individual PDXs often represent a single subclone (genomic bottleneck) and do not fully recapitulate intratumor heterogeneity. (hynds2024representationofgenomic pages 1-2)</li>
+</ul>
+<h3>Patient-derived organoids (PDOs)</h3>
+<ul>
+<li>Pleural effusion-derived organoids can be used for rapid therapy-response prediction in advanced EGFR-mutant NSCLC: drug-response evaluation within ~1 week and clinically aligned response classification within <strong>10 days</strong> (validated in <strong>14</strong> patients). (lee2024predictionoftki pages 1-2)</li>
+<li>A 2024 Cell Reports Medicine paper describes using LUAD PDOs to model metastases and test resistance mechanisms (e.g., KRASG12C PDOs treated with sotorasib) and notes limitations of PDXs for metastasis biology (rare metastasis in LUAD PDX). (liu2024modelinglungadenocarcinoma pages 1-4)</li>
+</ul>
+<hr />
+<h2>Evidence tables (for knowledge-base population)</h2>
+<table>
+<thead>
+<tr>
+<th>Entity</th>
+<th>Definition / scope</th>
+<th>Synonyms / alternative names</th>
+<th>MONDO</th>
+<th>MeSH</th>
+<th>ICD</th>
+<th>Notes / evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Metastatic non-small cell lung cancer</td>
+<td>Advanced NSCLC with distant metastatic spread; often operationally aligned with stage IV disease in clinical studies and population datasets</td>
+<td>mNSCLC; metastatic NSCLC; advanced NSCLC (when metastatic cohort)</td>
+<td></td>
+<td></td>
+<td></td>
+<td>Specific MONDO/MeSH/ICD identifier for the metastatic-stage entity was not found in retrieved evidence; studies explicitly use “metastatic NSCLC” terminology (apter2024realworldtreatmentpatterns pages 1-2, uprety2024racialandsocioeconomic pages 3-4)</td>
+</tr>
+<tr>
+<td>Stage IV non-small cell lung cancer</td>
+<td>AJCC/registry stage IV NSCLC; commonly used as a proxy for metastatic disease in epidemiologic and treatment studies</td>
+<td>stage IV NSCLC; metastatic stage NSCLC</td>
+<td></td>
+<td></td>
+<td></td>
+<td>Used in SEER/SEER-Medicare analyses and real-world treatment datasets; exact ICD/MeSH/MONDO code not reported in retrieved evidence (yang2024disparitiesinutilization pages 1-2, yang2024disparitiesinutilization pages 2-3)</td>
+</tr>
+<tr>
+<td>Non-small cell lung cancer</td>
+<td>Major lung cancer class comprising ~80%–90% of lung cancers; umbrella category including adenocarcinoma and squamous carcinoma</td>
+<td>NSCLC; non-small-cell lung cancer; non-small cell lung carcinoma</td>
+<td></td>
+<td></td>
+<td></td>
+<td>Disease-level identifiers were not reported in retrieved evidence; Open Targets lists non-small cell lung carcinoma as EFO_0003060 (not MONDO) (apter2024realworldtreatmentpatterns pages 1-2, OpenTargets Search: Non-small cell lung carcinoma,Lung adenocarcinoma,Lung squamous cell carcinoma)</td>
+</tr>
+<tr>
+<td>Non-squamous NSCLC / lung adenocarcinoma predominant mNSCLC</td>
+<td>Common metastatic NSCLC subtype in immunotherapy-era cohorts</td>
+<td>NSQ NSCLC; adenocarcinoma-predominant NSCLC</td>
+<td></td>
+<td></td>
+<td></td>
+<td>In one mNSCLC real-world cohort, 85% had adenocarcinoma histology; exact ontology identifiers not reported in retrieved evidence (apter2024realworldtreatmentpatterns pages 1-2)</td>
+</tr>
+<tr>
+<td>Squamous NSCLC</td>
+<td>Squamous histologic subtype of NSCLC</td>
+<td>squamous cell NSCLC; squamous cell carcinoma of lung (NSCLC context)</td>
+<td>MONDO_0056806 (for non-small cell squamous lung carcinoma in Open Targets context)</td>
+<td></td>
+<td></td>
+<td>Histology-specific related entity rather than the target disease; included because many metastatic cohorts stratify by histology (OpenTargets Search: Non-small cell lung carcinoma,Lung adenocarcinoma,Lung squamous cell carcinoma, apter2024realworldtreatmentpatterns pages 1-2)</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Setting / population</th>
+<th>Biomarker</th>
+<th>Intervention</th>
+<th>Comparator</th>
+<th>Key outcomes (PFS / OS / ORR)</th>
+<th>Notable safety</th>
+<th>Publication (year, journal)</th>
+<th>URL</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Previously untreated EGFR-mutated locally advanced/metastatic NSCLC (MARIPOSA)</td>
+<td>EGFR exon 19 deletion or L858R</td>
+<td>Amivantamab + lazertinib</td>
+<td>Osimertinib</td>
+<td>Median PFS 23.7 vs 16.6 mo; HR 0.70 (95% CI 0.58–0.85); ORR 86% vs 85%; median DoR 25.8 vs 16.8 mo; interim OS HR 0.80 (95% CI 0.61–1.05) (cho2024amivantamabpluslazertinib pages 8-9, cho2024amivantamabpluslazertinib pages 1-4, cho2024amivantamabpluslazertinib pages 9-11)</td>
+<td>Grade ≥3 AEs 75% vs 43%; infusion-related reactions 63%; VTE 37% vs 9%; discontinuation due to AEs 35% vs 14%; discontinuation of all agents due to treatment-related AEs 10% vs 3% (cho2024amivantamabpluslazertinib pages 11-12, cho2024amivantamabpluslazertinib pages 9-11, cho2024amivantamabpluslazertinib media ee6afa38)</td>
+<td>Cho et al., 2024, <em>New England Journal of Medicine</em></td>
+<td>https://doi.org/10.1056/NEJMoa2403614</td>
+</tr>
+<tr>
+<td>Nationwide Norway real-world advanced/metastatic NSCLC initiating 1L systemic therapy, 2012–2021</td>
+<td>No targetable mutation required; pembrolizumab-treated cohorts reflect standard clinical selection</td>
+<td>Pembrolizumab monotherapy or pembrolizumab + chemotherapy</td>
+<td>Historical pre-ICI platinum chemotherapy</td>
+<td>Median OS: pembrolizumab mono 13.8 mo; pembrolizumab + chemo 12.8 mo; historical chemo 8.0 mo; 2-year OS increased to ~35% (mono) and ~31% (combo) vs ~19% pre-ICI (hektoen2024realworldevidencefor pages 5-6, hektoen2024realworldevidencefor pages 7-8, hektoen2024realworldevidencefor pages 1-2)</td>
+<td>Real-world patients were older and broader than KEYNOTE trial populations; specific PFS not reported in retrieved excerpts (hektoen2024realworldevidencefor pages 5-6, hektoen2024realworldevidencefor pages 1-2)</td>
+<td>Hektoen et al., 2024, <em>British Journal of Cancer</em></td>
+<td>https://doi.org/10.1038/s41416-024-02895-1</td>
+</tr>
+<tr>
+<td>SEER-Medicare metastatic NSCLC, diagnosed 2015–2019 (n=17,134)</td>
+<td>Population-level; not biomarker-selected</td>
+<td>Immune checkpoint inhibitor exposure (any approved ICI claim)</td>
+<td>No ICI / population benchmark</td>
+<td>ICI utilization 38.7% (~39%); overall median OS 7 mo; 1-year OS 34%; 2-year OS 21%; 2-year OS from ICI initiation 30% vs 11% without ICI (uprety2024racialandsocioeconomic pages 3-4, uprety2024racialandsocioeconomic pages 1-2, uprety2024racialandsocioeconomic pages 2-3)</td>
+<td>Main issue highlighted was access disparity rather than toxicity; lower ICI use in Black, lower-SES, rural, and dual-eligible groups (uprety2024racialandsocioeconomic pages 3-4, uprety2024racialandsocioeconomic pages 1-2)</td>
+<td>Uprety et al., 2024, <em>JNCI Journal of the National Cancer Institute</em></td>
+<td>https://doi.org/10.1093/jnci/djae118</td>
+</tr>
+<tr>
+<td>Previously treated KRAS G12C-mutated advanced/metastatic NSCLC (phase III CodeBreaK 200)</td>
+<td>KRAS G12C</td>
+<td>Sotorasib</td>
+<td>Docetaxel</td>
+<td>Median PFS 5.6 vs 4.5 mo; HR 0.66; ORR 28.1% vs 13.2%; median OS 10.6 vs 11.3 mo (not statistically different) (chour2024mechanismsofresistance pages 1-2, warnecke2024adagrasibinthe pages 4-5)</td>
+<td>TRAEs common; pooled meta-analysis suggests any-grade trAEs 79.3% and grade ≥3 trAEs 24.4% across KRAS G12C inhibitors; sotorasib had better pooled safety than adagrasib (warnecke2024adagrasibinthe pages 4-5, dang2024efficacyandtoxicity pages 1-2)</td>
+<td>Summarized in Warnecke &amp; Nagasaka, 2024, <em>Drug Design, Development and Therapy</em>; Chour et al., 2024, <em>Frontiers in Oncology</em></td>
+<td>https://doi.org/10.2147/DDDT.S466217</td>
+</tr>
+<tr>
+<td>KRAS G12C-mutated advanced/metastatic NSCLC with CNS-active/refractory disease evidence (KRYSTAL program summaries)</td>
+<td>KRAS G12C</td>
+<td>Adagrasib</td>
+<td>Mostly single-arm / some docetaxel comparison in KRYSTAL-12 intracranial subset</td>
+<td>Intracranial ORR 42% (95% CI 20–66.5%); intracranial PFS 5.4 mo; intracranial DoR 12.7 mo; systemic ORR 30%; systemic PFS 5.3 mo; KRYSTAL-12 intracranial ORR 40% vs 11% with docetaxel (warnecke2024adagrasibinthe pages 4-5)</td>
+<td>Adagrasib generally associated with more toxicity than sotorasib in pooled analyses; resistance common via on-target/off-target bypass mechanisms (chour2024mechanismsofresistance pages 1-2, dang2024efficacyandtoxicity pages 1-2)</td>
+<td>Warnecke &amp; Nagasaka, 2024, <em>Drug Design, Development and Therapy</em></td>
+<td>https://doi.org/10.2147/DDDT.S466217</td>
+</tr>
+<tr>
+<td>Pretreated HER2-mutant metastatic NSCLC (DESTINY-Lung01)</td>
+<td>HER2 / ERBB2 mutation</td>
+<td>Trastuzumab deruxtecan (T-DXd) 6.4 mg/kg</td>
+<td>Single-arm</td>
+<td>ORR 54.9–55%; median PFS 8.2 mo; median OS 17.8–18.6 mo; median DoR 10.6 mo; DCR 92% (lazaratos2024apotentialcentral pages 1-2, lazaratos2024apotentialcentral pages 2-4, wang2024addressingtheunmet pages 3-5)</td>
+<td>Interstitial lung disease is a major toxicity concern; pooled/summary estimates ~11.6% ILD overall with grade 5 events reported in reviews (lazaratos2024apotentialcentral pages 2-4)</td>
+<td>Summarized in Ferrari et al., 2024, <em>Cancers</em>; Wang et al., 2024, <em>Exploration of Targeted Anti-tumor Therapy</em></td>
+<td>https://doi.org/10.3390/cancers16112018</td>
+</tr>
+<tr>
+<td>Pretreated HER2-mutant advanced/metastatic NSCLC (DESTINY-Lung02)</td>
+<td>HER2 / ERBB2 mutation</td>
+<td>Trastuzumab deruxtecan 5.4 mg/kg (approved dose)</td>
+<td>6.4 mg/kg cohort / non-comparative dose evaluation</td>
+<td>ORR 53.8% vs 42.9% (5.4 vs 6.4 mg/kg) in one summary; another review reports approved-dose ORR 49.0%, median DoR 16.8 mo, median PFS 9.9 mo (wang2024addressingtheunmet pages 3-5, li2024shra1811(antibodydrugconjugate) pages 1-2)</td>
+<td>ILD/pneumonitis monitoring remains essential; intracranial activity also noted in reviews and brain-metastasis subgroups (lazaratos2024apotentialcentral pages 2-4, ferrari2024her2alterednonsmallcell pages 1-2)</td>
+<td>Li et al., 2024, <em>Signal Transduction and Targeted Therapy</em>; Ferrari et al., 2024, <em>Cancers</em></td>
+<td>https://doi.org/10.1038/s41392-024-01897-y</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This artifact provides two compact tables: one for disease naming/identifier coverage in the retrieved evidence, and one for pivotal 2024 metastatic NSCLC efficacy and safety figures across major treatment settings. It is useful for quickly mapping terminology and comparing contemporary clinical outcomes across targeted therapy, immunotherapy, and population-level datasets.</em></p>
+<hr />
+<h2>Notes on evidence limitations in this run</h2>
+<p>1) Several requested ontology identifiers (ICD-10/11, MeSH, metastatic-stage MONDO) were not present in the retrieved full-text corpus and should be added from ontology resources. 2) Some sections (QoL instruments, detailed differential diagnosis, epigenetics) require additional targeted retrieval beyond the current evidence set.</p>
+<p>References</p>
+<ol>
+<li>
+<p>(OpenTargets Search: Non-small cell lung carcinoma,Lung adenocarcinoma,Lung squamous cell carcinoma): Open Targets Query (Non-small cell lung carcinoma,Lung adenocarcinoma,Lung squamous cell carcinoma, 40 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.</p>
+</li>
+<li>
+<p>(apter2024realworldtreatmentpatterns pages 1-2): Lior Apter, Sarah Sharman Moser, Ashwini Arunachalam, Sivan Gazit, Moshe Hoshen, Gabriel Chodick, and Nava Siegelmann-Danieli. Real-world treatment patterns, biomarker testing, and clinical outcomes of metastatic non-small cell lung cancer patients in the immunotherapy era. Frontiers in Oncology, Oct 2024. URL: https://doi.org/10.3389/fonc.2024.1442909, doi:10.3389/fonc.2024.1442909. This article has 2 citations.</p>
+</li>
+<li>
+<p>(uprety2024racialandsocioeconomic pages 3-4): Dipesh Uprety, Randell Seaton, Tarik Hadid, Hirva Mamdani, Ammar Sukari, Julie J Ruterbusch, and Ann G Schwartz. Racial and socioeconomic disparities in survival among patients with metastatic non–small cell lung cancer. JNCI Journal of the National Cancer Institute, 116:1697-1704, Jun 2024. URL: https://doi.org/10.1093/jnci/djae118, doi:10.1093/jnci/djae118. This article has 17 citations.</p>
+</li>
+<li>
+<p>(yang2024disparitiesinutilization pages 1-2): Danting Yang, Shama D. Karanth, Hyung-Suk Yoon, Jae Jeong Yang, Xiwei Lou, Jiang Bian, Dongyu Zhang, Yi Guo, Lusine Yaghjyan, Tomi Akinyemiju, Estelamari Rodriguez, Hiren J. Mehta, and Dejana Braithwaite. Disparities in utilization of immune checkpoint inhibitor therapy among older patients with advanced non–small cell lung cancer: a seer-medicare analysis. JCO Oncology Advances, Dec 2024. URL: https://doi.org/10.1200/oa.24.00008, doi:10.1200/oa.24.00008. This article has 6 citations.</p>
+</li>
+<li>
+<p>(hektoen2024realworldevidencefor pages 1-2): Helga H. Hektoen, Kaitlyn M. Tsuruda, Lars Fjellbirkeland, Yngvar Nilssen, Odd Terje Brustugun, and Bettina K. Andreassen. Real-world evidence for pembrolizumab in non-small cell lung cancer: a nationwide cohort study. British Journal of Cancer, 132:93-102, Nov 2024. URL: https://doi.org/10.1038/s41416-024-02895-1, doi:10.1038/s41416-024-02895-1. This article has 27 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(hektoen2024realworldevidencefor pages 5-6): Helga H. Hektoen, Kaitlyn M. Tsuruda, Lars Fjellbirkeland, Yngvar Nilssen, Odd Terje Brustugun, and Bettina K. Andreassen. Real-world evidence for pembrolizumab in non-small cell lung cancer: a nationwide cohort study. British Journal of Cancer, 132:93-102, Nov 2024. URL: https://doi.org/10.1038/s41416-024-02895-1, doi:10.1038/s41416-024-02895-1. This article has 27 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(cho2024amivantamabpluslazertinib pages 8-9): Byoung C. Cho, Shun Lu, Enriqueta Felip, Alexander I. Spira, Nicolas Girard, Jong-Seok Lee, Se-Hoon Lee, Yurii Ostapenko, Pongwut Danchaivijitr, Baogang Liu, Adlinda Alip, Ernesto Korbenfeld, Josiane Mourão Dias, Benjamin Besse, Ki-Hyeong Lee, Hailin Xiong, Soon-Hin How, Ying Cheng, Gee-Chen Chang, Hiroshige Yoshioka, James C.-H. Yang, Michael Thomas, Danny Nguyen, Sai-Hong I. Ou, Sanjay Mukhedkar, Kumar Prabhash, Manolo D’Arcangelo, Jorge Alatorre-Alexander, Juan C. Vázquez Limón, Sara Alves, Daniil Stroyakovskiy, Marina Peregudova, Mehmet A.N. Şendur, Ozan Yazici, Raffaele Califano, Vanesa Gutiérrez Calderón, Filippo de Marinis, Antonio Passaro, Sang-We Kim, Shirish M. Gadgeel, John Xie, Tao Sun, Melissa Martinez, Mariah Ennis, Elizabeth Fennema, Mahesh Daksh, Dawn Millington, Isabelle Leconte, Ryota Iwasawa, Patricia Lorenzini, Mahadi Baig, Sujay Shah, Joshua M. Bauml, S. Martin Shreeve, Seema Sethi, Roland E. Knoblauch, and Hidetoshi Hayashi. Amivantamab plus lazertinib in previously untreated <i>egfr</i> -mutated advanced nsclc. New England Journal of Medicine, 391:1486-1498, Oct 2024. URL: https://doi.org/10.1056/nejmoa2403614, doi:10.1056/nejmoa2403614. This article has 450 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(laguna2024geographicdifferencesin pages 1-3): Juan Carlos Laguna, Miguel García-Pardo, Joao Alessi, Carlos Barrios, Navneet Singh, Humaid O. Al-Shamsi, Herbert Loong, Miquel Ferriol, Gonzalo Recondo, and Laura Mezquita. Geographic differences in lung cancer: focus on carcinogens, genetic predisposition, and molecular epidemiology. Therapeutic Advances in Medical Oncology, Jan 2024. URL: https://doi.org/10.1177/17588359241231260, doi:10.1177/17588359241231260. This article has 64 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(yoo2024updateinassociation pages 2-3): Jiye Yoo, Yongchan Lee, Youngil Park, Jongin Lee, Joon Young Choi, Heekwan Lee, and Jeong Uk Lim. Update in association between lung cancer and air pollution. Tuberculosis and Respiratory Diseases, 88:228-236, Dec 2024. URL: https://doi.org/10.4046/trd.2024.0092, doi:10.4046/trd.2024.0092. This article has 10 citations.</p>
+</li>
+<li>
+<p>(farahmandian2024investigatingtherelationship pages 1-2): Parisa Farahmandian, Abdollah Mohammadian-Hafshejani, Abdolmajid Fadaei, and Ramezan Sadeghi. Investigating the relationship between exposure to cadmium and lung cancer risk: a systematic review and meta-analysis. Journal of Health and Safety at Work, Dec 2024. URL: https://doi.org/10.18502/jhsw.v14i1.17131, doi:10.18502/jhsw.v14i1.17131. This article has 4 citations.</p>
+</li>
+<li>
+<p>(wolf2024screeningforlung pages 7-7): Andrew M. D. Wolf, Kevin C. Oeffinger, Tina Ya‐Chen Shih, Louise C. Walter, Timothy R. Church, Elizabeth T. H. Fontham, Elena B. Elkin, Ruth D. Etzioni, Carmen E. Guerra, Rebecca B. Perkins, Karli K. Kondo, Tyler B. Kratzer, Deana Manassaram‐Baptiste, William L. Dahut, and Robert A. Smith. Screening for lung cancer: 2023 guideline update from the american cancer society. CA: A Cancer Journal for Clinicians, 74:50-81, Nov 2024. URL: https://doi.org/10.3322/caac.21811, doi:10.3322/caac.21811. This article has 425 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(xie2024distantmetastasispatterns pages 1-2): Tian Xie, Bing-Mei Qiu, Jing Luo, Yi-Fei Diao, Li-Wen Hu, Xiao-Long Liu, and Yi Shen. Distant metastasis patterns among lung cancer subtypes and impact of primary tumor resection on survival in metastatic lung cancer using seer database. Scientific Reports, Sep 2024. URL: https://doi.org/10.1038/s41598-024-73389-6, doi:10.1038/s41598-024-73389-6. This article has 25 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(xie2024distantmetastasispatterns pages 2-3): Tian Xie, Bing-Mei Qiu, Jing Luo, Yi-Fei Diao, Li-Wen Hu, Xiao-Long Liu, and Yi Shen. Distant metastasis patterns among lung cancer subtypes and impact of primary tumor resection on survival in metastatic lung cancer using seer database. Scientific Reports, Sep 2024. URL: https://doi.org/10.1038/s41598-024-73389-6, doi:10.1038/s41598-024-73389-6. This article has 25 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(tanaka2024femoralbonemetastasis pages 1-3): Ichidai Tanaka, Kazumi Hori, Junji Koyama, Soei Gen, Masahiro Morise, Yuta Kodama, Akira Matsui, Ayako Miyazawa, Tetsunari Hase, Yoshitaka Hibino, Toshihiko Yokoyama, Tomoki Kimura, Norio Yoshida, Mitsuo Sato, and Makoto Ishii. Femoral bone metastasis is a poor prognostic factor in egfr-tkis-treated patients with egfr-mutated non-small-cell lung cancer: a retrospective, multicenter cohort study. Therapeutic Advances in Medical Oncology, Jan 2024. URL: https://doi.org/10.1177/17588359241303090, doi:10.1177/17588359241303090. This article has 2 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(hektoen2024realworldevidencefor pages 3-5): Helga H. Hektoen, Kaitlyn M. Tsuruda, Lars Fjellbirkeland, Yngvar Nilssen, Odd Terje Brustugun, and Bettina K. Andreassen. Real-world evidence for pembrolizumab in non-small cell lung cancer: a nationwide cohort study. British Journal of Cancer, 132:93-102, Nov 2024. URL: https://doi.org/10.1038/s41416-024-02895-1, doi:10.1038/s41416-024-02895-1. This article has 27 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(brown2024sitespecificresponseand pages 11-12): Lauren Julia Brown, Julie Ahn, Bo Gao, Harriet Gee, Adnan Nagrial, Eric Hau, and Inês Pires da Silva. Site-specific response and resistance patterns in patients with advanced non-small-cell lung cancer treated with first-line systemic therapy. Cancers, 16:2136, Jun 2024. URL: https://doi.org/10.3390/cancers16112136, doi:10.3390/cancers16112136. This article has 4 citations.</p>
+</li>
+<li>
+<p>(brown2024sitespecificresponseand pages 1-2): Lauren Julia Brown, Julie Ahn, Bo Gao, Harriet Gee, Adnan Nagrial, Eric Hau, and Inês Pires da Silva. Site-specific response and resistance patterns in patients with advanced non-small-cell lung cancer treated with first-line systemic therapy. Cancers, 16:2136, Jun 2024. URL: https://doi.org/10.3390/cancers16112136, doi:10.3390/cancers16112136. This article has 4 citations.</p>
+</li>
+<li>
+<p>(li2024evolvingprecisionfirstline pages 1-2): Tianhong Li, Weijie Ma, and Ebaa Al-Obeidi. Evolving precision first-line systemic treatment for patients with unresectable non-small cell lung cancer. Cancers, 16:2350, Jun 2024. URL: https://doi.org/10.3390/cancers16132350, doi:10.3390/cancers16132350. This article has 14 citations.</p>
+</li>
+<li>
+<p>(li2024evolvingprecisionfirstline pages 4-6): Tianhong Li, Weijie Ma, and Ebaa Al-Obeidi. Evolving precision first-line systemic treatment for patients with unresectable non-small cell lung cancer. Cancers, 16:2350, Jun 2024. URL: https://doi.org/10.3390/cancers16132350, doi:10.3390/cancers16132350. This article has 14 citations.</p>
+</li>
+<li>
+<p>(cho2024amivantamabpluslazertinib pages 1-4): Byoung C. Cho, Shun Lu, Enriqueta Felip, Alexander I. Spira, Nicolas Girard, Jong-Seok Lee, Se-Hoon Lee, Yurii Ostapenko, Pongwut Danchaivijitr, Baogang Liu, Adlinda Alip, Ernesto Korbenfeld, Josiane Mourão Dias, Benjamin Besse, Ki-Hyeong Lee, Hailin Xiong, Soon-Hin How, Ying Cheng, Gee-Chen Chang, Hiroshige Yoshioka, James C.-H. Yang, Michael Thomas, Danny Nguyen, Sai-Hong I. Ou, Sanjay Mukhedkar, Kumar Prabhash, Manolo D’Arcangelo, Jorge Alatorre-Alexander, Juan C. Vázquez Limón, Sara Alves, Daniil Stroyakovskiy, Marina Peregudova, Mehmet A.N. Şendur, Ozan Yazici, Raffaele Califano, Vanesa Gutiérrez Calderón, Filippo de Marinis, Antonio Passaro, Sang-We Kim, Shirish M. Gadgeel, John Xie, Tao Sun, Melissa Martinez, Mariah Ennis, Elizabeth Fennema, Mahesh Daksh, Dawn Millington, Isabelle Leconte, Ryota Iwasawa, Patricia Lorenzini, Mahadi Baig, Sujay Shah, Joshua M. Bauml, S. Martin Shreeve, Seema Sethi, Roland E. Knoblauch, and Hidetoshi Hayashi. Amivantamab plus lazertinib in previously untreated <i>egfr</i> -mutated advanced nsclc. New England Journal of Medicine, 391:1486-1498, Oct 2024. URL: https://doi.org/10.1056/nejmoa2403614, doi:10.1056/nejmoa2403614. This article has 450 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(chour2024mechanismsofresistance pages 1-2): Ali Chour, Anne-Claire Toffart, Elodie Berton, and Michael Duruisseaux. Mechanisms of resistance to krasg12c inhibitors in krasg12c-mutated non-small cell lung cancer. Frontiers in Oncology, Sep 2024. URL: https://doi.org/10.3389/fonc.2024.1328728, doi:10.3389/fonc.2024.1328728. This article has 21 citations.</p>
+</li>
+<li>
+<p>(warnecke2024adagrasibinthe pages 1-2): Brian Warnecke and Misako Nagasaka. Adagrasib in the treatment of kras p.g12c positive advanced nsclc: design, development and place in therapy. Drug Design, Development and Therapy, 18:5673-5683, Dec 2024. URL: https://doi.org/10.2147/dddt.s466217, doi:10.2147/dddt.s466217. This article has 5 citations.</p>
+</li>
+<li>
+<p>(ferrari2024her2alterednonsmallcell pages 1-2): Giorgia Ferrari, Benedetta Del Rio, Silvia Novello, and Francesco Passiglia. Her2-altered non-small cell lung cancer: a journey from current approaches to emerging strategies. Cancers, 16:2018, May 2024. URL: https://doi.org/10.3390/cancers16112018, doi:10.3390/cancers16112018. This article has 18 citations.</p>
+</li>
+<li>
+<p>(cho2024amivantamabpluslazertinib pages 7-8): Byoung C. Cho, Shun Lu, Enriqueta Felip, Alexander I. Spira, Nicolas Girard, Jong-Seok Lee, Se-Hoon Lee, Yurii Ostapenko, Pongwut Danchaivijitr, Baogang Liu, Adlinda Alip, Ernesto Korbenfeld, Josiane Mourão Dias, Benjamin Besse, Ki-Hyeong Lee, Hailin Xiong, Soon-Hin How, Ying Cheng, Gee-Chen Chang, Hiroshige Yoshioka, James C.-H. Yang, Michael Thomas, Danny Nguyen, Sai-Hong I. Ou, Sanjay Mukhedkar, Kumar Prabhash, Manolo D’Arcangelo, Jorge Alatorre-Alexander, Juan C. Vázquez Limón, Sara Alves, Daniil Stroyakovskiy, Marina Peregudova, Mehmet A.N. Şendur, Ozan Yazici, Raffaele Califano, Vanesa Gutiérrez Calderón, Filippo de Marinis, Antonio Passaro, Sang-We Kim, Shirish M. Gadgeel, John Xie, Tao Sun, Melissa Martinez, Mariah Ennis, Elizabeth Fennema, Mahesh Daksh, Dawn Millington, Isabelle Leconte, Ryota Iwasawa, Patricia Lorenzini, Mahadi Baig, Sujay Shah, Joshua M. Bauml, S. Martin Shreeve, Seema Sethi, Roland E. Knoblauch, and Hidetoshi Hayashi. Amivantamab plus lazertinib in previously untreated <i>egfr</i> -mutated advanced nsclc. New England Journal of Medicine, 391:1486-1498, Oct 2024. URL: https://doi.org/10.1056/nejmoa2403614, doi:10.1056/nejmoa2403614. This article has 450 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(uprety2024racialandsocioeconomic pages 1-2): Dipesh Uprety, Randell Seaton, Tarik Hadid, Hirva Mamdani, Ammar Sukari, Julie J Ruterbusch, and Ann G Schwartz. Racial and socioeconomic disparities in survival among patients with metastatic non–small cell lung cancer. JNCI Journal of the National Cancer Institute, 116:1697-1704, Jun 2024. URL: https://doi.org/10.1093/jnci/djae118, doi:10.1093/jnci/djae118. This article has 17 citations.</p>
+</li>
+<li>
+<p>(li2024evolvingprecisionfirstline pages 2-4): Tianhong Li, Weijie Ma, and Ebaa Al-Obeidi. Evolving precision first-line systemic treatment for patients with unresectable non-small cell lung cancer. Cancers, 16:2350, Jun 2024. URL: https://doi.org/10.3390/cancers16132350, doi:10.3390/cancers16132350. This article has 14 citations.</p>
+</li>
+<li>
+<p>(restrepo2024identificationandapplication pages 15-16): Juan Carlos Restrepo, Darly Martínez Guevara, Andrés Pareja López, John Fernando Montenegro Palacios, and Yamil Liscano. Identification and application of emerging biomarkers in treatment of non-small-cell lung cancer: systematic review. Cancers, 16:2338, Jun 2024. URL: https://doi.org/10.3390/cancers16132338, doi:10.3390/cancers16132338. This article has 33 citations.</p>
+</li>
+<li>
+<p>(yang2024nonsmallcelllung pages 1-2): Mo Yang, Erin Mandal, Frank X. Liu, Richard M. O’Hara, Beth Lesher, and Rachel E. Sanborn. Non-small cell lung cancer with met amplification: review of epidemiology, associated disease characteristics, testing procedures, burden, and treatments. Frontiers in Oncology, Jan 2024. URL: https://doi.org/10.3389/fonc.2023.1241402, doi:10.3389/fonc.2023.1241402. This article has 19 citations.</p>
+</li>
+<li>
+<p>(yang2024nonsmallcelllung pages 3-5): Mo Yang, Erin Mandal, Frank X. Liu, Richard M. O’Hara, Beth Lesher, and Rachel E. Sanborn. Non-small cell lung cancer with met amplification: review of epidemiology, associated disease characteristics, testing procedures, burden, and treatments. Frontiers in Oncology, Jan 2024. URL: https://doi.org/10.3389/fonc.2023.1241402, doi:10.3389/fonc.2023.1241402. This article has 19 citations.</p>
+</li>
+<li>
+<p>(cho2024amivantamabpluslazertinib pages 9-11): Byoung C. Cho, Shun Lu, Enriqueta Felip, Alexander I. Spira, Nicolas Girard, Jong-Seok Lee, Se-Hoon Lee, Yurii Ostapenko, Pongwut Danchaivijitr, Baogang Liu, Adlinda Alip, Ernesto Korbenfeld, Josiane Mourão Dias, Benjamin Besse, Ki-Hyeong Lee, Hailin Xiong, Soon-Hin How, Ying Cheng, Gee-Chen Chang, Hiroshige Yoshioka, James C.-H. Yang, Michael Thomas, Danny Nguyen, Sai-Hong I. Ou, Sanjay Mukhedkar, Kumar Prabhash, Manolo D’Arcangelo, Jorge Alatorre-Alexander, Juan C. Vázquez Limón, Sara Alves, Daniil Stroyakovskiy, Marina Peregudova, Mehmet A.N. Şendur, Ozan Yazici, Raffaele Califano, Vanesa Gutiérrez Calderón, Filippo de Marinis, Antonio Passaro, Sang-We Kim, Shirish M. Gadgeel, John Xie, Tao Sun, Melissa Martinez, Mariah Ennis, Elizabeth Fennema, Mahesh Daksh, Dawn Millington, Isabelle Leconte, Ryota Iwasawa, Patricia Lorenzini, Mahadi Baig, Sujay Shah, Joshua M. Bauml, S. Martin Shreeve, Seema Sethi, Roland E. Knoblauch, and Hidetoshi Hayashi. Amivantamab plus lazertinib in previously untreated <i>egfr</i> -mutated advanced nsclc. New England Journal of Medicine, 391:1486-1498, Oct 2024. URL: https://doi.org/10.1056/nejmoa2403614, doi:10.1056/nejmoa2403614. This article has 450 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(cho2024amivantamabpluslazertinib media ee6afa38): Byoung C. Cho, Shun Lu, Enriqueta Felip, Alexander I. Spira, Nicolas Girard, Jong-Seok Lee, Se-Hoon Lee, Yurii Ostapenko, Pongwut Danchaivijitr, Baogang Liu, Adlinda Alip, Ernesto Korbenfeld, Josiane Mourão Dias, Benjamin Besse, Ki-Hyeong Lee, Hailin Xiong, Soon-Hin How, Ying Cheng, Gee-Chen Chang, Hiroshige Yoshioka, James C.-H. Yang, Michael Thomas, Danny Nguyen, Sai-Hong I. Ou, Sanjay Mukhedkar, Kumar Prabhash, Manolo D’Arcangelo, Jorge Alatorre-Alexander, Juan C. Vázquez Limón, Sara Alves, Daniil Stroyakovskiy, Marina Peregudova, Mehmet A.N. Şendur, Ozan Yazici, Raffaele Califano, Vanesa Gutiérrez Calderón, Filippo de Marinis, Antonio Passaro, Sang-We Kim, Shirish M. Gadgeel, John Xie, Tao Sun, Melissa Martinez, Mariah Ennis, Elizabeth Fennema, Mahesh Daksh, Dawn Millington, Isabelle Leconte, Ryota Iwasawa, Patricia Lorenzini, Mahadi Baig, Sujay Shah, Joshua M. Bauml, S. Martin Shreeve, Seema Sethi, Roland E. Knoblauch, and Hidetoshi Hayashi. Amivantamab plus lazertinib in previously untreated <i>egfr</i> -mutated advanced nsclc. New England Journal of Medicine, 391:1486-1498, Oct 2024. URL: https://doi.org/10.1056/nejmoa2403614, doi:10.1056/nejmoa2403614. This article has 450 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(warnecke2024adagrasibinthe pages 4-5): Brian Warnecke and Misako Nagasaka. Adagrasib in the treatment of kras p.g12c positive advanced nsclc: design, development and place in therapy. Drug Design, Development and Therapy, 18:5673-5683, Dec 2024. URL: https://doi.org/10.2147/dddt.s466217, doi:10.2147/dddt.s466217. This article has 5 citations.</p>
+</li>
+<li>
+<p>(lazaratos2024apotentialcentral pages 1-2): Anna-Maria Lazaratos, David J. H. Bian, Kevin Petrecca, Marie-Christine Guiot, and Matthew Dankner. A potential central nervous system niche for trastuzumab deruxtecan in patients with her2-expressing non-small cell lung cancer. Translational Lung Cancer Research, 13:3824-3830, Dec 2024. URL: https://doi.org/10.21037/tlcr-24-856, doi:10.21037/tlcr-24-856. This article has 0 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(wang2024addressingtheunmet pages 3-5): Kinsley Wang, Alexis Leyba, and Robert Hsu. Addressing the unmet need in nsclc progression with advances in second-line therapeutics. Exploration of Targeted Anti-tumor Therapy, 5:1297-1320, Nov 2024. URL: https://doi.org/10.37349/etat.2024.00277, doi:10.37349/etat.2024.00277. This article has 4 citations.</p>
+</li>
+<li>
+<p>(lazaratos2024apotentialcentral pages 2-4): Anna-Maria Lazaratos, David J. H. Bian, Kevin Petrecca, Marie-Christine Guiot, and Matthew Dankner. A potential central nervous system niche for trastuzumab deruxtecan in patients with her2-expressing non-small cell lung cancer. Translational Lung Cancer Research, 13:3824-3830, Dec 2024. URL: https://doi.org/10.21037/tlcr-24-856, doi:10.21037/tlcr-24-856. This article has 0 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(wolf2024screeningforlung pages 2-3): Andrew M. D. Wolf, Kevin C. Oeffinger, Tina Ya‐Chen Shih, Louise C. Walter, Timothy R. Church, Elizabeth T. H. Fontham, Elena B. Elkin, Ruth D. Etzioni, Carmen E. Guerra, Rebecca B. Perkins, Karli K. Kondo, Tyler B. Kratzer, Deana Manassaram‐Baptiste, William L. Dahut, and Robert A. Smith. Screening for lung cancer: 2023 guideline update from the american cancer society. CA: A Cancer Journal for Clinicians, 74:50-81, Nov 2024. URL: https://doi.org/10.3322/caac.21811, doi:10.3322/caac.21811. This article has 425 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(wolf2024screeningforlung pages 1-2): Andrew M. D. Wolf, Kevin C. Oeffinger, Tina Ya‐Chen Shih, Louise C. Walter, Timothy R. Church, Elizabeth T. H. Fontham, Elena B. Elkin, Ruth D. Etzioni, Carmen E. Guerra, Rebecca B. Perkins, Karli K. Kondo, Tyler B. Kratzer, Deana Manassaram‐Baptiste, William L. Dahut, and Robert A. Smith. Screening for lung cancer: 2023 guideline update from the american cancer society. CA: A Cancer Journal for Clinicians, 74:50-81, Nov 2024. URL: https://doi.org/10.3322/caac.21811, doi:10.3322/caac.21811. This article has 425 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(wang2024utilityofpatientderived pages 1-2): Xiaoqing Wang, Ju Zhu, Lingling Li, Qilin Zhao, Yutang Huang, Chunjie Wen, Dan Chen, and Lanxiang Wu. Utility of patient-derived xenografts to evaluate drug sensitivity and select optimal treatments for individual non-small-cell lung cancer patients. Molecular Medicine, Nov 2024. URL: https://doi.org/10.1186/s10020-024-00934-4, doi:10.1186/s10020-024-00934-4. This article has 6 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(hynds2024representationofgenomic pages 1-2): R. Hynds, A. Huebner, D. Pearce, M. Hill, A. Akarca, David A Moore, S. Ward, K. Gowers, Takahiro Karasaki, M. Al Bakir, G. Wilson, O. Pich, Carlos Martínez-Ruiz, A. M. Hossain, S. Pearce, Monica Sivakumar, Assma Ben Aissa, E. Grönroos, Deepak P Chandrasekharan, K. Kolluri, Rebecca Towns, Kaiwen Wang, Daniel E. Cook, Leticia Bosshard-Carter, C. Naceur-Lombardelli, Andrew Rowan, S. Veeriah, K. Litchfield, Philip A J Crosbie, C. Dive, Sergio A Quezada, S. Janes, M. Jamal-Hanjani, T. Marafioti, Maise Jason F. Amrita Apostolos Azmina Mohamad Molly Reb Al Bakir Lester Bajaj Nakas Sodha-Ramdeen Tufail S, Jason Lester, A. Bajaj, A. Nakas, Azmina Sodha-Ramdeen, M. Tufail, M. Scotland, R. Boyles, S. Rathinam, C. Wilson, Domenic Marrone, S. Dulloo, D. Fennell, Gurdeep Matharu, J. Shaw, E. Boleti, Heather Cheyne, Mohammed Khalil, S. Richardson, Tracey Cruickshank, Gillian Price, K. M. Kerr, Sarah Benafif, Jack French, Kayleigh Gilbert, B. Naidu, Akshay J. Patel, A. Osman, Carol Enstone, G. Langman, Helen Shackleford, M. Djearaman, S. Kadiri, Gary Middleton, Angela E. Leek, Jack Davies Hodgkinson, Nicola Totton, A. Montero, E. Smith, E. Fontaine, F. Granato, A. Paiva-Correia, Juliette Novasio, K. Rammohan, L. Joseph, P. Bishop, Rajesh Shah, Stuart Moss, Vijay Joshi, Katherine D. Brown, M. Carter, A. Chaturvedi, Pedro Oliveira, C. Lindsay, Fiona H. Blackhall, Matthew G. Krebs, Yvonne Summers, A. Clipson, J. Tugwood, Alastair Kerr, D. Rothwell, H. Aerts, R. Schwarz, Tom L. Kaufmann, R. Rosenthal, P. Van Loo, Nicolai J. Birkbak, Zoltan Szallasi, Judit Kisistók, M. Sokač, R. Salgado, M. Dióssy, J. Demeulemeester, Abigail Bunkum, Angela Dwornik, Alastair Magness, A. Frankell, Angeliki Karamani, A. Toncheva, B. Chain, C. Castignani, Chris Bailey, C. Abbosh, C. Puttick, C. Weeden, Claudia Lee, Corentin Richard, C. Hiley, D. Karagianni, D. Biswas, D. Levi, E. L. Cadieux, Emilia L. Lim, Emma C Colliver, E. Nye, F. Gálvez-Cancino, F. Gimeno-Valiente, G. Kassiotis, Georgia Stavrou, Gerasimos Mastrokalos, H. Lowe, Ignacio Matos, I. Noorani, J. Goldman, J. Reading, James R. M. Black, J. Rane, J. Nicod, John A. Hartley, K. Peggs, Katey S. S. Enfield, Kayalvizhi Selvaraju, K. Thol, Kevin Ng, Kezhong Chen, K. Dijkstra, Kristiana Grigoriadis, Krupa Thakkar, L. Ensell, Mansi Shah, Maria Litovchenko, M. W. Sunderland, M. Huska, M. Dietzen, Michelle M Leung, M. Escudero, Mihaela Angelova, M. Tanić, N. Kanu, O. Chervova, Olivia Lucas, Othman Al-Sawaf, Paulina Prymas, Philip S Hobson, Piotr Pawlik, R. Stone, R. Bentham, R. Vendramin, S. Saghafinia, Samuel Gamble, S. Ung, Sharon P. Vanloo, S. Zaccaria, S. Hessey, Sian Harries, S. Boeing, Stephan Beck, S. Bola, Tamara Denner, T. Watkins, Thomas P. Jones, V. Spanswick, Vittorio Barbè, Wei-Ting Lu, William Hill, W. K. Liu, Yin Wu, Yutaka Naito, Zoe Ramsden, C. Veiga, G. Royle, C. Collins-Fekete, Francesco Fraioli, Paul Ashford, Martin D. Forster, Siow-Ming Lee, E. Borg, M. Falzon, D. Papadatos-Pastos, James Wilson, T. Ahmad, A. Procter, Asia Ahmed, Magali N. Taylor, Arjun Nair, David S. Lawrence, D. Patrini, Neal Navani, R. Thakrar, E. Hoogenboom, Fleur Monk, James W. Holding, Junaid Choudhary, Kunal Bhakhri, M. Scarci, Pat Gorman, Reena Khiroya, Robert C. M. Stephens, Y. Wong, Zoltán Káplár, S. Bandula, A. Hackshaw, A. Hacker, A. Sharp, Sean Smith, H. Dhanda, Camilla Pilotti, R. Leslie, Anca-Ioana Grapa, Hanyun Zhang, K. AbdulJabbar, Xiaoxi Pan, Yinyin Yuan, David Chuter, M. Mackenzie, S. Chee, A. Alzetani, Judith Cave, J. Richards, Eric Lim, Paulo De Sousa, S. Jordan, A. Rice, H. Raubenheimer, H. Bhayani, L. Ambrose, A. Devaraj, Hema Chavan, S. Begum, Silviu I. Buderi, Daniel Kaniu, Mpho Malima, S. Booth, Andrew G. Nicholson, Nádia Fernandes, Pratibha Shah, C. Proli, M. Hewish, S. Danson, M. Shackcloth, Lily Robinson, P. Russell, Kevin G. Blyth, A. Kidd, C. Dick, J. Le Quesne, Alan Kirk, Mohd. Asif, Rocco Bilancia, N. Kostoulas, Mathew Thomas, N. Mcgranahan, and C. Swanton. Representation of genomic intratumor heterogeneity in multi-region non-small cell lung cancer patient-derived xenograft models. Nature Communications, May 2024. URL: https://doi.org/10.1038/s41467-024-47547-3, doi:10.1038/s41467-024-47547-3. This article has 24 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(lee2024predictionoftki pages 1-2): Sang-Hyun Lee, Kyuhwan Kim, Eunyoung Lee, Kyungmin Lee, Kyeong Hwan Ahn, Hansom Park, Yelim Kim, Soeun Shin, Sang Youl Jeon, Yongki Hwang, Dong Hyuck Ahn, Yong-Jun Kwon, Seok Whan Moon, Mi Hyoung Moon, Kyung Soo Kim, Kwanyong Hyun, Tae-Jung Kim, Yeoun Eun Sung, Joon Young Choi, Chan Kwon Park, Sung Won Kim, Chang Dong Yeo, Hyun-Jung Sohn, You-Seok Hyun, Tai-Gyu Kim, Bosung Ku, Jeong Uk Lim, and Seung Joon Kim. Prediction of tki response in egfr-mutant lung cancer patients-derived organoids using malignant pleural effusion. NPJ Precision Oncology, May 2024. URL: https://doi.org/10.1038/s41698-024-00609-7, doi:10.1038/s41698-024-00609-7. This article has 19 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(liu2024modelinglungadenocarcinoma pages 1-4): Yuan Liu, Manendra Lankadasari, Joel Rosiene, Kofi E. Johnson, Juan Zhou, Samhita Bapat, Lai-Fong L. Chow-Tsang, Huasong Tian, Brooke Mastrogiacomo, Di He, James G. Connolly, Harry B. Lengel, Raul Caso, Elizabeth G. Dunne, Cameron N. Fick, Gaetano Rocco, Smita Sihag, James M. Isbell, Mathew J. Bott, Bob T. Li, Piro Lito, Cameron W. Brennan, Mark H. Bilsky, Natasha Rekhtman, Prasad S. Adusumilli, Marty W. Mayo, Marcin Imielinski, and David R. Jones. Modeling lung adenocarcinoma metastases using patient-derived organoids. Cell Reports Medicine, 5:101777, Oct 2024. URL: https://doi.org/10.1016/j.xcrm.2024.101777, doi:10.1016/j.xcrm.2024.101777. This article has 25 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(yang2024disparitiesinutilization pages 2-3): Danting Yang, Shama D. Karanth, Hyung-Suk Yoon, Jae Jeong Yang, Xiwei Lou, Jiang Bian, Dongyu Zhang, Yi Guo, Lusine Yaghjyan, Tomi Akinyemiju, Estelamari Rodriguez, Hiren J. Mehta, and Dejana Braithwaite. Disparities in utilization of immune checkpoint inhibitor therapy among older patients with advanced non–small cell lung cancer: a seer-medicare analysis. JCO Oncology Advances, Dec 2024. URL: https://doi.org/10.1200/oa.24.00008, doi:10.1200/oa.24.00008. This article has 6 citations.</p>
+</li>
+<li>
+<p>(cho2024amivantamabpluslazertinib pages 11-12): Byoung C. Cho, Shun Lu, Enriqueta Felip, Alexander I. Spira, Nicolas Girard, Jong-Seok Lee, Se-Hoon Lee, Yurii Ostapenko, Pongwut Danchaivijitr, Baogang Liu, Adlinda Alip, Ernesto Korbenfeld, Josiane Mourão Dias, Benjamin Besse, Ki-Hyeong Lee, Hailin Xiong, Soon-Hin How, Ying Cheng, Gee-Chen Chang, Hiroshige Yoshioka, James C.-H. Yang, Michael Thomas, Danny Nguyen, Sai-Hong I. Ou, Sanjay Mukhedkar, Kumar Prabhash, Manolo D’Arcangelo, Jorge Alatorre-Alexander, Juan C. Vázquez Limón, Sara Alves, Daniil Stroyakovskiy, Marina Peregudova, Mehmet A.N. Şendur, Ozan Yazici, Raffaele Califano, Vanesa Gutiérrez Calderón, Filippo de Marinis, Antonio Passaro, Sang-We Kim, Shirish M. Gadgeel, John Xie, Tao Sun, Melissa Martinez, Mariah Ennis, Elizabeth Fennema, Mahesh Daksh, Dawn Millington, Isabelle Leconte, Ryota Iwasawa, Patricia Lorenzini, Mahadi Baig, Sujay Shah, Joshua M. Bauml, S. Martin Shreeve, Seema Sethi, Roland E. Knoblauch, and Hidetoshi Hayashi. Amivantamab plus lazertinib in previously untreated <i>egfr</i> -mutated advanced nsclc. New England Journal of Medicine, 391:1486-1498, Oct 2024. URL: https://doi.org/10.1056/nejmoa2403614, doi:10.1056/nejmoa2403614. This article has 450 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(hektoen2024realworldevidencefor pages 7-8): Helga H. Hektoen, Kaitlyn M. Tsuruda, Lars Fjellbirkeland, Yngvar Nilssen, Odd Terje Brustugun, and Bettina K. Andreassen. Real-world evidence for pembrolizumab in non-small cell lung cancer: a nationwide cohort study. British Journal of Cancer, 132:93-102, Nov 2024. URL: https://doi.org/10.1038/s41416-024-02895-1, doi:10.1038/s41416-024-02895-1. This article has 27 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(uprety2024racialandsocioeconomic pages 2-3): Dipesh Uprety, Randell Seaton, Tarik Hadid, Hirva Mamdani, Ammar Sukari, Julie J Ruterbusch, and Ann G Schwartz. Racial and socioeconomic disparities in survival among patients with metastatic non–small cell lung cancer. JNCI Journal of the National Cancer Institute, 116:1697-1704, Jun 2024. URL: https://doi.org/10.1093/jnci/djae118, doi:10.1093/jnci/djae118. This article has 17 citations.</p>
+</li>
+<li>
+<p>(dang2024efficacyandtoxicity pages 1-2): Shoutao Dang, Shuyang Zhang, Jingyang Zhao, and Wei Li. Efficacy and toxicity of krasg12c inhibitors in advanced solid tumors: a meta-analysis. World Journal of Surgical Oncology, Jul 2024. URL: https://doi.org/10.1186/s12957-024-03449-8, doi:10.1186/s12957-024-03449-8. This article has 7 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(li2024shra1811(antibodydrugconjugate) pages 1-2): Ziming Li, Zhengbo Song, Wei Hong, N. Yang, Yongsheng Wang, H. Jian, Zibin Liang, Shengxiang Hu, Min Peng, Yan Yu, Yan Wang, Zicong Jiao, Kaijing Zhao, Ke Song, You Li, Wei Shi, and Shun Lu. Shr-a1811 (antibody-drug conjugate) in advanced her2-mutant non-small cell lung cancer: a multicenter, open-label, phase 1/2 study. Signal Transduction and Targeted Therapy, Jul 2024. URL: https://doi.org/10.1038/s41392-024-01897-y, doi:10.1038/s41392-024-01897-y. This article has 38 citations and is from a peer-reviewed journal.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </div>
         
 
         <footer class="page-footer">
@@ -3698,7 +6562,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Metastatic Non-Small Cell Lung Cancer", "mondoId": "MONDO:0005233", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Metastatic_Non-Small_Cell_Lung_Cancer", "yamlRevision": "76da1f2425ca"};
+        const OS_CONFIG = {"diseaseName": "Metastatic Non-Small Cell Lung Cancer", "mondoId": "MONDO:0005233", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Metastatic_Non-Small_Cell_Lung_Cancer", "yamlRevision": "1a52b3faf5ff"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

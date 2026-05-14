@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2631,6 +2784,20 @@
             
             
             
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-value">5</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -2714,7 +2881,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"typical form with non-syphilitic interstitial keratitis and audiovestibular symptoms"</div>
+                <div class="evidence-snippet">"&#34;typical&#34; form with non-syphilitic interstitial keratitis and audiovestibular symptoms"</div>
                 
                 
                 <div class="evidence-explanation">Typical Cogan syndrome is defined by interstitial keratitis with audiovestibular symptoms.</div>
@@ -4540,7 +4707,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"typical form with non-syphilitic interstitial keratitis and audiovestibular symptoms"</div>
+                <div class="evidence-snippet">"&#34;typical&#34; form with non-syphilitic interstitial keratitis and audiovestibular symptoms"</div>
                 
                 
                 <div class="evidence-explanation">Typical Cogan syndrome includes interstitial keratitis.</div>
@@ -4922,6 +5089,18 @@
                 
                 
                 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        prednisone
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_8382" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
                 <div class="item-desc">Corticosteroids are first-line therapy for Cogan syndrome.</div>
@@ -5020,6 +5199,32 @@
                 </div>
                 
                 
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        methotrexate
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_44185" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-treatment">
+                        cyclophosphamide
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_4027" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-treatment">
+                        cyclosporin A
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_4031" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
                 
                 
                 
@@ -5538,7 +5743,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Cogan Syndrome
 creation_date: &#39;2026-02-04T15:55:07Z&#39;
-updated_date: &#39;2026-04-22T20:13:21Z&#39;
+updated_date: &#39;2026-05-08T20:47:43Z&#39;
 category: Autoimmune
 synonyms:
 - Cogan syndrome
@@ -5573,7 +5778,7 @@ has_subtypes:
     reference_title: &#34;Cogan&#39;s syndrome: anti-Hsp70 antibodies are a serological marker in the typical form.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;typical form with non-syphilitic interstitial keratitis and audiovestibular symptoms&#34;
+    snippet: &#39;&#34;typical&#34; form with non-syphilitic interstitial keratitis and audiovestibular symptoms&#39;
     explanation: Typical Cogan syndrome is defined by interstitial keratitis with audiovestibular symptoms.
   - reference: PMID:28583785
     reference_title: &#34;Late-onset Cogan&#39;s syndrome associated with large-vessel vasculitis.&#34;
@@ -5737,7 +5942,7 @@ phenotypes:
     reference_title: &#34;Cogan&#39;s syndrome: anti-Hsp70 antibodies are a serological marker in the typical form.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;typical form with non-syphilitic interstitial keratitis and audiovestibular symptoms&#34;
+    snippet: &#39;&#34;typical&#34; form with non-syphilitic interstitial keratitis and audiovestibular symptoms&#39;
     explanation: Typical Cogan syndrome includes interstitial keratitis.
   - reference: PMID:39328241
     reference_title: &#34;A case report of Cogan&#39;s syndrome with recurrent coronary stenosis.&#34;
@@ -6185,17 +6390,11 @@ treatments:
     term:
       id: NCIT:C122080
       label: Systemic Corticosteroid Therapy
-    qualifiers:
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: prednisone
-        term:
-          id: CHEBI:8382
-          label: prednisone
+    therapeutic_agent:
+    - preferred_term: prednisone
+      term:
+        id: CHEBI:8382
+        label: prednisone
 - name: Immunosuppressive therapy
   description: Immunosuppressive agents are used for refractory or systemic disease.
   evidence:
@@ -6222,37 +6421,19 @@ treatments:
     term:
       id: MAXO:0000297
       label: immune suppressant agent therapy
-    qualifiers:
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: methotrexate
-        term:
-          id: CHEBI:44185
-          label: methotrexate
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: cyclophosphamide
-        term:
-          id: CHEBI:4027
-          label: cyclophosphamide
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: cyclosporin A
-        term:
-          id: CHEBI:4031
-          label: cyclosporin A
+    therapeutic_agent:
+    - preferred_term: methotrexate
+      term:
+        id: CHEBI:44185
+        label: methotrexate
+    - preferred_term: cyclophosphamide
+      term:
+        id: CHEBI:4027
+        label: cyclophosphamide
+    - preferred_term: cyclosporin A
+      term:
+        id: CHEBI:4031
+        label: cyclosporin A
 - name: TNF-alpha inhibitor therapy
   description: TNF-alpha blockers represent a novel immunosuppressive option.
   evidence:
@@ -6301,11 +6482,904 @@ treatments:
       label: cochlear device implantation
 datasets: []
 clinical_trials: []
+references:
+- reference: DOI:10.1007/s00405-024-08878-5
+  title: &#39;Audiovestibular outcomes in adult patients with cogan syndrome: a systematic review&#39;
+  found_in:
+  - Cogan_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: To determine factors associated with steroid responsiveness and efficacy of biologic disease-modifying anti-rheumatic (DMARD) use in patients with Cogan Syndrome (CS).
+    supporting_text: To determine factors associated with steroid responsiveness and efficacy of biologic disease-modifying anti-rheumatic (DMARD) use in patients with Cogan Syndrome (CS).
+    evidence:
+    - reference: DOI:10.1007/s00405-024-08878-5
+      reference_title: &#39;Audiovestibular outcomes in adult patients with cogan syndrome: a systematic review&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: To determine factors associated with steroid responsiveness and efficacy of biologic disease-modifying anti-rheumatic (DMARD) use in patients with Cogan Syndrome (CS).
+      explanation: Deep research cited this publication as relevant literature for Cogan Syndrome.
+- reference: DOI:10.1155/2018/1498640
+  title: &#39;Autoimmune Inner Ear Disease: Immune Biomarkers, Audiovestibular Aspects, and Therapeutic Modalities of Cogan’s Syndrome&#39;
+  found_in:
+  - Cogan_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: Cogan’s syndrome (CS) is a rare autoimmune disorder characterized by audiovestibular dysfunction and ocular inflammation.
+    supporting_text: Cogan’s syndrome (CS) is a rare autoimmune disorder characterized by audiovestibular dysfunction and ocular inflammation.
+    evidence:
+    - reference: DOI:10.1155/2018/1498640
+      reference_title: &#39;Autoimmune Inner Ear Disease: Immune Biomarkers, Audiovestibular Aspects, and Therapeutic Modalities of Cogan’s Syndrome&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Cogan’s syndrome (CS) is a rare autoimmune disorder characterized by audiovestibular dysfunction and ocular inflammation.
+      explanation: Deep research cited this publication as relevant literature for Cogan Syndrome.
+- reference: DOI:10.1159/000551227
+  title: &#39;Atypical Cogan’s Syndrome Presenting as Anterior Scleritis: Case Report&#39;
+  found_in:
+  - Cogan_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: Cogan’s syndrome is a rare autoimmune vasculitis characterized by ocular inflammation and audiovestibular dysfunction, with the atypical form presenting with inflammatory ocular disease other than interstitial keratitis.
+    supporting_text: Cogan’s syndrome is a rare autoimmune vasculitis characterized by ocular inflammation and audiovestibular dysfunction, with the atypical form presenting with inflammatory ocular disease other than interstitial keratitis.
+    evidence:
+    - reference: DOI:10.1159/000551227
+      reference_title: &#39;Atypical Cogan’s Syndrome Presenting as Anterior Scleritis: Case Report&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Cogan’s syndrome is a rare autoimmune vasculitis characterized by ocular inflammation and audiovestibular dysfunction, with the atypical form presenting with inflammatory ocular disease other than interstitial keratitis.
+      explanation: Deep research cited this publication as relevant literature for Cogan Syndrome.
+- reference: DOI:10.1186/s12886-023-02966-6
+  title: &#39;Cogan’s syndrome is more than just keratitis: a case-based literature review&#39;
+  found_in:
+  - Cogan_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: Cogan&#39;s syndrome (CS) is a rare autoimmune disorder characterized by non-syphilitic interstitial keratitis (IK) and Menière-like cochlear vestibular symptoms, which may also have systemic effects.
+    supporting_text: Cogan&#39;s syndrome (CS) is a rare autoimmune disorder characterized by non-syphilitic interstitial keratitis (IK) and Menière-like cochlear vestibular symptoms, which may also have systemic effects.
+    evidence:
+    - reference: DOI:10.1186/s12886-023-02966-6
+      reference_title: &#39;Cogan’s syndrome is more than just keratitis: a case-based literature review&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Cogan&#39;s syndrome (CS) is a rare autoimmune disorder characterized by non-syphilitic interstitial keratitis (IK) and Menière-like cochlear vestibular symptoms, which may also have systemic effects.
+      explanation: Deep research cited this publication as relevant literature for Cogan Syndrome.
+- reference: DOI:10.1186/s12969-023-00830-x
+  title: Paediatric Cogan´s syndrome - review of literature, case report and practical approach to diagnosis and management
+  found_in:
+  - Cogan_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: Cogan´s syndrome is a rare, presumed autoimmune vasculitis of various vessels characterized by interstitial keratitis and vestibular impairment accompanied by sensorineural hearing loss.
+    supporting_text: Cogan´s syndrome is a rare, presumed autoimmune vasculitis of various vessels characterized by interstitial keratitis and vestibular impairment accompanied by sensorineural hearing loss.
+    evidence:
+    - reference: DOI:10.1186/s12969-023-00830-x
+      reference_title: Paediatric Cogan´s syndrome - review of literature, case report and practical approach to diagnosis and management
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Cogan´s syndrome is a rare, presumed autoimmune vasculitis of various vessels characterized by interstitial keratitis and vestibular impairment accompanied by sensorineural hearing loss.
+      explanation: Deep research cited this publication as relevant literature for Cogan Syndrome.
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
+        
+        <div class="card reference-card" id="references-deep-research">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+            
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">5</span>
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s00405-024-08878-5" target="_blank">DOI:10.1007/s00405-024-08878-5</a>
+                            </div>
+                            
+                            <div class="reference-title">Audiovestibular outcomes in adult patients with cogan syndrome: a systematic review</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">To determine factors associated with steroid responsiveness and efficacy of biologic disease-modifying anti-rheumatic (DMARD) use in patients with Cogan Syndrome (CS).</div>
+            
+            
+            <div class="reference-finding-supporting">"To determine factors associated with steroid responsiveness and efficacy of biologic disease-modifying anti-rheumatic (DMARD) use in patients with Cogan Syndrome (CS)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s00405-024-08878-5" target="_blank">DOI:10.1007/s00405-024-08878-5</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"To determine factors associated with steroid responsiveness and efficacy of biologic disease-modifying anti-rheumatic (DMARD) use in patients with Cogan Syndrome (CS)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Cogan Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1155/2018/1498640" target="_blank">DOI:10.1155/2018/1498640</a>
+                            </div>
+                            
+                            <div class="reference-title">Autoimmune Inner Ear Disease: Immune Biomarkers, Audiovestibular Aspects, and Therapeutic Modalities of Cogan’s Syndrome</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Cogan’s syndrome (CS) is a rare autoimmune disorder characterized by audiovestibular dysfunction and ocular inflammation.</div>
+            
+            
+            <div class="reference-finding-supporting">"Cogan’s syndrome (CS) is a rare autoimmune disorder characterized by audiovestibular dysfunction and ocular inflammation."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1155/2018/1498640" target="_blank">DOI:10.1155/2018/1498640</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Cogan’s syndrome (CS) is a rare autoimmune disorder characterized by audiovestibular dysfunction and ocular inflammation."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Cogan Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1159/000551227" target="_blank">DOI:10.1159/000551227</a>
+                            </div>
+                            
+                            <div class="reference-title">Atypical Cogan’s Syndrome Presenting as Anterior Scleritis: Case Report</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Cogan’s syndrome is a rare autoimmune vasculitis characterized by ocular inflammation and audiovestibular dysfunction, with the atypical form presenting with inflammatory ocular disease other than interstitial keratitis.</div>
+            
+            
+            <div class="reference-finding-supporting">"Cogan’s syndrome is a rare autoimmune vasculitis characterized by ocular inflammation and audiovestibular dysfunction, with the atypical form presenting with inflammatory ocular disease other than interstitial keratitis."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1159/000551227" target="_blank">DOI:10.1159/000551227</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Cogan’s syndrome is a rare autoimmune vasculitis characterized by ocular inflammation and audiovestibular dysfunction, with the atypical form presenting with inflammatory ocular disease other than interstitial keratitis."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Cogan Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1186/s12886-023-02966-6" target="_blank">DOI:10.1186/s12886-023-02966-6</a>
+                            </div>
+                            
+                            <div class="reference-title">Cogan’s syndrome is more than just keratitis: a case-based literature review</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Cogan&#39;s syndrome (CS) is a rare autoimmune disorder characterized by non-syphilitic interstitial keratitis (IK) and Menière-like cochlear vestibular symptoms, which may also have systemic effects.</div>
+            
+            
+            <div class="reference-finding-supporting">"Cogan&#39;s syndrome (CS) is a rare autoimmune disorder characterized by non-syphilitic interstitial keratitis (IK) and Menière-like cochlear vestibular symptoms, which may also have systemic effects."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s12886-023-02966-6" target="_blank">DOI:10.1186/s12886-023-02966-6</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Cogan&#39;s syndrome (CS) is a rare autoimmune disorder characterized by non-syphilitic interstitial keratitis (IK) and Menière-like cochlear vestibular symptoms, which may also have systemic effects."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Cogan Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1186/s12969-023-00830-x" target="_blank">DOI:10.1186/s12969-023-00830-x</a>
+                            </div>
+                            
+                            <div class="reference-title">Paediatric Cogan´s syndrome - review of literature, case report and practical approach to diagnosis and management</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Cogan´s syndrome is a rare, presumed autoimmune vasculitis of various vessels characterized by interstitial keratitis and vestibular impairment accompanied by sensorineural hearing loss.</div>
+            
+            
+            <div class="reference-finding-supporting">"Cogan´s syndrome is a rare, presumed autoimmune vasculitis of various vessels characterized by interstitial keratitis and vestibular impairment accompanied by sensorineural hearing loss."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s12969-023-00830-x" target="_blank">DOI:10.1186/s12969-023-00830-x</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Cogan´s syndrome is a rare, presumed autoimmune vasculitis of various vessels characterized by interstitial keratitis and vestibular impairment accompanied by sensorineural hearing loss."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Cogan Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">Cogan Syndrome (Autoimmune/Immune‑mediated Vasculitis) — Disease Characteristics Research Report</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">24 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-08T13:25:55.412870</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <h1>Cogan Syndrome (Autoimmune/Immune‑mediated Vasculitis) — Disease Characteristics Research Report</h1>
+<h2>Executive summary</h2>
+<p>Cogan syndrome (CS) is a rare immune‑mediated disorder classically defined by inflammatory ocular disease (especially non‑syphilitic interstitial keratitis) together with audiovestibular dysfunction (often Ménière‑like episodes and progressive sensorineural hearing loss), with frequent systemic vasculitic involvement that can include potentially life‑threatening aortitis. (wang2023cogan’ssyndromeis pages 1-2, espinoza2020cogan’ssyndromeclinical pages 1-3, tayershifman2014coganssyndrome—clinicalguidelines pages 2-3)</p>
+<p>Recent clinically actionable findings include (i) continued emphasis that diagnosis is clinical and by exclusion, with no single confirmatory biomarker; (ii) increasing use of biologics (especially anti‑TNF agents such as infliximab) for steroid‑refractory disease; and (iii) early hearing rehabilitation (cochlear implantation) when profound hearing loss occurs due to risk of intracochlear fibrosis/neo‑ossification. (espinoza2020cogan’ssyndromeclinical pages 4-5, shamriz2018autoimmuneinnerear pages 1-2, rucklova2023paediatriccogan´ssyndrome pages 2-4)</p>
+<h2>1. Disease Information</h2>
+<h3>1.1 Overview / definition</h3>
+<p><strong>Core concept:</strong> CS is a “variable vessel vasculitis” phenotype with primary involvement of the <strong>eye</strong> and <strong>inner ear</strong>, and with systemic vasculitis in a substantial subset. (ince2023coganssyndrome pages 1-2, tayershifman2014coganssyndrome—clinicalguidelines pages 2-3)</p>
+<p><strong>Typical vs atypical CS (2‑year rule):</strong>
+- <strong>Typical CS</strong> is commonly defined by non‑syphilitic interstitial keratitis plus audiovestibular symptoms occurring within <strong>2 years</strong>. (wang2023cogan’ssyndromeis pages 1-2)
+- <strong>Atypical CS</strong> includes (a) ocular inflammation other than interstitial keratitis and/or (b) <strong>&gt;2‑year</strong> delay between ocular and audiovestibular manifestations, and is often described as more frequently systemic. (mendes2026atypicalcogan’ssyndrome pages 2-2, mendes2026atypicalcogan’ssyndrome pages 2-3)</p>
+<p><strong>Direct abstract quotes supporting definition:</strong>
+- “Cogan’s syndrome (CS) is a rare autoimmune disorder characterized by audiovestibular dysfunction and ocular inflammation.” (Shamriz 2018, published 2018-04-23; https://doi.org/10.1155/2018/1498640) (shamriz2018autoimmuneinnerear pages 1-2)
+- “Cogan´s syndrome is a rare, presumed autoimmune vasculitis of various vessels characterized by interstitial keratitis and vestibular impairment accompanied by sensorineural hearing loss.” (Rücklová 2023, published 2023-06; https://doi.org/10.1186/s12969-023-00830-x) (rucklova2023paediatriccogan´ssyndrome pages 2-4)</p>
+<h3>1.2 Key identifiers and controlled vocabulary</h3>
+<p><strong>Note:</strong> In the evidence retrieved here, authoritative identifier mappings (e.g., MONDO, Orphanet ORPHA code, ICD‑10/ICD‑11, MeSH) were not directly available as primary sources. Therefore, <strong>IDs are not asserted</strong> in this report.</p>
+<p><strong>Synonyms / alternative names (used in clinical literature):</strong>
+- Cogan’s syndrome
+- Typical Cogan syndrome
+- Atypical Cogan syndrome
+- Cogan syndrome with aortitis / systemic vasculitis (wang2023cogan’ssyndromeis pages 1-2, tayershifman2014coganssyndrome—clinicalguidelines pages 2-3)</p>
+<h3>1.3 Evidence sources: individual vs aggregated</h3>
+<p>Because CS is rare, most treatment and phenotype evidence remains derived from <strong>case reports/series and retrospective cohorts</strong>, including systematic reviews that largely pool case reports. (marrerogonzalez2025audiovestibularoutcomesin pages 1-2, espinoza2020cogan’ssyndromeclinical pages 4-5)</p>
+<h2>2. Etiology</h2>
+<h3>2.1 Disease causal factors (current understanding)</h3>
+<p><strong>Primary etiology:</strong> CS is widely regarded as <strong>autoimmune/immune‑mediated</strong> with vasculitis as a key pathogenic mechanism. (espinoza2020cogan’ssyndromeclinical pages 1-3, greco2013coganssyndromean pages 2-3)</p>
+<p><strong>Immunologic evidence discussed in authoritative reviews includes:</strong>
+- Autoantibodies reported against <strong>corneal antigens</strong>, <strong>inner ear constituents</strong>, and <strong>endothelial antigens</strong>. (Greco 2013; https://doi.org/10.1016/j.autrev.2012.07.012) (greco2013coganssyndromean pages 2-3, greco2013coganssyndromean pages 1-2)
+- A proposed “Cogan peptide” with homology to <strong>CD148</strong> (PTPRJ) and <strong>connexin 26</strong> (GJB2), with reports that peptide‑specific antibodies can localize to the cochlea and transfer disease in animal models. (greco2013coganssyndromean pages 2-3)</p>
+<p><strong>Infectious/trigger hypotheses (non‑causal, indirect):</strong> Reviews discuss potential infection‑trigger models (e.g., viral triggers and molecular mimicry concepts), but evidence remains limited and non‑definitive. (tayershifman2014coganssyndrome—clinicalguidelines pages 1-2, tayershifman2014coganssyndrome—clinicalguidelines pages 2-3)</p>
+<h3>2.2 Risk factors</h3>
+<p>Robust population‑level risk factors are not established; epidemiology is rare and incidence is often described as unknown or not measurable due to the small number of cases. (ince2023coganssyndrome pages 1-2, tayershifman2014coganssyndrome—clinicalguidelines pages 1-2)</p>
+<h3>2.3 Protective factors</h3>
+<p>No validated protective genetic or environmental factors were identified in the retrieved evidence.</p>
+<h3>2.4 Gene–environment interactions</h3>
+<p>No validated gene–environment interaction data were identified in the retrieved evidence.</p>
+<h2>3. Phenotypes</h2>
+<h3>3.1 Core phenotypic domains</h3>
+<p>CS phenotypes are commonly grouped as:
+1) <strong>Ocular inflammatory disease</strong> (classically interstitial keratitis; also uveitis, episcleritis/scleritis, retinal vasculitis, etc.) (rucklova2023paediatriccogan´ssyndrome pages 2-4, tayershifman2014coganssyndrome—clinicalguidelines pages 2-3)
+2) <strong>Audiovestibular disease</strong> (vertigo, tinnitus, nausea/vomiting, ataxia, progressive SNHL) (wang2023cogan’ssyndromeis pages 1-2, espinoza2020cogan’ssyndromeclinical pages 1-3)
+3) <strong>Systemic vasculitis / inflammatory manifestations</strong> (fever, arthralgia, anemia, neurologic and gastrointestinal involvement; and aortitis) (wang2023cogan’ssyndromeis pages 1-2, wang2023cogan’ssyndromeis pages 2-5)</p>
+<h3>3.2 Phenotype characteristics with frequency (where available)</h3>
+<p><strong>Pediatric case‑based aggregate (n=55; Rücklová 2023):</strong>
+- Ocular findings: 55/55 (100%)
+- Interstitial keratitis: 34/55 (62%)
+- Sensorineural hearing deficit: 55/55 (100%)
+- Vestibular symptoms: 37/54 (69%)
+- Any systemic symptoms: 32/55 (58%)
+- Aortitis: 9/55 (16%); 2/55 deaths reported (mortality 3.6%) (published 2023-06; https://doi.org/10.1186/s12969-023-00830-x) (rucklova2023paediatriccogan´ssyndrome pages 2-4)</p>
+<p><strong>HPO term suggestions (non‑exhaustive):</strong>
+- Interstitial keratitis — <strong>HP:0000496</strong> (suggested)
+- Uveitis — <strong>HP:0000554</strong> (suggested)
+- Scleritis / episcleritis — <strong>HP:0100537 / HP:0200042</strong> (suggested)
+- Sensorineural hearing loss — <strong>HP:0000407</strong> (suggested)
+- Vertigo — <strong>HP:0002321</strong> (suggested)
+- Tinnitus — <strong>HP:0000360</strong> (suggested)
+- Aortitis — <strong>HP:0004948</strong> (suggested)
+- Fever — <strong>HP:0001945</strong> (suggested)
+- Arthralgia — <strong>HP:0002829</strong> (suggested)</p>
+<h3>3.3 Quality of life (QoL) impact</h3>
+<p>QoL is primarily affected by <strong>permanent or fluctuating hearing loss</strong>, vestibular dysfunction, and visual symptoms. A key clinical consequence emphasized in reviews is progression to <strong>irreversible bilateral profound SNHL</strong> in a substantial fraction of patients, driving cochlear implant candidacy. (shamriz2018autoimmuneinnerear pages 1-2, espinoza2020cogan’ssyndromeclinical pages 4-5)</p>
+<h2>4. Genetic/Molecular Information</h2>
+<h3>4.1 Causal genes</h3>
+<p>No <strong>monogenic causal gene</strong> for CS is established in the retrieved evidence; CS is treated as an immune‑mediated syndrome rather than a Mendelian disorder. (tayershifman2014coganssyndrome—clinicalguidelines pages 1-2, shamriz2018autoimmuneinnerear pages 1-2)</p>
+<h3>4.2 Candidate autoantigens/biomarkers (not diagnostic)</h3>
+<p><strong>Key points:</strong> No serum autoantibody is sufficiently validated for routine diagnosis. (shamriz2018autoimmuneinnerear pages 1-2)</p>
+<ul>
+<li>Anti‑HSP70 has been proposed in the context of autoimmune inner ear disease and studied in CS cohorts, with variable positivity across studies and higher positivity reported in typical CS in at least one cohort summarized by Shamriz et al. (2018). (shamriz2018autoimmuneinnerear pages 1-2)</li>
+<li>“Cogan peptide”/cross‑reactive targets (CD148/PTPRJ; connexin 26/GJB2) and endothelial antigen reactivity have been described in reviews. (greco2013coganssyndromean pages 2-3, tayershifman2014coganssyndrome—clinicalguidelines pages 1-2)</li>
+<li>Inflammatory markers (ESR/CRP) are commonly elevated during active disease; IL‑6 can be elevated and has been used as rationale for IL‑6 blockade in case reports/series contexts. (wang2023cogan’ssyndromeis pages 1-2, wang2023cogan’ssyndromeis pages 2-5)</li>
+</ul>
+<p><strong>CHEBI suggestions (where relevant):</strong>
+- Prednisone (CHEBI term exists)
+- Methylprednisolone (CHEBI term exists)
+- Methotrexate (CHEBI term exists)
+- Cyclophosphamide (CHEBI term exists)
+- Tocilizumab (biologic; CHEBI mapping may exist depending on ontology version)</p>
+<h3>4.3 Epigenetics / chromosomal abnormalities</h3>
+<p>No CS‑specific epigenetic or chromosomal abnormality evidence was identified in the retrieved sources.</p>
+<h2>5. Environmental Information</h2>
+<p>No validated environmental toxins, lifestyle factors, or specific infectious agents were established as causal in the retrieved evidence. Reviews discuss infectious trigger hypotheses but without definitive confirmation. (tayershifman2014coganssyndrome—clinicalguidelines pages 1-2, greco2013coganssyndromean pages 1-2)</p>
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>6.1 Mechanistic model (causal chain)</h3>
+<p><strong>Proposed upstream trigger(s):</strong> immune activation possibly triggered by infection or other exposures in a susceptible host (hypothesized). (tayershifman2014coganssyndrome—clinicalguidelines pages 1-2)</p>
+<p><strong>Core immune process:</strong> autoimmune/immune‑mediated inflammation with vasculitic injury affecting eye and inner ear; systemic manifestations arise when larger/variable vessels are involved (including the aorta). (greco2013coganssyndromean pages 2-3, tayershifman2014coganssyndrome—clinicalguidelines pages 2-3)</p>
+<p><strong>Downstream tissue injury and clinical manifestations:</strong>
+- <strong>Corneal/ocular inflammation</strong> → interstitial keratitis/uveitis/scleritis → pain, photophobia, blurred vision. (tayershifman2014coganssyndrome—clinicalguidelines pages 2-3, rucklova2023paediatriccogan´ssyndrome pages 2-4)
+- <strong>Inner ear inflammation/microvascular injury</strong> → cochleovestibular dysfunction → vertigo/tinnitus and progressive SNHL → potential irreversible deafness. (wang2023cogan’ssyndromeis pages 1-2, shamriz2018autoimmuneinnerear pages 1-2)
+- <strong>Large vessel vasculitis (aortitis)</strong> → aortic root/valvular dysfunction and vascular complications (aneurysm/stenosis) → morbidity/mortality risk. (wang2023cogan’ssyndromeis pages 1-2, espinoza2020cogan’ssyndromeclinical pages 4-5, tayershifman2014coganssyndrome—clinicalguidelines pages 2-3)</p>
+<h3>6.2 Pathways and cellular processes (ontology suggestions)</h3>
+<p><strong>GO Biological Process (suggested):</strong>
+- GO:0006954 inflammatory response
+- GO:0002682 regulation of immune system process
+- GO:0006955 immune response
+- GO:0002526 acute inflammatory response
+- GO:0006952 defense response
+- GO:0050729 positive regulation of inflammatory response</p>
+<p><strong>CL Cell types (suggested, consistent with inflammatory vasculitis):</strong>
+- Macrophage — CL:0000235
+- T cell — CL:0000084
+- B cell / plasma cell — CL:0000236 / CL:0000786
+- Vascular endothelial cell — CL:0000115</p>
+<h3>6.3 Molecular profiling (transcriptomics/proteomics/metabolomics)</h3>
+<p>No validated CS‑specific multi‑omics signatures were identified in the retrieved evidence.</p>
+<h2>7. Anatomical Structures Affected</h2>
+<h3>7.1 Organ/system level (primary)</h3>
+<ul>
+<li>Eye (cornea; uvea; sclera) (tayershifman2014coganssyndrome—clinicalguidelines pages 2-3, rucklova2023paediatriccogan´ssyndrome pages 2-4)</li>
+<li>Inner ear (cochlea; vestibular apparatus) (shamriz2018autoimmuneinnerear pages 1-2, rucklova2023paediatriccogan´ssyndrome pages 2-4)</li>
+<li>Large vessels, especially aorta (aortitis/aortic root involvement) (wang2023cogan’ssyndromeis pages 1-2, tayershifman2014coganssyndrome—clinicalguidelines pages 2-3)</li>
+</ul>
+<p><strong>UBERON suggestions:</strong>
+- Eye — UBERON:0000970
+- Cornea — UBERON:0000964
+- Inner ear — UBERON:0001845
+- Cochlea — UBERON:0001846
+- Aorta — UBERON:0000947</p>
+<h3>7.2 Tissue/cell level</h3>
+<p>Evidence supports inflammatory infiltration and vasculitic pathology in relevant tissues in some reports and reviews, consistent with immune‑mediated injury; definitive cell‑resolved mapping is not standardized. (greco2013coganssyndromean pages 4-4)</p>
+<h3>7.3 Subcellular level</h3>
+<p>No CS‑specific subcellular compartment pathology was identified.</p>
+<h2>8. Temporal Development</h2>
+<h3>8.1 Onset and course</h3>
+<ul>
+<li>Often described in <strong>young adults</strong> (20s–30s) but can occur in children and older adults. (wang2023cogan’ssyndromeis pages 1-2, shamriz2018autoimmuneinnerear pages 1-2)</li>
+<li>Course may be <strong>relapsing</strong> and evolve over years; early treatment is emphasized to limit irreversible hearing loss. (espinoza2020cogan’ssyndromeclinical pages 4-5)</li>
+</ul>
+<p><strong>Pediatric timing:</strong> pediatric literature review reports median age <strong>12 years (range 3–18)</strong>. (rucklova2023paediatriccogan´ssyndrome pages 2-4)</p>
+<h3>8.2 Typical vs atypical timing</h3>
+<ul>
+<li>The “2‑year” separation is used to operationalize typical vs atypical disease, but some expert commentary suggests the distinction may be less important for long‑term management than prevention of disability and systemic complications. (espinoza2020cogan’ssyndromeclinical pages 4-5)</li>
+</ul>
+<h2>9. Inheritance and Population</h2>
+<h3>9.1 Epidemiology</h3>
+<p>Population prevalence/incidence is not well defined in the retrieved sources.</p>
+<p><strong>Case‑count estimates and age/sex:</strong>
+- Reviews describe <strong>~250</strong> reported cases (2018 review) and “few hundred” cases since 1945. (shamriz2018autoimmuneinnerear pages 1-2, wang2023cogan’ssyndromeis pages 2-5)
+- One cohort summarized in Shamriz 2018: median onset <strong>25 years (range 5–63)</strong> and no clear gender predominance. (shamriz2018autoimmuneinnerear pages 1-2)
+- Pediatric aggregation: male 31/54 (57%). (rucklova2023paediatriccogan´ssyndrome pages 2-4)</p>
+<h3>9.2 Inheritance</h3>
+<p>No Mendelian inheritance pattern is established; CS is treated as non‑Mendelian/immune‑mediated. (tayershifman2014coganssyndrome—clinicalguidelines pages 1-2, shamriz2018autoimmuneinnerear pages 1-2)</p>
+<h2>10. Diagnostics</h2>
+<h3>10.1 Clinical criteria and diagnostic approach</h3>
+<p>Across reviews, CS diagnosis is <strong>clinical</strong>, requiring:
+1) inflammatory ocular disease,
+2) audiovestibular involvement (often rapidly progressing SNHL), and
+3) <strong>exclusion of alternative causes</strong>, especially syphilis and other infectious/autoimmune mimics. (tayershifman2014coganssyndrome—clinicalguidelines pages 2-3, rucklova2023paediatriccogan´ssyndrome pages 2-4)</p>
+<p><strong>Direct quote (review text):</strong> “To date, since there is no specific test, the diagnosis of CS is based on clinical findings…” (Tayer‑Shifman 2014, published 2014-01; https://doi.org/10.1007/s12016-013-8406-7) (tayershifman2014coganssyndrome—clinicalguidelines pages 2-3)</p>
+<h3>10.2 Laboratory tests and biomarkers</h3>
+<ul>
+<li>Inflammatory markers (ESR/CRP) are non‑specific but used to track disease activity. (wang2023cogan’ssyndromeis pages 1-2, rucklova2023paediatriccogan´ssyndrome pages 2-4)</li>
+<li>No single serum autoantibody is accepted for routine diagnostic workup. (shamriz2018autoimmuneinnerear pages 1-2)</li>
+<li>Workup frequently includes broad autoimmune serologies (ANA/ANCA/RF etc.) primarily to evaluate alternative diagnoses; positivity in larger CS studies is generally low per reviews. (shamriz2018autoimmuneinnerear pages 1-2, marrerogonzalez2025audiovestibularoutcomesin pages 2-4)</li>
+</ul>
+<h3>10.3 Imaging and functional testing</h3>
+<ul>
+<li><strong>Audiometry</strong> (pure tone audiogram) for quantification and follow‑up of SNHL. (tayershifman2014coganssyndrome—clinicalguidelines pages 2-3)</li>
+<li><strong>CT/MRI</strong> head/inner ear to exclude other causes; MRI may show labyrinthitis or other inner ear changes though can be normal. (espinoza2020cogan’ssyndromeclinical pages 1-3, marrerogonzalez2025audiovestibularoutcomesin pages 2-4)</li>
+<li><strong>Echocardiography is emphasized</strong> for aortitis/aortic valvular dysfunction assessment once CS suspected/diagnosed. (tayershifman2014coganssyndrome—clinicalguidelines pages 2-3, wang2023cogan’ssyndromeis pages 2-5)</li>
+<li><strong>FDG‑PET/CT</strong> has been used/recommended in selected cases to detect aortitis or inflammatory activity (investigational/adjunct). (espinoza2020cogan’ssyndromeclinical pages 4-5, tayershifman2014coganssyndrome—clinicalguidelines pages 2-3)</li>
+</ul>
+<h3>10.4 Differential diagnosis (examples from pediatric diagnostic table)</h3>
+<p>Important exclusions include <strong>syphilis</strong>, tuberculosis, chlamydia, sarcoidosis, PAN, ANCA‑associated vasculitides, Behçet disease, Takayasu arteritis, Vogt‑Koyanagi‑Harada syndrome, Susac syndrome, and connective tissue disorders. (rucklova2023paediatriccogan´ssyndrome pages 2-4)</p>
+<h3>10.5 Genetic testing</h3>
+<p>Genetic testing is not a standard diagnostic tool for CS based on the retrieved evidence (no established causal gene). (tayershifman2014coganssyndrome—clinicalguidelines pages 1-2)</p>
+<h2>11. Outcome / Prognosis</h2>
+<h3>11.1 Hearing and visual outcomes</h3>
+<ul>
+<li>Hearing loss may progress to irreversible bilateral profound SNHL in <strong>approximately half</strong> of patients in at least one review. (shamriz2018autoimmuneinnerear pages 1-2)</li>
+<li>A 2023 literature review states “Nearly <strong>43%</strong> develop deafness” and “blindness has been reported in <strong>8%</strong>.” (Wang 2023, published 2023-05; https://doi.org/10.1186/s12886-023-02966-6) (wang2023cogan’ssyndromeis pages 1-2)</li>
+</ul>
+<h3>11.2 Systemic vasculitis complications</h3>
+<p>Systemic involvement is common in some series/reviews (often cited up to ~80%), with aortitis around ~10% in multiple reviews and higher rates in pediatric aggregation. (espinoza2020cogan’ssyndromeclinical pages 1-3, tayershifman2014coganssyndrome—clinicalguidelines pages 2-3, rucklova2023paediatriccogan´ssyndrome pages 2-4)</p>
+<h2>12. Treatment</h2>
+<h3>12.1 Pharmacotherapy (current standard and escalation)</h3>
+<p><strong>First‑line:</strong> high‑dose systemic corticosteroids for acute/active disease, with topical ocular steroids for mild ocular disease. (espinoza2020cogan’ssyndromeclinical pages 4-5, tayershifman2014coganssyndrome—clinicalguidelines pages 2-3)</p>
+<p><strong>Timing matters for hearing:</strong> high‑dose steroids given within <strong>~2 weeks</strong> of auditory symptom onset improve odds of hearing recovery. (espinoza2020cogan’ssyndromeclinical pages 4-5)</p>
+<p><strong>Steroid‑sparing csDMARDs (examples):</strong> methotrexate, azathioprine, cyclosporine, mycophenolate mofetil; cyclophosphamide for severe systemic vasculitis. (mendes2026atypicalcogan’ssyndrome pages 2-3, tayershifman2014coganssyndrome—clinicalguidelines pages 2-3, marrerogonzalez2025audiovestibularoutcomesin pages 2-4)</p>
+<p><strong>Biologics (refractory disease):</strong> anti‑TNF agents are most frequently emphasized; infliximab is highlighted as a leading option in multiple reviews. (espinoza2020cogan’ssyndromeclinical pages 4-5, tayershifman2014coganssyndrome—clinicalguidelines pages 1-2)</p>
+<p><strong>Quantitative outcomes from treatment literature (selected):</strong>
+- Infliximab: <strong>80% response rate at 6 months</strong> for vestibuloauditory symptoms in a treatment review summary. (Espinoza 2020, published 2020-06; https://doi.org/10.1007/s11882-020-00945-1) (espinoza2020cogan’ssyndromeclinical pages 4-5)
+- Adult systematic review of case reports (n=79): <strong>60%</strong> treated only with oral steroids had no audiologic improvement, while <strong>85.7%</strong> treated with biologic DMARDs improved audiologically. (Marrero‑Gonzalez 2025; https://doi.org/10.1007/s00405-024-08878-5) (marrerogonzalez2025audiovestibularoutcomesin pages 1-2)</p>
+<p><strong>Newer/experimental approaches noted in recent reports:</strong>
+- IL‑6 blockade (tocilizumab) used in refractory cases; elevated IL‑6 reported in some cases and normalization of inflammatory markers after tocilizumab reported in case‑based narratives. (wang2023cogan’ssyndromeis pages 2-5)
+- JAK inhibitors (e.g., tofacitinib) used in selected refractory cases for systemic/joint manifestations (hearing stabilization variable). (wang2023cogan’ssyndromeis pages 1-2)</p>
+<h3>12.2 Surgical and interventional</h3>
+<p><strong>Cochlear implantation (CI):</strong>
+- CI is recommended early in profound SNHL because inflammatory inner ear disease can cause intracochlear fibrosis/neo‑ossification, complicating later implantation. (shamriz2018autoimmuneinnerear pages 1-2)
+- Pediatric case‑based report describes evaluation for unilateral CI after one ear remained deaf despite immunomodulatory therapy; MRI resolution of inflammation raised concern for intracochlear fibrosis, “emphasiz[ing] the urgency of CI.” (rucklova2023paediatriccogan´ssyndrome pages 2-4)</p>
+<h3>12.3 MAXO term suggestions (selected)</h3>
+<ul>
+<li>Systemic glucocorticoid therapy — MAXO term exists (suggested)</li>
+<li>Immunosuppressive therapy — MAXO term exists (suggested)</li>
+<li>Tumor necrosis factor inhibitor therapy — MAXO term exists (suggested)</li>
+<li>Cochlear implantation — MAXO term exists (suggested)</li>
+<li>Echocardiography (for surveillance) — MAXO term exists (suggested)</li>
+</ul>
+<h3>12.4 Clinical trials</h3>
+<p>No CS‑specific interventional trials were identified in the retrieved ClinicalTrials.gov search results; current evidence base is dominated by observational data, case series, and case reports. (Evidence state: no relevant clinical trials retrieved)</p>
+<h2>13. Prevention</h2>
+<p>No established primary prevention strategy exists. Practical prevention is largely <strong>tertiary prevention</strong>: early recognition and immunosuppression to prevent irreversible SNHL and monitoring for aortitis/vascular complications. (espinoza2020cogan’ssyndromeclinical pages 4-5, tayershifman2014coganssyndrome—clinicalguidelines pages 2-3)</p>
+<h2>14. Other Species / Natural Disease</h2>
+<p>No naturally occurring CS equivalent in non‑human species was identified in the retrieved evidence.</p>
+<h2>15. Model Organisms</h2>
+<p>No standardized model organism resource or widely used experimental model for CS was identified in the retrieved evidence; however, immune reactivity to candidate antigens (“Cogan peptide”) and disease transfer/induction has been discussed in reviews, implying experimental work exists but is not established as a canonical model system. (greco2013coganssyndromean pages 2-3)</p>
+<h2>Key quantitative/clinical facts table</h2>
+<table>
+<thead>
+<tr>
+<th>Data point</th>
+<th style="text-align: right;">Value</th>
+<th>Population/Study</th>
+<th style="text-align: right;">Year</th>
+<th>Source (first author)</th>
+<th>DOI/URL</th>
+<th>Citation context IDs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Typical Cogan syndrome definition</td>
+<td style="text-align: right;">Ocular and audiovestibular symptoms occur within <strong>2 years</strong>; classically non-syphilitic interstitial keratitis plus Ménière-like audiovestibular disease</td>
+<td>Clinical definition/review</td>
+<td style="text-align: right;">2023</td>
+<td>Wang</td>
+<td>https://doi.org/10.1186/s12886-023-02966-6</td>
+<td>(wang2023cogan’ssyndromeis pages 1-2, espinoza2020cogan’ssyndromeclinical pages 1-3)</td>
+</tr>
+<tr>
+<td>Atypical Cogan syndrome definition</td>
+<td style="text-align: right;">Delay <strong>&gt;2 years</strong> between ocular and audiovestibular manifestations and/or non-interstitial-keratitis ocular inflammation; systemic manifestations more frequent</td>
+<td>Clinical definition/review</td>
+<td style="text-align: right;">2026</td>
+<td>Mendes</td>
+<td>https://doi.org/10.1159/000551227</td>
+<td>(mendes2026atypicalcogan’ssyndrome pages 2-2, mendes2026atypicalcogan’ssyndrome pages 2-3)</td>
+</tr>
+<tr>
+<td>Interstitial keratitis frequency</td>
+<td style="text-align: right;"><strong>34/55 (62%)</strong></td>
+<td>Pediatric literature review cohort, n=55</td>
+<td style="text-align: right;">2023</td>
+<td>Rücklová</td>
+<td>https://doi.org/10.1186/s12969-023-00830-x</td>
+<td>(rucklova2023paediatriccogan´ssyndrome pages 2-4)</td>
+</tr>
+<tr>
+<td>Vestibular symptoms frequency</td>
+<td style="text-align: right;"><strong>37/54 (69%)</strong></td>
+<td>Pediatric literature review cohort, n=55</td>
+<td style="text-align: right;">2023</td>
+<td>Rücklová</td>
+<td>https://doi.org/10.1186/s12969-023-00830-x</td>
+<td>(rucklova2023paediatriccogan´ssyndrome pages 2-4)</td>
+</tr>
+<tr>
+<td>Any systemic symptoms</td>
+<td style="text-align: right;"><strong>32/55 (58%)</strong></td>
+<td>Pediatric literature review cohort, n=55</td>
+<td style="text-align: right;">2023</td>
+<td>Rücklová</td>
+<td>https://doi.org/10.1186/s12969-023-00830-x</td>
+<td>(rucklova2023paediatriccogan´ssyndrome pages 2-4)</td>
+</tr>
+<tr>
+<td>Aortitis frequency</td>
+<td style="text-align: right;"><strong>9/55 (16%)</strong></td>
+<td>Pediatric literature review cohort, n=55</td>
+<td style="text-align: right;">2023</td>
+<td>Rücklová</td>
+<td>https://doi.org/10.1186/s12969-023-00830-x</td>
+<td>(rucklova2023paediatriccogan´ssyndrome pages 2-4)</td>
+</tr>
+<tr>
+<td>Mortality</td>
+<td style="text-align: right;"><strong>2/55 (3.6%)</strong></td>
+<td>Pediatric literature review cohort, n=55</td>
+<td style="text-align: right;">2023</td>
+<td>Rücklová</td>
+<td>https://doi.org/10.1186/s12969-023-00830-x</td>
+<td>(rucklova2023paediatriccogan´ssyndrome pages 2-4)</td>
+</tr>
+<tr>
+<td>Biologic DMARD audiologic improvement</td>
+<td style="text-align: right;"><strong>12/14 (85.7%)</strong> improved</td>
+<td>Adult systematic review/case reports, n=79 total</td>
+<td style="text-align: right;">2025</td>
+<td>Marrero-Gonzalez</td>
+<td>https://doi.org/10.1007/s00405-024-08878-5</td>
+<td>(marrerogonzalez2025audiovestibularoutcomesin pages 1-2, marrerogonzalez2025audiovestibularoutcomesin pages 2-4)</td>
+</tr>
+<tr>
+<td>Oral steroids only: no audiologic improvement</td>
+<td style="text-align: right;"><strong>18/30 (60.0%)</strong> had no improvement</td>
+<td>Adult systematic review/case reports, n=79 total</td>
+<td style="text-align: right;">2025</td>
+<td>Marrero-Gonzalez</td>
+<td>https://doi.org/10.1007/s00405-024-08878-5</td>
+<td>(marrerogonzalez2025audiovestibularoutcomesin pages 1-2)</td>
+</tr>
+<tr>
+<td>Vestibular symptoms in steroid-resistant vs steroid-responsive patients</td>
+<td style="text-align: right;"><strong>79.5% vs 57.9%</strong></td>
+<td>Adult systematic review/case reports, n=79 total</td>
+<td style="text-align: right;">2025</td>
+<td>Marrero-Gonzalez</td>
+<td>https://doi.org/10.1007/s00405-024-08878-5</td>
+<td>(marrerogonzalez2025audiovestibularoutcomesin pages 1-2)</td>
+</tr>
+<tr>
+<td>Deafness frequency</td>
+<td style="text-align: right;"><strong>~43%</strong> develop deafness</td>
+<td>Clinical review/literature review</td>
+<td style="text-align: right;">2023</td>
+<td>Wang</td>
+<td>https://doi.org/10.1186/s12886-023-02966-6</td>
+<td>(wang2023cogan’ssyndromeis pages 1-2)</td>
+</tr>
+<tr>
+<td>Blindness frequency</td>
+<td style="text-align: right;"><strong>8%</strong></td>
+<td>Clinical review/literature review</td>
+<td style="text-align: right;">2023</td>
+<td>Wang</td>
+<td>https://doi.org/10.1186/s12886-023-02966-6</td>
+<td>(wang2023cogan’ssyndromeis pages 1-2)</td>
+</tr>
+<tr>
+<td>Infliximab vestibuloauditory response</td>
+<td style="text-align: right;"><strong>80% response at 6 months</strong></td>
+<td>Review of treatment evidence</td>
+<td style="text-align: right;">2020</td>
+<td>Espinoza</td>
+<td>https://doi.org/10.1007/s11882-020-00945-1</td>
+<td>(espinoza2020cogan’ssyndromeclinical pages 4-5)</td>
+</tr>
+<tr>
+<td>Ocular response to steroids</td>
+<td style="text-align: right;"><strong>84%</strong></td>
+<td>French series/review summarized in treatment review</td>
+<td style="text-align: right;">2020</td>
+<td>Espinoza</td>
+<td>https://doi.org/10.1007/s11882-020-00945-1</td>
+<td>(espinoza2020cogan’ssyndromeclinical pages 4-5)</td>
+</tr>
+<tr>
+<td>Ocular response to DMARDs</td>
+<td style="text-align: right;"><strong>90%</strong></td>
+<td>French series/review summarized in treatment review</td>
+<td style="text-align: right;">2020</td>
+<td>Espinoza</td>
+<td>https://doi.org/10.1007/s11882-020-00945-1</td>
+<td>(espinoza2020cogan’ssyndromeclinical pages 4-5)</td>
+</tr>
+<tr>
+<td>Ocular response to biologics</td>
+<td style="text-align: right;"><strong>100%</strong></td>
+<td>French series/review summarized in treatment review</td>
+<td style="text-align: right;">2020</td>
+<td>Espinoza</td>
+<td>https://doi.org/10.1007/s11882-020-00945-1</td>
+<td>(espinoza2020cogan’ssyndromeclinical pages 4-5)</td>
+</tr>
+<tr>
+<td>Hearing progression to irreversible bilateral profound SNHL</td>
+<td style="text-align: right;"><strong>Approximately half of patients</strong></td>
+<td>Immunology review</td>
+<td style="text-align: right;">2018</td>
+<td>Shamriz</td>
+<td>https://doi.org/10.1155/2018/1498640</td>
+<td>(shamriz2018autoimmuneinnerear pages 1-2)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table compiles the most actionable quantitative and definitional findings for Cogan syndrome from the retrieved evidence. It highlights diagnostic distinctions, pediatric and adult cohort statistics, and treatment/outcome figures useful for rapid knowledge-base entry.</em></p>
+<h2>Expert opinion / authoritative analysis (synthesis)</h2>
+<p>1) <strong>Diagnosis remains syndromic and exclusionary</strong>: multiple authoritative reviews emphasize there is <em>no specific diagnostic test</em>, and evaluation must exclude infections (syphilis, TB) and systemic inflammatory mimics while assessing for vasculitis (including echocardiographic screening for aortitis). (tayershifman2014coganssyndrome—clinicalguidelines pages 2-3, rucklova2023paediatriccogan´ssyndrome pages 2-4)
+2) <strong>Early immunosuppression is time‑critical for hearing</strong>: steroid treatment in the first ~2 weeks of auditory symptom onset is repeatedly highlighted as improving hearing recovery odds, but many patients still progress to profound SNHL. (espinoza2020cogan’ssyndromeclinical pages 4-5, shamriz2018autoimmuneinnerear pages 1-2)
+3) <strong>Biologic therapy is increasingly used in refractory disease</strong>: anti‑TNF therapy (especially infliximab) is the most consistently emphasized biologic across reviews, with aggregated evidence suggesting improved vestibuloauditory outcomes compared with steroids alone in case‑based evidence. (espinoza2020cogan’ssyndromeclinical pages 4-5, marrerogonzalez2025audiovestibularoutcomesin pages 1-2)</p>
+<h2>Limitations of this report</h2>
+<ul>
+<li>Authoritative disease identifier mappings (MONDO/Orphanet/ICD/MeSH) were not retrievable from the provided evidence set, so identifiers are not asserted.</li>
+<li>Many “latest developments” in 2023–2024 are case‑based; high‑quality randomized trials remain scarce or absent in the retrieved evidence, limiting certainty for comparative efficacy claims.</li>
+</ul>
+<p>References</p>
+<ol>
+<li>
+<p>(wang2023cogan’ssyndromeis pages 1-2): Yanqing Wang, Shichao Tang, Chong Shao, and Yu Liu. Cogan’s syndrome is more than just keratitis: a case-based literature review. BMC Ophthalmology, May 2023. URL: https://doi.org/10.1186/s12886-023-02966-6, doi:10.1186/s12886-023-02966-6. This article has 12 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(espinoza2020cogan’ssyndromeclinical pages 1-3): Gabriela Mabel Espinoza, Joseph Wheeler, Katherine K. Temprano, and Angela Prost Keller. Cogan’s syndrome: clinical presentations and update on treatment. Current Allergy and Asthma Reports, 20:1-6, Jun 2020. URL: https://doi.org/10.1007/s11882-020-00945-1, doi:10.1007/s11882-020-00945-1. This article has 69 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(tayershifman2014coganssyndrome—clinicalguidelines pages 2-3): Oshrat E. Tayer-Shifman, Ophir Ilan, Hodaya Tovi, and Yuval Tal. Cogan's syndrome—clinical guidelines and novel therapeutic approaches. Clinical Reviews in Allergy &amp; Immunology, 47:65-72, Jan 2014. URL: https://doi.org/10.1007/s12016-013-8406-7, doi:10.1007/s12016-013-8406-7. This article has 73 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(espinoza2020cogan’ssyndromeclinical pages 4-5): Gabriela Mabel Espinoza, Joseph Wheeler, Katherine K. Temprano, and Angela Prost Keller. Cogan’s syndrome: clinical presentations and update on treatment. Current Allergy and Asthma Reports, 20:1-6, Jun 2020. URL: https://doi.org/10.1007/s11882-020-00945-1, doi:10.1007/s11882-020-00945-1. This article has 69 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(shamriz2018autoimmuneinnerear pages 1-2): Oded Shamriz, Yuval Tal, and Menachem Gross. Autoimmune inner ear disease: immune biomarkers, audiovestibular aspects, and therapeutic modalities of cogan's syndrome. Journal of Immunology Research, 2018:1-8, Apr 2018. URL: https://doi.org/10.1155/2018/1498640, doi:10.1155/2018/1498640. This article has 52 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(rucklova2023paediatriccogan´ssyndrome pages 2-4): Kristina Rücklová, Thekla von Kalle, Assen Koitschev, Katrin Gekeler, Miriam Scheltdorf, Anita Heinkele, Friederike Blankenburg, Ina Kötter, and Anton Hospach. Paediatric cogan´s syndrome - review of literature, case report and practical approach to diagnosis and management. Pediatric Rheumatology Online Journal, Jun 2023. URL: https://doi.org/10.1186/s12969-023-00830-x, doi:10.1186/s12969-023-00830-x. This article has 7 citations.</p>
+</li>
+<li>
+<p>(ince2023coganssyndrome pages 1-2): B İnce and S Kamalı. Cogan's syndrome. Unknown journal, 2023.</p>
+</li>
+<li>
+<p>(mendes2026atypicalcogan’ssyndrome pages 2-2): João Mendes, Francisco Mendes, Diogo Valente Fortunato, João Vasco Garrido, Rita Condesso, and Augusto Candeias. Atypical cogan’s syndrome presenting as anterior scleritis: case report. Case Reports in Ophthalmology, 17:371-379, Mar 2026. URL: https://doi.org/10.1159/000551227, doi:10.1159/000551227. This article has 0 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(mendes2026atypicalcogan’ssyndrome pages 2-3): João Mendes, Francisco Mendes, Diogo Valente Fortunato, João Vasco Garrido, Rita Condesso, and Augusto Candeias. Atypical cogan’s syndrome presenting as anterior scleritis: case report. Case Reports in Ophthalmology, 17:371-379, Mar 2026. URL: https://doi.org/10.1159/000551227, doi:10.1159/000551227. This article has 0 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(marrerogonzalez2025audiovestibularoutcomesin pages 1-2): Alejandro R. Marrero-Gonzalez, Celine Ward, Shaun A. Nguyen, Seth S. Jeong, and Habib G. Rizk. Audiovestibular outcomes in adult patients with cogan syndrome: a systematic review. European Archives of Oto-Rhino-Laryngology, 282:23-35, Aug 2025. URL: https://doi.org/10.1007/s00405-024-08878-5, doi:10.1007/s00405-024-08878-5. This article has 6 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(greco2013coganssyndromean pages 2-3): A. Greco, A. Gallo, M. Fusconi, G. Magliulo, R. Turchetta, C. Marinelli, G.F. Macri, A. De Virgilio, and M. de Vincentiis. Cogan's syndrome: an autoimmune inner ear disease. Autoimmunity reviews, 12 3:396-400, Jan 2013. URL: https://doi.org/10.1016/j.autrev.2012.07.012, doi:10.1016/j.autrev.2012.07.012. This article has 160 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(greco2013coganssyndromean pages 1-2): A. Greco, A. Gallo, M. Fusconi, G. Magliulo, R. Turchetta, C. Marinelli, G.F. Macri, A. De Virgilio, and M. de Vincentiis. Cogan's syndrome: an autoimmune inner ear disease. Autoimmunity reviews, 12 3:396-400, Jan 2013. URL: https://doi.org/10.1016/j.autrev.2012.07.012, doi:10.1016/j.autrev.2012.07.012. This article has 160 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(tayershifman2014coganssyndrome—clinicalguidelines pages 1-2): Oshrat E. Tayer-Shifman, Ophir Ilan, Hodaya Tovi, and Yuval Tal. Cogan's syndrome—clinical guidelines and novel therapeutic approaches. Clinical Reviews in Allergy &amp; Immunology, 47:65-72, Jan 2014. URL: https://doi.org/10.1007/s12016-013-8406-7, doi:10.1007/s12016-013-8406-7. This article has 73 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(wang2023cogan’ssyndromeis pages 2-5): Yanqing Wang, Shichao Tang, Chong Shao, and Yu Liu. Cogan’s syndrome is more than just keratitis: a case-based literature review. BMC Ophthalmology, May 2023. URL: https://doi.org/10.1186/s12886-023-02966-6, doi:10.1186/s12886-023-02966-6. This article has 12 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(greco2013coganssyndromean pages 4-4): A. Greco, A. Gallo, M. Fusconi, G. Magliulo, R. Turchetta, C. Marinelli, G.F. Macri, A. De Virgilio, and M. de Vincentiis. Cogan's syndrome: an autoimmune inner ear disease. Autoimmunity reviews, 12 3:396-400, Jan 2013. URL: https://doi.org/10.1016/j.autrev.2012.07.012, doi:10.1016/j.autrev.2012.07.012. This article has 160 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(marrerogonzalez2025audiovestibularoutcomesin pages 2-4): Alejandro R. Marrero-Gonzalez, Celine Ward, Shaun A. Nguyen, Seth S. Jeong, and Habib G. Rizk. Audiovestibular outcomes in adult patients with cogan syndrome: a systematic review. European Archives of Oto-Rhino-Laryngology, 282:23-35, Aug 2025. URL: https://doi.org/10.1007/s00405-024-08878-5, doi:10.1007/s00405-024-08878-5. This article has 6 citations and is from a peer-reviewed journal.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </div>
         
 
         <footer class="page-footer">
@@ -6356,7 +7430,7 @@ clinical_trials: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Cogan Syndrome", "mondoId": "MONDO:0015453", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cogan_Syndrome", "yamlRevision": "57f190ca9bdc"};
+        const OS_CONFIG = {"diseaseName": "Cogan Syndrome", "mondoId": "MONDO:0015453", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cogan_Syndrome", "yamlRevision": "628ed47f14dd"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -4915,7 +5068,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant glycogen chain length and hyperphosphorylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Combined loss of laforin\u0027s phosphatase activity and malin-mediated restraint on glycogen synthesis produces glycogen molecules with overlong glucan chains and elevated covalently-bound phosphate. Unlike normally branched soluble glycogen, these aberrant chains form double helices, extrude water, and precipitate. The resulting insoluble polyglucosan material progressively aggregates into Lafora bodies. Recent evidence indicates that abnormal chain length, more than hyperphosphorylation, is the proximal driver of insolubility.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neuron\", \"Astrocyte\"], \"biological_processes\": [\"Glycogen metabolic process\"]}}, {\"id\": \"Absence seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002121\"}}, {\"id\": \"Apraxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002186\"}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Autophagy and mitophagy impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glycogen accumulation in Lafora disease secondarily impairs macroautophagy and the selective autophagic degradation of damaged mitochondria (mitophagy). Genetic experiments show this autophagic impairment is rescued when glycogen synthesis is reduced, indicating it is downstream of glycogen aggregation rather than a primary defect. Mitophagy defects in patient fibroblasts manifest as reduced colocalization of mitochondrial and lysosomal markers despite intact upstream Parkin recruitment.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\", \"Astrocyte\"], \"biological_processes\": [\"Autophagy\", \"Autophagy of mitochondrion\"]}}, {\"id\": \"Cerebellar atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001272\"}}, {\"id\": \"Cerebral atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002059\"}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"EPM2A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"EPM2A\"], \"association\": \"Causative\"}}, {\"id\": \"Generalized tonic-clonic seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002069\"}}, {\"id\": \"Glycogen synthase 1 (GYS1) antisense oligonucleotide therapy (experimental)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Substrate reduction therapy using antisense oligonucleotides targeting GYS1 mRNA to lower brain glycogen synthesis and prevent Lafora body formation. Preclinical Gys1-ASO administration in Epm2b-/- mice reduced GYS1 protein, glycogen aggregation, Lafora body burden, and epileptiform discharges. ION283 (intrathecal ASO) is now in a Phase 1/2 clinical trial in patients aged 10-18 with genetically confirmed EPM2A or NHLRC1 disease (NCT06609889). This represents the first disease-modifying strategy advanced to clinical trials in Lafora disease.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Lafora body accumulation in neurons and astrocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Insoluble polyglucosan material aggregates into discrete cytoplasmic Lafora bodies. Although classically described as neuronal, recent studies indicate that the majority of brain Lafora bodies are astrocytic, with distinct morphologies from neuronal perinuclear inclusions. Lafora bodies contain glycogen, ubiquitin, and proteostasis adaptors such as p62, and they are particularly enriched in cortical and hippocampal regions. Their accumulation drives downstream neuroinflammation, autophagic impairment, synaptic dysfunction, and neurodegeneration.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Astrocyte\", \"Neuron\", \"Pyramidal neuron\"], \"biological_processes\": [\"Glycogen metabolic process\"]}}, {\"id\": \"Loss of laforin glycogen phosphatase activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss-of-function variants in EPM2A abolish laforin\u0027s dual-specificity glycogen phosphatase activity. Laforin normally binds glycogen via its carbohydrate-binding domain and dephosphorylates it; loss of this activity leads to glycogen hyperphosphorylation and, downstream, to abnormal chain length and insolubility. Laforin also serves as the glycogen-targeting subunit that recruits malin to glycogen, so its loss disrupts the laforin-malin complex at glycogen.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neuron\", \"Astrocyte\"], \"biological_processes\": [\"Glycogen metabolic process\"], \"genes\": [\"EPM2A\"]}}, {\"id\": \"Loss of laforin-malin complex regulation of glycogen synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Malin (NHLRC1) is an E3 ubiquitin ligase that, in complex with laforin at glycogen, ubiquitinates substrates including PTG/PPP1R3C (a glycogen synthase activator) and glycogen synthase itself, restraining glycogen synthesis. Biallelic loss-of-function variants in NHLRC1, or loss of laforin (which targets malin to glycogen), inactivate this complex. Consequently, malin substrates such as PTG accumulate and drive excessive glycogen synthesis with abnormal architecture. Laforin also becomes sequestered in the insoluble polysaccharide fraction, where it is functionally inert.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Neuron\", \"Astrocyte\"], \"biological_processes\": [\"Protein ubiquitination\", \"Glycogen biosynthetic process\"], \"genes\": [\"NHLRC1\"]}}, {\"id\": \"Metformin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Metformin has been studied as a potential disease-modifying adjunct in Lafora disease, with model-organism data and an 18-patient observational follow-up suggesting slower clinical progression in treated patients.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"metformin\"]}}, {\"id\": \"Myoclonus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001336\"}}, {\"id\": \"NHLRC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"NHLRC1\"], \"association\": \"Causative\"}}, {\"id\": \"Neurodegeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cumulative effects of Lafora body burden, neuroinflammation, oxidative stress, and autophagic impairment drive progressive neurodegeneration in cortex, hippocampus, and cerebellum. Cerebellar Purkinje cell involvement contributes to ataxia. Mouse models recapitulate this neurodegeneration, and genetic reduction of glycogen synthesis prevents it, identifying polyglucosan accumulation as the principal upstream driver. CHI3L1/YKL40 has emerged as a candidate biomarker of neurodegeneration in LD models.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\", \"Pyramidal neuron\", \"Purkinje cell\"], \"biological_processes\": [\"Neuron apoptotic process\"]}}, {\"id\": \"Oxidative stress and proteostasis impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lafora disease brain shows elevated reactive oxygen species, altered miRNA profiles (miR-155 and miR-146a), and disrupted proteostasis. While autophagy impairment was once considered a primary driver, current evidence places oxidative stress and proteostasis disruption as age-progressive consequences of glycogen aggregation and neuroinflammation that nonetheless feed forward to neurodegeneration.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neuron\", \"Astrocyte\"], \"biological_processes\": [\"Response to oxidative stress\"]}}, {\"id\": \"PTG/glycogen synthase overactivation and excessive glycogen synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PTG (PPP1R3C) is a glycogen synthase activator that targets protein phosphatase 1 to glycogen. In normal cells, malin-mediated ubiquitination restrains PTG and glycogen synthase (GYS1) activity. With loss of laforin/malin function, PTG accumulates and a small pool of overactive GYS1 elongates glycogen chains beyond the threshold at which they remain soluble. Genetic depletion of PTG or constitutive/inducible knockout of GYS1 in mouse models prevents Lafora body formation and rescues seizure susceptibility, neurodegeneration, and behavioral abnormality, establishing GYS1-driven excessive glycogen synthesis as a critical and pharmacologically targetable node upstream of polyglucosan formation.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Astrocyte\", \"Neuron\"], \"biological_processes\": [\"Glycogen biosynthetic process\"]}}, {\"id\": \"Photosensitive seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001327\"}}, {\"id\": \"Progressive cognitive decline and dementia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000726\"}}, {\"id\": \"Progressive neurologic deterioration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002344\"}}, {\"id\": \"Reactive astrogliosis and neuroinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Astrocytic and neuronal Lafora bodies induce reactive astrogliosis and activate microglia. RNA-Seq of Epm2a-/- and Epm2b-/- mouse brains shows age-progressive upregulation of inflammatory mediators, dominated by TNF and IL-6/JAK2 signaling. Activation of a non-canonical inflammasome, elevated CXCL10 and S100B, miR-155/miR-146a upregulation, and infiltration of peripheral T-lymphocytes into brain parenchyma all contribute to a glia-driven inflammatory milieu. Sphingosine-1-phosphate receptor modulation (fingolimod) reduces this inflammation and improves behavior in Epm2b-/- mice, supporting causal contribution of neuroinflammation to disease severity.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Astrocyte\", \"Microglial cell\"], \"biological_processes\": [\"Neuroinflammatory response\", \"Inflammatory response\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Status epilepticus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002133\"}}, {\"id\": \"Synaptic dysfunction and cortical hyperexcitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lafora body burden, perisynaptic astrocyte dysfunction, and inflammatory cytokines progressively destabilize cortical excitation/inhibition balance. Patients with Lafora body disease exhibit sustained sensorimotor cortex hyperexcitability with prolonged facilitation, consistent with severe impairment of inhibitory mechanisms. Hippocampal synaptic plasticity is disrupted in malin-knockout mice and is rescued when glycogen synthesis is reduced. The resulting hyperexcitability underlies the action and stimulus-sensitive myoclonus, photosensitive seizures, occipital (visual-hallucinatory) seizures, and progression to refractory epilepsy that defines the clinical syndrome.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Pyramidal neuron\", \"Interneuron\", \"Astrocyte\"], \"biological_processes\": [\"Transmission of nerve impulse\", \"Regulation of long-term neuronal synaptic plasticity\"]}}, {\"id\": \"Visual hallucinations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002367\"}}], \"edges\": [{\"source\": \"Loss of laforin glycogen phosphatase activity\", \"target\": \"Aberrant glycogen chain length and hyperphosphorylation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of laforin glycogen phosphatase activity\", \"target\": \"Loss of laforin-malin complex regulation of glycogen synthesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of laforin-malin complex regulation of glycogen synthesis\", \"target\": \"PTG/glycogen synthase overactivation and excessive glycogen synthesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of laforin-malin complex regulation of glycogen synthesis\", \"target\": \"Aberrant glycogen chain length and hyperphosphorylation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PTG/glycogen synthase overactivation and excessive glycogen synthesis\", \"target\": \"Aberrant glycogen chain length and hyperphosphorylation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Aberrant glycogen chain length and hyperphosphorylation\", \"target\": \"Lafora body accumulation in neurons and astrocytes\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lafora body accumulation in neurons and astrocytes\", \"target\": \"Reactive astrogliosis and neuroinflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lafora body accumulation in neurons and astrocytes\", \"target\": \"Autophagy and mitophagy impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lafora body accumulation in neurons and astrocytes\", \"target\": \"Synaptic dysfunction and cortical hyperexcitability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lafora body accumulation in neurons and astrocytes\", \"target\": \"Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reactive astrogliosis and neuroinflammation\", \"target\": \"Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reactive astrogliosis and neuroinflammation\", \"target\": \"Synaptic dysfunction and cortical hyperexcitability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reactive astrogliosis and neuroinflammation\", \"target\": \"Oxidative stress and proteostasis impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative stress and proteostasis impairment\", \"target\": \"Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autophagy and mitophagy impairment\", \"target\": \"Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Synaptic dysfunction and cortical hyperexcitability\", \"target\": \"Myoclonus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Synaptic dysfunction and cortical hyperexcitability\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Synaptic dysfunction and cortical hyperexcitability\", \"target\": \"Generalized tonic-clonic seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Synaptic dysfunction and cortical hyperexcitability\", \"target\": \"Absence seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Synaptic dysfunction and cortical hyperexcitability\", \"target\": \"Visual hallucinations\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Synaptic dysfunction and cortical hyperexcitability\", \"target\": \"Photosensitive seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Synaptic dysfunction and cortical hyperexcitability\", \"target\": \"Status epilepticus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Progressive cognitive decline and dementia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Progressive neurologic deterioration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Cerebral atrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Cerebellar atrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Apraxia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Metformin\", \"target\": \"Aberrant glycogen chain length and hyperphosphorylation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Glycogen synthase 1 (GYS1) antisense oligonucleotide therapy (experimental)\", \"target\": \"PTG/glycogen synthase overactivation and excessive glycogen synthesis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"EPM2A\", \"target\": \"Loss of laforin glycogen phosphatase activity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NHLRC1\", \"target\": \"Loss of laforin-malin complex regulation of glycogen synthesis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant glycogen chain length and hyperphosphorylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Combined loss of laforin\u0027s phosphatase activity and malin-mediated restraint on glycogen synthesis produces glycogen molecules with overlong glucan chains and elevated covalently-bound phosphate. Unlike normally branched soluble glycogen, these aberrant chains form double helices, extrude water, and precipitate. The resulting insoluble polyglucosan material progressively aggregates into Lafora bodies. Recent evidence indicates that abnormal chain length, more than hyperphosphorylation, is the proximal driver of insolubility.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neuron\", \"Astrocyte\"], \"biological_processes\": [\"Glycogen metabolic process\"]}}, {\"id\": \"Absence seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002121\"}}, {\"id\": \"Apraxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002186\"}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Autophagy and mitophagy impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glycogen accumulation in Lafora disease secondarily impairs macroautophagy and the selective autophagic degradation of damaged mitochondria (mitophagy). Genetic experiments show this autophagic impairment is rescued when glycogen synthesis is reduced, indicating it is downstream of glycogen aggregation rather than a primary defect. Mitophagy defects in patient fibroblasts manifest as reduced colocalization of mitochondrial and lysosomal markers despite intact upstream Parkin recruitment.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\", \"Astrocyte\"], \"biological_processes\": [\"Autophagy\", \"Autophagy of mitochondrion\"]}}, {\"id\": \"Cerebellar atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001272\"}}, {\"id\": \"Cerebral atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002059\"}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"EPM2A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"EPM2A\"], \"association\": \"Causative\"}}, {\"id\": \"Generalized tonic-clonic seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002069\"}}, {\"id\": \"Glycogen synthase 1 (GYS1) antisense oligonucleotide therapy (experimental)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Substrate reduction therapy using antisense oligonucleotides targeting GYS1 mRNA to lower brain glycogen synthesis and prevent Lafora body formation. Preclinical Gys1-ASO administration in Epm2b-/- mice reduced GYS1 protein, glycogen aggregation, Lafora body burden, and epileptiform discharges. ION283 (intrathecal ASO) is now in a Phase 1/2 clinical trial in patients aged 10-18 with genetically confirmed EPM2A or NHLRC1 disease (NCT06609889). This represents the first disease-modifying strategy advanced to clinical trials in Lafora disease.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Lafora body accumulation in neurons and astrocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Insoluble polyglucosan material aggregates into discrete cytoplasmic Lafora bodies. Although classically described as neuronal, recent studies indicate that the majority of brain Lafora bodies are astrocytic, with distinct morphologies from neuronal perinuclear inclusions. Lafora bodies contain glycogen, ubiquitin, and proteostasis adaptors such as p62, and they are particularly enriched in cortical and hippocampal regions. Their accumulation drives downstream neuroinflammation, autophagic impairment, synaptic dysfunction, and neurodegeneration.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Astrocyte\", \"Neuron\", \"Pyramidal neuron\"], \"biological_processes\": [\"Glycogen metabolic process\"]}}, {\"id\": \"Loss of laforin glycogen phosphatase activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss-of-function variants in EPM2A abolish laforin\u0027s dual-specificity glycogen phosphatase activity. Laforin normally binds glycogen via its carbohydrate-binding domain and dephosphorylates it; loss of this activity leads to glycogen hyperphosphorylation and, downstream, to abnormal chain length and insolubility. Laforin also serves as the glycogen-targeting subunit that recruits malin to glycogen, so its loss disrupts the laforin-malin complex at glycogen.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neuron\", \"Astrocyte\"], \"biological_processes\": [\"Glycogen metabolic process\"], \"genes\": [\"EPM2A\"]}}, {\"id\": \"Loss of laforin-malin complex regulation of glycogen synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Malin (NHLRC1) is an E3 ubiquitin ligase that, in complex with laforin at glycogen, ubiquitinates substrates including PTG/PPP1R3C (a glycogen synthase activator) and glycogen synthase itself, restraining glycogen synthesis. Biallelic loss-of-function variants in NHLRC1, or loss of laforin (which targets malin to glycogen), inactivate this complex. Consequently, malin substrates such as PTG accumulate and drive excessive glycogen synthesis with abnormal architecture. Laforin also becomes sequestered in the insoluble polysaccharide fraction, where it is functionally inert.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Neuron\", \"Astrocyte\"], \"biological_processes\": [\"Protein ubiquitination\", \"Glycogen biosynthetic process\"], \"genes\": [\"NHLRC1\"]}}, {\"id\": \"Metformin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Metformin has been studied as a potential disease-modifying adjunct in Lafora disease, with model-organism data and an 18-patient observational follow-up suggesting slower clinical progression in treated patients.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"metformin\"]}}, {\"id\": \"Myoclonus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001336\"}}, {\"id\": \"NHLRC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"NHLRC1\"], \"association\": \"Causative\"}}, {\"id\": \"Neurodegeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cumulative effects of Lafora body burden, neuroinflammation, oxidative stress, and autophagic impairment drive progressive neurodegeneration in cortex, hippocampus, and cerebellum. Cerebellar Purkinje cell involvement contributes to ataxia. Mouse models recapitulate this neurodegeneration, and genetic reduction of glycogen synthesis prevents it, identifying polyglucosan accumulation as the principal upstream driver. CHI3L1/YKL40 has emerged as a candidate biomarker of neurodegeneration in LD models.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\", \"Pyramidal neuron\", \"Purkinje cell\"], \"biological_processes\": [\"Neuron apoptotic process\"]}}, {\"id\": \"Oxidative stress and proteostasis impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lafora disease brain shows elevated reactive oxygen species, altered miRNA profiles (miR-155 and miR-146a), and disrupted proteostasis. While autophagy impairment was once considered a primary driver, current evidence places oxidative stress and proteostasis disruption as age-progressive consequences of glycogen aggregation and neuroinflammation that nonetheless feed forward to neurodegeneration.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neuron\", \"Astrocyte\"], \"biological_processes\": [\"Response to oxidative stress\"]}}, {\"id\": \"PTG/glycogen synthase overactivation and excessive glycogen synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PTG (PPP1R3C) is a glycogen synthase activator that targets protein phosphatase 1 to glycogen. In normal cells, malin-mediated ubiquitination restrains PTG and glycogen synthase (GYS1) activity. With loss of laforin/malin function, PTG accumulates and a small pool of overactive GYS1 elongates glycogen chains beyond the threshold at which they remain soluble. Genetic depletion of PTG or constitutive/inducible knockout of GYS1 in mouse models prevents Lafora body formation and rescues seizure susceptibility, neurodegeneration, and behavioral abnormality, establishing GYS1-driven excessive glycogen synthesis as a critical and pharmacologically targetable node upstream of polyglucosan formation.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Astrocyte\", \"Neuron\"], \"biological_processes\": [\"Glycogen biosynthetic process\"]}}, {\"id\": \"Photosensitive seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001327\"}}, {\"id\": \"Progressive cognitive decline and dementia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000726\"}}, {\"id\": \"Progressive neurologic deterioration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002344\"}}, {\"id\": \"Reactive astrogliosis and neuroinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Astrocytic and neuronal Lafora bodies induce reactive astrogliosis and activate microglia. RNA-Seq of Epm2a-/- and Epm2b-/- mouse brains shows age-progressive upregulation of inflammatory mediators, dominated by TNF and IL-6/JAK2 signaling. Activation of a non-canonical inflammasome, elevated CXCL10 and S100B, miR-155/miR-146a upregulation, and infiltration of peripheral T-lymphocytes into brain parenchyma all contribute to a glia-driven inflammatory milieu. Sphingosine-1-phosphate receptor modulation (fingolimod) reduces this inflammation and improves behavior in Epm2b-/- mice, supporting causal contribution of neuroinflammation to disease severity.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Astrocyte\", \"Microglial cell\"], \"biological_processes\": [\"Neuroinflammatory response\", \"Inflammatory response\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Status epilepticus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002133\"}}, {\"id\": \"Synaptic dysfunction and cortical hyperexcitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lafora body burden, perisynaptic astrocyte dysfunction, and inflammatory cytokines progressively destabilize cortical excitation/inhibition balance. Patients with Lafora body disease exhibit sustained sensorimotor cortex hyperexcitability with prolonged facilitation, consistent with severe impairment of inhibitory mechanisms. Hippocampal synaptic plasticity is disrupted in malin-knockout mice and is rescued when glycogen synthesis is reduced. The resulting hyperexcitability underlies the action and stimulus-sensitive myoclonus, photosensitive seizures, occipital (visual-hallucinatory) seizures, and progression to refractory epilepsy that defines the clinical syndrome.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Pyramidal neuron\", \"Interneuron\", \"Astrocyte\"], \"biological_processes\": [\"Transmission of nerve impulse\", \"Regulation of long-term neuronal synaptic plasticity\"]}}, {\"id\": \"Visual hallucinations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002367\"}}], \"edges\": [{\"source\": \"Loss of laforin glycogen phosphatase activity\", \"target\": \"Aberrant glycogen chain length and hyperphosphorylation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of laforin glycogen phosphatase activity\", \"target\": \"Loss of laforin-malin complex regulation of glycogen synthesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of laforin-malin complex regulation of glycogen synthesis\", \"target\": \"PTG/glycogen synthase overactivation and excessive glycogen synthesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of laforin-malin complex regulation of glycogen synthesis\", \"target\": \"Aberrant glycogen chain length and hyperphosphorylation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PTG/glycogen synthase overactivation and excessive glycogen synthesis\", \"target\": \"Aberrant glycogen chain length and hyperphosphorylation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Aberrant glycogen chain length and hyperphosphorylation\", \"target\": \"Lafora body accumulation in neurons and astrocytes\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lafora body accumulation in neurons and astrocytes\", \"target\": \"Reactive astrogliosis and neuroinflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lafora body accumulation in neurons and astrocytes\", \"target\": \"Autophagy and mitophagy impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lafora body accumulation in neurons and astrocytes\", \"target\": \"Synaptic dysfunction and cortical hyperexcitability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lafora body accumulation in neurons and astrocytes\", \"target\": \"Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reactive astrogliosis and neuroinflammation\", \"target\": \"Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reactive astrogliosis and neuroinflammation\", \"target\": \"Synaptic dysfunction and cortical hyperexcitability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reactive astrogliosis and neuroinflammation\", \"target\": \"Oxidative stress and proteostasis impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative stress and proteostasis impairment\", \"target\": \"Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autophagy and mitophagy impairment\", \"target\": \"Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Synaptic dysfunction and cortical hyperexcitability\", \"target\": \"Myoclonus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Synaptic dysfunction and cortical hyperexcitability\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Synaptic dysfunction and cortical hyperexcitability\", \"target\": \"Generalized tonic-clonic seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Synaptic dysfunction and cortical hyperexcitability\", \"target\": \"Absence seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Synaptic dysfunction and cortical hyperexcitability\", \"target\": \"Visual hallucinations\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Synaptic dysfunction and cortical hyperexcitability\", \"target\": \"Photosensitive seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Synaptic dysfunction and cortical hyperexcitability\", \"target\": \"Status epilepticus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Progressive cognitive decline and dementia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Progressive neurologic deterioration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Cerebral atrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Cerebellar atrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Apraxia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Metformin\", \"target\": \"Aberrant glycogen chain length and hyperphosphorylation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Glycogen synthase 1 (GYS1) antisense oligonucleotide therapy (experimental)\", \"target\": \"PTG/glycogen synthase overactivation and excessive glycogen synthesis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"EPM2A\", \"target\": \"Loss of laforin glycogen phosphatase activity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NHLRC1\", \"target\": \"Loss of laforin-malin complex regulation of glycogen synthesis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6220,7 +6373,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -6244,6 +6397,26 @@
                 
             </div>
             
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_f970ced6-0164-41ed-9e1f-1fb9f892bca6-2020-05-23T190000.000Z" target="_blank">CGGV:assertion_f970ced6-0164-41ed-9e1f-1fb9f892bca6-2020-05-23T190000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"EPM2A | HGNC:3413 | Lafora disease | MONDO:0009697 | AR | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the EPM2A-Lafora disease gene-disease relationship as definitive with autosomal recessive inheritance.</div>
+                
+            </div>
+            
             
         </div>
     </details>
@@ -6263,7 +6436,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
             
@@ -6327,6 +6500,8 @@
                 
             </div>
             
+            
+            <div class="evidence-more">+ 1 more reference</div>
             
         </div>
     </details>
@@ -8517,6 +8692,12 @@ genetic:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The mutated gene was NHLRC1 in 56% and EPM2A in 44% of cases. 114 pathogenic variants (67 EPM2A; 47 NHLRC1) were identified.&#34;
     explanation: Patient-level meta-analysis quantifying the relative contribution of EPM2A vs NHLRC1 in Lafora disease.
+  - reference: CGGV:assertion_f970ced6-0164-41ed-9e1f-1fb9f892bca6-2020-05-23T190000.000Z
+    reference_title: &#34;EPM2A / Lafora disease (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;EPM2A | HGNC:3413 | Lafora disease | MONDO:0009697 | AR | Definitive&#34;
+    explanation: ClinGen classifies the EPM2A-Lafora disease gene-disease relationship as definitive with autosomal recessive inheritance.
 - name: NHLRC1
   association: Causative
   notes: &gt;
@@ -8550,6 +8731,12 @@ genetic:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;it may be speculated that malin plays a pivotal role in LD pathogenesis.&#34;
     explanation: Authors interpret the worse prognosis with truncating NHLRC1 variants as evidence for malin&#39;s pivotal pathogenic role.
+  - reference: CGGV:assertion_c4dbe715-b897-482d-afeb-b05c0653a79a-2020-03-03T170000.000Z
+    reference_title: &#34;NHLRC1 / Lafora disease (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;NHLRC1 | HGNC:21576 | Lafora disease | MONDO:0009697 | AR | Definitive&#34;
+    explanation: ClinGen classifies the NHLRC1-Lafora disease gene-disease relationship as definitive with autosomal recessive inheritance.
 treatments:
 - name: Antiseizure medications
   description: &gt;
@@ -9434,7 +9621,7 @@ animal_models:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Lafora_Disease", "mondoId": "MONDO:0009697", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Lafora_Disease", "yamlRevision": "642cd560d26d"};
+        const OS_CONFIG = {"diseaseName": "Lafora_Disease", "mondoId": "MONDO:0009697", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Lafora_Disease", "yamlRevision": "2cee602ee5b8"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

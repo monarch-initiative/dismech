@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -4175,7 +4328,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cardiomyocyte Mitochondrial Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the heart, frataxin deficiency produces cardiomyocyte hypertrophy, iron-positive inclusions, and disrupted intercalated discs. The clinical downstream manifestation is hypertrophic cardiomyopathy, a major determinant of premature mortality in FRDA.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"oxidative phosphorylation\"], \"locations\": [\"myocardium\"]}}, {\"id\": \"Dentate Nucleus and Spinocerebellar Tract Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FRDA affects the dentate nucleus, dorsal columns, spinocerebellar tracts, and corticospinal tracts. Central cerebellar and spinal pathway involvement combines with sensory neuronopathy to drive progressive ataxia and dysarthria.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"locations\": [\"dentate nucleus\", \"spinal cord\"]}}, {\"id\": \"Diabetes Mellitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diabetes mellitus occurs in approximately 10-30% of patients, likely due to beta cell dysfunction from mitochondrial impairment and iron toxicity.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000819\"}}, {\"id\": \"Dorsal Root Ganglion Sensory Neuronopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FRDA injures dorsal root ganglion sensory neurons and their satellite-cell niche, causing loss of proprioceptive and vibration-sense input. This explains sensory neuropathy, areflexia, impaired balance, and a major upstream component of progressive gait and limb ataxia.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"sensory neuron of dorsal root ganglion\", \"glial cell\"], \"locations\": [\"dorsal root ganglion\"]}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive speech difficulty due to cerebellar dysfunction, typically developing within a few years of disease onset.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Swallowing impairment occurs as part of the classical neurologic phenotype of Friedreich ataxia.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002015\"}}, {\"id\": \"FXN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"FXN\"], \"association\": \"GAA Trinucleotide Repeat Expansion\", \"variant_count\": 1}}, {\"id\": \"FXN GAA Repeat Expansion and Epigenetic Silencing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic expansion of the GAA repeat in intron 1 of FXN produces a non-coding repeat-expansion loss-of-expression mechanism. Repressive chromatin around the expanded repeat lowers FXN transcription and reduces frataxin abundance, establishing the upstream genetic lesion for all downstream FRDA pathograph paths.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"regulation of gene expression\", \"chromatin organization\"], \"genes\": [\"FXN\"]}}, {\"id\": \"FXN intron 1 GAA repeat expansion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Pathogenic non-coding trinucleotide repeat expansion in intron 1 of FXN that silences FXN transcription. Most affected individuals are homozygous for expanded alleles; a minority are compound heterozygous for one expansion plus an FXN deletion, point mutation, or insertion.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"FXN\"], \"variant_type\": \"trinucleotide_repeat_expansion\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Frataxin Deficiency and Iron-Sulfur Cluster Assembly Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced frataxin impairs mitochondrial iron-sulfur cluster biosynthesis, oxidative phosphorylation, and iron handling. This common biochemical lesion feeds the tissue-specific branches that explain sensory ataxia, dysarthria, cardiomyopathy, diabetes, and skeletal deformity.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"sensory neuron of dorsal root ganglion\", \"neuron\", \"cardiac muscle cell\", \"pancreatic beta cell\"], \"biological_processes\": [\"iron-sulfur cluster assembly\", \"oxidative phosphorylation\", \"intracellular iron ion homeostasis\"], \"genes\": [\"FXN\"], \"locations\": [\"dorsal root ganglion\", \"cerebellum\", \"heart\", \"pancreas\"]}}, {\"id\": \"Hypertrophic Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertrophic cardiomyopathy is present in approximately 60-75% of patients and is the leading cause of death. It can progress to dilated cardiomyopathy with heart failure.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001639\"}}, {\"id\": \"Mitochondrial Bioenergetic Failure and Oxidative Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Frataxin-deficient cells show impaired electron transport, altered mitochondrial morphology, abnormal iron handling, and oxidative stress. This shared mitochondrial stress state is the branch point for sensory neuronal, cerebellar, cardiac, pancreatic beta-cell, and musculoskeletal outcomes.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"sensory neuron of dorsal root ganglion\", \"cardiac muscle cell\", \"pancreatic beta cell\"], \"biological_processes\": [\"oxidative phosphorylation\", \"response to oxidative stress\", \"intracellular iron ion homeostasis\"]}}, {\"id\": \"Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Limb weakness, including distal extremity weakness and skeletal muscle involvement, is part of the classical Friedreich ataxia phenotype.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001324\"}}, {\"id\": \"Nystagmus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nystagmus and other eye movement abnormalities occur in Friedreich ataxia.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000639\"}}, {\"id\": \"Omaveloxolone\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Approved pharmacotherapy for individuals with Friedreich ataxia aged 16 years and older. It is used to slow neurologic progression by modulating oxidative-stress and mitochondrial-function pathways rather than restoring FXN expression directly.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"omaveloxolone\"]}}, {\"id\": \"Pancreatic Beta-Cell Apoptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Frataxin-deficient pancreatic beta cells undergo mitochondrial dysfunction, oxidative stress, and intrinsic apoptosis, explaining why a subset of FRDA patients develop diabetes mellitus.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"pancreatic beta cell\"], \"biological_processes\": [\"apoptotic process\", \"response to oxidative stress\"], \"locations\": [\"pancreas\"]}}, {\"id\": \"Peripheral Neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensory neuropathy with loss of deep tendon reflexes (areflexia) and impaired proprioception and vibration sense. The dorsal root ganglia are preferentially affected.\\n\", \"meta\": {\"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0009830\"}}, {\"id\": \"Pes Cavus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High-arched feet (pes cavus) are a characteristic skeletal deformity.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001761\"}}, {\"id\": \"Progressive Gait and Limb Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive cerebellar and sensory ataxia affecting gait and limb coordination is the hallmark feature. Most patients require wheelchair use within 10-15 years of onset.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Progressive Skeletal Deformity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FRDA skeletal involvement includes progressive scoliosis and pes cavus. The mechanism is represented as an indirect downstream path from the FXN loss-of-function multisystem disorder through neuromuscular imbalance, weakness, sensory neuropathy, and skeletal involvement.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"skeleton\"]}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive scoliosis is common, often requiring surgical intervention.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002650\"}}], \"edges\": [{\"source\": \"FXN GAA Repeat Expansion and Epigenetic Silencing\", \"target\": \"Frataxin Deficiency and Iron-Sulfur Cluster Assembly Defect\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Frataxin Deficiency and Iron-Sulfur Cluster Assembly Defect\", \"target\": \"Mitochondrial Bioenergetic Failure and Oxidative Stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial Bioenergetic Failure and Oxidative Stress\", \"target\": \"Dorsal Root Ganglion Sensory Neuronopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial Bioenergetic Failure and Oxidative Stress\", \"target\": \"Dentate Nucleus and Spinocerebellar Tract Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial Bioenergetic Failure and Oxidative Stress\", \"target\": \"Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial Bioenergetic Failure and Oxidative Stress\", \"target\": \"Cardiomyocyte Mitochondrial Injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial Bioenergetic Failure and Oxidative Stress\", \"target\": \"Pancreatic Beta-Cell Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial Bioenergetic Failure and Oxidative Stress\", \"target\": \"Progressive Skeletal Deformity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dorsal Root Ganglion Sensory Neuronopathy\", \"target\": \"Peripheral Neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dorsal Root Ganglion Sensory Neuronopathy\", \"target\": \"Progressive Gait and Limb Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dentate Nucleus and Spinocerebellar Tract Degeneration\", \"target\": \"Progressive Gait and Limb Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dentate Nucleus and Spinocerebellar Tract Degeneration\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dentate Nucleus and Spinocerebellar Tract Degeneration\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dentate Nucleus and Spinocerebellar Tract Degeneration\", \"target\": \"Nystagmus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiomyocyte Mitochondrial Injury\", \"target\": \"Hypertrophic Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Pancreatic Beta-Cell Apoptosis\", \"target\": \"Diabetes Mellitus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Skeletal Deformity\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Skeletal Deformity\", \"target\": \"Pes Cavus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Omaveloxolone\", \"target\": \"Mitochondrial Bioenergetic Failure and Oxidative Stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"FXN\", \"target\": \"FXN GAA Repeat Expansion and Epigenetic Silencing\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FXN\", \"target\": \"Frataxin Deficiency and Iron-Sulfur Cluster Assembly Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FXN intron 1 GAA repeat expansion\", \"target\": \"FXN\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cardiomyocyte Mitochondrial Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the heart, frataxin deficiency produces cardiomyocyte hypertrophy, iron-positive inclusions, and disrupted intercalated discs. The clinical downstream manifestation is hypertrophic cardiomyopathy, a major determinant of premature mortality in FRDA.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"oxidative phosphorylation\"], \"locations\": [\"myocardium\"]}}, {\"id\": \"Dentate Nucleus and Spinocerebellar Tract Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FRDA affects the dentate nucleus, dorsal columns, spinocerebellar tracts, and corticospinal tracts. Central cerebellar and spinal pathway involvement combines with sensory neuronopathy to drive progressive ataxia and dysarthria.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"locations\": [\"dentate nucleus\", \"spinal cord\"]}}, {\"id\": \"Diabetes Mellitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diabetes mellitus occurs in approximately 10-30% of patients, likely due to beta cell dysfunction from mitochondrial impairment and iron toxicity.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000819\"}}, {\"id\": \"Dorsal Root Ganglion Sensory Neuronopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FRDA injures dorsal root ganglion sensory neurons and their satellite-cell niche, causing loss of proprioceptive and vibration-sense input. This explains sensory neuropathy, areflexia, impaired balance, and a major upstream component of progressive gait and limb ataxia.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"sensory neuron of dorsal root ganglion\", \"glial cell\"], \"locations\": [\"dorsal root ganglion\"]}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive speech difficulty due to cerebellar dysfunction, typically developing within a few years of disease onset.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Swallowing impairment occurs as part of the classical neurologic phenotype of Friedreich ataxia.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002015\"}}, {\"id\": \"FXN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"FXN\"], \"presence\": \"Positive\", \"association\": \"GAA Trinucleotide Repeat Expansion\", \"variant_count\": 1}}, {\"id\": \"FXN GAA Repeat Expansion and Epigenetic Silencing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic expansion of the GAA repeat in intron 1 of FXN produces a non-coding repeat-expansion loss-of-expression mechanism. Repressive chromatin around the expanded repeat lowers FXN transcription and reduces frataxin abundance, establishing the upstream genetic lesion for all downstream FRDA pathograph paths.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"regulation of gene expression\", \"chromatin organization\"], \"genes\": [\"FXN\"]}}, {\"id\": \"FXN intron 1 GAA repeat expansion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Pathogenic non-coding trinucleotide repeat expansion in intron 1 of FXN that silences FXN transcription. Most affected individuals are homozygous for expanded alleles; a minority are compound heterozygous for one expansion plus an FXN deletion, point mutation, or insertion.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"FXN\"], \"variant_type\": \"trinucleotide_repeat_expansion\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Frataxin Deficiency and Iron-Sulfur Cluster Assembly Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced frataxin impairs mitochondrial iron-sulfur cluster biosynthesis, oxidative phosphorylation, and iron handling. This common biochemical lesion feeds the tissue-specific branches that explain sensory ataxia, dysarthria, cardiomyopathy, diabetes, and skeletal deformity.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"sensory neuron of dorsal root ganglion\", \"neuron\", \"cardiac muscle cell\", \"pancreatic beta cell\"], \"biological_processes\": [\"iron-sulfur cluster assembly\", \"oxidative phosphorylation\", \"intracellular iron ion homeostasis\"], \"genes\": [\"FXN\"], \"locations\": [\"dorsal root ganglion\", \"cerebellum\", \"heart\", \"pancreas\"]}}, {\"id\": \"Hypertrophic Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertrophic cardiomyopathy is present in approximately 60-75% of patients and is the leading cause of death. It can progress to dilated cardiomyopathy with heart failure.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001639\"}}, {\"id\": \"Mitochondrial Bioenergetic Failure and Oxidative Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Frataxin-deficient cells show impaired electron transport, altered mitochondrial morphology, abnormal iron handling, and oxidative stress. This shared mitochondrial stress state is the branch point for sensory neuronal, cerebellar, cardiac, pancreatic beta-cell, and musculoskeletal outcomes.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"sensory neuron of dorsal root ganglion\", \"cardiac muscle cell\", \"pancreatic beta cell\"], \"biological_processes\": [\"oxidative phosphorylation\", \"response to oxidative stress\", \"intracellular iron ion homeostasis\"]}}, {\"id\": \"Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Limb weakness, including distal extremity weakness and skeletal muscle involvement, is part of the classical Friedreich ataxia phenotype.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001324\"}}, {\"id\": \"Nystagmus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nystagmus and other eye movement abnormalities occur in Friedreich ataxia.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000639\"}}, {\"id\": \"Omaveloxolone\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Approved pharmacotherapy for individuals with Friedreich ataxia aged 16 years and older. It is used to slow neurologic progression by modulating oxidative-stress and mitochondrial-function pathways rather than restoring FXN expression directly.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"omaveloxolone\"]}}, {\"id\": \"Pancreatic Beta-Cell Apoptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Frataxin-deficient pancreatic beta cells undergo mitochondrial dysfunction, oxidative stress, and intrinsic apoptosis, explaining why a subset of FRDA patients develop diabetes mellitus.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"pancreatic beta cell\"], \"biological_processes\": [\"apoptotic process\", \"response to oxidative stress\"], \"locations\": [\"pancreas\"]}}, {\"id\": \"Peripheral Neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensory neuropathy with loss of deep tendon reflexes (areflexia) and impaired proprioception and vibration sense. The dorsal root ganglia are preferentially affected.\\n\", \"meta\": {\"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0009830\"}}, {\"id\": \"Pes Cavus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High-arched feet (pes cavus) are a characteristic skeletal deformity.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001761\"}}, {\"id\": \"Progressive Gait and Limb Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive cerebellar and sensory ataxia affecting gait and limb coordination is the hallmark feature. Most patients require wheelchair use within 10-15 years of onset.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Progressive Skeletal Deformity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FRDA skeletal involvement includes progressive scoliosis and pes cavus. The mechanism is represented as an indirect downstream path from the FXN loss-of-function multisystem disorder through neuromuscular imbalance, weakness, sensory neuropathy, and skeletal involvement.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"skeleton\"]}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive scoliosis is common, often requiring surgical intervention.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002650\"}}], \"edges\": [{\"source\": \"FXN GAA Repeat Expansion and Epigenetic Silencing\", \"target\": \"Frataxin Deficiency and Iron-Sulfur Cluster Assembly Defect\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Frataxin Deficiency and Iron-Sulfur Cluster Assembly Defect\", \"target\": \"Mitochondrial Bioenergetic Failure and Oxidative Stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial Bioenergetic Failure and Oxidative Stress\", \"target\": \"Dorsal Root Ganglion Sensory Neuronopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial Bioenergetic Failure and Oxidative Stress\", \"target\": \"Dentate Nucleus and Spinocerebellar Tract Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial Bioenergetic Failure and Oxidative Stress\", \"target\": \"Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial Bioenergetic Failure and Oxidative Stress\", \"target\": \"Cardiomyocyte Mitochondrial Injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial Bioenergetic Failure and Oxidative Stress\", \"target\": \"Pancreatic Beta-Cell Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial Bioenergetic Failure and Oxidative Stress\", \"target\": \"Progressive Skeletal Deformity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dorsal Root Ganglion Sensory Neuronopathy\", \"target\": \"Peripheral Neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dorsal Root Ganglion Sensory Neuronopathy\", \"target\": \"Progressive Gait and Limb Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dentate Nucleus and Spinocerebellar Tract Degeneration\", \"target\": \"Progressive Gait and Limb Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dentate Nucleus and Spinocerebellar Tract Degeneration\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dentate Nucleus and Spinocerebellar Tract Degeneration\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dentate Nucleus and Spinocerebellar Tract Degeneration\", \"target\": \"Nystagmus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiomyocyte Mitochondrial Injury\", \"target\": \"Hypertrophic Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Pancreatic Beta-Cell Apoptosis\", \"target\": \"Diabetes Mellitus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Skeletal Deformity\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Skeletal Deformity\", \"target\": \"Pes Cavus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Omaveloxolone\", \"target\": \"Mitochondrial Bioenergetic Failure and Oxidative Stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"FXN\", \"target\": \"FXN GAA Repeat Expansion and Epigenetic Silencing\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FXN\", \"target\": \"Frataxin Deficiency and Iron-Sulfur Cluster Assembly Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FXN intron 1 GAA repeat expansion\", \"target\": \"FXN\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5080,7 +5233,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
             
@@ -5121,6 +5274,26 @@
                 
                 
                 <div class="evidence-explanation">Confirms autosomal recessive inheritance with homozygous GAA expansion in FXN.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_ec3f674b-1e71-4254-a0f9-f8909becff59-2017-12-22T170000.000Z" target="_blank">CGGV:assertion_ec3f674b-1e71-4254-a0f9-f8909becff59-2017-12-22T170000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"FXN | HGNC:3951 | Friedreich ataxia | MONDO:0100339 | AR | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the FXN-Friedreich ataxia gene-disease relationship as definitive with autosomal recessive inheritance.</div>
                 
             </div>
             
@@ -6674,6 +6847,12 @@ genetic:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Inheritance is autosomal recessive with the vast majority of cases showing an unstable intronic GAA expansion in both alleles of the frataxin gene on chromosome 9q13.&#34;
     explanation: Confirms autosomal recessive inheritance with homozygous GAA expansion in FXN.
+  - reference: CGGV:assertion_ec3f674b-1e71-4254-a0f9-f8909becff59-2017-12-22T170000.000Z
+    reference_title: &#34;FXN / Friedreich ataxia (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;FXN | HGNC:3951 | Friedreich ataxia | MONDO:0100339 | AR | Definitive&#34;
+    explanation: ClinGen classifies the FXN-Friedreich ataxia gene-disease relationship as definitive with autosomal recessive inheritance.
 treatments:
 - name: Omaveloxolone
   description: &gt;
@@ -7782,7 +7961,7 @@ Expert guidance and post-approval experience emphasize that aminotransferase ele
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Friedreich Ataxia", "mondoId": "MONDO:0100339", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Friedreich_Ataxia", "yamlRevision": "4b96bddada67"};
+        const OS_CONFIG = {"diseaseName": "Friedreich Ataxia", "mondoId": "MONDO:0100339", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Friedreich_Ataxia", "yamlRevision": "b2dce73c3bf6"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

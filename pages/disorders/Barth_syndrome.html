@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,7 +2570,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 21</a>
                 
                 
                 <button class="badge badge-openscientist" id="os-ask-btn"
@@ -2552,7 +2705,7 @@
             
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
-                <div class="stat-value">5</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Pathophysiology</div>
             </div>
             </a>
@@ -2566,7 +2719,7 @@
             
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
-                <div class="stat-value">7</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -2574,7 +2727,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">5</div>
+                <div class="stat-value">21</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -2743,7 +2896,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-OTHER">Other</span>
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -2776,7 +2929,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">6</span>
             </div>
             
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tafazzin-deficiency-impairs-cardiolipin-remodeling">
@@ -2862,12 +3015,47 @@
 	                    <div class="crosslink-list">
 	                        
 	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Increased monolysocardiolipin:cardiolipin ratio</span>
+	                            
+	                            <span class="crosslink-desc">Defective tafazzin-mediated cardiolipin remodeling produces the diagnostic increase in the MLCL:CL ratio.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Elevated urinary 3-methylglutaconic acid</span>
+	                            
+	                            <span class="crosslink-desc">The tafazzin defect is associated with 3-methylglutaconic aciduria, although the intermediate metabolic route is not fully resolved.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Growth delay</span>
+	                            
+	                            <span class="crosslink-desc">Tafazzin-related multisystem mitochondrial disease includes constitutional growth delay through incompletely resolved energetic, feeding, and systemic intermediates.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Left ventricular noncompaction</span>
+	                            
+	                            <span class="crosslink-desc">Tafazzin-related cardiac disease can include left ventricular noncompaction; the developmental intermediates between cardiolipin remodeling failure and noncompaction morphology remain incompletely resolved.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Mitochondrial respiratory chain dysfunction</span>
 	                            
 	                        </div>
 	                        
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Myocardial metabolic substrate shift</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Impaired myeloid maturation</span>
+	                            
+	                            <span class="crosslink-desc">Tafazzin/cardiolipin defects can impair myeloid output through mitochondrial membrane-potential loss and apoptosis in myeloid progenitors.</span>
 	                            
 	                        </div>
 	                        
@@ -2963,6 +3151,13 @@
 	                        
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Abnormal cardiomyocyte calcium handling</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Skeletal muscle mitochondrial myopathy</span>
+	                            
+	                            <span class="crosslink-desc">Respiratory-chain and membrane-potential impairment in skeletal muscle produces the mitochondrial myopathy branch of Barth syndrome.</span>
 	                            
 	                        </div>
 	                        
@@ -3077,6 +3272,13 @@
 	                        
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Abnormal cardiomyocyte calcium handling</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Lactic acidosis</span>
+	                            
+	                            <span class="crosslink-desc">The glucose-shifted energy phenotype increases glycolytic lactate production, providing a cellular correlate for lactic acidosis in Barth syndrome.</span>
 	                            
 	                        </div>
 	                        
@@ -3225,6 +3427,27 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cardiomyopathy</span>
+	                            
+	                            <span class="crosslink-desc">Abnormal calcium handling reduces cardiomyocyte contractility, linking the mitochondrial ROS-CaMKII-RYR2 axis to Barth cardiomyopathy.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Arrhythmia</span>
+	                            
+	                            <span class="crosslink-desc">Calcium leak and abnormal calcium cycling increase arrhythmia vulnerability in tafazzin-deficient cardiac models.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
@@ -3270,6 +3493,173 @@
                 
                 
                 <div class="evidence-explanation">Rescue of calcium handling and contractility identifies ROS-CaMKII-RYR2 signaling as a causal mechanism rather than a bystander abnormality.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+	            </div>
+	            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-skeletal-muscle-mitochondrial-myopathy">
+                <div class="item-name">Skeletal muscle mitochondrial myopathy</div>
+                
+                <div class="item-desc">Tafazzin deficiency causes skeletal-muscle mitochondrial dysfunction, reducing muscle oxygen extraction and producing the proximal myopathy and severe exercise limitation typical of Barth syndrome.</div>
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-cell">
+                        skeletal muscle cell
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        oxidative phosphorylation
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    <span class="tag tag-bio">
+                        muscle contraction
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0006936" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Proximal muscle weakness</span>
+	                            
+	                            <span class="crosslink-desc">Skeletal mitochondrial myopathy manifests clinically as proximal muscle weakness.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Exercise intolerance</span>
+	                            
+	                            <span class="crosslink-desc">Combined skeletal-muscle and cardiac mitochondrial impairment produces severe exercise limitation.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
+	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23361305" target="_blank">PMID:23361305</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Our studies confirm generalised mitochondrial dysfunction in the skeletal muscle and the fibroblasts of BTHS patients, especially a severe impairment in the mitochondrial membrane potential and the inhibition of complex V activity."</div>
+                
+                
+                <div class="evidence-explanation">Patient skeletal-muscle testing directly supports mitochondrial myopathy as a Barth syndrome mechanism.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21873497" target="_blank">PMID:21873497</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"In conclusion, severe exercise intolerance in BTHS is due to both cardiac and skeletal muscle impairments that are consistent with cardiac and skeletal mitochondrial myopathy."</div>
+                
+                
+                <div class="evidence-explanation">Exercise physiology in affected patients links the skeletal mitochondrial myopathy branch to severe exercise limitation.</div>
                 
             </div>
             
@@ -3347,11 +3737,32 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Neutropenia</span>
+	                            
+	                            <span class="crosslink-desc">Reduced myeloid maturation limits mature neutrophil output.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Recurrent bacterial infections</span>
+	                            
+	                            <span class="crosslink-desc">Impaired granulopoiesis and neutropenia increase bacterial infection risk.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -3372,6 +3783,26 @@
                 
                 
                 <div class="evidence-explanation">Bone-marrow findings in affected patients support impaired myeloid maturation as a direct mechanism of Barth-syndrome neutropenia.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30451719" target="_blank">PMID:30451719</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"TAZ knockdown experiments suggest accelerated apoptosis of myeloid progenitor cells due to increased dissipation of mitochondrial membrane potential, aberrant release of cytochrome c and activation of caspase-3."</div>
+                
+                
+                <div class="evidence-explanation">Tafazzin knockdown experiments support mitochondrial progenitor-cell apoptosis as a mechanistic contributor to the myeloid maturation defect.</div>
                 
             </div>
             
@@ -3407,7 +3838,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal cardiomyocyte calcium handling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In Barth syndrome cardiomyocytes, excess mitochondrial and cellular reactive oxygen species activates the CaMKII-RYR2 axis, increasing sarcoplasmic reticulum calcium leak. The result is abnormal diastolic calcium handling, reduced calcium transient amplitude, impaired contractility, and greater arrhythmia vulnerability.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"cardiac muscle contraction\"]}}, {\"id\": \"Mitochondrial respiratory chain dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cardiolipin deficiency destabilizes the mitochondrial inner membrane, lowering membrane potential and impairing respiratory chain function. In patient-derived cells and affected tissues, this is accompanied by abnormal reactive oxygen species handling and reduced ATP-generating capacity.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"oxidative phosphorylation\"]}}, {\"id\": \"Myocardial metabolic substrate shift\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tafazzin-deficient cardiomyocytes show reduced mitochondrial fatty-acid utilization and compensatory reliance on glucose and alternative anaplerotic fuels. This metabolic rewiring reflects impaired mitochondrial substrate handling and contributes to contractile inefficiency in the Barth heart.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"fatty acid beta-oxidation\"]}}, {\"id\": \"TAFAZZIN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TAFAZZIN\"], \"association\": \"Loss-of-function\"}}, {\"id\": \"Tafazzin deficiency impairs cardiolipin remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of tafazzin activity disrupts remodeling of mitochondrial cardiolipin, producing the signature increase in monolysocardiolipin and reduction in mature cardiolipin. Because cardiolipin is essential for inner-membrane architecture and energy transduction, this lipid-remodeling defect is the initiating lesion for downstream mitochondrial dysfunction in Barth syndrome.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"cardiolipin metabolic process\"], \"genes\": [\"TAFAZZIN\"]}}], \"edges\": [{\"source\": \"Tafazzin deficiency impairs cardiolipin remodeling\", \"target\": \"Mitochondrial respiratory chain dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tafazzin deficiency impairs cardiolipin remodeling\", \"target\": \"Myocardial metabolic substrate shift\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial respiratory chain dysfunction\", \"target\": \"Myocardial metabolic substrate shift\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial respiratory chain dysfunction\", \"target\": \"Abnormal cardiomyocyte calcium handling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Myocardial metabolic substrate shift\", \"target\": \"Abnormal cardiomyocyte calcium handling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TAFAZZIN\", \"target\": \"Tafazzin deficiency impairs cardiolipin remodeling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal cardiomyocyte calcium handling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In Barth syndrome cardiomyocytes, excess mitochondrial and cellular reactive oxygen species activates the CaMKII-RYR2 axis, increasing sarcoplasmic reticulum calcium leak. The result is abnormal diastolic calcium handling, reduced calcium transient amplitude, impaired contractility, and greater arrhythmia vulnerability.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"cardiac muscle contraction\"]}}, {\"id\": \"Arrhythmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac arrhythmias, including ventricular tachyarrhythmia risk, are part of the Barth cardiac phenotype and contribute to sudden-death risk.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011675\"}}, {\"id\": \"Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiomyopathy is the central clinical manifestation of Barth syndrome and may be dilated, hypertrophic, or mixed with endocardial fibroelastosis or noncompaction features.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001638\"}}, {\"id\": \"Elamipretide\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Elamipretide is a cardiolipin-directed mitochondrial therapy used to improve muscle strength in Barth syndrome.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"elamipretide\"]}}, {\"id\": \"Elevated urinary 3-methylglutaconic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:144330\", \"term_label\": \"3-methylglutaconic acid\"}}, {\"id\": \"Exercise intolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Profound exercise limitation reflects the combined effect of impaired cardiac reserve and reduced skeletal-muscle oxygen extraction/utilization.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003546\"}}, {\"id\": \"Granulocyte colony-stimulating factor (G-CSF)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"G-CSF is used prophylactically in neutropenic Barth syndrome patients to reduce severe bacterial infection risk and improve marrow neutrophil maturation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Growth delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Constitutional growth impairment begins in childhood and is a common component of the multisystem phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001510\"}}, {\"id\": \"Heart failure pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard heart-failure medications are used to manage Barth cardiomyopathy, with careful attention to volume status because affected patients are vulnerable to overdiuresis and dehydration.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired myeloid maturation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Barth-syndrome neutropenia reflects impaired granulocytic maturation rather than a pure peripheral destruction phenotype. Bone-marrow studies show reduced maturation of the myeloid lineage, providing a mechanistic basis for intermittent or chronic neutropenia and recurrent infection risk.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"myeloid cell differentiation\"]}}, {\"id\": \"Increased monolysocardiolipin:cardiolipin ratio\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Lactic acidosis\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:24996\", \"term_label\": \"lactate\"}}, {\"id\": \"Left ventricular noncompaction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prominent ventricular trabeculation and noncompaction morphology are common cardiac features and may be present even when overall disease severity differs between affected individuals.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011664\"}}, {\"id\": \"Mitochondrial respiratory chain dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cardiolipin deficiency destabilizes the mitochondrial inner membrane, lowering membrane potential and impairing respiratory chain function. In patient-derived cells and affected tissues, this is accompanied by abnormal reactive oxygen species handling and reduced ATP-generating capacity.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"oxidative phosphorylation\"]}}, {\"id\": \"Myocardial metabolic substrate shift\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tafazzin-deficient cardiomyocytes show reduced mitochondrial fatty-acid utilization and compensatory reliance on glucose and alternative anaplerotic fuels. This metabolic rewiring reflects impaired mitochondrial substrate handling and contributes to contractile inefficiency in the Barth heart.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"fatty acid beta-oxidation\"]}}, {\"id\": \"Neutropenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neutropenia may be chronic, intermittent, or cyclic, and contributes substantially to infection risk and aphthous ulceration.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001875\"}}, {\"id\": \"Proximal muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Skeletal myopathy predominantly involves proximal musculature and contributes to motor delay and reduced physical performance.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003701\"}}, {\"id\": \"Recurrent bacterial infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent bacterial infection is a major downstream consequence of Barth syndrome neutropenia and includes pneumonia, sepsis, cellulitis, and oral ulcer-associated infection.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002718\"}}, {\"id\": \"Skeletal muscle mitochondrial myopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tafazzin deficiency causes skeletal-muscle mitochondrial dysfunction, reducing muscle oxygen extraction and producing the proximal myopathy and severe exercise limitation typical of Barth syndrome.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"skeletal muscle cell\"], \"biological_processes\": [\"oxidative phosphorylation\", \"muscle contraction\"]}}, {\"id\": \"TAFAZZIN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"TAFAZZIN\"], \"presence\": \"Positive\", \"association\": \"Loss-of-function\"}}, {\"id\": \"Tafazzin deficiency impairs cardiolipin remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of tafazzin activity disrupts remodeling of mitochondrial cardiolipin, producing the signature increase in monolysocardiolipin and reduction in mature cardiolipin. Because cardiolipin is essential for inner-membrane architecture and energy transduction, this lipid-remodeling defect is the initiating lesion for downstream mitochondrial dysfunction in Barth syndrome.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"cardiolipin metabolic process\"], \"genes\": [\"TAFAZZIN\"]}}], \"edges\": [{\"source\": \"Tafazzin deficiency impairs cardiolipin remodeling\", \"target\": \"Increased monolysocardiolipin:cardiolipin ratio\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tafazzin deficiency impairs cardiolipin remodeling\", \"target\": \"Elevated urinary 3-methylglutaconic acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tafazzin deficiency impairs cardiolipin remodeling\", \"target\": \"Growth delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tafazzin deficiency impairs cardiolipin remodeling\", \"target\": \"Left ventricular noncompaction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tafazzin deficiency impairs cardiolipin remodeling\", \"target\": \"Mitochondrial respiratory chain dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tafazzin deficiency impairs cardiolipin remodeling\", \"target\": \"Myocardial metabolic substrate shift\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tafazzin deficiency impairs cardiolipin remodeling\", \"target\": \"Impaired myeloid maturation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial respiratory chain dysfunction\", \"target\": \"Myocardial metabolic substrate shift\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial respiratory chain dysfunction\", \"target\": \"Abnormal cardiomyocyte calcium handling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial respiratory chain dysfunction\", \"target\": \"Skeletal muscle mitochondrial myopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Myocardial metabolic substrate shift\", \"target\": \"Abnormal cardiomyocyte calcium handling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Myocardial metabolic substrate shift\", \"target\": \"Lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Abnormal cardiomyocyte calcium handling\", \"target\": \"Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Abnormal cardiomyocyte calcium handling\", \"target\": \"Arrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal muscle mitochondrial myopathy\", \"target\": \"Proximal muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal muscle mitochondrial myopathy\", \"target\": \"Exercise intolerance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired myeloid maturation\", \"target\": \"Neutropenia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired myeloid maturation\", \"target\": \"Recurrent bacterial infections\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neutropenia\", \"target\": \"Recurrent bacterial infections\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Heart failure pharmacotherapy\", \"target\": \"Cardiomyopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Granulocyte colony-stimulating factor (G-CSF)\", \"target\": \"Impaired myeloid maturation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Granulocyte colony-stimulating factor (G-CSF)\", \"target\": \"Neutropenia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Granulocyte colony-stimulating factor (G-CSF)\", \"target\": \"Recurrent bacterial infections\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Elamipretide\", \"target\": \"Proximal muscle weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"TAFAZZIN\", \"target\": \"Tafazzin deficiency impairs cardiolipin remodeling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3420,7 +3851,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">7</span>
+                <span class="card-count">8</span>
             </div>
             
             
@@ -3428,7 +3859,7 @@
                 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(2)</span></button>
                 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(1)</span></button>
                 
@@ -3464,6 +3895,13 @@
                     </div>
                     
                     
+                    
+                    <div class="item-meta">
+                        <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
+                        
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Recurrent bacterial infections</span>
+                        
+                    </div>
                     
                     
     
@@ -3509,7 +3947,7 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
                 
                 <div class="item-box phenotype-box">
@@ -3545,7 +3983,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-OTHER">Other</span>
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -3553,6 +3991,60 @@
                 
                 
                 <div class="evidence-explanation">GeneReviews summarizes cardiomyopathy as the dominant early-life Barth syndrome phenotype and defines its major structural subtypes.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Arrhythmia
+                        
+                    
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank">
+                            Arrhythmia
+                        </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0011675)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25299040" target="_blank">PMID:25299040</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Heart failure is a significant cause of morbidity and mortality; risk of arrhythmia and sudden death is increased."</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews identifies increased arrhythmia and sudden-death risk in Barth syndrome.</div>
                 
             </div>
             
@@ -3608,7 +4100,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-OTHER">Other</span>
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -3851,7 +4343,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-OTHER">Other</span>
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -3923,7 +4415,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -3944,6 +4436,26 @@
                 
                 
                 <div class="evidence-explanation">This clinical series directly identifies TAZ/TAFAZZIN mutation as the molecular cause of Barth syndrome.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_1629e6ab-9749-4949-bf54-fe1addf4dcfd-2021-02-12T170000.000Z" target="_blank">CGGV:assertion_1629e6ab-9749-4949-bf54-fe1addf4dcfd-2021-02-12T170000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"TAFAZZIN | HGNC:11577 | Barth syndrome | MONDO:0010543 | XL | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the TAFAZZIN-Barth syndrome gene-disease relationship as definitive with X-linked inheritance.</div>
                 
             </div>
             
@@ -4007,6 +4519,18 @@
                 
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Cardiomyopathy
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
     
@@ -4025,7 +4549,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-OTHER">Other</span>
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -4085,6 +4609,73 @@
                 <div class="item-desc">G-CSF is used prophylactically in neutropenic Barth syndrome patients to reduce severe bacterial infection risk and improve marrow neutrophil maturation.</div>
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            ACTIVATES
+                        </span>
+                        <strong style="color: #5b21b6;">Impaired myeloid maturation</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; G-CSF promotes marrow myeloid differentiation and mature neutrophil output.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30451719" target="_blank">PMID:30451719</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Pretreatment bone marrow evaluations predominantly showed reduced myeloid maturation which normalized on G-CSF therapy in seven of 13 examined."</div>
+                
+                
+                <div class="evidence-explanation">Patient marrow examinations support G-CSF activation/restoration of impaired myeloid maturation.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Neutropenia
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0001875" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Recurrent bacterial infections
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0002718" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
                 
                 
                 
@@ -4175,6 +4766,18 @@
                 
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Proximal muscle weakness
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0003701" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
     
@@ -4193,7 +4796,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-OTHER">Other</span>
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -4233,6 +4836,7 @@
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(INCREASED)</span>
                     
                 </div>
+                
                 
                 
     
@@ -4278,6 +4882,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4319,6 +4924,7 @@
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(INCREASED)</span>
                     
                 </div>
+                
                 
                 
     
@@ -4386,7 +4992,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Barth syndrome
 creation_date: &#39;2026-04-12T00:00:00Z&#39;
-updated_date: &#39;2026-04-22T20:53:03Z&#39;
+updated_date: &#39;2026-05-08T11:46:38Z&#39;
 category: Mendelian
 synonyms:
 - BTHS
@@ -4421,7 +5027,7 @@ prevalence:
   evidence:
   - reference: PMID:31239752
     supports: SUPPORT
-    evidence_source: OTHER
+    evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Although Barth syndrome is still an orphan disease, with fewer than 200
       cases described so far, there is extensive ongoing research with regard to
@@ -4443,7 +5049,7 @@ inheritance:
   evidence:
   - reference: PMID:31239752
     supports: SUPPORT
-    evidence_source: OTHER
+    evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Objectives: Barth syndrome is an ultra-rare, infantile-onset, X-linked
       recessive mitochondrial disorder, primarily affecting males, due to
@@ -4477,6 +5083,12 @@ genetic:
     explanation: &gt;-
       This clinical series directly identifies TAZ/TAFAZZIN mutation as the
       molecular cause of Barth syndrome.
+  - reference: CGGV:assertion_1629e6ab-9749-4949-bf54-fe1addf4dcfd-2021-02-12T170000.000Z
+    reference_title: &#34;TAFAZZIN / Barth syndrome (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;TAFAZZIN | HGNC:11577 | Barth syndrome | MONDO:0010543 | XL | Definitive&#34;
+    explanation: ClinGen classifies the TAFAZZIN-Barth syndrome gene-disease relationship as definitive with X-linked inheritance.
 pathophysiology:
 - name: Tafazzin deficiency impairs cardiolipin remodeling
   description: &gt;-
@@ -4513,10 +5125,102 @@ pathophysiology:
       This directly links TAFAZZIN mutation to defective cardiolipin metabolism,
       the primary molecular lesion in Barth syndrome.
   downstream:
+  - target: Increased monolysocardiolipin:cardiolipin ratio
+    description: Defective tafazzin-mediated cardiolipin remodeling produces the diagnostic increase in the MLCL:CL ratio.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:18070816
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        All BTHS patients (n = 31) had monolysocardiolipin:cardiolipin ratios
+        &gt;0.40 and all controls (n = 215) had monolysocardiolipin:cardiolipin
+        ratios &lt;0.23.
+      explanation: &gt;-
+        Patient bloodspot data support increased MLCL:CL ratio as the direct
+        biochemical consequence of tafazzin-dependent cardiolipin remodeling
+        failure.
+  - target: Elevated urinary 3-methylglutaconic acid
+    description: &gt;-
+      The tafazzin defect is associated with 3-methylglutaconic aciduria,
+      although the intermediate metabolic route is not fully resolved.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:23409742
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        BACKGROUND: Barth syndrome (BS) is an X-linked infantile-onset
+        cardioskeletal disease characterized by cardiomyopathy, hypotonia, growth
+        delay, neutropenia and 3-methylglutaconic aciduria. It is caused by
+        mutations in the TAZ gene encoding tafazzin, a protein involved in the
+        metabolism of cardiolipin, a mitochondrial-specific phospholipid involved
+        in mitochondrial energy production.
+      explanation: &gt;-
+        The clinical series links TAZ/tafazzin mutations with
+        3-methylglutaconic aciduria, while the omitted intermediate mechanism is
+        left explicit as unknown.
+  - target: Growth delay
+    description: &gt;-
+      Tafazzin-related multisystem mitochondrial disease includes constitutional
+      growth delay through incompletely resolved energetic, feeding, and systemic
+      intermediates.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:23409742
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        BACKGROUND: Barth syndrome (BS) is an X-linked infantile-onset
+        cardioskeletal disease characterized by cardiomyopathy, hypotonia, growth
+        delay, neutropenia and 3-methylglutaconic aciduria. It is caused by
+        mutations in the TAZ gene encoding tafazzin, a protein involved in the
+        metabolism of cardiolipin, a mitochondrial-specific phospholipid involved
+        in mitochondrial energy production.
+      explanation: &gt;-
+        The clinical series supports growth delay as part of tafazzin-related
+        Barth syndrome, but does not define the full growth-delay mechanism.
+  - target: Left ventricular noncompaction
+    description: &gt;-
+      Tafazzin-related cardiac disease can include left ventricular
+      noncompaction; the developmental intermediates between cardiolipin
+      remodeling failure and noncompaction morphology remain incompletely
+      resolved.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:23361305
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        In both brothers, 2D-echocardiography revealed some features of left
+        ventricular noncompaction (LVNC) despite marked differences in the course
+        of the disease;
+      explanation: &gt;-
+        Affected siblings with TAZ mutation showed LVNC features, supporting the
+        branch while leaving the developmental mechanism unspecified.
   - target: Mitochondrial respiratory chain dysfunction
     causal_link_type: DIRECT
   - target: Myocardial metabolic substrate shift
     causal_link_type: DIRECT
+  - target: Impaired myeloid maturation
+    description: &gt;-
+      Tafazzin/cardiolipin defects can impair myeloid output through
+      mitochondrial membrane-potential loss and apoptosis in myeloid progenitors.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Mitochondrial membrane-potential dissipation in myeloid progenitor cells
+    - Cytochrome c release and caspase-3 activation
+    evidence:
+    - reference: PMID:30451719
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        TAZ knockdown experiments suggest accelerated apoptosis of myeloid
+        progenitor cells due to increased dissipation of mitochondrial membrane
+        potential, aberrant release of cytochrome c and activation of caspase-3.
+      explanation: &gt;-
+        Tafazzin knockdown experiments provide a mechanistic bridge from the
+        primary cardiolipin-remodeling defect to impaired granulopoiesis.
 - name: Mitochondrial respiratory chain dysfunction
   description: &gt;-
     Cardiolipin deficiency destabilizes the mitochondrial inner membrane,
@@ -4548,6 +5252,23 @@ pathophysiology:
     causal_link_type: DIRECT
   - target: Abnormal cardiomyocyte calcium handling
     causal_link_type: DIRECT
+  - target: Skeletal muscle mitochondrial myopathy
+    description: &gt;-
+      Respiratory-chain and membrane-potential impairment in skeletal muscle
+      produces the mitochondrial myopathy branch of Barth syndrome.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:23361305
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Our studies confirm generalised mitochondrial dysfunction in the
+        skeletal muscle and the fibroblasts of BTHS patients, especially a severe
+        impairment in the mitochondrial membrane potential and the inhibition of
+        complex V activity.
+      explanation: &gt;-
+        Patient skeletal-muscle studies directly support a mitochondrial
+        myopathy branch downstream of respiratory-chain dysfunction.
 - name: Myocardial metabolic substrate shift
   description: &gt;-
     Tafazzin-deficient cardiomyocytes show reduced mitochondrial fatty-acid
@@ -4599,6 +5320,24 @@ pathophysiology:
   downstream:
   - target: Abnormal cardiomyocyte calcium handling
     causal_link_type: DIRECT
+  - target: Lactic acidosis
+    description: &gt;-
+      The glucose-shifted energy phenotype increases glycolytic lactate
+      production, providing a cellular correlate for lactic acidosis in Barth
+      syndrome.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:31861102
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        We also demonstrate that TAZ517delG induces metabolic alterations in
+        pathways related to energy production as reflected by high glucose
+        uptake, an increase in glycolytic lactate production and a decrease in
+        palmitate uptake.
+      explanation: &gt;-
+        Barth iPSC-cardiomyocytes show glycolytic lactate overproduction as part
+        of the metabolic rewiring downstream of tafazzin deficiency.
 - name: Abnormal cardiomyocyte calcium handling
   description: &gt;-
     In Barth syndrome cardiomyocytes, excess mitochondrial and cellular reactive
@@ -4639,6 +5378,118 @@ pathophysiology:
     explanation: &gt;-
       Rescue of calcium handling and contractility identifies ROS-CaMKII-RYR2
       signaling as a causal mechanism rather than a bystander abnormality.
+  downstream:
+  - target: Cardiomyopathy
+    description: &gt;-
+      Abnormal calcium handling reduces cardiomyocyte contractility, linking the
+      mitochondrial ROS-CaMKII-RYR2 axis to Barth cardiomyopathy.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Reduced calcium transient amplitude
+    - Decreased cardiomyocyte contractility
+    evidence:
+    - reference: PMID:33793303
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        Inhibition of this reactive oxygen species-CaMKII-RYR2 pathway through
+        pharmacological inhibitors or genome editing normalized aberrant Ca2+
+        handling in BTHS-induced pluripotent stem cell-derived cardiomyocytes and
+        improved their contractile function.
+      explanation: &gt;-
+        Rescue of calcium handling improves contractility in Barth iPSC-derived
+        cardiomyocytes, supporting the calcium-handling-to-contractile-disease
+        link.
+  - target: Arrhythmia
+    description: &gt;-
+      Calcium leak and abnormal calcium cycling increase arrhythmia
+      vulnerability in tafazzin-deficient cardiac models.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - ROS-CaMKII-RYR2 activation
+    - Sarcoplasmic-reticulum calcium leak
+    evidence:
+    - reference: PMID:33793303
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &gt;-
+        A subset of mice with cardiac-specific TAZ inactivation developed
+        arrhythmias, including bidirectional ventricular tachycardia, atrial
+        tachycardia, and complete atrioventricular block.
+      explanation: &gt;-
+        The cardiac-specific Tafazzin knockout mouse model links tafazzin
+        deficiency and abnormal calcium signaling to arrhythmia vulnerability.
+- name: Skeletal muscle mitochondrial myopathy
+  description: &gt;-
+    Tafazzin deficiency causes skeletal-muscle mitochondrial dysfunction,
+    reducing muscle oxygen extraction and producing the proximal myopathy and
+    severe exercise limitation typical of Barth syndrome.
+  cell_types:
+  - preferred_term: skeletal muscle cell
+    term:
+      id: CL:0000188
+      label: cell of skeletal muscle
+  biological_processes:
+  - preferred_term: oxidative phosphorylation
+    term:
+      id: GO:0006119
+      label: oxidative phosphorylation
+    modifier: DECREASED
+  - preferred_term: muscle contraction
+    term:
+      id: GO:0006936
+      label: muscle contraction
+    modifier: DECREASED
+  evidence:
+  - reference: PMID:23361305
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Our studies confirm generalised mitochondrial dysfunction in the skeletal
+      muscle and the fibroblasts of BTHS patients, especially a severe
+      impairment in the mitochondrial membrane potential and the inhibition of
+      complex V activity.
+    explanation: &gt;-
+      Patient skeletal-muscle testing directly supports mitochondrial myopathy
+      as a Barth syndrome mechanism.
+  - reference: PMID:21873497
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      In conclusion, severe exercise intolerance in BTHS is due to both cardiac
+      and skeletal muscle impairments that are consistent with cardiac and
+      skeletal mitochondrial myopathy.
+    explanation: &gt;-
+      Exercise physiology in affected patients links the skeletal mitochondrial
+      myopathy branch to severe exercise limitation.
+  downstream:
+  - target: Proximal muscle weakness
+    description: Skeletal mitochondrial myopathy manifests clinically as proximal muscle weakness.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:25299040
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Skeletal myopathy predominantly affects the proximal muscles, and
+        results in delays in development of early motor skills.
+      explanation: &gt;-
+        GeneReviews links Barth skeletal myopathy to proximal muscle
+        involvement.
+  - target: Exercise intolerance
+    description: Combined skeletal-muscle and cardiac mitochondrial impairment produces severe exercise limitation.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:21873497
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        In conclusion, severe exercise intolerance in BTHS is due to both
+        cardiac and skeletal muscle impairments that are consistent with cardiac
+        and skeletal mitochondrial myopathy.
+      explanation: &gt;-
+        Patient exercise testing directly attributes severe exercise
+        intolerance to skeletal and cardiac mitochondrial myopathy.
 - name: Impaired myeloid maturation
   description: &gt;-
     Barth-syndrome neutropenia reflects impaired granulocytic maturation rather
@@ -4666,6 +5517,47 @@ pathophysiology:
     explanation: &gt;-
       Bone-marrow findings in affected patients support impaired myeloid
       maturation as a direct mechanism of Barth-syndrome neutropenia.
+  - reference: PMID:30451719
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      TAZ knockdown experiments suggest accelerated apoptosis of myeloid
+      progenitor cells due to increased dissipation of mitochondrial membrane
+      potential, aberrant release of cytochrome c and activation of caspase-3.
+    explanation: &gt;-
+      Tafazzin knockdown experiments support mitochondrial progenitor-cell
+      apoptosis as a mechanistic contributor to the myeloid maturation defect.
+  downstream:
+  - target: Neutropenia
+    description: Reduced myeloid maturation limits mature neutrophil output.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:30451719
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Decreased myeloid maturation was reported for five of six patients prior
+        to G-CSF therapy. The common abnormality was a relative paucity of mature
+        neutrophils in the marrow.
+      explanation: &gt;-
+        Patient bone-marrow findings link reduced myeloid maturation to paucity
+        of mature neutrophils.
+  - target: Recurrent bacterial infections
+    description: Impaired granulopoiesis and neutropenia increase bacterial infection risk.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Decreased mature neutrophil output
+    - Chronic or intermittent neutropenia
+    evidence:
+    - reference: PMID:30451719
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Consistent clinical improvement, with reduced signs and symptoms of
+        infections, was observed in response to prophylactic G-CSF
+      explanation: &gt;-
+        Clinical improvement of infections after neutrophil-directed therapy
+        supports the maturation/neutropenia-to-infection branch.
 phenotypes:
 - name: Cardiomyopathy
   description: &gt;-
@@ -4680,7 +5572,7 @@ phenotypes:
   evidence:
   - reference: PMID:25299040
     supports: SUPPORT
-    evidence_source: OTHER
+    evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Cardiomyopathy, which is almost always present before age five years, is
       typically dilated cardiomyopathy with or without endocardial
@@ -4710,6 +5602,25 @@ phenotypes:
     explanation: &gt;-
       This affected-sibling report directly documents LVNC as a Barth syndrome
       cardiac phenotype.
+- name: Arrhythmia
+  description: &gt;-
+    Cardiac arrhythmias, including ventricular tachyarrhythmia risk, are part of
+    the Barth cardiac phenotype and contribute to sudden-death risk.
+  phenotype_term:
+    preferred_term: Arrhythmia
+    term:
+      id: HP:0011675
+      label: Arrhythmia
+  evidence:
+  - reference: PMID:25299040
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Heart failure is a significant cause of morbidity and mortality; risk of
+      arrhythmia and sudden death is increased.
+    explanation: &gt;-
+      GeneReviews identifies increased arrhythmia and sudden-death risk in Barth
+      syndrome.
 - name: Neutropenia
   description: &gt;-
     Neutropenia may be chronic, intermittent, or cyclic, and contributes
@@ -4729,6 +5640,19 @@ phenotypes:
     explanation: &gt;-
       This large Barth syndrome neutropenia review identifies neutropenia as one
       of the defining disease manifestations.
+  sequelae:
+  - target: Recurrent bacterial infections
+    description: Neutropenia increases susceptibility to bacterial infections including pneumonia and sepsis.
+    evidence:
+    - reference: PMID:25299040
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Neutropenia is most often associated with bacterial infections and
+        aphthous ulcers, pneumonia, and sepsis.
+      explanation: &gt;-
+        GeneReviews directly links Barth syndrome neutropenia to bacterial
+        infection sequelae.
 - name: Growth delay
   description: &gt;-
     Constitutional growth impairment begins in childhood and is a common
@@ -4761,7 +5685,7 @@ phenotypes:
   evidence:
   - reference: PMID:25299040
     supports: SUPPORT
-    evidence_source: OTHER
+    evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Skeletal myopathy predominantly affects the proximal muscles, and results
       in delays in development of early motor skills.
@@ -4801,7 +5725,7 @@ phenotypes:
   evidence:
   - reference: PMID:25299040
     supports: SUPPORT
-    evidence_source: OTHER
+    evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Neutropenia is most often associated with bacterial infections and
       aphthous ulcers, pneumonia, and sepsis.
@@ -4827,6 +5751,11 @@ biochemical:
       defining Barth syndrome biomarker.
 - name: Elevated urinary 3-methylglutaconic acid
   presence: INCREASED
+  biomarker_term:
+    preferred_term: 3-methylglutaconic acid
+    term:
+      id: CHEBI:144330
+      label: 3-methylglutaconic acid
   notes: &gt;-
     Increased urinary 3-methylglutaconic acid is a classic metabolic marker,
     although it may be absent in some neonatal presentations.
@@ -4842,6 +5771,11 @@ biochemical:
       common biochemical abnormality in Barth syndrome.
 - name: Lactic acidosis
   presence: INCREASED
+  biomarker_term:
+    preferred_term: lactate
+    term:
+      id: CHEBI:24996
+      label: lactate
   notes: &gt;-
     Lactic acidosis accompanies the mitochondrial energy defect in a substantial
     subset of affected patients and may be particularly prominent in severe
@@ -4869,7 +5803,7 @@ treatments:
   evidence:
   - reference: PMID:25299040
     supports: SUPPORT
-    evidence_source: OTHER
+    evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       for heart failure, careful fluid and volume management and avoidance of
       overdiuresis and dehydration, standard heart failure medications, and
@@ -4877,6 +5811,11 @@ treatments:
     explanation: &gt;-
       GeneReviews supports standard heart-failure pharmacotherapy as core
       management for Barth cardiomyopathy.
+  target_phenotypes:
+  - preferred_term: Cardiomyopathy
+    term:
+      id: HP:0001638
+      label: Cardiomyopathy
 - name: Granulocyte colony-stimulating factor (G-CSF)
   description: &gt;-
     G-CSF is used prophylactically in neutropenic Barth syndrome patients to
@@ -4899,6 +5838,30 @@ treatments:
     explanation: &gt;-
       This review directly supports G-CSF prophylaxis as effective management
       for severe Barth-syndrome neutropenia.
+  target_phenotypes:
+  - preferred_term: Neutropenia
+    term:
+      id: HP:0001875
+      label: Decreased total neutrophil count
+  - preferred_term: Recurrent bacterial infections
+    term:
+      id: HP:0002718
+      label: Recurrent bacterial infections
+  target_mechanisms:
+  - target: Impaired myeloid maturation
+    treatment_effect: ACTIVATES
+    description: G-CSF promotes marrow myeloid differentiation and mature neutrophil output.
+    evidence:
+    - reference: PMID:30451719
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Pretreatment bone marrow evaluations predominantly showed reduced
+        myeloid maturation which normalized on G-CSF therapy in seven of 13
+        examined.
+      explanation: &gt;-
+        Patient marrow examinations support G-CSF activation/restoration of
+        impaired myeloid maturation.
 - name: Elamipretide
   description: &gt;-
     Elamipretide is a cardiolipin-directed mitochondrial therapy used to improve
@@ -4916,13 +5879,18 @@ treatments:
   evidence:
   - reference: PMID:25299040
     supports: SUPPORT
-    evidence_source: OTHER
+    evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Targeted therapy: Elamipretide is indicated for the improvement of muscle
       strength in individuals with Barth syndrome.
     explanation: &gt;-
       The updated GeneReviews management section identifies elamipretide as a
       Barth syndrome-targeted therapy for muscle weakness.
+  target_phenotypes:
+  - preferred_term: Proximal muscle weakness
+    term:
+      id: HP:0003701
+      label: Proximal muscle weakness
 datasets: []
 references:
 - reference: PMID:25299040
@@ -5385,7 +6353,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Barth syndrome", "mondoId": "MONDO:0010543", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Barth_syndrome", "yamlRevision": "7074125503c6"};
+        const OS_CONFIG = {"diseaseName": "Barth syndrome", "mondoId": "MONDO:0010543", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Barth_syndrome", "yamlRevision": "529b0a8aa15c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

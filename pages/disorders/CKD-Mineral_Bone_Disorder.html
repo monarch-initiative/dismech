@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2634,6 +2787,20 @@
             
             
             
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-value">12</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -2762,6 +2929,17 @@
                     
                 </div>
                 
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-gene">
+                        RGS14
+                        
+                        <a href="https://bioregistry.io/hgnc:9996" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+                </div>
                 
                 
                 
@@ -3192,6 +3370,17 @@
                 </div>
                 
                 
+                <div class="item-meta">
+                    
+                    <span class="tag tag-gene">
+                        CASR
+                        
+                        <a href="https://bioregistry.io/hgnc:1514" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
                 <div class="item-meta">
@@ -3314,7 +3503,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
             
@@ -3341,6 +3530,26 @@
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32961953" target="_blank">PMID:32961953</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The decrease in serum calcium concentration is sensed by a specific membrane calcium-sensing receptor (CaSR) on parathyroid glands and is a potent stimulus for PTH release"</div>
+                
+                
+                <div class="evidence-explanation">Directly supports CaSR as a parathyroid-gland mechanism modulating PTH release in CKD secondary hyperparathyroidism.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38785509" target="_blank">PMID:38785509</a>
                     </span>
                     
@@ -3358,26 +3567,8 @@
                 
             </div>
             
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37258233" target="_blank">PMID:37258233</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"FGF23 and PTH cause left ventricular hypertrophy, arrhythmia, and cardiovascular calcification"</div>
-                
-                
-                <div class="evidence-explanation">Confirms direct cardiovascular effects of elevated PTH and FGF23.</div>
-                
-            </div>
             
+            <div class="evidence-more">+ 1 more reference</div>
             
         </div>
     </details>
@@ -4208,7 +4399,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Active Vitamin D Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Calcitriol or active vitamin D analogs (paricalcitol, doxercalciferol) to suppress PTH, improve calcium absorption, and support bone mineralization. Must balance against risk of hypercalcemia and hyperphosphatemia.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Bone Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002653\"}}, {\"id\": \"Bone-Vascular Paradox (Sclerostin/Wnt Axis)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Calcified arteries in CKD produce sclerostin and other factors that inhibit bone remodeling, explaining the paradox of simultaneous vascular calcification and low-turnover (adynamic) bone disease. Vascular osteoblastic/osteocytic transdifferentiation produces sclerostin that brakes Wnt-driven calcification in the vasculature but also suppresses skeletal bone formation. Anti-sclerostin antibody therapy improves bone but can worsen vascular calcification, highlighting the therapeutic complexity.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Vascular Smooth Muscle Cell\", \"Osteocyte\"], \"biological_processes\": [\"Wnt Signaling Pathway\", \"Bone Remodeling\"]}}, {\"id\": \"Calcimimetics\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cinacalcet and etelcalcetide allosterically activate the calcium-sensing receptor on parathyroid cells, suppressing PTH secretion without raising serum calcium. First-line for secondary hyperparathyroidism in dialysis.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Calciphylaxis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0025520\"}}, {\"id\": \"Calcitriol Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The kidney is the primary site of 1-alpha-hydroxylation of 25-hydroxyvitamin D to active 1,25-dihydroxyvitamin D (calcitriol). Progressive nephron loss reduces calcitriol production, impairing intestinal calcium absorption and skeletal mineralization. FGF23 further suppresses 1-alpha-hydroxylase and upregulates 24-hydroxylase, accelerating calcitriol depletion.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Vitamin D Metabolic Process\"], \"locations\": [\"Kidney\"]}}, {\"id\": \"Decreased Bone Mineral Density\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004349\"}}, {\"id\": \"Kidney Glycolysis-G3P Phosphate Sensing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A recently discovered kidney-bone feedback loop: phosphate loading increases kidney-specific glycolysis and production of glycerol-3-phosphate (G-3-P) via GPD1. G-3-P enters the circulation and triggers FGF23 production in bone osteocytes. This places glycolysis at the nexus of mineral and energy metabolism, revealing that phosphate does not directly stimulate bone FGF23 expression but acts through a renal metabolic intermediate.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Proximal Tubular Epithelial Cell\", \"Osteocyte\"], \"biological_processes\": [\"Glycolytic Process\", \"Phosphate Ion Homeostasis\"], \"locations\": [\"Kidney\"]}}, {\"id\": \"Left Ventricular Hypertrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001712\"}}, {\"id\": \"Parathyroidectomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical removal of hyperplastic parathyroid glands for refractory secondary or tertiary hyperparathyroidism unresponsive to medical therapy.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pathological Fractures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002756\"}}, {\"id\": \"Phosphate Binders\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Calcium-based (calcium carbonate, calcium acetate) or non-calcium-based (sevelamer, lanthanum carbonate, sucroferric oxyhydroxide) agents that bind dietary phosphate in the gut to reduce absorption.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Phosphate Retention and FGF23 Axis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"As nephron mass declines, phosphate excretion per nephron increases via FGF23 and PTH-mediated suppression of proximal tubular sodium-phosphate cotransporters (NaPi-2a/NaPi-2c). FGF23 rises early in CKD (stage 2) before serum phosphate becomes overtly elevated. FGF23 requires the co-receptor alpha-Klotho, which is predominantly expressed in the kidney and declines with CKD progression, creating a vicious cycle.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Osteocyte\", \"Proximal Tubular Epithelial Cell\"], \"biological_processes\": [\"Phosphate Ion Homeostasis\", \"Fibroblast Growth Factor Receptor Signaling\"], \"locations\": [\"Proximal Tubule\", \"Bone Tissue\"]}}, {\"id\": \"Primary human vascular CPP bioassay model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Primary human vascular cell assay using serum from dialysis patients to model calciprotein particle-driven vascular smooth muscle calcification and endothelial activation in CKD-MBD.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Vascular Smooth Muscle Cell\", \"endothelial cell\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"namo_type\": \"namo:TwoDCellCulture\", \"conditions\": [\"CKD-mineral bone disorder\", \"dialysis patient serum exposure\", \"calciprotein particle depletion\", \"vascular calcification\"], \"publication\": \"PMID:36107466\"}}, {\"id\": \"RANKL/OPG Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated PTH increases RANKL expression by osteoblasts and osteocytes while suppressing osteoprotegerin (OPG), shifting the balance toward excessive osteoclastogenesis and bone resorption. Uremic toxins may independently alter RANKL/OPG signaling. Novel biologicals targeting RANKL (denosumab) and sclerostin are being explored in CKD-MBD but require careful consideration of the bone-vascular paradox.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Osteoclast Differentiation\"]}}, {\"id\": \"Secondary Hyperparathyroidism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Declining calcitriol synthesis (due to reduced 1-alpha-hydroxylase activity in damaged kidneys), hypocalcemia, hyperphosphatemia, and reduced calcium-sensing receptor (CaSR) and vitamin D receptor (VDR) expression in parathyroid glands collectively stimulate PTH secretion. PTH levels spike above normal as early as CKD stage G2. Chronically elevated PTH drives high-turnover bone disease with increased osteoclastic resorption and extends to the cardiovascular system promoting vascular calcifications.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Parathyroid Chief Cell\", \"Osteoclast\", \"Osteoblast\"], \"biological_processes\": [\"Parathyroid Hormone Secretion\", \"Bone Resorption\", \"Calcium Ion Homeostasis\"], \"locations\": [\"Parathyroid Gland\"]}}, {\"id\": \"Vascular Calcification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003207\", \"experimental_models\": [{\"name\": \"Primary human vascular CPP bioassay model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"namo_type\": \"namo:TwoDCellCulture\", \"description\": \"Recapitulates CPP-mediated vascular smooth muscle calcification and endothelial activation downstream of CKD mineral stress.\"}]}}], \"edges\": [{\"source\": \"Phosphate Retention and FGF23 Axis\", \"target\": \"Secondary Hyperparathyroidism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Phosphate Retention and FGF23 Axis\", \"target\": \"Calcitriol Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Phosphate Retention and FGF23 Axis\", \"target\": \"Vascular Calcification\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Kidney Glycolysis-G3P Phosphate Sensing\", \"target\": \"Phosphate Retention and FGF23 Axis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary Hyperparathyroidism\", \"target\": \"RANKL/OPG Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary Hyperparathyroidism\", \"target\": \"Vascular Calcification\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary Hyperparathyroidism\", \"target\": \"Bone Pain\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary Hyperparathyroidism\", \"target\": \"Left Ventricular Hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Calcitriol Deficiency\", \"target\": \"Secondary Hyperparathyroidism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vascular Calcification\", \"target\": \"Bone-Vascular Paradox (Sclerostin/Wnt Axis)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vascular Calcification\", \"target\": \"Left Ventricular Hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vascular Calcification\", \"target\": \"Calciphylaxis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bone-Vascular Paradox (Sclerostin/Wnt Axis)\", \"target\": \"Decreased Bone Mineral Density\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"RANKL/OPG Imbalance\", \"target\": \"Decreased Bone Mineral Density\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"RANKL/OPG Imbalance\", \"target\": \"Pathological Fractures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"RANKL/OPG Imbalance\", \"target\": \"Bone Pain\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Phosphate Binders\", \"target\": \"Vascular Calcification\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Active Vitamin D Therapy\", \"target\": \"Secondary Hyperparathyroidism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Calcimimetics\", \"target\": \"Secondary Hyperparathyroidism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Parathyroidectomy\", \"target\": \"Secondary Hyperparathyroidism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Primary human vascular CPP bioassay model\", \"target\": \"Vascular Calcification\", \"predicate\": \"models\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Active Vitamin D Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Calcitriol or active vitamin D analogs (paricalcitol, doxercalciferol) to suppress PTH, improve calcium absorption, and support bone mineralization. Must balance against risk of hypercalcemia and hyperphosphatemia.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Bone Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002653\"}}, {\"id\": \"Bone-Vascular Paradox (Sclerostin/Wnt Axis)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Calcified arteries in CKD produce sclerostin and other factors that inhibit bone remodeling, explaining the paradox of simultaneous vascular calcification and low-turnover (adynamic) bone disease. Vascular osteoblastic/osteocytic transdifferentiation produces sclerostin that brakes Wnt-driven calcification in the vasculature but also suppresses skeletal bone formation. Anti-sclerostin antibody therapy improves bone but can worsen vascular calcification, highlighting the therapeutic complexity.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Vascular Smooth Muscle Cell\", \"Osteocyte\"], \"biological_processes\": [\"Wnt Signaling Pathway\", \"Bone Remodeling\"]}}, {\"id\": \"Calcimimetics\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cinacalcet and etelcalcetide allosterically activate the calcium-sensing receptor on parathyroid cells, suppressing PTH secretion without raising serum calcium. First-line for secondary hyperparathyroidism in dialysis.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Calciphylaxis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0025520\"}}, {\"id\": \"Calcitriol Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The kidney is the primary site of 1-alpha-hydroxylation of 25-hydroxyvitamin D to active 1,25-dihydroxyvitamin D (calcitriol). Progressive nephron loss reduces calcitriol production, impairing intestinal calcium absorption and skeletal mineralization. FGF23 further suppresses 1-alpha-hydroxylase and upregulates 24-hydroxylase, accelerating calcitriol depletion.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Vitamin D Metabolic Process\"], \"locations\": [\"Kidney\"]}}, {\"id\": \"Decreased Bone Mineral Density\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004349\"}}, {\"id\": \"Kidney Glycolysis-G3P Phosphate Sensing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A recently discovered kidney-bone feedback loop: phosphate loading increases kidney-specific glycolysis and production of glycerol-3-phosphate (G-3-P) via GPD1. G-3-P enters the circulation and triggers FGF23 production in bone osteocytes. This places glycolysis at the nexus of mineral and energy metabolism, revealing that phosphate does not directly stimulate bone FGF23 expression but acts through a renal metabolic intermediate.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Proximal Tubular Epithelial Cell\", \"Osteocyte\"], \"biological_processes\": [\"Glycolytic Process\", \"Phosphate Ion Homeostasis\"], \"locations\": [\"Kidney\"]}}, {\"id\": \"Left Ventricular Hypertrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001712\"}}, {\"id\": \"Parathyroidectomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical removal of hyperplastic parathyroid glands for refractory secondary or tertiary hyperparathyroidism unresponsive to medical therapy.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pathological Fractures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002756\"}}, {\"id\": \"Phosphate Binders\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Calcium-based (calcium carbonate, calcium acetate) or non-calcium-based (sevelamer, lanthanum carbonate, sucroferric oxyhydroxide) agents that bind dietary phosphate in the gut to reduce absorption.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Phosphate Retention and FGF23 Axis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"As nephron mass declines, phosphate excretion per nephron increases via FGF23 and PTH-mediated suppression of proximal tubular sodium-phosphate cotransporters (NaPi-2a/NaPi-2c). FGF23 rises early in CKD (stage 2) before serum phosphate becomes overtly elevated. FGF23 requires the co-receptor alpha-Klotho, which is predominantly expressed in the kidney and declines with CKD progression, creating a vicious cycle.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Osteocyte\", \"Proximal Tubular Epithelial Cell\"], \"biological_processes\": [\"Phosphate Ion Homeostasis\", \"Fibroblast Growth Factor Receptor Signaling\"], \"genes\": [\"RGS14\"], \"locations\": [\"Proximal Tubule\", \"Bone Tissue\"]}}, {\"id\": \"Primary human vascular CPP bioassay model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Primary human vascular cell assay using serum from dialysis patients to model calciprotein particle-driven vascular smooth muscle calcification and endothelial activation in CKD-MBD.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Vascular Smooth Muscle Cell\", \"endothelial cell\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"namo_type\": \"namo:TwoDCellCulture\", \"conditions\": [\"CKD-mineral bone disorder\", \"dialysis patient serum exposure\", \"calciprotein particle depletion\", \"vascular calcification\"], \"publication\": \"PMID:36107466\"}}, {\"id\": \"RANKL/OPG Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated PTH increases RANKL expression by osteoblasts and osteocytes while suppressing osteoprotegerin (OPG), shifting the balance toward excessive osteoclastogenesis and bone resorption. Uremic toxins may independently alter RANKL/OPG signaling. Novel biologicals targeting RANKL (denosumab) and sclerostin are being explored in CKD-MBD but require careful consideration of the bone-vascular paradox.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Osteoclast Differentiation\"]}}, {\"id\": \"Secondary Hyperparathyroidism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Declining calcitriol synthesis (due to reduced 1-alpha-hydroxylase activity in damaged kidneys), hypocalcemia, hyperphosphatemia, and reduced calcium-sensing receptor (CaSR) and vitamin D receptor (VDR) expression in parathyroid glands collectively stimulate PTH secretion. PTH levels spike above normal as early as CKD stage G2. Chronically elevated PTH drives high-turnover bone disease with increased osteoclastic resorption and extends to the cardiovascular system promoting vascular calcifications.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Parathyroid Chief Cell\", \"Osteoclast\", \"Osteoblast\"], \"biological_processes\": [\"Parathyroid Hormone Secretion\", \"Bone Resorption\", \"Calcium Ion Homeostasis\"], \"genes\": [\"CASR\"], \"locations\": [\"Parathyroid Gland\"]}}, {\"id\": \"Vascular Calcification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003207\", \"experimental_models\": [{\"name\": \"Primary human vascular CPP bioassay model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"namo_type\": \"namo:TwoDCellCulture\", \"description\": \"Recapitulates CPP-mediated vascular smooth muscle calcification and endothelial activation downstream of CKD mineral stress.\"}]}}], \"edges\": [{\"source\": \"Phosphate Retention and FGF23 Axis\", \"target\": \"Secondary Hyperparathyroidism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Phosphate Retention and FGF23 Axis\", \"target\": \"Calcitriol Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Phosphate Retention and FGF23 Axis\", \"target\": \"Vascular Calcification\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Kidney Glycolysis-G3P Phosphate Sensing\", \"target\": \"Phosphate Retention and FGF23 Axis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary Hyperparathyroidism\", \"target\": \"RANKL/OPG Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary Hyperparathyroidism\", \"target\": \"Vascular Calcification\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary Hyperparathyroidism\", \"target\": \"Bone Pain\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary Hyperparathyroidism\", \"target\": \"Left Ventricular Hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Calcitriol Deficiency\", \"target\": \"Secondary Hyperparathyroidism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vascular Calcification\", \"target\": \"Bone-Vascular Paradox (Sclerostin/Wnt Axis)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vascular Calcification\", \"target\": \"Left Ventricular Hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vascular Calcification\", \"target\": \"Calciphylaxis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bone-Vascular Paradox (Sclerostin/Wnt Axis)\", \"target\": \"Decreased Bone Mineral Density\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"RANKL/OPG Imbalance\", \"target\": \"Decreased Bone Mineral Density\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"RANKL/OPG Imbalance\", \"target\": \"Pathological Fractures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"RANKL/OPG Imbalance\", \"target\": \"Bone Pain\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Phosphate Binders\", \"target\": \"Vascular Calcification\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Active Vitamin D Therapy\", \"target\": \"Secondary Hyperparathyroidism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Calcimimetics\", \"target\": \"Secondary Hyperparathyroidism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Parathyroidectomy\", \"target\": \"Secondary Hyperparathyroidism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Primary human vascular CPP bioassay model\", \"target\": \"Vascular Calcification\", \"predicate\": \"models\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5466,6 +5657,7 @@
                 <div class="item-desc">Context: Impaired renal excretion, overtly elevated in CKD stages 4-5</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5509,6 +5701,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Earliest biomarker, rises in CKD stage 2 before phosphate elevation</div>
+                
                 
                 
     
@@ -5576,6 +5769,7 @@
                 <div class="item-desc">Context: Kidney glycolysis-derived metabolite that triggers FGF23 production in bone</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5619,6 +5813,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Secondary hyperparathyroidism, spikes above normal as early as CKD stage G2</div>
+                
                 
                 
     
@@ -5686,6 +5881,7 @@
                 <div class="item-desc">Context: Reduced 1-alpha-hydroxylase activity and FGF23-mediated suppression</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5706,7 +5902,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"a significant decrease in serum 1,25(OH)2D concentrations was observed at an eGFR of &lt; 52 mL/min/1.73 m2 (95 % CI, 42.57-61.43)"</div>
+                <div class="evidence-snippet">"while significant decreases in serum 1,25(OH)2D were observed at an eGFR of &lt; 52 mL/min/1.73 m2 (95 % CI, 42.57-61.43)."</div>
                 
                 
                 <div class="evidence-explanation">Demonstrates calcitriol decline occurs at eGFR &lt;52, earlier than PTH or phosphate changes.</div>
@@ -5729,6 +5925,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Reduced intestinal absorption from calcitriol deficiency</div>
+                
                 
                 
     
@@ -5776,6 +5973,7 @@
                 <div class="item-desc">Context: Marker of osteoblastic activity and bone turnover</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5819,6 +6017,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Produced by calcified vasculature; inhibits bone remodeling via Wnt pathway suppression</div>
+                
                 
                 
     
@@ -5886,6 +6085,7 @@
                 <div class="item-desc">Context: FGF23 co-receptor; declines with CKD progression</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5929,6 +6129,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Calcification inhibitor; reduced levels increase CPP maturation and calcification propensity</div>
+                
                 
                 
     
@@ -7367,7 +7568,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: CKD-Mineral Bone Disorder
 creation_date: &#39;2026-03-05T15:32:43Z&#39;
-updated_date: &#39;2026-04-07T03:28:00Z&#39;
+updated_date: &#39;2026-05-09T17:40:32Z&#39;
 category: Complex
 parents:
 - Renal Disease
@@ -7389,15 +7590,20 @@ mappings:
       tracked_issue_status: OPEN
       notes: Upstream MONDO request for an exact CKD-MBD term; current mapping is a skos:closeMatch to renal osteodystrophy only.
 description: &gt;
-  CKD-mineral and bone disorder (CKD-MBD) is the systemic complication syndrome of chronic kidney disease characterized by
-  abnormalities of mineral metabolism, skeletal turnover/mineralization/volume or strength, and vascular or other soft-tissue
-  calcification. Renal osteodystrophy refers specifically to the bone histomorphometric abnormalities of CKD-MBD seen on bone
+  CKD-mineral and bone disorder (CKD-MBD) is the systemic complication syndrome of
+  chronic kidney disease characterized by
+  abnormalities of mineral metabolism, skeletal turnover/mineralization/volume or
+  strength, and vascular or other soft-tissue
+  calcification. Renal osteodystrophy refers specifically to the bone histomorphometric
+  abnormalities of CKD-MBD seen on bone
   biopsy, not to the full CKD-MBD syndrome.
 histopathology:
 - name: High-Turnover Renal Osteodystrophy (Osteitis Fibrosa)
   description: &gt;
-    Bone-biopsy pattern within the renal osteodystrophy component of CKD-MBD, driven by secondary hyperparathyroidism with
-    excessive osteoclast-mediated bone resorption and disorganized new bone formation. The most common high-turnover pattern
+    Bone-biopsy pattern within the renal osteodystrophy component of CKD-MBD, driven
+    by secondary hyperparathyroidism with
+    excessive osteoclast-mediated bone resorption and disorganized new bone formation.
+    The most common high-turnover pattern
     in dialysis patients.
   context: Renal osteodystrophy histologic pattern within CKD-MBD
   evidence:
@@ -7409,8 +7615,10 @@ histopathology:
     explanation: Bone biopsy study of 26 dialysis patients using TMV classification showing hyperparathyroid/high-turnover disease as the most common renal osteodystrophy histologic pattern.
 - name: Low-Turnover Renal Osteodystrophy (Adynamic Bone Disease)
   description: &gt;
-    Bone-biopsy pattern within the renal osteodystrophy component of CKD-MBD characterized by suppressed bone formation and
-    resorption, often from over-suppression of PTH or aluminum toxicity. Associated with increased fracture risk and vascular
+    Bone-biopsy pattern within the renal osteodystrophy component of CKD-MBD characterized
+    by suppressed bone formation and
+    resorption, often from over-suppression of PTH or aluminum toxicity. Associated
+    with increased fracture risk and vascular
     calcification.
   context: Renal osteodystrophy histologic pattern within CKD-MBD
   evidence:
@@ -7422,7 +7630,8 @@ histopathology:
     explanation: Bone biopsy study confirms adynamic bone disease as a recognized renal osteodystrophy histologic pattern, present in 23% of dialysis patients.
 - name: Mixed Uremic Osteodystrophy
   description: &gt;
-    Bone-biopsy pattern within the renal osteodystrophy component of CKD-MBD with features of both high- and low-turnover
+    Bone-biopsy pattern within the renal osteodystrophy component of CKD-MBD with
+    features of both high- and low-turnover
     disease, showing areas of increased resorption alongside defective mineralization.
   context: Renal osteodystrophy histologic pattern within CKD-MBD
   evidence:
@@ -7434,8 +7643,10 @@ histopathology:
     explanation: Reviews the spectrum of renal osteodystrophy histologic patterns, including mixed forms, within the broader CKD-MBD framework.
 - name: Osteomalacia
   description: &gt;
-    Renal osteodystrophy pattern within CKD-MBD characterized by defective bone mineralization due to vitamin D deficiency
-    or aluminum accumulation, with increased osteoid volume and decreased mineralization rate.
+    Renal osteodystrophy pattern within CKD-MBD characterized by defective bone mineralization
+    due to vitamin D deficiency
+    or aluminum accumulation, with increased osteoid volume and decreased mineralization
+    rate.
   context: Renal osteodystrophy histologic pattern within CKD-MBD
   evidence:
   - reference: PMID:28646995
@@ -7447,10 +7658,18 @@ histopathology:
 pathophysiology:
 - name: Phosphate Retention and FGF23 Axis
   description: &gt;
-    As nephron mass declines, phosphate excretion per nephron increases via FGF23 and PTH-mediated suppression of proximal
-    tubular sodium-phosphate cotransporters (NaPi-2a/NaPi-2c). FGF23 rises early in CKD (stage 2) before serum phosphate becomes
-    overtly elevated. FGF23 requires the co-receptor alpha-Klotho, which is predominantly expressed in the kidney and declines
+    As nephron mass declines, phosphate excretion per nephron increases via FGF23
+    and PTH-mediated suppression of proximal
+    tubular sodium-phosphate cotransporters (NaPi-2a/NaPi-2c). FGF23 rises early in
+    CKD (stage 2) before serum phosphate becomes
+    overtly elevated. FGF23 requires the co-receptor alpha-Klotho, which is predominantly
+    expressed in the kidney and declines
     with CKD progression, creating a vicious cycle.
+  genes:
+  - preferred_term: RGS14
+    term:
+      id: hgnc:9996
+      label: RGS14
   cell_types:
   - preferred_term: Osteocyte
     term:
@@ -7515,9 +7734,12 @@ pathophysiology:
     - Klotho deficiency
 - name: Kidney Glycolysis-G3P Phosphate Sensing
   description: &gt;
-    A recently discovered kidney-bone feedback loop: phosphate loading increases kidney-specific glycolysis and production
-    of glycerol-3-phosphate (G-3-P) via GPD1. G-3-P enters the circulation and triggers FGF23 production in bone osteocytes.
-    This places glycolysis at the nexus of mineral and energy metabolism, revealing that phosphate does not directly stimulate
+    A recently discovered kidney-bone feedback loop: phosphate loading increases kidney-specific
+    glycolysis and production
+    of glycerol-3-phosphate (G-3-P) via GPD1. G-3-P enters the circulation and triggers
+    FGF23 production in bone osteocytes.
+    This places glycolysis at the nexus of mineral and energy metabolism, revealing
+    that phosphate does not directly stimulate
     bone FGF23 expression but acts through a renal metabolic intermediate.
   cell_types:
   - preferred_term: Proximal Tubular Epithelial Cell
@@ -7561,10 +7783,19 @@ pathophysiology:
     causal_link_type: DIRECT
 - name: Secondary Hyperparathyroidism
   description: &gt;
-    Declining calcitriol synthesis (due to reduced 1-alpha-hydroxylase activity in damaged kidneys), hypocalcemia, hyperphosphatemia,
-    and reduced calcium-sensing receptor (CaSR) and vitamin D receptor (VDR) expression in parathyroid glands collectively
-    stimulate PTH secretion. PTH levels spike above normal as early as CKD stage G2. Chronically elevated PTH drives high-turnover
-    bone disease with increased osteoclastic resorption and extends to the cardiovascular system promoting vascular calcifications.
+    Declining calcitriol synthesis (due to reduced 1-alpha-hydroxylase activity in
+    damaged kidneys), hypocalcemia, hyperphosphatemia,
+    and reduced calcium-sensing receptor (CaSR) and vitamin D receptor (VDR) expression
+    in parathyroid glands collectively
+    stimulate PTH secretion. PTH levels spike above normal as early as CKD stage G2.
+    Chronically elevated PTH drives high-turnover
+    bone disease with increased osteoclastic resorption and extends to the cardiovascular
+    system promoting vascular calcifications.
+  genes:
+  - preferred_term: CASR
+    term:
+      id: hgnc:1514
+      label: CASR
   cell_types:
   - preferred_term: Parathyroid Chief Cell
     term:
@@ -7603,6 +7834,12 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: levels of PTH spike out of the normal range as early as stage G2 CKD, advancing it as a possible determinant of systemic damage
     explanation: Confirms PTH elevation begins very early in CKD, consistent with the updated trade-off hypothesis.
+  - reference: PMID:32961953
+    reference_title: &#34;Osteoporosis in Patients with Chronic Kidney Diseases: A Systemic Review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: The decrease in serum calcium concentration is sensed by a specific membrane calcium-sensing receptor (CaSR) on parathyroid glands and is a potent stimulus for PTH release
+    explanation: Directly supports CaSR as a parathyroid-gland mechanism modulating PTH release in CKD secondary hyperparathyroidism.
   - reference: PMID:38785509
     reference_title: &#34;The Molecular Mechanisms Underlying the Systemic Effects Mediated by Parathormone in the Context of Chronic Kidney Disease.&#34;
     supports: SUPPORT
@@ -7635,9 +7872,12 @@ pathophysiology:
     causal_link_type: DIRECT
 - name: Calcitriol Deficiency
   description: &gt;
-    The kidney is the primary site of 1-alpha-hydroxylation of 25-hydroxyvitamin D to active 1,25-dihydroxyvitamin D (calcitriol).
-    Progressive nephron loss reduces calcitriol production, impairing intestinal calcium absorption and skeletal mineralization.
-    FGF23 further suppresses 1-alpha-hydroxylase and upregulates 24-hydroxylase, accelerating calcitriol depletion.
+    The kidney is the primary site of 1-alpha-hydroxylation of 25-hydroxyvitamin D
+    to active 1,25-dihydroxyvitamin D (calcitriol).
+    Progressive nephron loss reduces calcitriol production, impairing intestinal calcium
+    absorption and skeletal mineralization.
+    FGF23 further suppresses 1-alpha-hydroxylase and upregulates 24-hydroxylase, accelerating
+    calcitriol depletion.
   biological_processes:
   - preferred_term: Vitamin D Metabolic Process
     term:
@@ -7667,11 +7907,16 @@ pathophysiology:
     causal_link_type: DIRECT
 - name: Vascular Calcification
   description: &gt;
-    Hyperphosphatemia and elevated calcium-phosphate product promote osteogenic transdifferentiation of vascular smooth muscle
-    cells (VSMCs) into osteoblast-like cells via RUNX2 and Pit-1/Pit-2 phosphate transporters. Loss of calcification inhibitors
-    (fetuin-A, matrix Gla protein, pyrophosphate, osteoprotegerin) and Klotho deficiency further drive medial arterial calcification.
-    Calciprotein particles (CPPs), colloidal mineral-protein nanoparticles, have emerged as key mediators of phosphate toxicity,
-    linking mineral stress to vascular inflammation and calcification. This is the major cause of cardiovascular mortality
+    Hyperphosphatemia and elevated calcium-phosphate product promote osteogenic transdifferentiation
+    of vascular smooth muscle
+    cells (VSMCs) into osteoblast-like cells via RUNX2 and Pit-1/Pit-2 phosphate transporters.
+    Loss of calcification inhibitors
+    (fetuin-A, matrix Gla protein, pyrophosphate, osteoprotegerin) and Klotho deficiency
+    further drive medial arterial calcification.
+    Calciprotein particles (CPPs), colloidal mineral-protein nanoparticles, have emerged
+    as key mediators of phosphate toxicity,
+    linking mineral stress to vascular inflammation and calcification. This is the
+    major cause of cardiovascular mortality
     in CKD-MBD.
   cell_types:
   - preferred_term: Vascular Smooth Muscle Cell
@@ -7728,10 +7973,14 @@ pathophysiology:
     causal_link_type: DIRECT
 - name: Bone-Vascular Paradox (Sclerostin/Wnt Axis)
   description: &gt;
-    Calcified arteries in CKD produce sclerostin and other factors that inhibit bone remodeling, explaining the paradox of
-    simultaneous vascular calcification and low-turnover (adynamic) bone disease. Vascular osteoblastic/osteocytic transdifferentiation
-    produces sclerostin that brakes Wnt-driven calcification in the vasculature but also suppresses skeletal bone formation.
-    Anti-sclerostin antibody therapy improves bone but can worsen vascular calcification, highlighting the therapeutic complexity.
+    Calcified arteries in CKD produce sclerostin and other factors that inhibit bone
+    remodeling, explaining the paradox of
+    simultaneous vascular calcification and low-turnover (adynamic) bone disease.
+    Vascular osteoblastic/osteocytic transdifferentiation
+    produces sclerostin that brakes Wnt-driven calcification in the vasculature but
+    also suppresses skeletal bone formation.
+    Anti-sclerostin antibody therapy improves bone but can worsen vascular calcification,
+    highlighting the therapeutic complexity.
   cell_types:
   - preferred_term: Vascular Smooth Muscle Cell
     term:
@@ -7778,9 +8027,12 @@ pathophysiology:
     - suppressed osteoblast activity
 - name: RANKL/OPG Imbalance
   description: &gt;
-    Elevated PTH increases RANKL expression by osteoblasts and osteocytes while suppressing osteoprotegerin (OPG), shifting
-    the balance toward excessive osteoclastogenesis and bone resorption. Uremic toxins may independently alter RANKL/OPG signaling.
-    Novel biologicals targeting RANKL (denosumab) and sclerostin are being explored in CKD-MBD but require careful consideration
+    Elevated PTH increases RANKL expression by osteoblasts and osteocytes while suppressing
+    osteoprotegerin (OPG), shifting
+    the balance toward excessive osteoclastogenesis and bone resorption. Uremic toxins
+    may independently alter RANKL/OPG signaling.
+    Novel biologicals targeting RANKL (denosumab) and sclerostin are being explored
+    in CKD-MBD but require careful consideration
     of the bone-vascular paradox.
   biological_processes:
   - preferred_term: Osteoclast Differentiation
@@ -7834,7 +8086,8 @@ phenotypes:
   name: Pathological Fractures
   frequency: FREQUENT
   notes: &gt;
-    Vertebral compression fractures, hip fractures. Risk 2-14x higher than age-matched controls without CKD.
+    Vertebral compression fractures, hip fractures. Risk 2-14x higher than age-matched
+    controls without CKD.
   phenotype_term:
     preferred_term: Pathological Fracture
     term:
@@ -7872,7 +8125,8 @@ phenotypes:
   name: Vascular Calcification
   frequency: VERY_FREQUENT
   notes: &gt;
-    Coronary artery calcification and peripheral arterial calcification are present in &gt;80% of dialysis patients. Major driver
+    Coronary artery calcification and peripheral arterial calcification are present
+    in &gt;80% of dialysis patients. Major driver
     of cardiovascular mortality.
   phenotype_term:
     preferred_term: Arterial Calcification
@@ -7906,8 +8160,10 @@ phenotypes:
   name: Calciphylaxis
   frequency: OCCASIONAL
   notes: &gt;
-    Calcific uremic arteriolopathy — painful skin necrosis from small vessel calcification and thrombosis. High mortality.
-    Proxied to the broader HPO term calcinosis cutis because no exact calciphylaxis term was identified in the local HPO
+    Calcific uremic arteriolopathy — painful skin necrosis from small vessel calcification
+    and thrombosis. High mortality.
+    Proxied to the broader HPO term calcinosis cutis because no exact calciphylaxis
+    term was identified in the local HPO
     snapshot used for validation.
   phenotype_term:
     preferred_term: Calciphylaxis
@@ -8021,7 +8277,7 @@ biochemical:
     reference_title: &#34;Hyperphosphatemia with elevated serum PTH and FGF23, reduced 1,25(OH)(2)D and normal FGF7 concentrations characterize patients with CKD.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: a significant decrease in serum 1,25(OH)2D concentrations was observed at an eGFR of &lt; 52 mL/min/1.73 m2 (95 % CI, 42.57-61.43)
+    snippet: while significant decreases in serum 1,25(OH)2D were observed at an eGFR of &lt; 52 mL/min/1.73 m2 (95 % CI, 42.57-61.43).
     explanation: Demonstrates calcitriol decline occurs at eGFR &lt;52, earlier than PTH or phosphate changes.
   biomarker_term:
     preferred_term: 1,25-Dihydroxyvitamin D3 Measurement
@@ -8134,9 +8390,15 @@ biochemical:
       label: Alpha-2-HS-Glycoprotein
 genetic:
 - name: CASR
+  gene_term:
+    preferred_term: CASR
+    term:
+      id: hgnc:1514
+      label: CASR
   association: Modifier
   notes: &gt;
-    Common calcium-sensing receptor variation appears to modify mineral metabolism in CKD, especially serum calcium, rather
+    Common calcium-sensing receptor variation appears to modify mineral metabolism
+    in CKD, especially serum calcium, rather
     than acting as a defining causal gene for CKD-MBD.
   evidence:
   - reference: PMID:35587600
@@ -8146,9 +8408,15 @@ genetic:
     snippet: SNVs adjacent to or within genes encoding the regulator of G protein-coupled signaling 14 (RGS14) and the calcium-sensing receptor (CASR) were associated with levels of mineral metabolites.
     explanation: Candidate-variant analysis in 3027 CRIC participants supports CASR as a CKD-relevant modifier of mineral metabolism, but not as a primary causal gene for CKD-MBD.
 - name: RGS14
+  gene_term:
+    preferred_term: RGS14
+    term:
+      id: hgnc:9996
+      label: RGS14
   association: Modifier
   notes: &gt;
-    CKD-cohort variant associated with lower phosphate, lower FGF23, and lower prevalence of hyperparathyroidism, making
+    CKD-cohort variant associated with lower phosphate, lower FGF23, and lower prevalence
+    of hyperparathyroidism, making
     it the clearest disease-relevant modifier signal in the current section.
   evidence:
   - reference: PMID:35587600
@@ -8157,10 +8425,45 @@ genetic:
     evidence_source: HUMAN_CLINICAL
     snippet: Participants with CKD and the minor allele of rs4074995 (RGS14) had lower phosphorus, lower plasma FGF23, and lower prevalence of hyperparathyroidism.
     explanation: This CRIC cohort result directly links RGS14 variation to key CKD-MBD laboratory features, supporting it as a disease-relevant modifier rather than a broad speculative pathway gene.
+diagnosis:
+- name: Mineral metabolism laboratory assessment
+  description: &gt;-
+    Diagnosis and monitoring of CKD-mineral and bone disorder rely on serial
+    assessment of phosphate, PTH, FGF23, calcium, and active vitamin D markers,
+    because these biochemical abnormalities emerge as kidney function declines.
+  diagnosis_term:
+    preferred_term: clinical assessment
+    term:
+      id: MAXO:0000487
+      label: clinical assessment
+  markers: phosphate, PTH, FGF23, calcium, 1,25-dihydroxyvitamin D
+  results: Elevated phosphate, FGF23, and PTH with reduced calcitriol in progressive CKD.
+  evidence:
+  - reference: PMID:33784965
+    reference_title: &#34;Hyperphosphatemia with elevated serum PTH and FGF23, reduced 1,25(OH)(2)D and normal FGF7 concentrations characterize patients with CKD.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The main strength of the current study is the comprehensive measurement
+      of mineral metabolism biomarkers, including full-length biologically
+      active forms of FGF7 and FGF23 as well as 1,25(OH)2D, among patients
+      with varying levels of eGFR.
+    explanation: This human CKD study supports the core biochemical panel used for CKD-MBD assessment.
+  - reference: PMID:33784965
+    reference_title: &#34;Hyperphosphatemia with elevated serum PTH and FGF23, reduced 1,25(OH)(2)D and normal FGF7 concentrations characterize patients with CKD.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Significant increases in serum iFGF23, PTH, and phosphate were
+      observed at eGFRs of &lt; 33 (95 % CI, 26.40-40.05), &lt; 29 (95 %
+      CI, 22.51-35.36), and &lt; 22 mL/min/1.73 m2 (95 % CI,
+      19.25-25.51), respectively
+    explanation: The measured biomarker changes support the expected laboratory pattern.
 treatments:
 - name: Phosphate Binders
   description: &gt;
-    Calcium-based (calcium carbonate, calcium acetate) or non-calcium-based (sevelamer, lanthanum carbonate, sucroferric oxyhydroxide)
+    Calcium-based (calcium carbonate, calcium acetate) or non-calcium-based (sevelamer,
+    lanthanum carbonate, sucroferric oxyhydroxide)
     agents that bind dietary phosphate in the gut to reduce absorption.
   treatment_term:
     preferred_term: phosphate binder therapy
@@ -8187,7 +8490,8 @@ treatments:
       explanation: Supports a direct treatment edge from phosphate binders to the vascular calcification mechanism via reduced CPP burden and reduced pro-calcific serum activity.
 - name: Active Vitamin D Therapy
   description: &gt;
-    Calcitriol or active vitamin D analogs (paricalcitol, doxercalciferol) to suppress PTH, improve calcium absorption, and
+    Calcitriol or active vitamin D analogs (paricalcitol, doxercalciferol) to suppress
+    PTH, improve calcium absorption, and
     support bone mineralization. Must balance against risk of hypercalcemia and hyperphosphatemia.
   treatment_term:
     preferred_term: active vitamin D analog therapy
@@ -8214,8 +8518,10 @@ treatments:
       explanation: Partially supports active vitamin D analog therapy as a treatment for secondary hyperparathyroidism, but the abstract frames the evidence comparatively rather than as a direct mechanistic PTH-suppression result.
 - name: Calcimimetics
   description: &gt;
-    Cinacalcet and etelcalcetide allosterically activate the calcium-sensing receptor on parathyroid cells, suppressing PTH
-    secretion without raising serum calcium. First-line for secondary hyperparathyroidism in dialysis.
+    Cinacalcet and etelcalcetide allosterically activate the calcium-sensing receptor
+    on parathyroid cells, suppressing PTH
+    secretion without raising serum calcium. First-line for secondary hyperparathyroidism
+    in dialysis.
   treatment_term:
     preferred_term: calcimimetic therapy
     term:
@@ -8241,7 +8547,8 @@ treatments:
       explanation: This randomized trial directly supports the mechanistic claim that calcimimetic therapy suppresses PTH in dialysis-associated secondary hyperparathyroidism, with cinacalcet achieving greater than 30% PTH reduction in most treated patients.
 - name: Parathyroidectomy
   description: &gt;
-    Surgical removal of hyperplastic parathyroid glands for refractory secondary or tertiary hyperparathyroidism unresponsive
+    Surgical removal of hyperplastic parathyroid glands for refractory secondary or
+    tertiary hyperparathyroidism unresponsive
     to medical therapy.
   treatment_term:
     preferred_term: parathyroidectomy
@@ -8268,7 +8575,8 @@ treatments:
       explanation: Supports a direct treatment edge from parathyroidectomy to the secondary hyperparathyroidism mechanism in medically refractory disease.
 - name: Dialysis Optimization
   description: &gt;
-    Adjustment of dialysate calcium concentration and extended/frequent dialysis sessions to improve phosphate and calcium
+    Adjustment of dialysate calcium concentration and extended/frequent dialysis sessions
+    to improve phosphate and calcium
     clearance.
   treatment_term:
     preferred_term: dialysis optimization
@@ -8284,7 +8592,8 @@ treatments:
     explanation: Highlights that conventional CKD-MBD therapies including dialysis optimization have inconsistent effects on vascular calcification outcomes.
 - name: Kidney Transplantation
   description: &gt;
-    Restores renal 1-alpha-hydroxylase activity and phosphate excretion. Most effective treatment for CKD-MBD, though persistent
+    Restores renal 1-alpha-hydroxylase activity and phosphate excretion. Most effective
+    treatment for CKD-MBD, though persistent
     hyperparathyroidism (tertiary) may occur post-transplant.
   treatment_term:
     preferred_term: kidney transplantation
@@ -8692,11 +9001,1930 @@ computational_models:
       term:
         id: LOINC:6768-6
         label: Alkaline phosphatase:CCnc:Pt:Ser/Plas:Qn
+references:
+- reference: DOI:10.1038/s41598-024-54812-4
+  title: &#39;Correlation between soluble klotho and chronic kidney disease–mineral and bone disorder in chronic kidney disease: a meta-analysis&#39;
+  found_in:
+  - CKD-Mineral_Bone_Disorder-deep-research-falcon.md
+  findings:
+  - statement: We conducted a systematic search across medical databases, including PubMed, Web of Science, EMBASE, and Cochrane Library, up to March 2023.
+    supporting_text: We conducted a systematic search across medical databases, including PubMed, Web of Science, EMBASE, and Cochrane Library, up to March 2023.
+    evidence:
+    - reference: DOI:10.1038/s41598-024-54812-4
+      reference_title: &#39;Correlation between soluble klotho and chronic kidney disease–mineral and bone disorder in chronic kidney disease: a meta-analysis&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: We conducted a systematic search across medical databases, including PubMed, Web of Science, EMBASE, and Cochrane Library, up to March 2023.
+      explanation: Deep research cited this publication as relevant literature for CKD-Mineral Bone Disorder.
+- reference: DOI:10.1093/ckj/sfad290
+  title: Real-world usage of Chronic Kidney Disease – Mineral Bone Disorder (CKD–MBD) biomarkers in nephrology practices
+  found_in:
+  - CKD-Mineral_Bone_Disorder-deep-research-falcon.md
+  findings:
+  - statement: Real-world usage of Chronic Kidney Disease – Mineral Bone Disorder (CKD–MBD) biomarkers in nephrology practices
+    supporting_text: Chronic kidney disease mineral bone disorder (CKD-MBD) is a condition characterized by alterations of calcium, phosphate, parathyroid hormone (PTH), and fibroblast growth factor 23 (FGF-23) metabolism that in turn promote bone disorders, vascular calcifications, and increase cardiovascular (CV) risk.
+    evidence:
+    - reference: DOI:10.1093/ckj/sfad290
+      reference_title: Real-world usage of Chronic Kidney Disease – Mineral Bone Disorder (CKD–MBD) biomarkers in nephrology practices
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Chronic kidney disease mineral bone disorder (CKD-MBD) is a condition characterized by alterations of calcium, phosphate, parathyroid hormone (PTH), and fibroblast growth factor 23 (FGF-23) metabolism that in turn promote bone disorders, vascular calcifications, and increase cardiovascular (CV) risk.
+      explanation: Deep research cited this publication as relevant literature for CKD-Mineral Bone Disorder.
+- reference: DOI:10.1093/ckj/sfae097
+  title: The effect of parathyroid hormone lowering by etelcalcetide therapy on calcification propensity and calciprotein particles in hemodialysis patients
+  found_in:
+  - CKD-Mineral_Bone_Disorder-deep-research-falcon.md
+  findings:
+  - statement: The effect of parathyroid hormone lowering by etelcalcetide therapy on calcification propensity and calciprotein particles in hemodialysis patients
+    supporting_text: This study investigated whether parathyroid hormone (PTH) lowering with etelcalcetide, and the consequent effects on mineral and bone metabolism, could improve serum calcification propensity (T50 time) and decrease calciprotein particle (CPP) load in hemodialysis patients with secondary hyperparathyroidism.
+    evidence:
+    - reference: DOI:10.1093/ckj/sfae097
+      reference_title: The effect of parathyroid hormone lowering by etelcalcetide therapy on calcification propensity and calciprotein particles in hemodialysis patients
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: This study investigated whether parathyroid hormone (PTH) lowering with etelcalcetide, and the consequent effects on mineral and bone metabolism, could improve serum calcification propensity (T50 time) and decrease calciprotein particle (CPP) load in hemodialysis patients with secondary hyperparathyroidism.
+      explanation: Deep research cited this publication as relevant literature for CKD-Mineral Bone Disorder.
+- reference: DOI:10.1093/ckj/sfae143
+  title: Application of artificial intelligence to chronic kidney disease mineral bone disorder
+  found_in:
+  - CKD-Mineral_Bone_Disorder-deep-research-falcon.md
+  findings:
+  - statement: The global derangement of mineral metabolism that accompanies chronic kidney disease (CKD-MBD) is a major driver of the accelerated mortality for individuals with kidney disease.
+    supporting_text: The global derangement of mineral metabolism that accompanies chronic kidney disease (CKD-MBD) is a major driver of the accelerated mortality for individuals with kidney disease.
+    evidence:
+    - reference: DOI:10.1093/ckj/sfae143
+      reference_title: Application of artificial intelligence to chronic kidney disease mineral bone disorder
+      supports: SUPPORT
+      evidence_source: COMPUTATIONAL
+      snippet: The global derangement of mineral metabolism that accompanies chronic kidney disease (CKD-MBD) is a major driver of the accelerated mortality for individuals with kidney disease.
+      explanation: Deep research cited this publication as relevant literature for CKD-Mineral Bone Disorder.
+- reference: DOI:10.1093/ckj/sfz112
+  title: Combinations of mineral and bone disorder markers and risk of death and hospitalizations in the international Dialysis Outcomes and Practice Patterns Study
+  found_in:
+  - CKD-Mineral_Bone_Disorder-deep-research-falcon.md
+  findings:
+  - statement: Combinations of mineral and bone disorder markers and risk of death and hospitalizations in the international Dialysis Outcomes and Practice Patterns Study
+    supporting_text: Prior studies have developed a chronic kidney disease–mineral and bone disorder (CKD-MBD) composite score based on combinations of calcium (Ca), phosphorus (P) and parathyroid hormone (PTH) that have been shown to be associated with an increased risk of clinical outcomes in the USA.
+    evidence:
+    - reference: DOI:10.1093/ckj/sfz112
+      reference_title: Combinations of mineral and bone disorder markers and risk of death and hospitalizations in the international Dialysis Outcomes and Practice Patterns Study
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Prior studies have developed a chronic kidney disease–mineral and bone disorder (CKD-MBD) composite score based on combinations of calcium (Ca), phosphorus (P) and parathyroid hormone (PTH) that have been shown to be associated with an increased risk of clinical outcomes in the USA.
+      explanation: Deep research cited this publication as relevant literature for CKD-Mineral Bone Disorder.
+- reference: DOI:10.1093/cvr/cvae164
+  title: Calciprotein particle counts associate with vascular remodelling in chronic kidney disease
+  found_in:
+  - CKD-Mineral_Bone_Disorder-deep-research-falcon.md
+  findings:
+  - statement: Calciprotein particles (CPPs) are circulating calcium and phosphate nanoparticles associated with the development of vascular calcification (VC) in chronic kidney disease (CKD).
+    supporting_text: Calciprotein particles (CPPs) are circulating calcium and phosphate nanoparticles associated with the development of vascular calcification (VC) in chronic kidney disease (CKD).
+    evidence:
+    - reference: DOI:10.1093/cvr/cvae164
+      reference_title: Calciprotein particle counts associate with vascular remodelling in chronic kidney disease
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Calciprotein particles (CPPs) are circulating calcium and phosphate nanoparticles associated with the development of vascular calcification (VC) in chronic kidney disease (CKD).
+      explanation: Deep research cited this publication as relevant literature for CKD-Mineral Bone Disorder.
+- reference: DOI:10.1093/jbmr/zjae021
+  title: &#39;Risk factors for hip and vertebral fractures in chronic kidney disease: the CRIC study&#39;
+  found_in:
+  - CKD-Mineral_Bone_Disorder-deep-research-falcon.md
+  findings:
+  - statement: Fracture risk is high in chronic kidney disease (CKD) and underlying pathophysiology and risk factors may differ from the general population.
+    supporting_text: Fracture risk is high in chronic kidney disease (CKD) and underlying pathophysiology and risk factors may differ from the general population.
+    evidence:
+    - reference: DOI:10.1093/jbmr/zjae021
+      reference_title: &#39;Risk factors for hip and vertebral fractures in chronic kidney disease: the CRIC study&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Fracture risk is high in chronic kidney disease (CKD) and underlying pathophysiology and risk factors may differ from the general population.
+      explanation: Deep research cited this publication as relevant literature for CKD-Mineral Bone Disorder.
+- reference: DOI:10.1111/nep.14407
+  title: Phosphorous metabolism and manipulation in chronic kidney disease
+  found_in:
+  - CKD-Mineral_Bone_Disorder-deep-research-falcon.md
+  findings:
+  - statement: Chronic kidney disease‐mineral bone disorder (CKD‐MBD) is a syndrome commonly observed in subjects with impaired renal function.
+    supporting_text: Chronic kidney disease‐mineral bone disorder (CKD‐MBD) is a syndrome commonly observed in subjects with impaired renal function.
+    evidence:
+    - reference: DOI:10.1111/nep.14407
+      reference_title: Phosphorous metabolism and manipulation in chronic kidney disease
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: Chronic kidney disease‐mineral bone disorder (CKD‐MBD) is a syndrome commonly observed in subjects with impaired renal function.
+      explanation: Deep research cited this publication as relevant literature for CKD-Mineral Bone Disorder.
+- reference: DOI:10.32948/ajsep.2024.05.20
+  title: &#39;The relationship between vitamin D, chronic kidney disease, and mineral and bone disorder: a complex interplay comprehensive review&#39;
+  found_in:
+  - CKD-Mineral_Bone_Disorder-deep-research-falcon.md
+  findings:
+  - statement: Chronic kidney disease (CKD) is a global health concern with a significant prevalence.
+    supporting_text: Chronic kidney disease (CKD) is a global health concern with a significant prevalence.
+    evidence:
+    - reference: DOI:10.32948/ajsep.2024.05.20
+      reference_title: &#39;The relationship between vitamin D, chronic kidney disease, and mineral and bone disorder: a complex interplay comprehensive review&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Chronic kidney disease (CKD) is a global health concern with a significant prevalence.
+      explanation: Deep research cited this publication as relevant literature for CKD-Mineral Bone Disorder.
+- reference: DOI:10.3389/fphys.2024.1356069
+  title: Bone and bone derived factors in kidney disease
+  found_in:
+  - CKD-Mineral_Bone_Disorder-deep-research-falcon.md
+  findings:
+  - statement: &#39;of review: Mineral and bone disorder (MBD) is a prevalent complication in chronic kidney disease (CKD), significantly impacting overall health with multifaceted implications including fractures, cardiovascular events, and mortality.&#39;
+    supporting_text: &#39;of review: Mineral and bone disorder (MBD) is a prevalent complication in chronic kidney disease (CKD), significantly impacting overall health with multifaceted implications including fractures, cardiovascular events, and mortality.&#39;
+    evidence:
+    - reference: DOI:10.3389/fphys.2024.1356069
+      reference_title: Bone and bone derived factors in kidney disease
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#39;of review: Mineral and bone disorder (MBD) is a prevalent complication in chronic kidney disease (CKD), significantly impacting overall health with multifaceted implications including fractures, cardiovascular events, and mortality.&#39;
+      explanation: Deep research cited this publication as relevant literature for CKD-Mineral Bone Disorder.
+- reference: DOI:10.3390/jcm12196306
+  title: Current and Emerging Markers and Tools Used in the Diagnosis and Management of Chronic Kidney Disease–Mineral and Bone Disorder in Non-Dialysis Adult Patients
+  found_in:
+  - CKD-Mineral_Bone_Disorder-deep-research-falcon.md
+  findings:
+  - statement: Chronic kidney disease (CKD) is a significant public health concern associated with significant morbidity and has become one of the foremost global causes of death in recent years.
+    supporting_text: Chronic kidney disease (CKD) is a significant public health concern associated with significant morbidity and has become one of the foremost global causes of death in recent years.
+    evidence:
+    - reference: DOI:10.3390/jcm12196306
+      reference_title: Current and Emerging Markers and Tools Used in the Diagnosis and Management of Chronic Kidney Disease–Mineral and Bone Disorder in Non-Dialysis Adult Patients
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Chronic kidney disease (CKD) is a significant public health concern associated with significant morbidity and has become one of the foremost global causes of death in recent years.
+      explanation: Deep research cited this publication as relevant literature for CKD-Mineral Bone Disorder.
+- reference: DOI:10.3803/enm.2024.1978
+  title: Roles of Parathyroid Hormone and Fibroblast Growth Factor 23 in Advanced Chronic Kidney Disease
+  found_in:
+  - CKD-Mineral_Bone_Disorder-deep-research-falcon.md
+  findings:
+  - statement: Parathyroid hormone (PTH) and fibroblast growth factor 23 (FGF23) each play a central role in the pathogenesis of chronic kidney disease (CKD)-mineral and bone disorder.
+    supporting_text: Parathyroid hormone (PTH) and fibroblast growth factor 23 (FGF23) each play a central role in the pathogenesis of chronic kidney disease (CKD)-mineral and bone disorder.
+    evidence:
+    - reference: DOI:10.3803/enm.2024.1978
+      reference_title: Roles of Parathyroid Hormone and Fibroblast Growth Factor 23 in Advanced Chronic Kidney Disease
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Parathyroid hormone (PTH) and fibroblast growth factor 23 (FGF23) each play a central role in the pathogenesis of chronic kidney disease (CKD)-mineral and bone disorder.
+      explanation: Deep research cited this publication as relevant literature for CKD-Mineral Bone Disorder.
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
+        
+        <div class="card reference-card" id="references-deep-research">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+            
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">12</span>
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1038/s41598-024-54812-4" target="_blank">DOI:10.1038/s41598-024-54812-4</a>
+                            </div>
+                            
+                            <div class="reference-title">Correlation between soluble klotho and chronic kidney disease–mineral and bone disorder in chronic kidney disease: a meta-analysis</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">We conducted a systematic search across medical databases, including PubMed, Web of Science, EMBASE, and Cochrane Library, up to March 2023.</div>
+            
+            
+            <div class="reference-finding-supporting">"We conducted a systematic search across medical databases, including PubMed, Web of Science, EMBASE, and Cochrane Library, up to March 2023."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41598-024-54812-4" target="_blank">DOI:10.1038/s41598-024-54812-4</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"We conducted a systematic search across medical databases, including PubMed, Web of Science, EMBASE, and Cochrane Library, up to March 2023."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for CKD-Mineral Bone Disorder.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1093/ckj/sfad290" target="_blank">DOI:10.1093/ckj/sfad290</a>
+                            </div>
+                            
+                            <div class="reference-title">Real-world usage of Chronic Kidney Disease – Mineral Bone Disorder (CKD–MBD) biomarkers in nephrology practices</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Real-world usage of Chronic Kidney Disease – Mineral Bone Disorder (CKD–MBD) biomarkers in nephrology practices</div>
+            
+            
+            <div class="reference-finding-supporting">"Chronic kidney disease mineral bone disorder (CKD-MBD) is a condition characterized by alterations of calcium, phosphate, parathyroid hormone (PTH), and fibroblast growth factor 23 (FGF-23) metabolism that in turn promote bone disorders, vascular calcifications, and increase cardiovascular (CV) risk."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/ckj/sfad290" target="_blank">DOI:10.1093/ckj/sfad290</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Chronic kidney disease mineral bone disorder (CKD-MBD) is a condition characterized by alterations of calcium, phosphate, parathyroid hormone (PTH), and fibroblast growth factor 23 (FGF-23) metabolism that in turn promote bone disorders, vascular calcifications, and increase cardiovascular (CV) risk."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for CKD-Mineral Bone Disorder.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1093/ckj/sfae097" target="_blank">DOI:10.1093/ckj/sfae097</a>
+                            </div>
+                            
+                            <div class="reference-title">The effect of parathyroid hormone lowering by etelcalcetide therapy on calcification propensity and calciprotein particles in hemodialysis patients</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The effect of parathyroid hormone lowering by etelcalcetide therapy on calcification propensity and calciprotein particles in hemodialysis patients</div>
+            
+            
+            <div class="reference-finding-supporting">"This study investigated whether parathyroid hormone (PTH) lowering with etelcalcetide, and the consequent effects on mineral and bone metabolism, could improve serum calcification propensity (T50 time) and decrease calciprotein particle (CPP) load in hemodialysis patients with secondary..."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/ckj/sfae097" target="_blank">DOI:10.1093/ckj/sfae097</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"This study investigated whether parathyroid hormone (PTH) lowering with etelcalcetide, and the consequent effects on mineral and bone metabolism, could improve serum calcification propensity (T50 time) and decrease calciprotein particle (CPP) load in hemodialysis patients with secondary..."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for CKD-Mineral Bone Disorder.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1093/ckj/sfae143" target="_blank">DOI:10.1093/ckj/sfae143</a>
+                            </div>
+                            
+                            <div class="reference-title">Application of artificial intelligence to chronic kidney disease mineral bone disorder</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The global derangement of mineral metabolism that accompanies chronic kidney disease (CKD-MBD) is a major driver of the accelerated mortality for individuals with kidney disease.</div>
+            
+            
+            <div class="reference-finding-supporting">"The global derangement of mineral metabolism that accompanies chronic kidney disease (CKD-MBD) is a major driver of the accelerated mortality for individuals with kidney disease."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/ckj/sfae143" target="_blank">DOI:10.1093/ckj/sfae143</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The global derangement of mineral metabolism that accompanies chronic kidney disease (CKD-MBD) is a major driver of the accelerated mortality for individuals with kidney disease."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for CKD-Mineral Bone Disorder.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1093/ckj/sfz112" target="_blank">DOI:10.1093/ckj/sfz112</a>
+                            </div>
+                            
+                            <div class="reference-title">Combinations of mineral and bone disorder markers and risk of death and hospitalizations in the international Dialysis Outcomes and Practice Patterns Study</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Combinations of mineral and bone disorder markers and risk of death and hospitalizations in the international Dialysis Outcomes and Practice Patterns Study</div>
+            
+            
+            <div class="reference-finding-supporting">"Prior studies have developed a chronic kidney disease–mineral and bone disorder (CKD-MBD) composite score based on combinations of calcium (Ca), phosphorus (P) and parathyroid hormone (PTH) that have been shown to be associated with an increased risk of clinical outcomes in the USA."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/ckj/sfz112" target="_blank">DOI:10.1093/ckj/sfz112</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Prior studies have developed a chronic kidney disease–mineral and bone disorder (CKD-MBD) composite score based on combinations of calcium (Ca), phosphorus (P) and parathyroid hormone (PTH) that have been shown to be associated with an increased risk of clinical outcomes in the USA."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for CKD-Mineral Bone Disorder.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1093/cvr/cvae164" target="_blank">DOI:10.1093/cvr/cvae164</a>
+                            </div>
+                            
+                            <div class="reference-title">Calciprotein particle counts associate with vascular remodelling in chronic kidney disease</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Calciprotein particles (CPPs) are circulating calcium and phosphate nanoparticles associated with the development of vascular calcification (VC) in chronic kidney disease (CKD).</div>
+            
+            
+            <div class="reference-finding-supporting">"Calciprotein particles (CPPs) are circulating calcium and phosphate nanoparticles associated with the development of vascular calcification (VC) in chronic kidney disease (CKD)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/cvr/cvae164" target="_blank">DOI:10.1093/cvr/cvae164</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Calciprotein particles (CPPs) are circulating calcium and phosphate nanoparticles associated with the development of vascular calcification (VC) in chronic kidney disease (CKD)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for CKD-Mineral Bone Disorder.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1093/jbmr/zjae021" target="_blank">DOI:10.1093/jbmr/zjae021</a>
+                            </div>
+                            
+                            <div class="reference-title">Risk factors for hip and vertebral fractures in chronic kidney disease: the CRIC study</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Fracture risk is high in chronic kidney disease (CKD) and underlying pathophysiology and risk factors may differ from the general population.</div>
+            
+            
+            <div class="reference-finding-supporting">"Fracture risk is high in chronic kidney disease (CKD) and underlying pathophysiology and risk factors may differ from the general population."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/jbmr/zjae021" target="_blank">DOI:10.1093/jbmr/zjae021</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Fracture risk is high in chronic kidney disease (CKD) and underlying pathophysiology and risk factors may differ from the general population."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for CKD-Mineral Bone Disorder.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1111/nep.14407" target="_blank">DOI:10.1111/nep.14407</a>
+                            </div>
+                            
+                            <div class="reference-title">Phosphorous metabolism and manipulation in chronic kidney disease</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Chronic kidney disease‐mineral bone disorder (CKD‐MBD) is a syndrome commonly observed in subjects with impaired renal function.</div>
+            
+            
+            <div class="reference-finding-supporting">"Chronic kidney disease‐mineral bone disorder (CKD‐MBD) is a syndrome commonly observed in subjects with impaired renal function."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1111/nep.14407" target="_blank">DOI:10.1111/nep.14407</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Chronic kidney disease‐mineral bone disorder (CKD‐MBD) is a syndrome commonly observed in subjects with impaired renal function."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for CKD-Mineral Bone Disorder.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.32948/ajsep.2024.05.20" target="_blank">DOI:10.32948/ajsep.2024.05.20</a>
+                            </div>
+                            
+                            <div class="reference-title">The relationship between vitamin D, chronic kidney disease, and mineral and bone disorder: a complex interplay comprehensive review</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Chronic kidney disease (CKD) is a global health concern with a significant prevalence.</div>
+            
+            
+            <div class="reference-finding-supporting">"Chronic kidney disease (CKD) is a global health concern with a significant prevalence."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.32948/ajsep.2024.05.20" target="_blank">DOI:10.32948/ajsep.2024.05.20</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Chronic kidney disease (CKD) is a global health concern with a significant prevalence."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for CKD-Mineral Bone Disorder.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3389/fphys.2024.1356069" target="_blank">DOI:10.3389/fphys.2024.1356069</a>
+                            </div>
+                            
+                            <div class="reference-title">Bone and bone derived factors in kidney disease</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">of review: Mineral and bone disorder (MBD) is a prevalent complication in chronic kidney disease (CKD), significantly impacting overall health with multifaceted implications including fractures, cardiovascular events, and mortality.</div>
+            
+            
+            <div class="reference-finding-supporting">"of review: Mineral and bone disorder (MBD) is a prevalent complication in chronic kidney disease (CKD), significantly impacting overall health with multifaceted implications including fractures, cardiovascular events, and mortality."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fphys.2024.1356069" target="_blank">DOI:10.3389/fphys.2024.1356069</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"of review: Mineral and bone disorder (MBD) is a prevalent complication in chronic kidney disease (CKD), significantly impacting overall health with multifaceted implications including fractures, cardiovascular events, and mortality."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for CKD-Mineral Bone Disorder.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/jcm12196306" target="_blank">DOI:10.3390/jcm12196306</a>
+                            </div>
+                            
+                            <div class="reference-title">Current and Emerging Markers and Tools Used in the Diagnosis and Management of Chronic Kidney Disease–Mineral and Bone Disorder in Non-Dialysis Adult Patients</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Chronic kidney disease (CKD) is a significant public health concern associated with significant morbidity and has become one of the foremost global causes of death in recent years.</div>
+            
+            
+            <div class="reference-finding-supporting">"Chronic kidney disease (CKD) is a significant public health concern associated with significant morbidity and has become one of the foremost global causes of death in recent years."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/jcm12196306" target="_blank">DOI:10.3390/jcm12196306</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Chronic kidney disease (CKD) is a significant public health concern associated with significant morbidity and has become one of the foremost global causes of death in recent years."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for CKD-Mineral Bone Disorder.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3803/enm.2024.1978" target="_blank">DOI:10.3803/enm.2024.1978</a>
+                            </div>
+                            
+                            <div class="reference-title">Roles of Parathyroid Hormone and Fibroblast Growth Factor 23 in Advanced Chronic Kidney Disease</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Parathyroid hormone (PTH) and fibroblast growth factor 23 (FGF23) each play a central role in the pathogenesis of chronic kidney disease (CKD)-mineral and bone disorder.</div>
+            
+            
+            <div class="reference-finding-supporting">"Parathyroid hormone (PTH) and fibroblast growth factor 23 (FGF23) each play a central role in the pathogenesis of chronic kidney disease (CKD)-mineral and bone disorder."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3803/enm.2024.1978" target="_blank">DOI:10.3803/enm.2024.1978</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Parathyroid hormone (PTH) and fibroblast growth factor 23 (FGF23) each play a central role in the pathogenesis of chronic kidney disease (CKD)-mineral and bone disorder."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for CKD-Mineral Bone Disorder.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">Disease Characteristics Research Template</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">50 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-08T11:21:19.687609</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
+<p>Provide detailed information focusing on:
+1. Key concepts and definitions with current understanding
+2. Recent developments and latest research (prioritize 2023-2024 sources)
+3. Current applications and real-world implementations
+4. Expert opinions and analysis from authoritative sources
+5. Relevant statistics and data from recent studies</p>
+<p>Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
+Always prioritize recent, authoritative sources and provide specific citations for all major claims.</p>
+<h1>Disease Characteristics Research Template</h1>
+<h2>Target Disease</h2>
+<ul>
+<li><strong>Disease Name:</strong> CKD-Mineral Bone Disorder</li>
+<li><strong>MONDO ID:</strong>  (if available)</li>
+<li><strong>Category:</strong> Complex</li>
+</ul>
+<h2>Research Objectives</h2>
+<p>Please provide a comprehensive research report on <strong>CKD-Mineral Bone Disorder</strong> covering all of the
+disease characteristics listed below. This report will be used to populate a disease knowledge
+base entry. Be thorough and cite primary literature (PMID preferred) for all claims.</p>
+<p>For each section, <strong>suggested databases/resources</strong> are listed. These are the first places
+you should search for information on each topic.</p>
+<hr />
+<h3>1. Disease Information</h3>
+<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, ICD-10/ICD-11, MeSH, PubMed</p>
+</blockquote>
+<ul>
+<li>What is the disease? Provide a concise overview.</li>
+<li>What are the key identifiers? (OMIM, Orphanet, ICD-10/ICD-11, MeSH, Mondo)</li>
+<li>What are the common synonyms and alternative names?</li>
+<li>Is the information derived from individual patients (e.g., EHR) or aggregated disease-level resources?</li>
+</ul>
+<h3>2. Etiology</h3>
+<ul>
+<li><strong>Disease Causal Factors</strong>: What are the primary causes? (genetic, environmental, infectious, mechanistic)</li>
+<li><strong>Risk Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, UpToDate, clinical guidelines, ClinVar, ClinGen, GWAS Catalog, PheGenI, CTD, CDC, WHO, epidemiological databases</p>
+</blockquote>
+</li>
+<li>Genetic risk factors (causal variants, susceptibility loci, modifier genes)</li>
+<li>Environmental risk factors (toxins, lifestyle, occupational exposures, age, sex, family history)</li>
+<li><strong>Protective Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, clinical trial databases, GWAS Catalog, gnomAD, WHO, CDC, nutrition databases</p>
+</blockquote>
+</li>
+<li>Genetic protective factors (protective variants, modifier alleles)</li>
+<li>Environmental protective factors (diet, lifestyle, exposures that reduce risk)</li>
+<li><strong>Gene-Environment Interactions</strong>: How do genetic and environmental factors interact to influence disease?<blockquote>
+<p><strong>Search first:</strong> CTD, PubMed, PheGenI, GxE databases</p>
+</blockquote>
+</li>
+</ul>
+<h3>3. Phenotypes</h3>
+<blockquote>
+<p><strong>Search first:</strong> HPO (Human Phenotype Ontology), OMIM, Orphanet, PubMed, clinicaltrials.gov, MedDRA, SNOMED CT, DECIPHER, LOINC</p>
+</blockquote>
+<p>For each phenotype, provide:
+- <strong>Phenotype type</strong>: symptoms, clinical signs, physical manifestations, behavioral changes, or laboratory abnormalities</p>
+<blockquote>
+<p>For symptoms/signs: HPO, OMIM, Orphanet, PubMed
+For behavioral changes: HPO, DSM, RDoC (Research Domain Criteria), PubMed
+For laboratory abnormalities: LOINC, SNOMED CT, LabTests Online, PubMed
+- <strong>Phenotype characteristics</strong>:
+<strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed
+  - Age of symptom onset (neonatal, childhood, adult-onset, late-onset)
+  - Symptom severity (mild, moderate, severe, variable)
+  - Symptom progression (stable, progressive, episodic, fluctuating)
+  - Frequency among affected individuals (percentage or qualitative)
+- <strong>Quality of life impact</strong>: Effects on daily functioning and well-being (per-phenotype when possible)
+<strong>Search first:</strong> EQ-5D database, SF-36, WHO QOL databases, PubMed
+- Suggest HPO (Human Phenotype Ontology) terms for each phenotype</p>
+</blockquote>
+<h3>4. Genetic/Molecular Information</h3>
+<ul>
+<li><strong>Causal Genes</strong>: Gene mutations or chromosomal abnormalities responsible for disease (gene symbols, OMIM IDs)<blockquote>
+<p><strong>Search first:</strong> OMIM, ClinVar, HGMD, Ensembl, NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Pathogenic Variants</strong>:</li>
+<li>Affected genes (gene symbols, HGNC IDs)
+    &gt; <strong>Search first:</strong> OMIM, NCBI Gene, Ensembl, HGNC, UniProt, GeneCards</li>
+<li>Variant classification (pathogenic, likely pathogenic, VUS per ACMG/AMP guidelines)
+    &gt; <strong>Search first:</strong> ClinVar, ClinGen, ACMG/AMP guidelines, VarSome</li>
+<li>Variant type/class (missense, frameshift, nonsense, splice-site, structural)</li>
+<li>Allele frequency in population databases
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, ExAC, TOPMed, dbSNP</li>
+<li>Somatic vs germline origin
+    &gt; <strong>Search first:</strong> COSMIC (somatic), ClinVar, ICGC, TCGA</li>
+<li>Functional consequences (loss of function, gain of function, dominant negative)</li>
+<li><strong>Modifier Genes</strong>: Genes that modify disease severity or expression</li>
+<li><strong>Epigenetic Information</strong>: DNA methylation, histone modifications, chromatin changes affecting disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Chromosomal Abnormalities</strong>: Large-scale genetic changes (aneuploidy, translocations, inversions)<blockquote>
+<p><strong>Search first:</strong> DECIPHER, ClinVar, ECARUCA, UCSC Genome Browser</p>
+</blockquote>
+</li>
+</ul>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Environmental Factors</strong>: Non-genetic contributing factors (toxins, radiation, pollution, occupational exposure)<blockquote>
+<p><strong>Search first:</strong> CTD (Comparative Toxicogenomics Database), TOXNET, PubMed, EPA databases</p>
+</blockquote>
+</li>
+<li><strong>Lifestyle Factors</strong>: Behavioral factors (smoking, diet, exercise, alcohol consumption)<blockquote>
+<p><strong>Search first:</strong> CDC databases, WHO, PubMed, NHANES</p>
+</blockquote>
+</li>
+<li><strong>Infectious Agents</strong>: If applicable, pathogens causing or triggering disease (bacteria, viruses, fungi, parasites)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON</p>
+</blockquote>
+</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<ul>
+<li><strong>Molecular Pathways</strong>: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)<blockquote>
+<p><strong>Search first:</strong> KEGG, Reactome, WikiPathways, PathBank, BioCyc</p>
+</blockquote>
+</li>
+<li><strong>Cellular Processes</strong>: Cell-level mechanisms (apoptosis, autophagy, cell cycle dysregulation, inflammation, etc.)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (GO), Reactome, KEGG, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Protein Dysfunction</strong>: How protein structure or function is altered (misfolding, aggregation, loss of function, gain of function)<blockquote>
+<p><strong>Search first:</strong> UniProt, PDB (Protein Data Bank), InterPro, Pfam, AlphaFold</p>
+</blockquote>
+</li>
+<li><strong>Metabolic Changes</strong>: Alterations in metabolic processes (energy metabolism, lipid metabolism, amino acid metabolism)<blockquote>
+<p><strong>Search first:</strong> KEGG, BioCyc, HMDB (Human Metabolome Database), BRENDA</p>
+</blockquote>
+</li>
+<li><strong>Immune System Involvement</strong>: Role of immune response (autoimmunity, immunodeficiency, chronic inflammation)<blockquote>
+<p><strong>Search first:</strong> ImmPort, Immunome Database, IEDB, Gene Ontology</p>
+</blockquote>
+</li>
+<li><strong>Tissue Damage Mechanisms</strong>: How tissues/ are injured (oxidative stress, ischemia, fibrosis, necrosis)<blockquote>
+<p><strong>Search first:</strong> PubMed, Gene Ontology, Reactome</p>
+</blockquote>
+</li>
+<li><strong>Biochemical Abnormalities</strong>: Specific molecular defects (enzyme deficiencies, receptor dysfunction, ion channel defects)<blockquote>
+<p><strong>Search first:</strong> BRENDA, UniProt, KEGG, OMIM, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Epigenetic Changes</strong>: DNA methylation, histone modifications affecting gene expression in disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Molecular Profiling</strong> (if available):</li>
+<li>Transcriptomics/gene expression changes
+    &gt; <strong>Search first:</strong> GEO (Gene Expression Omnibus), ArrayExpress, GTEx, Human Cell Atlas, SRA</li>
+<li>Proteomics findings
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, Human Protein Atlas, STRING, BioGRID</li>
+<li>Metabolomics signatures
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB, METLIN</li>
+<li>Lipidomics alterations
+    &gt; <strong>Search first:</strong> LIPID MAPS, SwissLipids, LipidHome, Metabolomics Workbench</li>
+<li>Genomic structural features
+    &gt; <strong>Search first:</strong> UCSC Genome Browser, Ensembl, NCBI, dbVar, DGV</li>
+<li><strong>Advanced Technologies</strong> (if applicable):</li>
+<li>Single-cell analysis findings (cell-type specific mechanisms, cellular heterogeneity)
+    &gt; <strong>Search first:</strong> Human Cell Atlas, Single Cell Portal, GEO, CELLxGENE</li>
+<li>Spatial transcriptomics findings
+    &gt; <strong>Search first:</strong> GEO, Spatial Research, Vizgen, 10x Genomics data</li>
+<li>Multi-omics integration results
+    &gt; <strong>Search first:</strong> TCGA, ICGC, cBioPortal, LinkedOmics, PubMed</li>
+<li>Functional genomics screens (CRISPR, RNAi)
+    &gt; <strong>Search first:</strong> DepMap, GenomeRNAi, PubMed, BioGRID ORCS</li>
+</ul>
+<p>For each mechanism, describe:
+- The causal chain from initial trigger to clinical manifestation
+- Which mechanisms are upstream vs downstream
+- What cell types and biological processes are involved
+- Suggest GO terms for biological processes and CL terms for cell types</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ Level</strong>:</li>
+<li>Primary organs directly affected</li>
+<li>Secondary organ involvement (complications, secondary effects)</li>
+<li>Body systems involved (cardiovascular, nervous, digestive, respiratory, endocrine, etc.)<blockquote>
+<p><strong>Search first:</strong> Uberon, FMA (Foundational Model of Anatomy), OMIM, HPO, ICD-11, MeSH, SNOMED CT</p>
+</blockquote>
+</li>
+<li><strong>Tissue and Cell Level</strong>:</li>
+<li>Specific tissue types affected (epithelial, connective, muscle, nervous)</li>
+<li>Specific cell populations targeted (with Cell Ontology terms)<blockquote>
+<p><strong>Search first:</strong> Uberon, Human Protein Atlas, Cell Ontology, Human Cell Atlas, CellMarker, PanglaoDB</p>
+</blockquote>
+</li>
+<li><strong>Subcellular Level</strong>:</li>
+<li>Cellular compartments involved (mitochondria, nucleus, ER, lysosomes) (with GO Cellular Component terms)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (Cellular Component), UniProt, Human Protein Atlas</p>
+</blockquote>
+</li>
+<li><strong>Localization</strong>:</li>
+<li>Specific anatomical sites (with UBERON terms)
+    &gt; <strong>Search first:</strong> FMA, Uberon, NeuroNames (for brain), SNOMED CT</li>
+<li>Lateralization (unilateral, bilateral, asymmetric)
+    &gt; <strong>Search first:</strong> HPO, clinical literature, imaging databases</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset</strong>:</li>
+<li>Typical age of onset (congenital, pediatric, adult, geriatric)</li>
+<li>Onset pattern (acute, subacute, chronic, insidious)<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Progression</strong>:</li>
+<li>Disease stages (early, intermediate, advanced, end-stage)
+    &gt; <strong>Search first:</strong> Cancer Staging Manual (AJCC), WHO classifications, PubMed</li>
+<li>Progression rate (rapid, slow, variable)</li>
+<li>Disease course pattern (episodic, relapsing-remitting, progressive, stable)</li>
+<li>Disease duration (self-limited, chronic lifelong)<blockquote>
+<p><strong>Search first:</strong> Disease registries, longitudinal cohort databases, natural history studies, PubMed, Orphanet, OMIM</p>
+</blockquote>
+</li>
+<li><strong>Patterns</strong>:</li>
+<li>Remission patterns (spontaneous, treatment-induced)
+    &gt; <strong>Search first:</strong> Clinical trial databases, disease registries, PubMed</li>
+<li>Critical periods (time windows of vulnerability or opportunity for intervention)
+    &gt; <strong>Search first:</strong> PubMed, developmental biology databases, clinical guidelines</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology</strong>:</li>
+<li>Prevalence (cases per 100,000 at given time)</li>
+<li>Incidence (new cases per 100,000 per year)<blockquote>
+<p><strong>Search first:</strong> Orphanet, CDC, WHO, GBD (Global Burden of Disease), national registries, SEER, disease registries</p>
+</blockquote>
+</li>
+<li><strong>For Genetic Etiology</strong>:</li>
+<li>Inheritance pattern (AD, AR, X-linked, mitochondrial, multifactorial, polygenic)
+    &gt; <strong>Search first:</strong> OMIM, Orphanet, ClinVar, GTR (Genetic Testing Registry)</li>
+<li>Penetrance (complete, incomplete, age-dependent)
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, PubMed, ClinGen</li>
+<li>Expressivity (variable, consistent)
+    &gt; <strong>Search first:</strong> OMIM, ClinVar, PubMed</li>
+<li>Genetic anticipation (increasing severity in successive generations)
+    &gt; <strong>Search first:</strong> OMIM, PubMed (especially for repeat expansion disorders)</li>
+<li>Germline mosaicism
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, genetic counseling literature, PubMed</li>
+<li>Founder effects (population-specific mutations)
+    &gt; <strong>Search first:</strong> gnomAD, population genetics databases, PubMed</li>
+<li>Consanguinity role
+    &gt; <strong>Search first:</strong> OMIM, population studies, genetic counseling resources</li>
+<li>Carrier frequency
+    &gt; <strong>Search first:</strong> gnomAD, carrier screening databases, GeneReviews, GTR</li>
+<li><strong>Population Demographics</strong>:</li>
+<li>Affected populations (ethnic or demographic groups with higher prevalence)
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, PAGE Study, PubMed, population registries</li>
+<li>Geographic distribution (endemic areas, regional variation)
+    &gt; <strong>Search first:</strong> WHO, CDC, GBD, Orphanet, geographic epidemiology databases</li>
+<li>Geographic distribution of specific variants</li>
+<li>Sex ratio (male:female)
+    &gt; <strong>Search first:</strong> Disease registries, OMIM, PubMed, epidemiological databases</li>
+<li>Age distribution of affected individuals
+    &gt; <strong>Search first:</strong> CDC, disease registries, SEER, Orphanet</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Clinical Tests</strong>:</li>
+<li>Laboratory tests (blood, urine, tissue chemistry, specific enzyme assays)
+    &gt; <strong>Search first:</strong> LOINC, LabTests Online, PubMed</li>
+<li>Biomarkers (proteins, metabolites, genetic markers, circulating biomarkers)
+    &gt; <strong>Search first:</strong> FDA Biomarker List, BEST (Biomarkers, EndpointS, and other Tools), PubMed</li>
+<li>Imaging studies (X-ray, CT, MRI, PET, ultrasound)
+    &gt; <strong>Search first:</strong> RadLex, DICOM, Radiopaedia, imaging databases</li>
+<li>Functional tests (pulmonary function, cardiac stress tests)
+    &gt; <strong>Search first:</strong> LOINC, clinical guidelines, PubMed</li>
+<li>Electrophysiology (EEG, EMG, ECG, nerve conduction studies)
+    &gt; <strong>Search first:</strong> LOINC, clinical neurophysiology databases, PubMed</li>
+<li>Biopsy findings (histopathology, immunohistochemistry)
+    &gt; <strong>Search first:</strong> SNOMED CT, College of American Pathologists resources, PubMed</li>
+<li>Pathology findings (microscopic examination)
+    &gt; <strong>Search first:</strong> SNOMED CT, Digital Pathology databases, PubMed</li>
+<li><strong>Genetic Testing</strong>:<blockquote>
+<p><strong>Search first:</strong> GTR (Genetic Testing Registry), GeneReviews, ClinGen</p>
+</blockquote>
+</li>
+<li>Overview of recommended genetic testing approach</li>
+<li>Whole genome sequencing (WGS) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, GEL (Genomics England), gnomAD</li>
+<li>Whole exome sequencing (WES) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneMatcher</li>
+<li>Gene panels (which panels, which genes)
+    &gt; <strong>Search first:</strong> GTR, ClinVar, laboratory-specific databases</li>
+<li>Single gene testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneReviews</li>
+<li>Chromosomal microarray (CMA)
+    &gt; <strong>Search first:</strong> DECIPHER, ClinVar, dbVar, ECARUCA</li>
+<li>Karyotyping
+    &gt; <strong>Search first:</strong> Chromosome Abnormality Database, ClinVar, cytogenetics resources</li>
+<li>FISH
+    &gt; <strong>Search first:</strong> ClinVar, cytogenetics databases, PubMed</li>
+<li>Mitochondrial DNA testing
+    &gt; <strong>Search first:</strong> MITOMAP, MSeqDR, ClinVar, GTR</li>
+<li>Repeat expansion testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, repeat expansion databases, PubMed</li>
+<li><strong>Omics-Based Diagnostics</strong> (if applicable):</li>
+<li>RNA sequencing / transcriptomics
+    &gt; <strong>Search first:</strong> GEO, ArrayExpress, GTEx, RNA-seq databases</li>
+<li>Proteomics
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, FDA Biomarker database</li>
+<li>Metabolomics
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB</li>
+<li>Epigenomics
+    &gt; <strong>Search first:</strong> GEO, ENCODE, Roadmap Epigenomics, MethBase</li>
+<li>Liquid biopsy
+    &gt; <strong>Search first:</strong> COSMIC, ClinVar, liquid biopsy databases, PubMed</li>
+<li><strong>Clinical Criteria</strong>:</li>
+<li>Standardized diagnostic criteria (DSM, ICD, society guidelines)
+    &gt; <strong>Search first:</strong> DSM-5, ICD-11, clinical society guidelines, UpToDate</li>
+<li>Differential diagnosis (other conditions to rule out, with distinguishing features)
+    &gt; <strong>Search first:</strong> DynaMed, UpToDate, clinical decision support systems</li>
+<li><strong>Screening</strong>:</li>
+<li>Screening methods for asymptomatic individuals (newborn screening, carrier screening, cascade screening)
+    &gt; <strong>Search first:</strong> ACMG recommendations, CDC newborn screening, GTR</li>
+</ul>
+<h3>11. Outcome/Prognosis</h3>
+<ul>
+<li><strong>Survival and Mortality</strong>:</li>
+<li>Survival rate (5-year, 10-year, overall)
+    &gt; <strong>Search first:</strong> SEER, cancer registries, disease-specific registries, PubMed</li>
+<li>Life expectancy (with and without treatment if applicable)
+    &gt; <strong>Search first:</strong> Orphanet, disease registries, actuarial databases, PubMed</li>
+<li>Mortality rate
+    &gt; <strong>Search first:</strong> CDC, WHO, GBD, national mortality databases</li>
+<li>Disease-specific mortality (deaths directly attributable to disease)
+    &gt; <strong>Search first:</strong> Disease registries, CDC Wonder, GBD, PubMed</li>
+<li><strong>Morbidity and Function</strong>:</li>
+<li>Morbidity (disease-related disability and health impacts)
+    &gt; <strong>Search first:</strong> GBD, WHO, disability databases, PubMed</li>
+<li>Disability outcomes (long-term functional impairments)
+    &gt; <strong>Search first:</strong> ICF (International Classification of Functioning), disability registries</li>
+<li>Quality of life measures (EQ-5D, SF-36, PROMIS, disease-specific tools)
+    &gt; <strong>Search first:</strong> EQ-5D database, SF-36, PROMIS, PubMed</li>
+<li><strong>Disease Course</strong>:</li>
+<li>Complications (secondary problems: infections, organ failure, etc.)
+    &gt; <strong>Search first:</strong> ICD codes, disease registries, clinical databases, PubMed</li>
+<li>Recovery potential (likelihood and extent of recovery, with vs without treatment)
+    &gt; <strong>Search first:</strong> Natural history studies, rehabilitation databases, PubMed</li>
+<li><strong>Prediction</strong>:</li>
+<li>Prognostic factors (age, disease severity, biomarkers, treatment response)
+    &gt; <strong>Search first:</strong> Prognostic models databases, clinical calculators, PubMed</li>
+<li>Prognostic biomarkers (molecular markers predicting disease course)
+    &gt; <strong>Search first:</strong> FDA Biomarker database, PubMed, cancer prognostic databases</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Pharmacotherapy</strong>:</li>
+<li>Pharmacological treatments (drug names, drug classes, mechanisms of action)
+    &gt; <strong>Search first:</strong> DrugBank, RxNorm, ATC classification, DailyMed, FDA databases</li>
+<li>Pharmacogenomics (how genetic variants affect drug metabolism, efficacy, toxicity)
+    &gt; <strong>Search first:</strong> PharmGKB, CPIC (Clinical Pharmacogenetics), FDA Table of PGx Biomarkers</li>
+<li><strong>Advanced Therapeutics</strong>:</li>
+<li>Gene therapy (viral vectors, CRISPR, gene replacement, gene editing)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA gene therapy database, ASGCT resources</li>
+<li>Cell therapy (stem cell transplant, CAR-T, cellular therapeutics)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA cell therapy database, FACT standards</li>
+<li>RNA-based therapies (ASOs, siRNA, mRNA therapies)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA approvals, PubMed</li>
+<li>Targeted therapies (treatments directed at specific molecular targets)
+    &gt; <strong>Search first:</strong> My Cancer Genome, OncoKB, ClinicalTrials.gov, FDA approvals</li>
+<li>Immunotherapies (checkpoint inhibitors, monoclonal antibodies)
+    &gt; <strong>Search first:</strong> Cancer Immunotherapy Database, FDA approvals, ClinicalTrials.gov</li>
+<li><strong>Surgical and Interventional</strong>:</li>
+<li>Surgical interventions (types of surgery, timing, outcomes)
+    &gt; <strong>Search first:</strong> CPT codes, surgical registries, clinical guidelines, PubMed</li>
+<li><strong>Supportive and Rehabilitative</strong>:</li>
+<li>Supportive care (symptom management, pain control, nutrition)
+    &gt; <strong>Search first:</strong> Clinical guidelines, Cochrane Library, PubMed</li>
+<li>Rehabilitation (physical therapy, occupational therapy, speech therapy)
+    &gt; <strong>Search first:</strong> Rehabilitation medicine databases, clinical guidelines, PubMed</li>
+<li><strong>Experimental</strong>:</li>
+<li>Experimental treatments in clinical trials (with NCT identifiers if available)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, EU Clinical Trials Register, WHO ICTRP</li>
+<li><strong>Treatment Outcomes</strong>:</li>
+<li>Treatment response rates
+    &gt; <strong>Search first:</strong> Clinical trial databases, FDA reviews, systematic reviews, PubMed</li>
+<li>Side effects and adverse events
+    &gt; <strong>Search first:</strong> FDA Adverse Event Reporting System (FAERS), MedWatch, PubMed</li>
+<li><strong>Treatment Strategy</strong>:</li>
+<li>Treatment algorithms (clinical pathways, decision trees)
+    &gt; <strong>Search first:</strong> Clinical practice guidelines, NCCN Guidelines, UpToDate</li>
+<li>Combination therapies
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, treatment guidelines, PubMed</li>
+<li>Personalized medicine approaches (genotype-guided treatment)
+    &gt; <strong>Search first:</strong> My Cancer Genome, CIViC, PharmGKB, precision medicine databases</li>
+</ul>
+<p>For each treatment, suggest MAXO (Medical Action Ontology) terms where applicable.</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Prevention Levels</strong>:</li>
+<li>Primary prevention (preventing disease occurrence: vaccination, risk factor modification)
+    &gt; <strong>Search first:</strong> CDC, WHO, USPSTF recommendations, Cochrane Library</li>
+<li>Secondary prevention (early detection and treatment: screening programs, early intervention)
+    &gt; <strong>Search first:</strong> USPSTF, CDC screening guidelines, WHO</li>
+<li>Tertiary prevention (preventing complications in those with disease)
+    &gt; <strong>Search first:</strong> Clinical guidelines, disease management protocols, PubMed</li>
+<li><strong>Immunization</strong>: Vaccine strategies (if applicable)<blockquote>
+<p><strong>Search first:</strong> CDC vaccine schedules, WHO immunization, FDA vaccine database</p>
+</blockquote>
+</li>
+<li><strong>Screening and Early Detection</strong>:</li>
+<li>Screening programs (population-based: newborn screening, cancer screening)
+    &gt; <strong>Search first:</strong> CDC screening programs, USPSTF, cancer screening databases</li>
+<li>Genetic screening (carrier screening, preimplantation genetic diagnosis, prenatal testing)
+    &gt; <strong>Search first:</strong> ACMG recommendations, ACOG guidelines, GTR</li>
+<li>Risk stratification (identifying high-risk individuals for targeted prevention)
+    &gt; <strong>Search first:</strong> Risk prediction models, clinical calculators, PubMed</li>
+<li><strong>Behavioral Interventions</strong>: Lifestyle modifications to reduce risk<blockquote>
+<p><strong>Search first:</strong> CDC, WHO, behavioral intervention databases, Cochrane Library</p>
+</blockquote>
+</li>
+<li><strong>Counseling</strong>: Genetic counseling (risk assessment, family planning guidance)<blockquote>
+<p><strong>Search first:</strong> NSGC resources, ACMG guidelines, GeneReviews</p>
+</blockquote>
+</li>
+<li><strong>Public Health</strong>:</li>
+<li>Public health interventions (sanitation, vector control, health education)
+    &gt; <strong>Search first:</strong> CDC, WHO, public health databases, PubMed</li>
+<li>Environmental interventions (reducing environmental risk factors)
+    &gt; <strong>Search first:</strong> EPA databases, WHO environmental health, PubMed</li>
+<li><strong>Prophylaxis</strong>: Preventive medications or procedures<blockquote>
+<p><strong>Search first:</strong> Clinical guidelines, FDA approvals, PubMed</p>
+</blockquote>
+</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy</strong>: Species affected (with NCBI Taxon identifiers)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy</p>
+</blockquote>
+</li>
+<li><strong>Breed</strong>: Specific breeds affected (with VBO identifiers if applicable)<blockquote>
+<p><strong>Search first:</strong> VBO (Vertebrate Breed Ontology)</p>
+</blockquote>
+</li>
+<li><strong>Gene</strong>: Orthologous genes in other species (with NCBI Gene IDs)<blockquote>
+<p><strong>Search first:</strong> NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Natural Disease</strong>:</li>
+<li>Naturally occurring disease in other species (companion animals, wildlife)
+    &gt; <strong>Search first:</strong> OMIA (Online Mendelian Inheritance in Animals), VetCompass, PubMed</li>
+<li>Veterinary relevance and importance in animal health
+    &gt; <strong>Search first:</strong> OMIA, veterinary databases, PubMed</li>
+<li><strong>Comparative Biology</strong>:</li>
+<li>Comparative pathology (similarities and differences across species)
+    &gt; <strong>Search first:</strong> OMIA, comparative pathology databases, PubMed</li>
+<li>Evolutionary conservation of disease mechanisms
+    &gt; <strong>Search first:</strong> HomoloGene, OrthoMCL, Alliance of Genome Resources</li>
+<li><strong>Transmission</strong> (if applicable):</li>
+<li>Zoonotic potential
+    &gt; <strong>Search first:</strong> CDC zoonotic diseases, WHO zoonoses, GIDEON</li>
+<li>Cross-species susceptibility
+    &gt; <strong>Search first:</strong> NCBI Taxonomy, veterinary databases, PubMed</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Model Types</strong>:</li>
+<li>Model organism type (mammalian, invertebrate, cellular, in vitro)
+    &gt; <strong>Search first:</strong> Alliance of Genome Resources, model organism databases</li>
+<li>Specific model systems (mouse, rat, zebrafish, Drosophila, C. elegans, yeast, cell lines, organoids, iPSCs)
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, SGD, ATCC, Cellosaurus</li>
+<li>Induced models (drug treatment, surgical intervention, environmental manipulation)
+    &gt; <strong>Search first:</strong> MGI, model organism databases, PubMed</li>
+<li><strong>Genetic Models</strong>:</li>
+<li>Types available (knockout, knock-in, transgenic, conditional, humanized)
+    &gt; <strong>Search first:</strong> MGI, IMPC, KOMP, EuMMCR, IMSR</li>
+<li><strong>Model Characteristics</strong>:</li>
+<li>Phenotype recapitulation (how well model reproduces human disease features)
+    &gt; <strong>Search first:</strong> Model organism databases, comparative studies, PubMed</li>
+<li>Model limitations (aspects of human disease not captured)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed, review articles</li>
+<li><strong>Applications</strong>:</li>
+<li>Research applications (what aspects of disease can be studied)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed</li>
+<li><strong>Resources</strong>:</li>
+<li>Model databases
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, IMSR, EMMA, MMRRC</li>
+</ul>
+<hr />
+<h2>Citation Requirements</h2>
+<ul>
+<li>Cite primary literature (PMID preferred) for all mechanistic and clinical claims</li>
+<li>Prioritize recent reviews and landmark papers</li>
+<li>Include direct quotes from abstracts where possible to support key statements</li>
+<li>Distinguish evidence source types: human clinical, model organism, in vitro, computational</li>
+</ul>
+<h2>Output Format</h2>
+<p>Structure your response as a comprehensive narrative organized by the sections above.
+For each section, provide:
+- Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
+- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, MAXO, MONDO) where applicable
+- Evidence citations with PMIDs
+- Direct quotes from abstracts to support key claims
+- Clear indication when information is not available or not applicable for this disease</p>
+<p>This report will be used to populate a disease knowledge base entry with:
+- Pathophysiology descriptions with causal chains
+- Gene/protein annotations (HGNC, GO terms)
+- Phenotype associations (HP terms) with frequencies
+- Cell type involvement (CL terms)
+- Anatomical locations (UBERON terms)
+- Chemical entities (CHEBI terms)
+- Treatment annotations (MAXO terms)
+- Evidence items with PMIDs and exact abstract quotes
+- Epidemiology, prognosis, diagnostic, and prevention information
+- Animal model descriptions with phenotype recapitulation details</p>
+<h2>Comprehensive Research Report: CKD–Mineral and Bone Disorder (CKD-MBD)</h2>
+<h3>Executive summary</h3>
+<p>Chronic kidney disease–mineral and bone disorder (CKD-MBD) is a <strong>systemic syndrome</strong> arising in CKD characterized by <strong>biochemical abnormalities (Ca–P–PTH–vitamin D/FGF23 axis), bone disease (renal osteodystrophy), and vascular/soft-tissue calcification</strong>, contributing to fractures and high cardiovascular morbidity/mortality. Recent 2023–2024 literature emphasizes (i) the <strong>bone–vascular axis</strong> and osteocyte/vascular transdifferentiation biology, (ii) <strong>real-world gaps</strong> in biomarker availability (FGF23/Klotho/CPP), and (iii) <strong>emerging markers</strong> (calciprotein particles, T50) and data-science/AI approaches for personalization. (williams2023updatesinthe pages 1-2, fusaro2024realworldusageof pages 1-3, lederer2024applicationofartificial pages 1-3, feenstra2024calciproteinparticlecounts pages 1-2)</p>
+<hr />
+<h2>1. Disease information</h2>
+<h3>1.1 What is CKD-MBD?</h3>
+<p>Recent authoritative definitions converge on CKD-MBD as a systemic syndrome linking mineral dysregulation to bone and cardiovascular pathology. A CKJ 2024 AI-focused review defines CKD-MBD as: <strong>“the collective skeletal and cardiovascular organ damage resulting from the deranged mineral metabolism that complicates CKD.”</strong> (https://doi.org/10.1093/ckj/sfae143; advance publication June 2024) (lederer2024applicationofartificial pages 1-3)</p>
+<p>A 2024 Clinical Kidney Journal survey paper states: <strong>“Chronic kidney disease mineral bone disorder (CKD-MBD) is a condition characterized by alterations of calcium, phosphate, parathyroid hormone (PTH), and fibroblast growth factor 23 (FGF-23) metabolism that in turn promote bone disorders, vascular calcifications, and increase cardiovascular (CV) risk.”</strong> (https://doi.org/10.1093/ckj/sfad290; published 2024) (fusaro2024realworldusageof pages 1-3)</p>
+<p>A 2024 overview emphasizes the broader systemic scope: CKD-MBD involves <strong>dysregulation of bone turnover/mineralization/strength</strong> with <strong>soft-tissue and vascular calcification</strong>, driven by disturbances in calcium, phosphate, PTH, vitamin D, FGF-23, and Klotho that occur <strong>early in CKD</strong>. (https://doi.org/10.3390/life14030418; March 2024) (izzo2024chronickidneydisease pages 1-2, izzo2024chronickidneydisease pages 2-4)</p>
+<h3>1.2 Key identifiers and codes</h3>
+<p>A single, definitive ontology/ICD code set for CKD-MBD was <strong>not retrieved in the current evidence corpus</strong>, and should not be guessed. The corpus supports standard naming, synonyms, and related component terms (renal osteodystrophy). See artifact below. (ketteler2017executivesummaryof pages 4-5, fusaro2024realworldusageof pages 1-3)</p>
+<table>
+<thead>
+<tr>
+<th>Concept (identifier type)</th>
+<th>Identifier/Code</th>
+<th>Label</th>
+<th>Notes/Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Preferred disease name</td>
+<td>—</td>
+<td>Chronic kidney disease–mineral and bone disorder (CKD-MBD)</td>
+<td>KDIGO 2017 and recent reviews use CKD-MBD as the standard term for the systemic disorder of mineral and bone metabolism due to CKD (https://doi.org/10.1016/j.kint.2017.04.006, 2017; https://doi.org/10.1093/ckj/sfad290, 2024; https://doi.org/10.1093/ckj/sfae143, 2024) (ketteler2017executivesummaryof pages 4-5, fusaro2024realworldusageof pages 1-3, lederer2024applicationofartificial pages 1-3)</td>
+</tr>
+<tr>
+<td>Core definition</td>
+<td>—</td>
+<td>Systemic disorder of mineral and bone metabolism due to CKD</td>
+<td>KDIGO-linked review states CKD-MBD is “defined as a systemic disorder of mineral and bone metabolism due to CKD” manifested by abnormalities of calcium, phosphorus, PTH, or vitamin D metabolism; abnormalities in bone turnover/mineralization/volume/growth/strength; and vascular or other soft-tissue calcification (Bone Reports review summarizing KDIGO; https://doi.org/10.1016/j.bonr.2018.07.002, 2018). Recent reviews restate this as a complex disorder linking mineral dysregulation, bone disease, and vascular calcification (https://doi.org/10.3390/life14030418, 2024; https://doi.org/10.1093/ckj/sfae143, 2024) (izzo2024chronickidneydisease pages 1-2, lederer2024applicationofartificial pages 1-3)</td>
+</tr>
+<tr>
+<td>Abbreviation</td>
+<td>—</td>
+<td>CKD-MBD</td>
+<td>Widely used abbreviation in guideline and review literature (https://doi.org/10.1016/j.kint.2017.04.006, 2017; https://doi.org/10.1093/ckj/sfad290, 2024) (ketteler2017executivesummaryof pages 4-5, fusaro2024realworldusageof pages 1-3)</td>
+</tr>
+<tr>
+<td>Related component term</td>
+<td>—</td>
+<td>Renal osteodystrophy</td>
+<td>KDIGO executive summary clarifies renal osteodystrophy is one component of CKD-MBD and refers specifically to “abnormal bone histology,” not the entire syndrome (https://doi.org/10.1016/j.kint.2017.04.006, 2017) (ketteler2017executivesummaryof pages 4-5)</td>
+</tr>
+<tr>
+<td>Common synonym/near-synonym</td>
+<td>—</td>
+<td>CKD-related mineral and bone disorder</td>
+<td>Used interchangeably in some reviews, but CKD-MBD remains preferred standard nomenclature (https://doi.org/10.1093/ckj/sfae143, 2024; https://doi.org/10.3390/jcm12196306, 2023) (lederer2024applicationofartificial pages 1-3, fusaro2023currentandemerging pages 5-6)</td>
+</tr>
+<tr>
+<td>Common synonym/near-synonym</td>
+<td>—</td>
+<td>Mineral and bone disorder in chronic kidney disease</td>
+<td>Plain-language inversion of CKD-MBD used in reviews/surveys; same syndrome (https://doi.org/10.1093/ckj/sfad290, 2024; https://doi.org/10.3390/life14030418, 2024) (fusaro2024realworldusageof pages 1-3, izzo2024chronickidneydisease pages 1-2)</td>
+</tr>
+<tr>
+<td>Related pathobiology phrase</td>
+<td>—</td>
+<td>Bone–vascular axis / bone–vascular paradox</td>
+<td>Not a synonym for the disease itself, but a mechanistic framing commonly used for CKD-MBD linking low bone turnover/remodeling abnormalities with vascular calcification (https://doi.org/10.3389/fphys.2023.1120308, 2023; https://doi.org/10.3390/life14030418, 2024) (williams2023updatesinthe pages 1-2, izzo2024chronickidneydisease pages 1-2)</td>
+</tr>
+<tr>
+<td>MONDO</td>
+<td>not retrieved in current corpus</td>
+<td>—</td>
+<td>No MONDO identifier was available in the retrieved evidence corpus; should not be guessed (fusaro2024realworldusageof pages 1-3, ketteler2017executivesummaryof pages 4-5)</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>not retrieved in current corpus</td>
+<td>—</td>
+<td>No MeSH identifier for CKD-MBD was directly retrieved in the current evidence corpus; related historical indexing may use broader bone/kidney disorder terms, but not confirmed here (fusaro2024realworldusageof pages 1-3, ketteler2017executivesummaryof pages 4-5)</td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td>not retrieved in current corpus</td>
+<td>—</td>
+<td>No single ICD-10 code for CKD-MBD was directly retrieved in the current corpus; syndrome is typically represented across CKD, mineral metabolism, bone disorder, and hyperparathyroidism coding domains rather than a single dedicated code (not confirmed from current evidence) (fusaro2024realworldusageof pages 1-3, izzo2024chronickidneydisease pages 1-2)</td>
+</tr>
+<tr>
+<td>ICD-11</td>
+<td>not retrieved in current corpus</td>
+<td>—</td>
+<td>No directly retrieved ICD-11 identifier in the current corpus (fusaro2024realworldusageof pages 1-3, izzo2024chronickidneydisease pages 1-2)</td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td>not retrieved in current corpus</td>
+<td>—</td>
+<td>No OMIM entry was retrieved; CKD-MBD is a complex acquired syndrome rather than a single-gene Mendelian disease entity in the reviewed sources (izzo2024chronickidneydisease pages 1-2, lederer2024applicationofartificial pages 1-3)</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td>not retrieved in current corpus</td>
+<td>—</td>
+<td>No Orphanet identifier was retrieved in the current evidence corpus (fusaro2024realworldusageof pages 1-3)</td>
+</tr>
+<tr>
+<td>Evidence source type</td>
+<td>—</td>
+<td>Aggregated disease-level resource and cohort/review literature</td>
+<td>Information here is derived from disease-level guidelines/reviews and clinical cohorts/surveys rather than individual-patient EHR extraction alone (KDIGO 2017 guideline/update; Italian nephrologist survey; recent reviews) (https://doi.org/10.1016/j.kint.2017.04.006, 2017; https://doi.org/10.1093/ckj/sfad290, 2024; https://doi.org/10.3390/life14030418, 2024) (ketteler2017executivesummaryof pages 4-5, fusaro2024realworldusageof pages 1-3, izzo2024chronickidneydisease pages 1-2)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes the core disease definition, standard terminology, related terms, and identifier availability for CKD-MBD using only the retrieved evidence corpus. It is useful for populating a knowledge-base entry while clearly marking identifiers that were not directly retrieved.</em></p>
+<h3>1.3 Synonyms and alternative names</h3>
+<p>Commonly used alternatives include “mineral and bone disorder in chronic kidney disease,” “CKD-related mineral and bone disorder,” and the component term “renal osteodystrophy” (a bone histology entity within CKD-MBD). (ketteler2017executivesummaryof pages 4-5, fusaro2024realworldusageof pages 1-3)</p>
+<h3>1.4 Evidence source type</h3>
+<p>Information here is derived primarily from <strong>aggregated disease-level guidelines/reviews and cohorts/surveys</strong> (KDIGO guideline update, observational cohorts, biomarker trials), not individual-patient EHR extraction. (wheeler2017kdigo2017clinical pages 13-16, neri2019detectinghighriskchronic pages 1-2, thiem2023effectofthe pages 1-3)</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>2.1 Disease causal factors (mechanistic)</h3>
+<p>CKD-MBD is an <strong>acquired, CKD-driven systemic syndrome</strong> caused by reduced kidney function leading to disturbed phosphate excretion, impaired vitamin D activation, altered calcium homeostasis, endocrine adaptations (PTH/FGF23), and downstream bone remodeling abnormalities and calcification biology. Reviews highlight that <strong>phosphate stress</strong> is central (“phosphorocentric hypothesis”), with feedback actors including vitamin D, PTH, CPPs, FGF-23 and Klotho. (https://doi.org/10.1111/nep.14407; Oct 2024) (izzo2024chronickidneydisease pages 2-4)</p>
+<h3>2.2 Risk factors</h3>
+<p>Evidence from a large CKD cohort (CRIC) indicates multiple modifiable and CKD-related factors are associated with hip/vertebral fractures. In 3939 participants, baseline <strong>diabetes, lower BMI, steroid use, proteinuria, and elevated PTH</strong> were associated with fracture risk; time-updated <strong>lower eGFR, lower serum calcium, and lower bicarbonate</strong> were also associated. (https://doi.org/10.1093/jbmr/zjae021; advance access Feb 4, 2024) (hsu2024riskfactorsfor pages 1-2)</p>
+<p>In dialysis populations, combinations of Ca/P/PTH abnormalities define high-risk CKD-MBD phenotypes with increased mortality and hospitalization, consistent with CKD-MBD as a risk-enrichment syndrome. (neri2019detectinghighriskchronic pages 1-2, fuller2020combinationsofmineral pages 1-2)</p>
+<h3>2.3 Protective factors</h3>
+<p>Protective factors are incompletely defined in the retrieved corpus. One recent systematic review/meta-analysis suggests <strong>physical exercise</strong> may beneficially modulate the <strong>Klotho–FGF23 axis</strong>, reporting decreased FGF23 and increased Klotho in pooled RCT data (though this pertains to CKD broadly and is not limited to CKD-MBD endpoints). (https://doi.org/10.7150/ijms.90195; Jan 2024) (simic2024boneandbone pages 1-2)</p>
+<h3>2.4 Gene–environment interactions</h3>
+<p>Not retrieved in current corpus at a specificity appropriate for CKD-MBD knowledge base annotation.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>3.1 Core phenotype domains</h3>
+<p>CKD-MBD phenotypes cluster into:
+1) <strong>Laboratory abnormalities</strong>: hyperphosphatemia (or phosphate stress), hypocalcemia/hypercalcemia, elevated iPTH, low active vitamin D, elevated FGF23, Klotho deficiency (often investigational). (lederer2024applicationofartificial pages 1-3, izzo2024chronickidneydisease pages 2-4, fusaro2024realworldusageof pages 1-3)
+2) <strong>Skeletal abnormalities / renal osteodystrophy</strong> (bone turnover/mineralization/strength). (izzo2024chronickidneydisease pages 1-2, ketteler2017executivesummaryof pages 4-5)
+3) <strong>Vascular and soft-tissue calcification</strong> and related cardiovascular sequelae. (izzo2024chronickidneydisease pages 1-2, williams2023updatesinthe pages 1-2)</p>
+<h3>3.2 Quantitative clinical phenotype data (fracture outcomes)</h3>
+<p>In CRIC (n=3939), fracture incidence for hip/vertebral fractures was <strong>2.4 events per 1000 person-years</strong> (95% CI 2.0–2.9) over mean 11.1 years; fracture hazard was highest in <strong>kidney failure treated with dialysis</strong> vs eGFR≥60 (HR 4.53; 95% CI 1.77–11.60). (hsu2024riskfactorsfor pages 1-2)</p>
+<h3>3.3 Quality-of-life impact</h3>
+<p>Direct QoL instrument statistics (e.g., EQ-5D, PROMIS) were not retrieved in the current corpus; however, fractures and cardiovascular disease are consistently identified as major morbidity drivers in CKD-MBD reviews and cohorts. (simic2024boneandbone pages 1-2, neri2019detectinghighriskchronic pages 1-2)</p>
+<h3>3.4 HPO term suggestions (non-exhaustive; ontology IDs not validated in corpus)</h3>
+<p>Not retrieved in current corpus; should be mapped during curation using validated HPO resources. Phenotypic concepts to map include: hyperparathyroidism, hyperphosphatemia, hypocalcemia/hypercalcemia, vitamin D deficiency, renal osteodystrophy, osteoporosis/low bone mineral density, vascular calcification.</p>
+<hr />
+<h2>4. Genetic / molecular information</h2>
+<h3>4.1 Causal genes and pathogenic variants</h3>
+<p>CKD-MBD is primarily a <strong>complex acquired syndrome</strong> secondary to CKD rather than a Mendelian disorder; no causal gene/variant lists were retrieved in the current corpus. (izzo2024chronickidneydisease pages 1-2, lederer2024applicationofartificial pages 1-3)</p>
+<h3>4.2 Key molecular mediators emphasized in 2023–2024 literature</h3>
+<p>Key endocrine and signaling mediators include:
+- <strong>PTH</strong> and parathyroid hyperplasia in secondary hyperparathyroidism (SHPT), linked to fractures and mortality in advanced CKD. (https://doi.org/10.3803/enm.2024.1978; June 2024) (simic2024boneandbone pages 1-2)
+- <strong>FGF23–Klotho axis</strong> as a phosphate/vitamin D regulator and potential mediator of off-target organ effects (causality for outcomes remains under investigation). (simic2024boneandbone pages 1-2)
+- <strong>Wnt signaling / sclerostin (SOST)</strong> framing the bone–vascular paradox; vascular-derived sclerostin may function as a brake on Wnt-driven calcification, complicating therapeutic inhibition strategies. The 2023 update review states: <strong>“inhibition of sclerostin activity by a monoclonal antibody improved bone remodeling as expected, but stimulated vascular calcification”</strong>, arguing that a better target is reducing vascular osteoblastic/osteocytic transdifferentiation. (https://doi.org/10.3389/fphys.2023.1120308; Jan 2023) (williams2023updatesinthe pages 1-2)</p>
+<h3>4.3 Suggested GO / CL terms</h3>
+<p>Ontology term IDs were not retrieved in the corpus; however, mechanistic processes supported here include endothelial activation, inflammation, extracellular matrix remodeling, ossification, and osteogenic transdifferentiation of vascular smooth muscle cells. (feenstra2024calciproteinparticlecounts pages 1-2, williams2023updatesinthe pages 1-2)</p>
+<hr />
+<h2>5. Environmental information</h2>
+<h3>5.1 Lifestyle / nutrition</h3>
+<p>The corpus emphasizes phosphate loading and calcium load as contributors to vascular calcification biology, but does not provide detailed exposure-response estimates for lifestyle factors.</p>
+<h3>5.2 Exercise as a potential modifier</h3>
+<p>A 2024 meta-analysis of 4 RCTs (n=272) reported exercise decreased FGF23 (MD −102.07 pg/mL; p=0.001) and increased Klotho (MD 158.82 pg/mL; p=0.001). (simic2024boneandbone pages 1-2)</p>
+<hr />
+<h2>6. Mechanism / pathophysiology</h2>
+<h3>6.1 Causal chain (simplified)</h3>
+<p><strong>Declining kidney function</strong> → phosphate retention/phosphate stress → compensatory endocrine changes (<strong>↑FGF23</strong>, <strong>↑PTH</strong>, <strong>↓calcitriol</strong>) and altered calcium balance → disturbed bone remodeling/turnover (renal osteodystrophy; osteoporosis phenotypes) and generation of <strong>calciprotein particles (CPP)</strong> → vascular smooth muscle cell osteogenic programming, endothelial activation/inflammation/ECM remodeling → <strong>vascular calcification</strong> and cardiovascular complications, contributing to mortality. This integrated, systemic framing is emphasized in 2023–2024 literature. (izzo2024chronickidneydisease pages 2-4, izzo2024chronickidneydisease pages 1-2, feenstra2024calciproteinparticlecounts pages 1-2)</p>
+<h3>6.2 Vascular calcification and CPP biology (2023–2024 developments)</h3>
+<p>A 2024 Cardiovascular Research study linking imaging, vascular transcriptomics and CPP measures reports that CKD is characterized by systemic vascular calcification with increased calcification propensity and CPP counts, and vascular tissue shows enrichment of <strong>“endothelial activation, inflammation, extracellular matrix (ECM) remodelling, and ossification”</strong> processes; CPP counts were significantly associated with vascular remodeling markers. (https://doi.org/10.1093/cvr/cvae164; online ahead Aug 5, 2024) (feenstra2024calciproteinparticlecounts pages 1-2)</p>
+<p>Mechanistic-interventional evidence in dialysis patients supports CPP reduction as a plausible therapeutic axis: in a randomized crossover secondary analysis (n=28), high-dose sucroferric oxyhydroxide reduced primary CPP by <strong>−62%</strong> and secondary CPP by <strong>−38%</strong> versus washout, and reduced inflammatory cytokines (including IL-6 and IL-8); serum from treated patients induced less vascular calcification and endothelial activation in vitro. (https://doi.org/10.1093/ndt/gfac271; NDT 2023) (thiem2023effectofthe pages 1-3)</p>
+<h3>6.3 AI and systems modeling (2024)</h3>
+<p>A 2024 CKJ review argues that guideline-era therapies targeting surrogate biochemical targets have not changed cardiovascular outcomes and proposes a combined mathematical modeling + machine learning approach for hypothesis generation, in-silico trials, and therapy personalization. It reiterates the biochemical signature as <strong>“high serum phosphate, low calcium, high parathyroid hormone (PTH), low active vitamin D (calcitriol), and high fibroblast growth factor 23 (FGF23).”</strong> (https://doi.org/10.1093/ckj/sfae143; June 2024) (lederer2024applicationofartificial pages 1-3)</p>
+<hr />
+<h2>7. Anatomical structures affected</h2>
+<h3>7.1 Organ level (supported in corpus)</h3>
+<ul>
+<li><strong>Bone/skeleton</strong> (renal osteodystrophy; osteoporosis phenotype) (izzo2024chronickidneydisease pages 1-2, ketteler2017executivesummaryof pages 4-5)</li>
+<li><strong>Vasculature</strong> (arterial media calcification; remodeling) (feenstra2024calciproteinparticlecounts pages 1-2, izzo2024chronickidneydisease pages 1-2)</li>
+<li><strong>Cardiovascular system</strong> (CVD risk and mortality association emphasized) (williams2023updatesinthe pages 1-2, izzo2024chronickidneydisease pages 1-2)</li>
+</ul>
+<h3>7.2 Tissue/cell level</h3>
+<ul>
+<li><strong>Vascular smooth muscle cells (VSMCs)</strong> undergoing osteogenic transdifferentiation in uremic milieu (review framing). (izzo2024chronickidneydisease pages 1-2)</li>
+<li>Vascular tissues exhibit transcriptomic enrichment for endothelial activation/inflammation/ECM remodeling/ossification. (feenstra2024calciproteinparticlecounts pages 1-2)</li>
+</ul>
+<h3>7.3 UBERON / CL suggestions</h3>
+<p>Ontology IDs not retrieved; map bone tissue, arterial media, VSMCs, endothelial cells during curation.</p>
+<hr />
+<h2>8. Temporal development</h2>
+<h3>8.1 Onset and progression</h3>
+<p>Biochemical perturbations and endocrine adaptations can occur early (often from CKD stage 3) and progress with declining eGFR; bone and vascular complications accumulate, with highest fracture hazard observed in kidney failure/dialysis populations. (izzo2024chronickidneydisease pages 2-4, hsu2024riskfactorsfor pages 1-2)</p>
+<hr />
+<h2>9. Inheritance and population</h2>
+<h3>9.1 Epidemiology (CKD burden)</h3>
+<p>A 2024 overview summarizes global CKD burden as <strong>697.5 million affected worldwide</strong>, <strong>35.8 million DALYs</strong>, and <strong>1.2 million deaths in 2017</strong>, with CKD mortality increasing <strong>41.5%</strong> from 1990 to 2017. (https://doi.org/10.3390/life14030418; 2024) (izzo2024chronickidneydisease pages 1-2)</p>
+<h3>9.2 CKD-MBD population-risk statistics from cohorts</h3>
+<p>In a 35,721-patient international dialysis cohort (EuCliD), there were <strong>126.7 deaths/1000 person-years</strong> and CKD-MBD phenotype-specific adjusted mortality HRs ranged <strong>1.07 to 1.59</strong> across Ca/P/PTH phenotype combinations. (neri2019detectinghighriskchronic pages 1-2)</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>10.1 Standard biochemical testing and monitoring (KDIGO 2017)</h3>
+<p>KDIGO 2017 recommends <strong>monitoring serum calcium, phosphate, PTH, and alkaline phosphatase starting in CKD G3a</strong>, and optionally measuring 25(OH)D with correction of deficiency/insufficiency per general-population strategies. Suggested monitoring frequencies are stage-based (see table image citation and details below). (wheeler2017kdigo2017clinical pages 13-16, wheeler2017kdigo2017clinical media ed681c34)</p>
+<p><strong>Visual evidence (KDIGO monitoring frequency table/summary):</strong> (wheeler2017kdigo2017clinical media ed681c34)</p>
+<p>KDIGO suggested monitoring intervals (adult CKD) include:
+- <strong>CKD G3a–G3b:</strong> Ca and phosphate every <strong>6–12 months</strong>; PTH based on baseline and progression.
+- <strong>CKD G4:</strong> Ca and phosphate every <strong>3–6 months</strong>; PTH every <strong>6–12 months</strong>.
+- <strong>CKD G5/G5D:</strong> Ca and phosphate every <strong>1–3 months</strong>; PTH every <strong>3–6 months</strong>.
+- <strong>CKD G4–G5D:</strong> alkaline phosphatase every <strong>12 months</strong> (more often if PTH elevated).
+- <strong>25(OH)D:</strong> “might be measured” with repeat testing based on baseline and interventions.
+(wheeler2017kdigo2017clinical pages 13-16, wheeler2017kdigo2017clinical media ed681c34)</p>
+<h3>10.2 Bone and vascular imaging tools</h3>
+<p>The 2024 overview notes multiple approaches for vascular calcification detection (e.g., lateral plain X-ray, Kauppila and Adragao scores, pulse wave velocity, and pQCT). (izzo2024chronickidneydisease pages 1-2)</p>
+<h3>10.3 Emerging markers/tools</h3>
+<p>A 2023 review on non-dialysis CKD highlights a need for additional markers beyond late-stage dialysis practice and discusses emerging markers including CPP/T50 approaches in CKD-MBD management contexts. (https://doi.org/10.3390/jcm12196306; Sep 2023) (fusaro2023currentandemerging pages 5-6)</p>
+<h3>10.4 Real-world implementation of diagnostic testing (2024)</h3>
+<p>A 2024 Italian survey (n=106 nephrologists) provides a real-world snapshot of biomarker availability and guideline use:
+- Hospital labs could support requests for <strong>ionized calcium</strong> (99.1%), <strong>PTH</strong> (99.1%), <strong>ALP</strong> (99.1%), <strong>25(OH)D</strong> (94.3%), but only <strong>1,25(OH)2D</strong> (57.5%).
+- Most labs did <strong>not</strong> support <strong>FGF-23</strong> (intact 88.7% unavailable; C-terminal 93.4% unavailable) or <strong>Klotho</strong> (95.3% unavailable; soluble 97.2% unavailable).
+- Guideline usage for starting SHPT therapy varied: <strong>KDOQI</strong> used by 51.9% vs <strong>KDIGO</strong> by 37.7%.
+(https://doi.org/10.1093/ckj/sfad290; 2024) (fusaro2024realworldusageof pages 1-3)</p>
+<table>
+<thead>
+<tr>
+<th>Biomarker (CHEBI/protein where applicable)</th>
+<th>What it reflects in CKD-MBD</th>
+<th>KDIGO 2017 monitoring recommendation</th>
+<th>Common real-world availability / implementation notes</th>
+<th>Key evidence citation (URL/year)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Calcium (ionized/serum calcium; CHEBI:29108)</td>
+<td>Core mineral homeostasis abnormality; tends to decrease with CKD progression, and both hypo- and hypercalcemia are linked with CKD progression and higher cardiovascular mortality; integrated with phosphate and PTH for treatment decisions (izzo2024chronickidneydisease pages 2-4, wheeler2017kdigo2017clinical pages 16-18)</td>
+<td>Monitor from CKD G3a onward. Suggested intervals: G3a–G3b every 6–12 mo; G4 every 3–6 mo; G5/G5D every 1–3 mo. Use serial assessments of phosphate, calcium, and PTH together rather than single values (wheeler2017kdigo2017clinical pages 13-16, wheeler2017kdigo2017clinical pages 16-18, wheeler2017kdigo2017clinical media ed681c34)</td>
+<td>Italian survey: ionized calcium available in 99.1% of hospital laboratories; widely implemented routine biomarker (fusaro2024realworldusageof pages 1-3)</td>
+<td>KDIGO update https://doi.org/10.1016/j.kint.2017.04.006 (2017); survey https://doi.org/10.1093/ckj/sfad290 (2024) (ketteler2017executivesummaryof pages 4-5, fusaro2024realworldusageof pages 1-3)</td>
+</tr>
+<tr>
+<td>Phosphate / phosphorus (CHEBI:18367)</td>
+<td>Phosphorocentric driver of CKD-MBD; linked to bone osteodystrophy, vascular calcification, CKD progression, ESKD, and all-cause/CV mortality; early compensatory rises in FGF23/PTH initially maintain normophosphatemia (izzo2024chronickidneydisease pages 2-4, izzo2024chronickidneydisease pages 1-2)</td>
+<td>Monitor from CKD G3a onward at same intervals as calcium: G3a–G3b every 6–12 mo; G4 every 3–6 mo; G5/G5D every 1–3 mo. Treatment should focus on progressively or persistently elevated phosphate and lower elevated phosphate toward the normal range; avoid phosphate loading (wheeler2017kdigo2017clinical pages 13-16, wheeler2017kdigo2017clinical pages 16-18, fusaro2023currentandemerging pages 5-6)</td>
+<td>Routine lab marker; widely available. In real-world practice, phosphate control is guideline-driven but implementation is heterogeneous; advanced CPP/T50 tools are not routine substitutes for serum phosphate (fusaro2024realworldusageof pages 1-3, fusaro2023currentandemerging pages 5-6)</td>
+<td>Review https://doi.org/10.1111/nep.14407 (2024); KDIGO https://doi.org/10.1016/j.kint.2017.04.006 (2017) (izzo2024chronickidneydisease pages 2-4, ketteler2017executivesummaryof pages 4-5)</td>
+</tr>
+<tr>
+<td>Intact PTH / parathyroid hormone (PTH; UniProt P01270)</td>
+<td>Central marker of secondary hyperparathyroidism and bone turnover disturbance; rises from CKD stage 3; associated with fractures, vascular events, and mortality in observational studies (izzo2024chronickidneydisease pages 2-4, fusaro2023currentandemerging pages 5-6)</td>
+<td>Monitor from CKD G3a onward. Suggested intervals: G3a–G3b based on baseline level and CKD progression; G4 every 6–12 mo; G5/G5D every 3–6 mo. In CKD G5D, maintain iPTH approximately 2–9× assay ULN and use trends rather than single measurements (wheeler2017kdigo2017clinical pages 13-16, wheeler2017kdigo2017clinical pages 16-18, fusaro2023currentandemerging pages 5-6)</td>
+<td>Italian survey: PTH available in 99.1% of hospital laboratories. Most clinicians used KDOQI (51.9%) vs KDIGO (37.7%) to start sHPT treatment, showing heterogeneous implementation (fusaro2024realworldusageof pages 1-3)</td>
+<td>Roles review https://doi.org/10.3803/enm.2024.1978 (2024); KDIGO https://doi.org/10.1016/j.kint.2017.04.006 (2017) (fusaro2024realworldusageof pages 1-3, ketteler2017executivesummaryof pages 4-5)</td>
+</tr>
+<tr>
+<td>Alkaline phosphatase, total and bone-specific if available (ALP; bone ALP/BSAP)</td>
+<td>Surrogate marker of bone turnover; bone-specific ALP can help evaluate turnover alongside PTH; treatment decisions should consider abnormal alkaline phosphatase among other CKD-MBD markers (ketteler2017executivesummaryof pages 4-5, wheeler2017kdigo2017clinical pages 13-16)</td>
+<td>Monitor alkaline phosphatase beginning in CKD G3a; suggested in G4–G5D every 12 mo, more often if PTH elevated. Serum PTH or bone-specific ALP may be used to evaluate bone disease because markedly high or low values predict underlying bone turnover (wheeler2017kdigo2017clinical pages 13-16)</td>
+<td>Italian survey: ALP available in 99.1% of laboratories; bone-specific assays were not specifically quantified, suggesting standard total ALP is the practical routine marker (fusaro2024realworldusageof pages 1-3)</td>
+<td>KDIGO guideline pages summarized in https://doi.org/10.1016/j.kint.2017.04.006 (2017); real-world survey https://doi.org/10.1093/ckj/sfad290 (2024) (wheeler2017kdigo2017clinical pages 13-16, fusaro2024realworldusageof pages 1-3)</td>
+</tr>
+<tr>
+<td>25-hydroxyvitamin D / 25(OH)D (calcidiol; CHEBI:28940)</td>
+<td>Nutritional vitamin D status; deficiency/insufficiency is common in CKD and contributes to CKD-MBD pathogenesis and SHPT (izzo2024chronickidneydisease pages 2-4)</td>
+<td>In CKD G3a–G5D, 25(OH)D levels may be measured; repeat testing should depend on baseline values and interventions. Correct deficiency/insufficiency as in the general population (wheeler2017kdigo2017clinical pages 13-16, wheeler2017kdigo2017clinical media ed681c34)</td>
+<td>Italian survey: 25(OH)D available in 94.3% of laboratories, supporting moderate-to-high real-world implementation (fusaro2024realworldusageof pages 1-3)</td>
+<td>Vitamin D review https://doi.org/10.32948/ajsep.2024.05.20 (2024); KDIGO update https://doi.org/10.1016/j.kint.2017.04.006 (2017) (fusaro2024realworldusageof pages 1-3, wheeler2017kdigo2017clinical pages 13-16)</td>
+</tr>
+<tr>
+<td>1,25-dihydroxyvitamin D / calcitriol (CHEBI:28934)</td>
+<td>Active vitamin D deficiency is part of the biochemical signature of CKD-MBD; suppressed early by rising FGF23 and reduced renal activation capacity, promoting SHPT and impaired mineral balance (lederer2024applicationofartificial pages 1-3, izzo2024chronickidneydisease pages 2-4)</td>
+<td>No routine stage-specific monitoring interval retrieved from KDIGO evidence here; KDIGO recommendations cited in retrieved reviews emphasize use of nutritional vitamin D in earlier CKD and reserving calcitriol/analogs for more advanced disease/SHPT rather than routine serial assay-based targeting (izzo2024chronickidneydisease pages 2-4, wheeler2017kdigo2017clinical pages 16-18)</td>
+<td>Italian survey: 1,25(OH)2D available in only 57.5% of laboratories, indicating substantially lower real-world availability than 25(OH)D (fusaro2024realworldusageof pages 1-3)</td>
+<td>AI review https://doi.org/10.1093/ckj/sfae143 (2024); survey https://doi.org/10.1093/ckj/sfad290 (2024) (lederer2024applicationofartificial pages 1-3, fusaro2024realworldusageof pages 1-3)</td>
+</tr>
+<tr>
+<td>FGF23 / fibroblast growth factor 23 (UniProt Q9GZV9)</td>
+<td>Early osteocyte-derived phosphaturic hormone; rises early in CKD, suppresses calcitriol, reflects phosphate stress, and is associated with mortality and vascular calcification severity in observational studies (izzo2024chronickidneydisease pages 2-4, simic2024boneandbone pages 1-2)</td>
+<td>Not part of standard KDIGO 2017 routine monitoring panel in retrieved text; considered an emerging/non-routine biomarker rather than a guideline-mandated serial test (wheeler2017kdigo2017clinical pages 13-16, fusaro2023currentandemerging pages 5-6)</td>
+<td>Italian survey: intact FGF23 unavailable in 88.7% of laboratories and C-terminal FGF23 unavailable in 93.4%, indicating poor routine implementation despite mechanistic importance (fusaro2024realworldusageof pages 1-3)</td>
+<td>FGF23/Klotho review https://doi.org/10.3803/enm.2024.1978 (2024); survey https://doi.org/10.1093/ckj/sfad290 (2024) (fusaro2024realworldusageof pages 1-3, simic2024boneandbone pages 1-2)</td>
+</tr>
+<tr>
+<td>Klotho / α-Klotho (UniProt Q9UEF7)</td>
+<td>Anti-aging co-receptor for FGF23; deficiency begins early in CKD and is linked to phosphate retention, FGF23 resistance, vascular calcification, and CKD-MBD progression (izzo2024chronickidneydisease pages 2-4, simic2024boneandbone pages 1-2)</td>
+<td>No KDIGO 2017 routine monitoring recommendation retrieved; currently investigational/controversial as a biomarker because assays and standardization remain limited (wheeler2017kdigo2017clinical pages 13-16, simic2024boneandbone pages 1-2)</td>
+<td>Italian survey: Klotho unavailable in 95.3% of labs and soluble Klotho unavailable in 97.2%, showing minimal clinical implementation (fusaro2024realworldusageof pages 1-3)</td>
+<td>Klotho meta-analysis https://doi.org/10.1038/s41598-024-54812-4 (2024); survey https://doi.org/10.1093/ckj/sfad290 (2024) (fusaro2024realworldusageof pages 1-3, simic2024boneandbone pages 1-2)</td>
+</tr>
+<tr>
+<td>Calciprotein particles / calcification propensity T50 (CPPs/T50; mineral-protein nanoparticles, not a single CHEBI entity)</td>
+<td>Emerging markers of phosphate toxicity and mineral buffering; higher CPP burden and lower T50 indicate greater calcification propensity and associate with vascular remodeling, inflammation, endothelial activation, and ossification in CKD (izzo2024chronickidneydisease pages 1-2, fusaro2023currentandemerging pages 5-6)</td>
+<td>No KDIGO 2017 routine monitoring recommendation retrieved; CPP/T50 are emerging research tools, not standard guideline biomarkers (fusaro2023currentandemerging pages 5-6, wheeler2017kdigo2017clinical pages 13-16)</td>
+<td>Not included in routine hospital lab menus in the Italian survey; CPP/T50 are discussed as emerging markers/tools rather than standard practice. Proof-of-principle studies show high-dose sucroferric oxyhydroxide reduced primary CPP by 62% and secondary CPP by 38%, while etelcalcetide reduced CPP fractions without significantly changing T50 (fusaro2023currentandemerging pages 5-6)</td>
+<td>CPP vascular study https://doi.org/10.1093/cvr/cvae164 (2024); sucroferric oxyhydroxide https://doi.org/10.1093/ndt/gfac271 (2023); etelcalcetide https://doi.org/10.1093/ckj/sfae097 (2024) (fusaro2023currentandemerging pages 5-6, izzo2024chronickidneydisease pages 1-2)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes the main laboratory and emerging biomarkers used in CKD-MBD, what they represent biologically, how KDIGO 2017 recommends monitoring the standard markers, and what recent real-world evidence shows about laboratory availability and implementation.</em></p>
+<hr />
+<h2>11. Outcome / prognosis</h2>
+<h3>11.1 Mortality and hospitalization risk (dialysis)</h3>
+<ul>
+<li>In the EuCliD dialysis cohort (n=35,721), mortality was <strong>126.7 deaths/1000 person-years</strong> and hospitalization incidence <strong>203.9/1000 person-years</strong>, with phenotype-dependent adjusted mortality HRs up to <strong>1.59</strong>. (neri2019detectinghighriskchronic pages 1-2)</li>
+<li>In international DOPPS hemodialysis patients, having 2–3 markers above target (Ca/P/PTH composite) was associated with higher mortality (USA HR <strong>1.41</strong>, 95% CI 1.10–1.82) vs all markers in target; in age ≥65 the HR was <strong>1.82</strong> (95% CI 1.28–2.58). (fuller2020combinationsofmineral pages 1-2)</li>
+</ul>
+<h3>11.2 Fracture outcomes (non-dialysis CKD and kidney failure)</h3>
+<p>CRIC reports 2.4 hip/vertebral fractures per 1000 person-years; fracture hazard is markedly increased in kidney failure on dialysis (HR 4.53). (hsu2024riskfactorsfor pages 1-2)</p>
+<hr />
+<h2>12. Treatment</h2>
+<h3>12.1 KDIGO 2017 treatment principles (selected)</h3>
+<p>KDIGO 2017 emphasizes treatment based on <strong>serial assessments</strong> of phosphate, calcium and PTH considered together, and suggests:
+- <strong>Lower elevated phosphate toward the normal range</strong> and focus phosphate-lowering treatment on hyperphosphatemia.
+- <strong>Avoid hypercalcemia</strong>.
+- In adults receiving phosphate-lowering treatment, <strong>restrict calcium-based phosphate binders</strong>.
+- In CKD G5D, maintain iPTH roughly <strong>2–9×</strong> the assay ULN; options include calcimimetics, calcitriol, vitamin D analogs, or combination when PTH-lowering therapy is needed.
+(wheeler2017kdigo2017clinical pages 16-18, wheeler2017kdigo2017clinical pages 13-16, ketteler2017executivesummaryof pages 4-5)</p>
+<h3>12.2 Therapeutic innovation and mechanistic interventions (recent literature)</h3>
+<ul>
+<li><strong>CPP-focused effects of phosphate binders (2023):</strong> sucroferric oxyhydroxide reduced CPP fractions and attenuated inflammatory/pro-calcific serum effects in vitro. (thiem2023effectofthe pages 1-3)</li>
+<li><strong>Data-science/AI for personalization (2024):</strong> proposed as an approach to address heterogeneity and improve targeting beyond surrogate biochemical targets. (lederer2024applicationofartificial pages 1-3)</li>
+</ul>
+<h3>12.3 MAXO suggestions</h3>
+<p>Not retrieved in the current corpus; map standard actions such as phosphate binder therapy, calcimimetic therapy, vitamin D supplementation/analogs, dialysis prescription changes, and parathyroidectomy during ontology curation.</p>
+<hr />
+<h2>13. Prevention</h2>
+<p>Primary prevention of CKD-MBD is primarily prevention/mitigation of CKD progression and early control of mineral metabolism disturbances. KDIGO’s emphasis on early monitoring from CKD G3a and trend-based management supports secondary prevention of complications. (wheeler2017kdigo2017clinical pages 13-16)</p>
+<hr />
+<h2>14. Other species / natural disease</h2>
+<p>Not retrieved in current corpus.</p>
+<hr />
+<h2>15. Model organisms</h2>
+<p>Not retrieved in current corpus for CKD-MBD-specific models; mechanistic literature referenced in reviews indicates animal studies exist (e.g., sclerostin/Wnt, erythropoiesis/FGF23), but model details were not extracted from the retrieved pages. (simic2024boneandbone pages 1-2, williams2023updatesinthe pages 1-2)</p>
+<hr />
+<h2>Appendix: Key 2023–2024 sources (with dates/URLs as available in corpus)</h2>
+<ul>
+<li>KDIGO CKD-MBD guideline update (2017): https://doi.org/10.1016/j.kint.2017.04.006 (July 2017) (ketteler2017executivesummaryof pages 4-5)</li>
+<li>Fusaro et al., CKJ real-world biomarker usage survey: https://doi.org/10.1093/ckj/sfad290 (2024) (fusaro2024realworldusageof pages 1-3)</li>
+<li>Lederer et al., AI in CKD-MBD: https://doi.org/10.1093/ckj/sfae143 (June 2024) (lederer2024applicationofartificial pages 1-3)</li>
+<li>Izzo et al., CKD-MBD and vascular calcification overview: https://doi.org/10.3390/life14030418 (March 2024) (izzo2024chronickidneydisease pages 1-2)</li>
+<li>Hsu et al., CRIC fracture risk factors: https://doi.org/10.1093/jbmr/zjae021 (Feb 2024) (hsu2024riskfactorsfor pages 1-2)</li>
+<li>Feenstra et al., CPP counts and vascular remodeling: https://doi.org/10.1093/cvr/cvae164 (Aug 2024 online ahead) (feenstra2024calciproteinparticlecounts pages 1-2)</li>
+<li>Thiem et al., sucroferric oxyhydroxide effects on CPP/inflammation: https://doi.org/10.1093/ndt/gfac271 (2023; advance access Sept 2022) (thiem2023effectofthe pages 1-3)</li>
+<li>Williams et al., osteocytic proteins/bone–vascular paradox update: https://doi.org/10.3389/fphys.2023.1120308 (Jan 2023) (williams2023updatesinthe pages 1-2)</li>
+</ul>
+<p>References</p>
+<ol>
+<li>
+<p>(williams2023updatesinthe pages 1-2): Matthew J. Williams, Sarah C. White, Zachary Joseph, and Keith A. Hruska. Updates in the chronic kidney disease-mineral bone disorder show the role of osteocytic proteins, a potential mechanism of the bone—vascular paradox, a therapeutic target, and a biomarker. Frontiers in Physiology, Jan 2023. URL: https://doi.org/10.3389/fphys.2023.1120308, doi:10.3389/fphys.2023.1120308. This article has 23 citations.</p>
+</li>
+<li>
+<p>(fusaro2024realworldusageof pages 1-3): Maria Fusaro, Simona Barbuto, Maurizio Gallieni, Althea Cossettini, Giulia Vanessa Re Sartò, Laura Cosmai, Giuseppe Cianciolo, Gaetano La Manna, Thomas Nickolas, Serge Ferrari, Jordi Bover, Mathias Haarhaus, Carmela Marino, Maria Cristina Mereu, Maura Ravera, Mario Plebani, Martina Zaninotto, Mario Cozzolino, Stefano Bianchi, Piergiorgio Messa, Mariacristina Gregorini, Lorenzo Gasperoni, Caterina Agosto, Andrea Aghi, and Giovanni Tripepi. Real-world usage of chronic kidney disease – mineral bone disorder (ckd–mbd) biomarkers in nephrology practices. Clinical Kidney Journal, Nov 2024. URL: https://doi.org/10.1093/ckj/sfad290, doi:10.1093/ckj/sfad290. This article has 25 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(lederer2024applicationofartificial pages 1-3): Eleanor D Lederer, Mahmoud M Sobh, Michael E Brier, and Adam E Gaweda. Application of artificial intelligence to chronic kidney disease mineral bone disorder. Clinical Kidney Journal, Jun 2024. URL: https://doi.org/10.1093/ckj/sfae143, doi:10.1093/ckj/sfae143. This article has 5 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(feenstra2024calciproteinparticlecounts pages 1-2): Lian Feenstra, Melanie Reijrink, Andreas Pasch, Edward R Smith, Lotte M Visser, Marian Bulthuis, Monique E Lodewijk, Mirjam F Mastik, Marcel J W Greuter, Riemer H J A Slart, Douwe J Mulder, Robert A Pol, Charlotte A te Velde-Keyzer, Guido Krenning, Jan-Luuk Hillebrands, V Adelita Ranchor, Antonio W Gomes Neto, Arjan Diepstra, G Bouke Hepkema, C Tji Gan, Caecilia S E Doorenbos, Charlotte A te Velde-Keyzer, Coretta van Leer-Buter, J Daan Touw, Eelko Hak, A M Erik Verschuuren, A J A Frank Bodewes, Frank Klont, Gerard Dijkstra, J Gertrude Nieuwenhuis-Moeke, Hans Blokzijl, G D Henri Leuvenink, Hubert G M Niesters, J Cas Swarte, Jan-Stephan F Sanders, Kevin Damman, L Joost van Pelt, Marco van Londen, Marieke T de Boer, Marion J Siebelink, Marius C van den Heuvel, Michel J Vos, Michiel E Erasmus, Rianne M Douwes, Riemer J H J A Slart, Rinse K Weersma, Robert A Pol, Robert J Porte, Vincent E de Meijer, and Willem S Lexmond. Calciprotein particle counts associate with vascular remodelling in chronic kidney disease. Cardiovascular Research, 120:1953-1966, Aug 2024. URL: https://doi.org/10.1093/cvr/cvae164, doi:10.1093/cvr/cvae164. This article has 19 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(izzo2024chronickidneydisease pages 1-2): Carmine Izzo, Carmine Secondulfo, Giancarlo Bilancio, Valeria Visco, Nicola Virtuoso, Serena Migliarino, Michele Ciccarelli, Paola Di Pietro, Lucia La Mura, Antonio Damato, Albino Carrizzo, and Carmine Vecchione. Chronic kidney disease with mineral bone disorder and vascular calcification: an overview. Life, 14:418, Mar 2024. URL: https://doi.org/10.3390/life14030418, doi:10.3390/life14030418. This article has 58 citations.</p>
+</li>
+<li>
+<p>(izzo2024chronickidneydisease pages 2-4): Carmine Izzo, Carmine Secondulfo, Giancarlo Bilancio, Valeria Visco, Nicola Virtuoso, Serena Migliarino, Michele Ciccarelli, Paola Di Pietro, Lucia La Mura, Antonio Damato, Albino Carrizzo, and Carmine Vecchione. Chronic kidney disease with mineral bone disorder and vascular calcification: an overview. Life, 14:418, Mar 2024. URL: https://doi.org/10.3390/life14030418, doi:10.3390/life14030418. This article has 58 citations.</p>
+</li>
+<li>
+<p>(ketteler2017executivesummaryof pages 4-5): Markus Ketteler, Geoffrey A. Block, Pieter Evenepoel, Masafumi Fukagawa, Charles A. Herzog, Linda McCann, Sharon M. Moe, Rukshana Shroff, Marcello A. Tonelli, Nigel D. Toussaint, Marc G. Vervloet, and Mary B. Leonard. Executive summary of the 2017 kdigo chronic kidney disease–mineral and bone disorder (ckd-mbd) guideline update: what’s changed and why it matters. Kidney International, 92:26-36, Jul 2017. URL: https://doi.org/10.1016/j.kint.2017.04.006, doi:10.1016/j.kint.2017.04.006. This article has 1291 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(fusaro2023currentandemerging pages 5-6): Maria Fusaro, Luciano Pereira, and Jordi Bover. Current and emerging markers and tools used in the diagnosis and management of chronic kidney disease–mineral and bone disorder in non-dialysis adult patients. Journal of Clinical Medicine, 12:6306, Sep 2023. URL: https://doi.org/10.3390/jcm12196306, doi:10.3390/jcm12196306. This article has 18 citations.</p>
+</li>
+<li>
+<p>(wheeler2017kdigo2017clinical pages 13-16): DC Wheeler and WC Winkelmayer. Kdigo 2017 clinical practice guideline update for the diagnosis, evaluation, prevention, and treatment of chronic kidney disease-mineral and bone disorder (ckd …. Unknown journal, 2017.</p>
+</li>
+<li>
+<p>(neri2019detectinghighriskchronic pages 1-2): Luca Neri, Ursula Kreuzberg, Francesco Bellocchio, Diego Brancaccio, Carlo Barbieri, Bernard Canaud, Stefano Stuard, and Markus Ketteler. Detecting high-risk chronic kidney disease-mineral bone disorder phenotypes among patients on dialysis: a historical cohort study. Nephrology, dialysis, transplantation : official publication of the European Dialysis and Transplant Association - European Renal Association, 34 4:682-691, Aug 2019. URL: https://doi.org/10.1093/ndt/gfy273, doi:10.1093/ndt/gfy273. This article has 13 citations.</p>
+</li>
+<li>
+<p>(thiem2023effectofthe pages 1-3): Ursula Thiem, Tim D Hewitson, Nigel D Toussaint, Stephen G Holt, Maria C Haller, Andreas Pasch, Daniel Cejka, and Edward R Smith. Effect of the phosphate binder sucroferric oxyhydroxide in dialysis patients on endogenous calciprotein particles, inflammation, and vascular cells. Nephrology Dialysis Transplantation, 38:1282-1296, Sep 2023. URL: https://doi.org/10.1093/ndt/gfac271, doi:10.1093/ndt/gfac271. This article has 32 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(hsu2024riskfactorsfor pages 1-2): Simon Hsu, Nisha Bansal, Michelle Denburg, Charles Ginsberg, Andrew N Hoofnagle, Tamara Isakova, Joachim H Ix, Cassianne Robinson-Cohen, Myles Wolf, Bryan R Kestenbaum, Ian H de Boer, and Leila R Zelnick. Risk factors for hip and vertebral fractures in chronic kidney disease: the cric study. Journal of bone and mineral research : the official journal of the American Society for Bone and Mineral Research, 39:433-442, Feb 2024. URL: https://doi.org/10.1093/jbmr/zjae021, doi:10.1093/jbmr/zjae021. This article has 21 citations.</p>
+</li>
+<li>
+<p>(fuller2020combinationsofmineral pages 1-2): Douglas S Fuller, Paul J Dluzniewski, Kerry Cooper, Brian D Bradbury, Bruce M Robinson, and Francesca Tentori. Combinations of mineral and bone disorder markers and risk of death and hospitalizations in the international dialysis outcomes and practice patterns study. Clinical Kidney Journal, 13:1056-1062, Nov 2020. URL: https://doi.org/10.1093/ckj/sfz112, doi:10.1093/ckj/sfz112. This article has 22 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(simic2024boneandbone pages 1-2): Petra Simic. Bone and bone derived factors in kidney disease. Frontiers in Physiology, Mar 2024. URL: https://doi.org/10.3389/fphys.2024.1356069, doi:10.3389/fphys.2024.1356069. This article has 8 citations.</p>
+</li>
+<li>
+<p>(wheeler2017kdigo2017clinical media ed681c34): DC Wheeler and WC Winkelmayer. Kdigo 2017 clinical practice guideline update for the diagnosis, evaluation, prevention, and treatment of chronic kidney disease-mineral and bone disorder (ckd …. Unknown journal, 2017.</p>
+</li>
+<li>
+<p>(wheeler2017kdigo2017clinical pages 16-18): DC Wheeler and WC Winkelmayer. Kdigo 2017 clinical practice guideline update for the diagnosis, evaluation, prevention, and treatment of chronic kidney disease-mineral and bone disorder (ckd …. Unknown journal, 2017.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </div>
         
 
         <footer class="page-footer">
@@ -8747,7 +10975,7 @@ computational_models:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "CKD-Mineral Bone Disorder", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "CKD-Mineral_Bone_Disorder", "yamlRevision": "7265c5e487f6"};
+        const OS_CONFIG = {"diseaseName": "CKD-Mineral Bone Disorder", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "CKD-Mineral_Bone_Disorder", "yamlRevision": "189bc456f7e7"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

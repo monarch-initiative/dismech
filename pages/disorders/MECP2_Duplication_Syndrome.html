@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2630,11 +2783,18 @@
             
             <a class="stat-link" href="#references">
             <div class="stat-item">
-                <div class="stat-value">1</div>
+                <div class="stat-value">12</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
             
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -4490,7 +4650,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: MECP2 Duplication Syndrome
 creation_date: &#39;2026-03-14T00:00:00Z&#39;
-updated_date: &#39;2026-03-16T00:00:00Z&#39;
+updated_date: &#39;2026-05-09T19:42:12Z&#39;
 category: Genetic
 parents:
 - Neurodevelopmental Disorder
@@ -5005,6 +5165,135 @@ references:
   tags:
   - GeneReviews
   findings: []
+- reference: DOI:10.1002/mgg3.1989
+  title: Exploring the characteristics and most bothersome symptoms in &lt;scp&gt;&lt;i&gt;MECP2&lt;/i&gt;&lt;/scp&gt; duplication syndrome to pave the path toward developing &lt;scp&gt;parent‐oriented&lt;/scp&gt; outcome measures
+  found_in:
+  - MECP2_Duplication_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: MECP2 Duplication Syndrome (MDS), resulting from the duplication of Xq28 region, including MECP2, is a rare disorder with a nascent understanding in clinical features and severity.
+    supporting_text: MECP2 Duplication Syndrome (MDS), resulting from the duplication of Xq28 region, including MECP2, is a rare disorder with a nascent understanding in clinical features and severity.
+    evidence:
+    - reference: DOI:10.1002/mgg3.1989
+      reference_title: Exploring the characteristics and most bothersome symptoms in &lt;scp&gt;&lt;i&gt;MECP2&lt;/i&gt;&lt;/scp&gt; duplication syndrome to pave the path toward developing &lt;scp&gt;parent‐oriented&lt;/scp&gt; outcome measures
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: MECP2 Duplication Syndrome (MDS), resulting from the duplication of Xq28 region, including MECP2, is a rare disorder with a nascent understanding in clinical features and severity.
+      explanation: Deep research cited this publication as relevant literature for MECP2 Duplication Syndrome.
+- reference: DOI:10.1093/hmg/ddae135
+  title: Modeling antisense oligonucleotide therapy in &lt;i&gt;MECP2&lt;/i&gt; duplication syndrome human iPSC-derived neurons reveals gene expression programs responsive to MeCP2 levels
+  found_in:
+  - MECP2_Duplication_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: Genomic copy-number variations (CNVs) that can cause neurodevelopmental disorders often encompass many genes, which complicates our understanding of how individual genes within a CNV contribute to pathology.
+    supporting_text: Genomic copy-number variations (CNVs) that can cause neurodevelopmental disorders often encompass many genes, which complicates our understanding of how individual genes within a CNV contribute to pathology.
+    evidence:
+    - reference: DOI:10.1093/hmg/ddae135
+      reference_title: Modeling antisense oligonucleotide therapy in &lt;i&gt;MECP2&lt;/i&gt; duplication syndrome human iPSC-derived neurons reveals gene expression programs responsive to MeCP2 levels
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Genomic copy-number variations (CNVs) that can cause neurodevelopmental disorders often encompass many genes, which complicates our understanding of how individual genes within a CNV contribute to pathology.
+      explanation: Deep research cited this publication as relevant literature for MECP2 Duplication Syndrome.
+- reference: DOI:10.1101/2023.02.07.527511
+  title: A Cas9-fusion proximity-based approach generates an &lt;i&gt;Irak1-Mecp2&lt;/i&gt; tandem duplication mouse model for the study of MeCP2 duplication syndrome
+  found_in:
+  - MECP2_Duplication_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: MECP2 duplication syndrome (MDS) is a neurodevelopmental disorder caused by tandem duplication of the MECP2 locus and its surrounding genes, including IRAK1 .
+    supporting_text: MECP2 duplication syndrome (MDS) is a neurodevelopmental disorder caused by tandem duplication of the MECP2 locus and its surrounding genes, including IRAK1 .
+    evidence:
+    - reference: DOI:10.1101/2023.02.07.527511
+      reference_title: A Cas9-fusion proximity-based approach generates an &lt;i&gt;Irak1-Mecp2&lt;/i&gt; tandem duplication mouse model for the study of MeCP2 duplication syndrome
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: MECP2 duplication syndrome (MDS) is a neurodevelopmental disorder caused by tandem duplication of the MECP2 locus and its surrounding genes, including IRAK1 .
+      explanation: Deep research cited this publication as relevant literature for MECP2 Duplication Syndrome.
+- reference: DOI:10.1111/cge.12814
+  title: Expanding the clinical picture of the &lt;i&gt;MECP2&lt;/i&gt; Duplication syndrome
+  found_in:
+  - MECP2_Duplication_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: Individuals with two or more copies of the MECP2 gene, located at Xq28, share clinical features and a distinct facial phenotype known as MECP2 Duplication syndrome.
+    supporting_text: Individuals with two or more copies of the MECP2 gene, located at Xq28, share clinical features and a distinct facial phenotype known as MECP2 Duplication syndrome.
+    evidence:
+    - reference: DOI:10.1111/cge.12814
+      reference_title: Expanding the clinical picture of the &lt;i&gt;MECP2&lt;/i&gt; Duplication syndrome
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Individuals with two or more copies of the MECP2 gene, located at Xq28, share clinical features and a distinct facial phenotype known as MECP2 Duplication syndrome.
+      explanation: Deep research cited this publication as relevant literature for MECP2 Duplication Syndrome.
+- reference: DOI:10.1111/jpc.14399
+  title: The incidence, prevalence and clinical features of&lt;i&gt;MECP2&lt;/i&gt;duplication syndrome in Australian children
+  found_in:
+  - MECP2_Duplication_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: The incidence, prevalence and clinical features of&lt;i&gt;MECP2&lt;/i&gt;duplication syndrome in Australian children
+    supporting_text: The aim of this study was to assess the incidence and prevalence ofMECP2duplication syndrome in Australian children and further define its phenotype.MethodsThe Australian Paediatric Surveillance Unit was used to identify children withMECP2duplication syndrome between June 2014 and November 2017.
+    evidence:
+    - reference: DOI:10.1111/jpc.14399
+      reference_title: The incidence, prevalence and clinical features of&lt;i&gt;MECP2&lt;/i&gt;duplication syndrome in Australian children
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The aim of this study was to assess the incidence and prevalence ofMECP2duplication syndrome in Australian children and further define its phenotype.MethodsThe Australian Paediatric Surveillance Unit was used to identify children withMECP2duplication syndrome between June 2014 and November 2017.
+      explanation: Deep research cited this publication as relevant literature for MECP2 Duplication Syndrome.
+- reference: DOI:10.1186/s12920-024-01831-9
+  title: Genetic analysis of a pedigree with MECP2 duplication syndrome in China
+  found_in:
+  - MECP2_Duplication_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: MECP2 duplication syndrome (MDS) is a rare X-linked genomic disorder that primarily affects males.
+    supporting_text: MECP2 duplication syndrome (MDS) is a rare X-linked genomic disorder that primarily affects males.
+    evidence:
+    - reference: DOI:10.1186/s12920-024-01831-9
+      reference_title: Genetic analysis of a pedigree with MECP2 duplication syndrome in China
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: MECP2 duplication syndrome (MDS) is a rare X-linked genomic disorder that primarily affects males.
+      explanation: Deep research cited this publication as relevant literature for MECP2 Duplication Syndrome.
+- reference: DOI:10.3233/trd-220055
+  title: &#39;Current Status of Developmental Encephalopathies: Rett Syndrome, MECP2 Duplication Disorder, CDKL5 Deficiency Disorder and FOXG1 Disorder&#39;
+  found_in:
+  - MECP2_Duplication_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: &#39;Current Status of Developmental Encephalopathies: Rett Syndrome, MECP2 Duplication Disorder, CDKL5 Deficiency Disorder and FOXG1 Disorder&#39;
+    supporting_text: &#39;Current Status of Developmental Encephalopathies: Rett Syndrome, MECP2 Duplication Disorder, CDKL5 Deficiency Disorder and FOXG1 Disorder&#39;
+- reference: DOI:10.3389/fgene.2024.1332469
+  title: MECP2-related disorders while gene-based therapies are on the horizon
+  found_in:
+  - MECP2_Duplication_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: The emergence of new genetic tools has led to the discovery of the genetic bases of many intellectual and developmental disabilities.
+    supporting_text: The emergence of new genetic tools has led to the discovery of the genetic bases of many intellectual and developmental disabilities.
+    evidence:
+    - reference: DOI:10.3389/fgene.2024.1332469
+      reference_title: MECP2-related disorders while gene-based therapies are on the horizon
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: The emergence of new genetic tools has led to the discovery of the genetic bases of many intellectual and developmental disabilities.
+      explanation: Deep research cited this publication as relevant literature for MECP2 Duplication Syndrome.
+- reference: DOI:10.3390/children9050633
+  title: &#39;Medical Comorbidities in MECP2 Duplication Syndrome: Results from the International MECP2 Duplication Database&#39;
+  found_in:
+  - MECP2_Duplication_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: Since the discovery of MECP2 duplication syndrome (MDS) in 1999, efforts to characterise this disorder have been limited by a lack of large datasets, with small case series often favouring the reporting of certain conditions over others.
+    supporting_text: Since the discovery of MECP2 duplication syndrome (MDS) in 1999, efforts to characterise this disorder have been limited by a lack of large datasets, with small case series often favouring the reporting of certain conditions over others.
+    evidence:
+    - reference: DOI:10.3390/children9050633
+      reference_title: &#39;Medical Comorbidities in MECP2 Duplication Syndrome: Results from the International MECP2 Duplication Database&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Since the discovery of MECP2 duplication syndrome (MDS) in 1999, efforts to characterise this disorder have been limited by a lack of large datasets, with small case series often favouring the reporting of certain conditions over others.
+      explanation: Deep research cited this publication as relevant literature for MECP2 Duplication Syndrome.
+- reference: DOI:10.1186/s13023-022-02278-w
+  title: &#39;A brief history of MECP2 duplication syndrome: 20-years of clinical understanding&#39;
+  found_in:
+  - MECP2_Duplication_Syndrome-deep-research-falcon.md
+  findings: []
+- reference: DOI:10.1186/s13073-024-01411-7
+  title: Structural variant allelic heterogeneity in MECP2 duplication syndrome provides insight into clinical severity and variability of disease expression
+  found_in:
+  - MECP2_Duplication_Syndrome-deep-research-falcon.md
+  findings: []
 </pre>
             </div>
         </div>
@@ -5020,7 +5309,7 @@ references:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">1</span>
+                    <span class="card-count">12</span>
                 </div>
                 
                 <div class="reference-entry">
@@ -5040,8 +5329,985 @@ references:
                     
                 </div>
                 
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1002/mgg3.1989" target="_blank">DOI:10.1002/mgg3.1989</a>
+                            </div>
+                            
+                            <div class="reference-title">Exploring the characteristics and most bothersome symptoms in &lt;scp&gt;&lt;i&gt;MECP2&lt;/i&gt;&lt;/scp&gt; duplication syndrome to pave the path toward developing &lt;scp&gt;parent‐oriented&lt;/scp&gt; outcome measures</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">MECP2 Duplication Syndrome (MDS), resulting from the duplication of Xq28 region, including MECP2, is a rare disorder with a nascent understanding in clinical features and severity.</div>
+            
+            
+            <div class="reference-finding-supporting">"MECP2 Duplication Syndrome (MDS), resulting from the duplication of Xq28 region, including MECP2, is a rare disorder with a nascent understanding in clinical features and severity."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1002/mgg3.1989" target="_blank">DOI:10.1002/mgg3.1989</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"MECP2 Duplication Syndrome (MDS), resulting from the duplication of Xq28 region, including MECP2, is a rare disorder with a nascent understanding in clinical features and severity."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for MECP2 Duplication Syndrome.</div>
+                
             </div>
             
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1093/hmg/ddae135" target="_blank">DOI:10.1093/hmg/ddae135</a>
+                            </div>
+                            
+                            <div class="reference-title">Modeling antisense oligonucleotide therapy in &lt;i&gt;MECP2&lt;/i&gt; duplication syndrome human iPSC-derived neurons reveals gene expression programs responsive to MeCP2 levels</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Genomic copy-number variations (CNVs) that can cause neurodevelopmental disorders often encompass many genes, which complicates our understanding of how individual genes within a CNV contribute to pathology.</div>
+            
+            
+            <div class="reference-finding-supporting">"Genomic copy-number variations (CNVs) that can cause neurodevelopmental disorders often encompass many genes, which complicates our understanding of how individual genes within a CNV contribute to pathology."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/hmg/ddae135" target="_blank">DOI:10.1093/hmg/ddae135</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Genomic copy-number variations (CNVs) that can cause neurodevelopmental disorders often encompass many genes, which complicates our understanding of how individual genes within a CNV contribute to pathology."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for MECP2 Duplication Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1101/2023.02.07.527511" target="_blank">DOI:10.1101/2023.02.07.527511</a>
+                            </div>
+                            
+                            <div class="reference-title">A Cas9-fusion proximity-based approach generates an &lt;i&gt;Irak1-Mecp2&lt;/i&gt; tandem duplication mouse model for the study of MeCP2 duplication syndrome</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">MECP2 duplication syndrome (MDS) is a neurodevelopmental disorder caused by tandem duplication of the MECP2 locus and its surrounding genes, including IRAK1 .</div>
+            
+            
+            <div class="reference-finding-supporting">"MECP2 duplication syndrome (MDS) is a neurodevelopmental disorder caused by tandem duplication of the MECP2 locus and its surrounding genes, including IRAK1 ."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1101/2023.02.07.527511" target="_blank">DOI:10.1101/2023.02.07.527511</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"MECP2 duplication syndrome (MDS) is a neurodevelopmental disorder caused by tandem duplication of the MECP2 locus and its surrounding genes, including IRAK1 ."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for MECP2 Duplication Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1111/cge.12814" target="_blank">DOI:10.1111/cge.12814</a>
+                            </div>
+                            
+                            <div class="reference-title">Expanding the clinical picture of the &lt;i&gt;MECP2&lt;/i&gt; Duplication syndrome</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Individuals with two or more copies of the MECP2 gene, located at Xq28, share clinical features and a distinct facial phenotype known as MECP2 Duplication syndrome.</div>
+            
+            
+            <div class="reference-finding-supporting">"Individuals with two or more copies of the MECP2 gene, located at Xq28, share clinical features and a distinct facial phenotype known as MECP2 Duplication syndrome."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1111/cge.12814" target="_blank">DOI:10.1111/cge.12814</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Individuals with two or more copies of the MECP2 gene, located at Xq28, share clinical features and a distinct facial phenotype known as MECP2 Duplication syndrome."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for MECP2 Duplication Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1111/jpc.14399" target="_blank">DOI:10.1111/jpc.14399</a>
+                            </div>
+                            
+                            <div class="reference-title">The incidence, prevalence and clinical features of&lt;i&gt;MECP2&lt;/i&gt;duplication syndrome in Australian children</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The incidence, prevalence and clinical features of&lt;i&gt;MECP2&lt;/i&gt;duplication syndrome in Australian children</div>
+            
+            
+            <div class="reference-finding-supporting">"The aim of this study was to assess the incidence and prevalence ofMECP2duplication syndrome in Australian children and further define its phenotype.MethodsThe Australian Paediatric Surveillance Unit was used to identify children withMECP2duplication syndrome between June 2014 and November 2017."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1111/jpc.14399" target="_blank">DOI:10.1111/jpc.14399</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The aim of this study was to assess the incidence and prevalence ofMECP2duplication syndrome in Australian children and further define its phenotype.MethodsThe Australian Paediatric Surveillance Unit was used to identify children withMECP2duplication syndrome between June 2014 and November 2017."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for MECP2 Duplication Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1186/s12920-024-01831-9" target="_blank">DOI:10.1186/s12920-024-01831-9</a>
+                            </div>
+                            
+                            <div class="reference-title">Genetic analysis of a pedigree with MECP2 duplication syndrome in China</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">MECP2 duplication syndrome (MDS) is a rare X-linked genomic disorder that primarily affects males.</div>
+            
+            
+            <div class="reference-finding-supporting">"MECP2 duplication syndrome (MDS) is a rare X-linked genomic disorder that primarily affects males."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s12920-024-01831-9" target="_blank">DOI:10.1186/s12920-024-01831-9</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"MECP2 duplication syndrome (MDS) is a rare X-linked genomic disorder that primarily affects males."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for MECP2 Duplication Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3233/trd-220055" target="_blank">DOI:10.3233/trd-220055</a>
+                            </div>
+                            
+                            <div class="reference-title">Current Status of Developmental Encephalopathies: Rett Syndrome, MECP2 Duplication Disorder, CDKL5 Deficiency Disorder and FOXG1 Disorder</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Current Status of Developmental Encephalopathies: Rett Syndrome, MECP2 Duplication Disorder, CDKL5 Deficiency Disorder and FOXG1 Disorder</div>
+            
+            
+            <div class="reference-finding-supporting">"Current Status of Developmental Encephalopathies: Rett Syndrome, MECP2 Duplication Disorder, CDKL5 Deficiency Disorder and FOXG1 Disorder"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3389/fgene.2024.1332469" target="_blank">DOI:10.3389/fgene.2024.1332469</a>
+                            </div>
+                            
+                            <div class="reference-title">MECP2-related disorders while gene-based therapies are on the horizon</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The emergence of new genetic tools has led to the discovery of the genetic bases of many intellectual and developmental disabilities.</div>
+            
+            
+            <div class="reference-finding-supporting">"The emergence of new genetic tools has led to the discovery of the genetic bases of many intellectual and developmental disabilities."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fgene.2024.1332469" target="_blank">DOI:10.3389/fgene.2024.1332469</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The emergence of new genetic tools has led to the discovery of the genetic bases of many intellectual and developmental disabilities."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for MECP2 Duplication Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/children9050633" target="_blank">DOI:10.3390/children9050633</a>
+                            </div>
+                            
+                            <div class="reference-title">Medical Comorbidities in MECP2 Duplication Syndrome: Results from the International MECP2 Duplication Database</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Since the discovery of MECP2 duplication syndrome (MDS) in 1999, efforts to characterise this disorder have been limited by a lack of large datasets, with small case series often favouring the reporting of certain conditions over others.</div>
+            
+            
+            <div class="reference-finding-supporting">"Since the discovery of MECP2 duplication syndrome (MDS) in 1999, efforts to characterise this disorder have been limited by a lack of large datasets, with small case series often favouring the reporting of certain conditions over others."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/children9050633" target="_blank">DOI:10.3390/children9050633</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Since the discovery of MECP2 duplication syndrome (MDS) in 1999, efforts to characterise this disorder have been limited by a lack of large datasets, with small case series often favouring the reporting of certain conditions over others."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for MECP2 Duplication Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1186/s13023-022-02278-w" target="_blank">DOI:10.1186/s13023-022-02278-w</a>
+                            </div>
+                            
+                            <div class="reference-title">A brief history of MECP2 duplication syndrome: 20-years of clinical understanding</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1186/s13073-024-01411-7" target="_blank">DOI:10.1186/s13073-024-01411-7</a>
+                            </div>
+                            
+                            <div class="reference-title">Structural variant allelic heterogeneity in MECP2 duplication syndrome provides insight into clinical severity and variability of disease expression</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">1. Disease Information</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">22 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-09T11:54:46.571822</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <h2>1. Disease Information</h2>
+<h3>What is the disease?</h3>
+<ul>
+<li><strong>Definition:</strong> A rare X-linked neurodevelopmental disorder caused by <strong>duplication (or triplication) of a chromosomal region on Xq28 that includes MECP2</strong>, producing MeCP2 overexpression and a characteristic syndromic phenotype. (ta2022abriefhistory pages 1-2, pehlivan2024structuralvariantallelic pages 1-2)</li>
+</ul>
+<h3>Key identifiers (from retrieved literature)</h3>
+<ul>
+<li><strong>Disease OMIM/MIM:</strong> <strong>300260</strong> (MDS; also MRXSL). (ta2022abriefhistory pages 1-2, pehlivan2024structuralvariantallelic pages 1-2)</li>
+<li><strong>Gene OMIM (MECP2):</strong> <strong>300005</strong>. (ta2022abriefhistory pages 1-2)</li>
+<li><strong>Orphanet / ICD-10 / ICD-11 / MeSH / MONDO:</strong> Not explicitly stated in the retrieved full-text evidence; requires external ontology lookups (OMIM/Orphanet/MeSH/MONDO/ICD) beyond this run.</li>
+</ul>
+<h3>Synonyms / alternative names</h3>
+<ul>
+<li><strong>X-linked intellectual developmental disorder, Lubs type (MRXSL)</strong> (explicitly stated). (pehlivan2024structuralvariantallelic pages 1-2)</li>
+<li><strong>MECP2 duplication disorder (MDD)</strong> used in some reviews. (percy2023currentstatusof pages 11-15)</li>
+</ul>
+<h3>Evidence type note</h3>
+<p>Evidence in this report derives from:
+- Aggregated cohort resources/registries (e.g., International MECP2 Duplication Database; population epidemiology) (giudice‐nairn2019theincidenceprevalence pages 1-2, ta2022medicalcomorbiditiesin pages 6-7)
+- Prospective/retrospective natural history and caregiver-reported surveys (percy2023currentstatusof pages 11-15, ak2022exploringthecharacteristics pages 1-2)
+- Molecular/genomic cohort studies integrating omics and deep phenotyping (pehlivan2024structuralvariantallelic pages 1-2)
+- Mechanistic model systems (mouse and iPSC-derived human neurons) (maino2024anirak1mecp2tandem pages 23-26, bajikar2024modelingantisenseoligonucleotide pages 1-2)</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>Disease causal factors</h3>
+<ul>
+<li><strong>Primary cause:</strong> Germline <strong>copy-number gain</strong> (duplication/triplication; often complex rearrangements) spanning <strong>MECP2</strong> at Xq28. (ta2022abriefhistory pages 1-2, pehlivan2024structuralvariantallelic pages 1-2)</li>
+<li><strong>Mechanistic principle (“Goldilocks” dosage paradigm):</strong> Under-expression (loss-of-function) causes Rett syndrome, whereas over-expression causes MDS. (percy2023currentstatusof pages 11-15)</li>
+</ul>
+<h3>Risk factors</h3>
+<ul>
+<li><strong>Genetic:</strong> Having an Xq28 MECP2 duplication/triplication; most affected males inherit the duplication from carrier mothers, though de novo events occur. (ta2022abriefhistory pages 2-4, giudice‐nairn2019theincidenceprevalence pages 1-2)</li>
+<li><strong>Sex:</strong> Marked male predominance; females often asymptomatic due to skewed X-inactivation, but affected females exist. (ta2022abriefhistory pages 2-4, giudice‐nairn2019theincidenceprevalence pages 1-2)</li>
+</ul>
+<h3>Protective factors</h3>
+<p>No validated genetic or environmental protective factors were identified in the retrieved corpus.</p>
+<h3>Gene–environment interactions</h3>
+<p>Not specifically delineated in the retrieved evidence; respiratory infections and aspiration risk likely interact with hypotonia, dysphagia, reflux, and seizure severity as downstream clinical-pathophysiologic interactions rather than established etiologic GxE. (ta2022medicalcomorbiditiesin pages 6-7, lim2017expandingtheclinical pages 10-13)</p>
+<hr />
+<h2>3. Phenotypes (with quantitative data where available)</h2>
+<h3>Core neurodevelopmental phenotype</h3>
+<ul>
+<li><strong>Early developmental delay:</strong> In a US natural history cohort (n=69), <strong>70%</strong> had developmental delay in the first 6 months. (percy2023currentstatusof pages 11-15)</li>
+<li><strong>Hypotonia:</strong> <strong>88%</strong> in the same cohort. (percy2023currentstatusof pages 11-15)</li>
+<li><strong>Speech:</strong> Little-to-absent speech described as near-universal in reviews; specific quantified rates not extracted from the retrieved pages. (allison2024mecp2relateddisorderswhile pages 4-5)</li>
+</ul>
+<p><strong>Suggested HPO terms</strong> (examples):
+- Global developmental delay (<strong>HP:0001263</strong>)
+- Intellectual disability (<strong>HP:0001249</strong>)
+- Hypotonia (<strong>HP:0001252</strong>)
+- Absent speech (<strong>HP:0001344</strong>) / Severely impaired speech (<strong>HP:0002465</strong>)</p>
+<h3>Epilepsy</h3>
+<ul>
+<li><strong>Seizures:</strong> In International MECP2 Duplication Database cohort, <strong>&gt;60% (90/148)</strong> had seizures; median onset ~8 years in males and ~9.8 years in females. (ta2022medicalcomorbiditiesin pages 6-7)</li>
+<li><strong>Treatment refractoriness:</strong> <strong>69%</strong> had treatment-refractory seizures; <strong>31%</strong> had status epilepticus; <strong>25%</strong> had Lennox–Gastaut syndrome. (ta2022medicalcomorbiditiesin pages 6-7)</li>
+<li>Caregiver survey study found epilepsy in <strong>58.4%</strong> of participants and <strong>75% of those were drug-resistant</strong>. (ak2022exploringthecharacteristics pages 1-2)</li>
+</ul>
+<p><strong>Suggested HPO terms</strong>:
+- Seizures (<strong>HP:0001250</strong>)
+- Epileptic encephalopathy (<strong>HP:0200134</strong>)
+- Status epilepticus (<strong>HP:0002133</strong>)
+- Lennox-Gastaut syndrome (<strong>HP:0007180</strong>)</p>
+<h3>Respiratory infections / aspiration and pulmonary complications</h3>
+<ul>
+<li>Australian childhood cohort: <strong>~75% had a history of pneumonia</strong>. (giudice‐nairn2019theincidenceprevalence pages 1-2)</li>
+<li>Registry cohort: aspiration is common—<strong>55% (81/147)</strong> aspirated occasionally/frequently; <strong>23% (33/146)</strong> aspirated into lungs in the past 12 months; <strong>53% (78/146)</strong> could not effectively clear chest secretions. (ta2022medicalcomorbiditiesin pages 6-7)</li>
+<li>Cardiac/pulmonary: pulmonary hypertension is described as a rare but life-threatening complication with reported early death; authors recommend early cardiac assessment and ongoing monitoring. (giudice‐nairn2019theincidenceprevalence pages 1-2)</li>
+</ul>
+<p><strong>Suggested HPO terms</strong>:
+- Recurrent respiratory infections (<strong>HP:0002205</strong>)
+- Pneumonia (<strong>HP:0002090</strong>)
+- Aspiration (<strong>HP:0002835</strong>)
+- Pulmonary hypertension (<strong>HP:0002092</strong>)</p>
+<h3>Gastrointestinal and feeding phenotype</h3>
+<ul>
+<li>Constipation common: in US cohort (n=69) <strong>81% constipation</strong>. (percy2023currentstatusof pages 11-15)</li>
+<li>Caregiver survey: <strong>~85% constipation</strong>, and ~1/3 required enemas/suppositories. (ak2022exploringthecharacteristics pages 1-2)</li>
+<li>GI dysfunction is highlighted as a major domain in MDS and a target for improving QoL. (lim2017expandingtheclinical pages 10-13, allison2024mecp2relateddisorderswhile pages 7-8)</li>
+</ul>
+<p><strong>Suggested HPO terms</strong>:
+- Constipation (<strong>HP:0002019</strong>)
+- Gastroesophageal reflux (<strong>HP:0002020</strong>)
+- Intestinal dysmotility (<strong>HP:0002572</strong>)</p>
+<h3>Autonomic/vasomotor and related features</h3>
+<ul>
+<li>Registry cohort: <strong>autonomic disturbance 81% (119/146)</strong>; <strong>cold peripheries 70%</strong>, <strong>temperature dysregulation 57%</strong>, <strong>breath holding 38%</strong>, <strong>hyperventilation 13%</strong>. (ta2022medicalcomorbiditiesin pages 6-7)</li>
+<li>US cohort review reports <strong>vasomotor disturbances 73%</strong>. (percy2023currentstatusof pages 11-15)</li>
+</ul>
+<p><strong>Suggested HPO terms</strong>:
+- Autonomic nervous system abnormality (<strong>HP:0012332</strong>)
+- Cold extremities (<strong>HP:0002046</strong>)
+- Breath-holding spells (<strong>HP:0002598</strong>)</p>
+<h3>Sleep-disordered breathing and pain sensitivity</h3>
+<ul>
+<li>Sleep apnoea: <strong>43% (61/143)</strong>. (ta2022medicalcomorbiditiesin pages 9-10)</li>
+<li>Abnormal pain sensitivity: <strong>59% (85/143)</strong>, with <strong>decreased pain sensitivity 55% (79/143)</strong>. (ta2022medicalcomorbiditiesin pages 9-10)</li>
+</ul>
+<p><strong>Suggested HPO terms</strong>:
+- Sleep apnea (<strong>HP:0010535</strong>)
+- Abnormality of pain sensation (<strong>HP:0004305</strong>)</p>
+<h3>Musculoskeletal/bone health</h3>
+<ul>
+<li>Bone fractures: <strong>32% (46/142)</strong>; osteopenia/osteoporosis <strong>13% (19/143)</strong>. (ta2022medicalcomorbiditiesin pages 9-10)</li>
+</ul>
+<p><strong>Suggested HPO terms</strong>:
+- Osteopenia (<strong>HP:0011002</strong>)
+- Fractures (<strong>HP:0002659</strong>)</p>
+<h3>Quality of life impact</h3>
+<p>Higher clinical severity in MDS correlates with lower physical health QoL in the reviewed US natural history cohort analyses. (percy2023currentstatusof pages 11-15)</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<h3>Causal gene(s)</h3>
+<ul>
+<li><strong>MECP2</strong> (Xq28) dosage gain is the core driver. (ta2022abriefhistory pages 1-2, pehlivan2024structuralvariantallelic pages 1-2)</li>
+<li>A commonly implicated minimal duplicated region includes <strong>MECP2 and IRAK1</strong>, supporting potential multi-gene contributions to phenotype. (ta2022abriefhistory pages 2-4, maino2024anirak1mecp2tandem pages 1-5)</li>
+</ul>
+<h3>Variant class / chromosomal abnormality</h3>
+<ul>
+<li><strong>Structural class heterogeneity:</strong> In a 2024 cohort (n=137), duplication sizes ranged <strong>64.6 kb–16.5 Mb</strong>, with tandem duplications <strong>48%</strong>, terminal duplications <strong>22%</strong>, inverted triplications <strong>20%</strong>, and other complex rearrangements <strong>10%</strong>. (pehlivan2024structuralvariantallelic pages 1-2)</li>
+<li>Terminal duplications often involve translocations (65%); de novo events enriched in terminal duplication group. (pehlivan2024structuralvariantallelic pages 1-2)</li>
+</ul>
+<h3>Functional consequence</h3>
+<ul>
+<li>Pathogenic mechanism is <strong>increased MECP2 dosage</strong> (gain of function via overexpression), with higher dosage (triplication) associated with greater severity/early lethality. (pehlivan2024structuralvariantallelic pages 1-2)</li>
+</ul>
+<h3>Modifier genes</h3>
+<ul>
+<li>Co-duplicated genes (e.g., <strong>IRAK1</strong>, <strong>FLNA</strong>, <strong>HCFC1</strong>, <strong>GDI1</strong>, <strong>RAB39B</strong>) have been associated with differences in severity in cohort analyses/reviews. (percy2023currentstatusof pages 11-15)</li>
+</ul>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>No primary environmental toxins, lifestyle risks, or infectious agents as causal triggers were identified; infections are prominent complications in the disease course. (ta2022medicalcomorbiditiesin pages 6-7, lim2017expandingtheclinical pages 10-13)</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Molecular pathways and cellular processes (current model)</h3>
+<ol>
+<li><strong>Genomic duplication/triplication at Xq28</strong> → increased <strong>MECP2 transcript and protein</strong> (supported by RNA/protein correlation in patient-derived lines). (pehlivan2024structuralvariantallelic pages 1-2)</li>
+<li><strong>MeCP2 overabundance</strong> (a methylated-DNA binding transcriptional regulator) perturbs neuronal transcription programs and synaptic function/plasticity. (pehlivan2024structuralvariantallelic pages 1-2, maino2024anirak1mecp2tandem pages 23-26)</li>
+<li>System-level outcomes: neurodevelopmental impairment, epilepsy, progressive motor dysfunction/spasticity; additionally, immune dysregulation and infection susceptibility may be modified by co-duplication of <strong>IRAK1</strong> and MeCP2’s roles in T cell biology. (maino2024anirak1mecp2tandem pages 1-5, maino2024anirak1mecp2tandem pages 23-26)</li>
+</ol>
+<h3>Key mechanistic data (2023–2024 emphasis)</h3>
+<ul>
+<li><strong>Dose–biomolecule link:</strong> MECP2 RNA correlates with MeCP2 protein (Pearson R=0.6) in lymphoblastoid lines; triplications show distinct transcript quantities vs duplications. (pehlivan2024structuralvariantallelic pages 1-2)</li>
+<li><strong>Genotype–phenotype gradient:</strong> Severity (including survival) worsens across rearrangement classes; visual summary available in Pehlivan 2024 figures/tables. (pehlivan2024structuralvariantallelic media 2a375656, pehlivan2024structuralvariantallelic media 1eb0878d)</li>
+<li><strong>iPSC-derived neurons (human) and ASO response:</strong> MDS neurons show “global transcriptional dysregulation,” and MECP2-targeting ASO partially modulates a disease gene signature and partially rescues abnormal neuronal morphology. (bajikar2024modelingantisenseoligonucleotide pages 1-2)</li>
+<li><strong>Mouse tandem-duplication model including Irak1:</strong> Demonstrates neurobehavioral MDS-like phenotype plus an abnormal pro-inflammatory/Th1-skewed response to influenza, with quantified increases in BALF cytokines/chemokines (e.g., IFNγ 6.26-fold; TNFα 2.19-fold). (maino2024anirak1mecp2tandem pages 23-26)</li>
+</ul>
+<h3>Suggested ontology mappings</h3>
+<ul>
+<li><strong>GO Biological Process (examples):</strong></li>
+<li>Regulation of transcription, DNA-templated (<strong>GO:0006355</strong>)</li>
+<li>Synaptic plasticity (<strong>GO:0048167</strong>)</li>
+<li>Long-term synaptic potentiation (<strong>GO:0060291</strong>)</li>
+<li>T helper 1 type immune response (<strong>GO:0042088</strong>)</li>
+<li><strong>Cell Ontology (CL) (examples):</strong></li>
+<li>Cortical neuron (<strong>CL:0000540</strong>) / pyramidal neuron (context dependent)</li>
+<li>Hippocampal neuron (subclassing varies)</li>
+<li>CD4-positive, alpha-beta T cell (<strong>CL:0000624</strong>)</li>
+<li><strong>UBERON (examples):</strong> brain (<strong>UBERON:0000955</strong>), hippocampus (<strong>UBERON:0001954</strong>), lung (<strong>UBERON:0002048</strong>)</li>
+</ul>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Primary system:</strong> Central nervous system (brain; cortical/hippocampal circuits implicated by transcriptional and plasticity phenotypes). (maino2024anirak1mecp2tandem pages 23-26, pehlivan2024structuralvariantallelic pages 1-2)</li>
+<li><strong>Respiratory system:</strong> recurrent LRTIs/aspiration; pulmonary hypertension risk. (giudice‐nairn2019theincidenceprevalence pages 1-2, ta2022medicalcomorbiditiesin pages 6-7)</li>
+<li><strong>Gastrointestinal tract:</strong> constipation/dysmotility, reflux. (percy2023currentstatusof pages 11-15, lim2017expandingtheclinical pages 10-13)</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> often infancy (developmental delay in first 6 months, hypotonia early). (percy2023currentstatusof pages 11-15)</li>
+<li><strong>Epilepsy onset:</strong> median ~8–10 years in registry cohort, with severe seizures often linked to regression. (ta2022medicalcomorbiditiesin pages 6-7, percy2023currentstatusof pages 11-15)</li>
+<li><strong>Progression:</strong> progressive spasticity and later complications (respiratory morbidity, severe epilepsy) contribute to long-term burden and mortality risk. (ta2022abriefhistory pages 2-4, lim2017expandingtheclinical pages 10-13)</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>Inheritance</h3>
+<ul>
+<li><strong>X-linked inheritance</strong>, predominantly maternal transmission; review suggests ~<strong>20% de novo</strong>. (ta2022abriefhistory pages 2-4)</li>
+<li>Australian series: most males inherited from carrier mothers (13/15). (giudice‐nairn2019theincidenceprevalence pages 1-2)</li>
+</ul>
+<h3>Epidemiology (recent best-available numbers from retrieved sources)</h3>
+<ul>
+<li><strong>Australia birth prevalence:</strong> <strong>0.65/100,000 all live births</strong> and <strong>1/100,000 males</strong>. (giudice‐nairn2019theincidenceprevalence pages 1-2)</li>
+<li><strong>Estimated live birth prevalence in males:</strong> <strong>1/150,000</strong> (review estimate). (ta2022abriefhistory pages 1-2)</li>
+<li><strong>Diagnostic incidence in Australia:</strong> <strong>0.07/100,000 person-years overall</strong>, <strong>0.12/100,000 in males</strong>. (giudice‐nairn2019theincidenceprevalence pages 1-2)</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>Recommended/used genetic tests</h3>
+<ul>
+<li><strong>Chromosomal microarray / array-CGH:</strong> recommended for children with undiagnosed intellectual disability/global developmental delay in the Australian cohort. (giudice‐nairn2019theincidenceprevalence pages 1-2)</li>
+<li><strong>qPCR:</strong> used historically to detect duplications missed by earlier methods. (ta2022abriefhistory pages 2-4)</li>
+<li><strong>Karyotyping + WES + CNV-seq:</strong> applied in a 2024 pedigree; CNV-seq confirmed a 14.45 Mb Xq27.1–q28 duplication. (zeng2024geneticanalysisof pages 1-2)</li>
+<li><strong>Advanced structural characterization + omics:</strong> 2024 Genome Medicine study combined genomics with RNA-seq and deep HPO phenotyping. (pehlivan2024structuralvariantallelic pages 1-2)</li>
+</ul>
+<h3>Clinical evaluations/monitoring highlighted</h3>
+<ul>
+<li><strong>Cardiac assessment/monitoring</strong> recommended due to pulmonary hypertension/CHD concerns in MDS cohorts. (giudice‐nairn2019theincidenceprevalence pages 1-2, ta2022medicalcomorbiditiesin pages 9-10)</li>
+<li>Respiratory aspiration risk assessment and airway clearance support frequently needed (aspiration and secretion clearance deficits common). (ta2022medicalcomorbiditiesin pages 6-7)</li>
+</ul>
+<h3>Differential diagnosis</h3>
+<p>No formal differential diagnosis list was extracted from the retrieved sources; closely related disorders discussed in comparative reviews include <strong>Rett syndrome (MECP2 loss-of-function)</strong> and other developmental encephalopathies (CDKL5 deficiency, FOXG1 disorder). (percy2023currentstatusof pages 11-15)</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li>Historical minimal-region cohort summarized in Ta 2022 review: <strong>6/11</strong> individuals died before age 25 in one series (indicative of elevated early mortality risk). (ta2022abriefhistory pages 2-4)</li>
+<li>2024 genotype–phenotype analyses support that survival and severity worsen with increasing MECP2 dosage and certain rearrangement classes (triplication most severe). (pehlivan2024structuralvariantallelic pages 1-2, pehlivan2024structuralvariantallelic media 2a375656)</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<h3>Current standard of care (real-world implementation)</h3>
+<p>Symptomatic/supportive, multidisciplinary care is standard: management of epilepsy, feeding/GI dysmotility (constipation, reflux), and proactive infection prevention/treatment. Supportive respiratory approaches include airway clearance devices and noninvasive ventilation in a subset. Vaccination and prompt antibiotics are emphasized, and immunoglobulin or prophylactic antibiotics may be used for recurrent infections in some patients. (allison2024mecp2relateddisorderswhile pages 7-8, ta2022medicalcomorbiditiesin pages 6-7)</p>
+<p><strong>Suggested MAXO terms (examples):</strong>
+- Antiseizure therapy (<strong>MAXO:0000465</strong>) (term may vary)
+- Airway clearance therapy (<strong>MAXO:0000747</strong>; check exact MAXO)
+- Noninvasive ventilation (<strong>MAXO:0000506</strong>; check exact MAXO)
+- Physical therapy (<strong>MAXO:0000011</strong>)</p>
+<h3>Emerging disease-modifying therapies (2023–2024 focus)</h3>
+<h4>Antisense oligonucleotide (ASO) MECP2-lowering strategies</h4>
+<ul>
+<li><strong>Preclinical rationale:</strong> Normalizing MECP2 dosage with ASOs rescues neurological phenotypes in MECP2 overexpression mouse models. (bajikar2024modelingantisenseoligonucleotide pages 1-2)</li>
+<li><strong>Human translational evidence (2024):</strong> In MDS patient iPSC-derived neurons, ASO treatment partially rescues gene-expression programs and neuronal morphology. (bajikar2024modelingantisenseoligonucleotide pages 1-2)</li>
+<li><strong>Key safety concern (expert analysis):</strong> MeCP2 is dose-sensitive—oversuppression risks inducing Rett-like insufficiency; ASOs’ repeat dosing enables titration. (allison2024mecp2relateddisorderswhile pages 7-8, percy2023currentstatusof pages 11-15)</li>
+</ul>
+<h4>Interventional clinical trials</h4>
+<ul>
+<li><strong>ATTUNE — ION440 (Ionis):</strong> Phase 1–2, randomized, double-blind, sham-controlled, multiple-ascending dose trial using <strong>intrathecal bolus</strong> administration; recruiting; start date <strong>2024-10-21</strong> (NCT06430385). (NCT06430385 chunk 1)</li>
+</ul>
+<h4>Biomarker/disease progression characterization (trial readiness)</h4>
+<ul>
+<li><strong>Ionis observational biomarker study:</strong> Terminated after meeting objectives; included CSF and blood collection (lumbar puncture), EEG/evoked potentials/pupillometry, and multiple clinical scales; primary endpoints included <strong>change in MeCP2 in CSF</strong> (NCT06014541). (NCT06014541 chunk 1)</li>
+</ul>
+<h4>Gene therapy and gene-based approaches (expert perspective)</h4>
+<p>Gene-based therapies must address MECP2’s narrow therapeutic window; experts caution that over-treatment could “convert” toward the opposite dosage disorder, and one-time gene replacement carries irreversibility risk compared with titratable approaches. (allison2024mecp2relateddisorderswhile pages 7-8)</p>
+<hr />
+<h2>13. Prevention</h2>
+<p>No primary prevention is available for a germline CNV disorder beyond <strong>genetic counseling</strong>, carrier testing, and prenatal/preimplantation options where legally/ethically appropriate. Maternal carrier transmission is common, supporting cascade testing in families. (giudice‐nairn2019theincidenceprevalence pages 1-2, ta2022abriefhistory pages 2-4)</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p>No naturally occurring non-human veterinary syndrome was identified in the retrieved sources.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<h3>Mouse models</h3>
+<ul>
+<li><strong>CRISPR Irak1–Mecp2 tandem duplication mouse (2024):</strong> Designed to mimic patient-like tandem duplication including <strong>Irak1</strong>; shows neurobehavioral phenotypes and abnormal immune response to infection, enabling mechanistic and therapeutic studies. (maino2024anirak1mecp2tandem pages 1-5, maino2024anirak1mecp2tandem pages 23-26)</li>
+</ul>
+<h3>Human cellular models</h3>
+<ul>
+<li><strong>Patient iPSC-derived neurons (2024):</strong> Used to evaluate MECP2-targeting ASO effects on transcriptional signatures and neuronal morphology. (bajikar2024modelingantisenseoligonucleotide pages 1-2)</li>
+</ul>
+<hr />
+<h2>Recent developments and “latest research” highlights (2023–2024)</h2>
+<ol>
+<li><strong>Large 2024 cohort (n=137) integrating genomics + transcriptomics + deep HPO phenotyping</strong> demonstrates graded severity across rearrangement classes and MECP2 RNA–protein correlation, improving genotype–phenotype resolution and informing trial stratification. (pehlivan2024structuralvariantallelic pages 1-2, pehlivan2024structuralvariantallelic media 1eb0878d)</li>
+<li><strong>2024 human iPSC-neuron ASO modeling study</strong> provides a translational bridge between mouse rescue data and human neuronal biology, identifying MeCP2-level-responsive gene programs. (bajikar2024modelingantisenseoligonucleotide pages 1-2)</li>
+<li><strong>2024 CRISPR tandem-duplication mouse including Irak1</strong> adds immune dysregulation biology absent from MECP2-only transgenic models, supporting multi-gene contributions to MDS. (maino2024anirak1mecp2tandem pages 1-5, maino2024anirak1mecp2tandem pages 23-26)</li>
+<li><strong>Clinical translation (2024 onward):</strong> an intrathecal ASO trial (ION440) has entered Phase 1–2 testing in MDS (NCT06430385), and a terminated observational biomarker study (NCT06014541) indicates active biomarker/trajectory definition by industry sponsors. (NCT06430385 chunk 1, NCT06014541 chunk 1)</li>
+</ol>
+<hr />
+<h2>Visual evidence (genotype–phenotype)</h2>
+<p>Pehlivan et al. (Genome Medicine 2024) provide figure/table visual summaries of structural rearrangement classes and phenotype severity ordering across classes (tandem duplications through triplications). (pehlivan2024structuralvariantallelic media 2e1d3f3a, pehlivan2024structuralvariantallelic media 1eb0878d, pehlivan2024structuralvariantallelic media 2a375656)</p>
+<hr />
+<h2>Notes on gaps / limitations of this tool run</h2>
+<ul>
+<li><strong>Ontology identifiers (MONDO, Orphanet, MeSH, ICD-10/11)</strong> were not present in the retrieved full text chunks and therefore are not asserted here.</li>
+<li>Some phenotype frequencies (e.g., pneumonia/bronchitis/GERD/scoliosis exact prevalence) were described qualitatively in the MDBase abstract, but complete numeric tables were not fully captured in retrieved excerpts; a direct full-text table extraction would improve completeness. (ta2022medicalcomorbiditiesin pages 1-2)</li>
+<li>The CRISPR RNA-editing interventional trial record (NCT06615206) was retrieved earlier but not present in the evidence chunks extracted here; therefore, it is not detailed in this report.</li>
+</ul>
+<p>References</p>
+<ol>
+<li>
+<p>(ta2022abriefhistory pages 1-2): Daniel Ta, Jenny Downs, Gareth Baynam, Andrew Wilson, Peter Richmond, and Helen Leonard. A brief history of mecp2 duplication syndrome: 20-years of clinical understanding. Orphanet Journal of Rare Diseases, Mar 2022. URL: https://doi.org/10.1186/s13023-022-02278-w, doi:10.1186/s13023-022-02278-w. This article has 64 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(pehlivan2024structuralvariantallelic pages 1-2): Davut Pehlivan, Jesse D. Bengtsson, Sameer S. Bajikar, Christopher M. Grochowski, Ming Yin Lun, Mira Gandhi, Angad Jolly, Alexander J. Trostle, Holly K. Harris, Bernhard Suter, Sukru Aras, Melissa B. Ramocki, Haowei Du, Michele G. Mehaffey, KyungHee Park, Ellen Wilkey, Cemal Karakas, Jesper J. Eisfeldt, Maria Pettersson, Lynn Liu, Marwan S. Shinawi, Virginia E. Kimonis, Wojciech Wiszniewski, Kyle Mckenzie, Timo Roser, Angela M. Vianna-Morgante, Alberto S. Cornier, Ahmed Abdelmoity, James P. Hwang, Shalini N. Jhangiani, Donna M. Muzny, Tadahiro Mitani, Kazuhiro Muramatsu, Shin Nabatame, Daniel G. Glaze, Jawid M. Fatih, Richard A. Gibbs, Zhandong Liu, Anna Lindstrand, Fritz J. Sedlazeck, James R. Lupski, Huda Y. Zoghbi, and Claudia M. B. Carvalho. Structural variant allelic heterogeneity in mecp2 duplication syndrome provides insight into clinical severity and variability of disease expression. Genome Medicine, Dec 2024. URL: https://doi.org/10.1186/s13073-024-01411-7, doi:10.1186/s13073-024-01411-7. This article has 14 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(percy2023currentstatusof pages 11-15): Alan K. Percy, Jeffrey L. Neul, Sarika Peters, Knut Brockmann, Eric Marsh, and Tim Benke. Current status of developmental encephalopathies: rett syndrome, mecp2 duplication disorder, cdkl5 deficiency disorder and foxg1 disorder. Translational Science of Rare Diseases, 6:73-100, Jul 2023. URL: https://doi.org/10.3233/trd-220055, doi:10.3233/trd-220055. This article has 2 citations.</p>
+</li>
+<li>
+<p>(ta2022medicalcomorbiditiesin pages 6-7): Daniel Ta, Jenny Downs, Gareth Baynam, Andrew Wilson, Peter Richmond, and Helen Leonard. Medical comorbidities in mecp2 duplication syndrome: results from the international mecp2 duplication database. Children, 9:633, Apr 2022. URL: https://doi.org/10.3390/children9050633, doi:10.3390/children9050633. This article has 14 citations.</p>
+</li>
+<li>
+<p>(pehlivan2024structuralvariantallelic media 2e1d3f3a): Davut Pehlivan, Jesse D. Bengtsson, Sameer S. Bajikar, Christopher M. Grochowski, Ming Yin Lun, Mira Gandhi, Angad Jolly, Alexander J. Trostle, Holly K. Harris, Bernhard Suter, Sukru Aras, Melissa B. Ramocki, Haowei Du, Michele G. Mehaffey, KyungHee Park, Ellen Wilkey, Cemal Karakas, Jesper J. Eisfeldt, Maria Pettersson, Lynn Liu, Marwan S. Shinawi, Virginia E. Kimonis, Wojciech Wiszniewski, Kyle Mckenzie, Timo Roser, Angela M. Vianna-Morgante, Alberto S. Cornier, Ahmed Abdelmoity, James P. Hwang, Shalini N. Jhangiani, Donna M. Muzny, Tadahiro Mitani, Kazuhiro Muramatsu, Shin Nabatame, Daniel G. Glaze, Jawid M. Fatih, Richard A. Gibbs, Zhandong Liu, Anna Lindstrand, Fritz J. Sedlazeck, James R. Lupski, Huda Y. Zoghbi, and Claudia M. B. Carvalho. Structural variant allelic heterogeneity in mecp2 duplication syndrome provides insight into clinical severity and variability of disease expression. Genome Medicine, Dec 2024. URL: https://doi.org/10.1186/s13073-024-01411-7, doi:10.1186/s13073-024-01411-7. This article has 14 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(pehlivan2024structuralvariantallelic media 2a375656): Davut Pehlivan, Jesse D. Bengtsson, Sameer S. Bajikar, Christopher M. Grochowski, Ming Yin Lun, Mira Gandhi, Angad Jolly, Alexander J. Trostle, Holly K. Harris, Bernhard Suter, Sukru Aras, Melissa B. Ramocki, Haowei Du, Michele G. Mehaffey, KyungHee Park, Ellen Wilkey, Cemal Karakas, Jesper J. Eisfeldt, Maria Pettersson, Lynn Liu, Marwan S. Shinawi, Virginia E. Kimonis, Wojciech Wiszniewski, Kyle Mckenzie, Timo Roser, Angela M. Vianna-Morgante, Alberto S. Cornier, Ahmed Abdelmoity, James P. Hwang, Shalini N. Jhangiani, Donna M. Muzny, Tadahiro Mitani, Kazuhiro Muramatsu, Shin Nabatame, Daniel G. Glaze, Jawid M. Fatih, Richard A. Gibbs, Zhandong Liu, Anna Lindstrand, Fritz J. Sedlazeck, James R. Lupski, Huda Y. Zoghbi, and Claudia M. B. Carvalho. Structural variant allelic heterogeneity in mecp2 duplication syndrome provides insight into clinical severity and variability of disease expression. Genome Medicine, Dec 2024. URL: https://doi.org/10.1186/s13073-024-01411-7, doi:10.1186/s13073-024-01411-7. This article has 14 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(giudice‐nairn2019theincidenceprevalence pages 1-2): Peter Giudice‐Nairn, Jenny Downs, Kingsley Wong, Dylan Wilson, Daniel Ta, Michael Gattas, David Amor, Elizabeth Thompson, Cathy Kirrali‐Borri, Carolyn Ellaway, and Helen Leonard. The incidence, prevalence and clinical features of mecp2 duplication syndrome in australian children. Journal of Paediatrics and Child Health, 55:1315-1322, Nov 2019. URL: https://doi.org/10.1111/jpc.14399, doi:10.1111/jpc.14399. This article has 47 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(ak2022exploringthecharacteristics pages 1-2): Muharrem Ak, Bernhard Suter, Zekeriya Akturk, Holly Harris, Kristina Bowyer, Laurence Mignon, Sasidhar Pasupuleti, Daniel G. Glaze, and Davut Pehlivan. Exploring the characteristics and most bothersome symptoms in mecp2 duplication syndrome to pave the path toward developing parent‐oriented outcome measures. Molecular Genetics &amp; Genomic Medicine, Jun 2022. URL: https://doi.org/10.1002/mgg3.1989, doi:10.1002/mgg3.1989. This article has 10 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(maino2024anirak1mecp2tandem pages 23-26): Eleonora Maino, Ori Scott, Samar Z. Rizvi, Shagana Visuvanathan, Youssif Ben Zablah, Hongbin Li, Ameet S. Sengar, Michael W. Salter, Zhengping Jia, Janet Rossant, Ronald D. Cohn, Bin Gu, and Evgueni A. Ivakine. An irak1-mecp2 tandem duplication mouse model for the study of mecp2 duplication syndrome. Disease Models &amp; Mechanisms, Feb 2024. URL: https://doi.org/10.1101/2023.02.07.527511, doi:10.1101/2023.02.07.527511. This article has 1 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(bajikar2024modelingantisenseoligonucleotide pages 1-2): Sameer S Bajikar, Yehezkel Sztainberg, Alexander J Trostle, Harini P Tirumala, Ying-Wooi Wan, Caroline L Harrop, Jesse D Bengtsson, Claudia M B Carvalho, Davut Pehlivan, Bernhard Suter, Jeffrey L Neul, Zhandong Liu, Paymaan Jafar-Nejad, Frank Rigo, and Huda Y Zoghbi. Modeling antisense oligonucleotide therapy in <i>mecp2</i> duplication syndrome human ipsc-derived neurons reveals gene expression programs responsive to mecp2 levels. Human Molecular Genetics, 33:1986-2001, Sep 2024. URL: https://doi.org/10.1093/hmg/ddae135, doi:10.1093/hmg/ddae135. This article has 11 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(ta2022abriefhistory pages 2-4): Daniel Ta, Jenny Downs, Gareth Baynam, Andrew Wilson, Peter Richmond, and Helen Leonard. A brief history of mecp2 duplication syndrome: 20-years of clinical understanding. Orphanet Journal of Rare Diseases, Mar 2022. URL: https://doi.org/10.1186/s13023-022-02278-w, doi:10.1186/s13023-022-02278-w. This article has 64 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(lim2017expandingtheclinical pages 10-13): Zhan Lim, Jenny Downs, Jenny Downs, Kingsley Wong, C. Ellaway, C. Ellaway, and Helen Leonard. Expanding the clinical picture of the mecp2 duplication syndrome. Clinical Genetics, 91:557-563, Apr 2017. URL: https://doi.org/10.1111/cge.12814, doi:10.1111/cge.12814. This article has 67 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(allison2024mecp2relateddisorderswhile pages 4-5): Katherine Allison, Mirjana Maletic-Savatic, and Davut Pehlivan. Mecp2-related disorders while gene-based therapies are on the horizon. Frontiers in Genetics, Feb 2024. URL: https://doi.org/10.3389/fgene.2024.1332469, doi:10.3389/fgene.2024.1332469. This article has 14 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(allison2024mecp2relateddisorderswhile pages 7-8): Katherine Allison, Mirjana Maletic-Savatic, and Davut Pehlivan. Mecp2-related disorders while gene-based therapies are on the horizon. Frontiers in Genetics, Feb 2024. URL: https://doi.org/10.3389/fgene.2024.1332469, doi:10.3389/fgene.2024.1332469. This article has 14 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(ta2022medicalcomorbiditiesin pages 9-10): Daniel Ta, Jenny Downs, Gareth Baynam, Andrew Wilson, Peter Richmond, and Helen Leonard. Medical comorbidities in mecp2 duplication syndrome: results from the international mecp2 duplication database. Children, 9:633, Apr 2022. URL: https://doi.org/10.3390/children9050633, doi:10.3390/children9050633. This article has 14 citations.</p>
+</li>
+<li>
+<p>(maino2024anirak1mecp2tandem pages 1-5): Eleonora Maino, Ori Scott, Samar Z. Rizvi, Shagana Visuvanathan, Youssif Ben Zablah, Hongbin Li, Ameet S. Sengar, Michael W. Salter, Zhengping Jia, Janet Rossant, Ronald D. Cohn, Bin Gu, and Evgueni A. Ivakine. An irak1-mecp2 tandem duplication mouse model for the study of mecp2 duplication syndrome. Disease Models &amp; Mechanisms, Feb 2024. URL: https://doi.org/10.1101/2023.02.07.527511, doi:10.1101/2023.02.07.527511. This article has 1 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(pehlivan2024structuralvariantallelic media 1eb0878d): Davut Pehlivan, Jesse D. Bengtsson, Sameer S. Bajikar, Christopher M. Grochowski, Ming Yin Lun, Mira Gandhi, Angad Jolly, Alexander J. Trostle, Holly K. Harris, Bernhard Suter, Sukru Aras, Melissa B. Ramocki, Haowei Du, Michele G. Mehaffey, KyungHee Park, Ellen Wilkey, Cemal Karakas, Jesper J. Eisfeldt, Maria Pettersson, Lynn Liu, Marwan S. Shinawi, Virginia E. Kimonis, Wojciech Wiszniewski, Kyle Mckenzie, Timo Roser, Angela M. Vianna-Morgante, Alberto S. Cornier, Ahmed Abdelmoity, James P. Hwang, Shalini N. Jhangiani, Donna M. Muzny, Tadahiro Mitani, Kazuhiro Muramatsu, Shin Nabatame, Daniel G. Glaze, Jawid M. Fatih, Richard A. Gibbs, Zhandong Liu, Anna Lindstrand, Fritz J. Sedlazeck, James R. Lupski, Huda Y. Zoghbi, and Claudia M. B. Carvalho. Structural variant allelic heterogeneity in mecp2 duplication syndrome provides insight into clinical severity and variability of disease expression. Genome Medicine, Dec 2024. URL: https://doi.org/10.1186/s13073-024-01411-7, doi:10.1186/s13073-024-01411-7. This article has 14 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(zeng2024geneticanalysisof pages 1-2): Lan Zeng, Hui Zhu, Jin Wang, Qiyan Wang, Ying Pang, Zemin Luo, Ai Chen, Shengfang Qin, and Shuyao Zhu. Genetic analysis of a pedigree with mecp2 duplication syndrome in china. BMC Medical Genomics, Feb 2024. URL: https://doi.org/10.1186/s12920-024-01831-9, doi:10.1186/s12920-024-01831-9. This article has 0 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(NCT06430385 chunk 1):  ATTUNE: A Study to Evaluate the Safety, Tolerability, Pharmacokinetics, and Pharmacodynamics of Intrathecally-Administered ION440 in Participants With Methyl CpG Binding Protein 2 (MECP2) Duplication Syndrome (MDS). Ionis Pharmaceuticals, Inc.. 2024. ClinicalTrials.gov Identifier: NCT06430385</p>
+</li>
+<li>
+<p>(NCT06014541 chunk 1):  Observational Study to Characterize Biomarkers and Disease Progression in Participants With Methyl CpG Binding Protein 2 (MECP2) Duplication Syndrome. Ionis Pharmaceuticals, Inc.. 2023. ClinicalTrials.gov Identifier: NCT06014541</p>
+</li>
+<li>
+<p>(ta2022medicalcomorbiditiesin pages 1-2): Daniel Ta, Jenny Downs, Gareth Baynam, Andrew Wilson, Peter Richmond, and Helen Leonard. Medical comorbidities in mecp2 duplication syndrome: results from the international mecp2 duplication database. Children, 9:633, Apr 2022. URL: https://doi.org/10.3390/children9050633, doi:10.3390/children9050633. This article has 14 citations.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
             
         </div>
         
@@ -5094,7 +6360,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "MECP2 Duplication Syndrome", "mondoId": "MONDO:0010436", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "MECP2_Duplication_Syndrome", "yamlRevision": "92e7fbd94fcc"};
+        const OS_CONFIG = {"diseaseName": "MECP2 Duplication Syndrome", "mondoId": "MONDO:0010436", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "MECP2_Duplication_Syndrome", "yamlRevision": "12f4dd8c9027"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

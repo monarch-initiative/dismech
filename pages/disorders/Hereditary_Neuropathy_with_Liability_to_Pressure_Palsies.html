@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2633,11 +2786,18 @@
             
             <a class="stat-link" href="#references">
             <div class="stat-item">
-                <div class="stat-value">1</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
             
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -3201,7 +3361,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Compression-Sensitive Conduction Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Peripheral nerves exposed to ordinary entrapment sites develop recurrent focal sensory and motor neuropathies. Electrodiagnostic testing typically shows focal conduction abnormalities at compression sites, and some patients also show a mild generalized sensorimotor polyneuropathy.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Schwann cell\", \"motor neuron\", \"sensory neuron\"], \"biological_processes\": [\"neuronal action potential propagation\"]}}, {\"id\": \"PMP22 Haploinsufficiency and Junctional Myelin Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous PMP22 deletion or loss-of-function variation lowers PMP22 dosage in Schwann cells. Reduced PMP22 destabilizes tight and adherens junction architecture within compact peripheral myelin, increasing myelin permeability and making nerves unusually susceptible to mechanical compression.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Schwann cell\"], \"biological_processes\": [\"myelination in peripheral nervous system\", \"cell junction assembly\"], \"genes\": [\"PMP22\"]}}, {\"id\": \"PMP22 deletion or pathogenic variant\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PMP22\"], \"association\": \"Causal deletion or pathogenic variant leading to PMP22 haploinsufficiency\"}}], \"edges\": [{\"source\": \"PMP22 Haploinsufficiency and Junctional Myelin Instability\", \"target\": \"Compression-Sensitive Conduction Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PMP22 deletion or pathogenic variant\", \"target\": \"PMP22 Haploinsufficiency and Junctional Myelin Instability\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Compression-Sensitive Conduction Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Peripheral nerves exposed to ordinary entrapment sites develop recurrent focal sensory and motor neuropathies. Electrodiagnostic testing typically shows focal conduction abnormalities at compression sites, and some patients also show a mild generalized sensorimotor polyneuropathy.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Schwann cell\", \"motor neuron\", \"sensory neuron\"], \"biological_processes\": [\"neuronal action potential propagation\"]}}, {\"id\": \"PMP22 Haploinsufficiency and Junctional Myelin Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous PMP22 deletion or loss-of-function variation lowers PMP22 dosage in Schwann cells. Reduced PMP22 destabilizes tight and adherens junction architecture within compact peripheral myelin, increasing myelin permeability and making nerves unusually susceptible to mechanical compression.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Schwann cell\"], \"biological_processes\": [\"myelination in peripheral nervous system\", \"cell junction assembly\"], \"genes\": [\"PMP22\"]}}, {\"id\": \"PMP22 deletion or pathogenic variant\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"PMP22\"], \"association\": \"Causal deletion or pathogenic variant leading to PMP22 haploinsufficiency\"}}], \"edges\": [{\"source\": \"PMP22 Haploinsufficiency and Junctional Myelin Instability\", \"target\": \"Compression-Sensitive Conduction Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PMP22 deletion or pathogenic variant\", \"target\": \"PMP22 Haploinsufficiency and Junctional Myelin Instability\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3481,7 +3641,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
             
@@ -3522,6 +3682,26 @@
                 
                 
                 <div class="evidence-explanation">This original mapping study establishes the recurrent deletion architecture of classic HNPP.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_a7502a7e-2a4e-4b85-8f7c-8d76fe94f294-2024-07-08T160000.000Z" target="_blank">CGGV:assertion_a7502a7e-2a4e-4b85-8f7c-8d76fe94f294-2024-07-08T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"PMP22 | HGNC:9118 | hereditary neuropathy with liability to pressure palsies | MONDO:0008087 | AD | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the PMP22-hereditary neuropathy with liability to pressure palsies gene-disease relationship as definitive with autosomal dominant inheritance.</div>
                 
             </div>
             
@@ -3986,7 +4166,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Hereditary Neuropathy with Liability to Pressure Palsies
 creation_date: &#39;2026-04-21T04:40:35Z&#39;
-updated_date: &#39;2026-04-21T20:44:26Z&#39;
+updated_date: &#39;2026-05-09T17:39:56Z&#39;
 category: Mendelian
 parents:
 - Genetic Disease
@@ -4278,6 +4458,12 @@ genetic:
     explanation: &gt;-
       This original mapping study establishes the recurrent deletion architecture
       of classic HNPP.
+  - reference: CGGV:assertion_a7502a7e-2a4e-4b85-8f7c-8d76fe94f294-2024-07-08T160000.000Z
+    reference_title: &#34;PMP22 / hereditary neuropathy with liability to pressure palsies (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;PMP22 | HGNC:9118 | hereditary neuropathy with liability to pressure palsies | MONDO:0008087 | AD | Definitive&#34;
+    explanation: ClinGen classifies the PMP22-hereditary neuropathy with liability to pressure palsies gene-disease relationship as definitive with autosomal dominant inheritance.
 environmental: []
 treatments:
 - name: Physical therapy
@@ -4465,6 +4651,97 @@ references:
   tags:
   - GeneReviews
   findings: []
+- reference: DOI:10.1007/s00415-024-12839-7
+  title: Literature review of clinical analysis of hereditary neuropathy with liability to pressure palsies
+  found_in:
+  - Hereditary_Neuropathy_with_Liability_to_Pressure_Palsies-deep-research-falcon.md
+  findings:
+  - statement: Literature review of clinical analysis of hereditary neuropathy with liability to pressure palsies
+    supporting_text: Literature review of clinical analysis of hereditary neuropathy with liability to pressure palsies
+- reference: DOI:10.1007/s12035-012-8370-x
+  title: The PMP22 Gene and Its Related Diseases
+  found_in:
+  - Hereditary_Neuropathy_with_Liability_to_Pressure_Palsies-deep-research-falcon.md
+  findings:
+  - statement: The PMP22 Gene and Its Related Diseases
+    supporting_text: The PMP22 Gene and Its Related Diseases
+- reference: DOI:10.1093/brain/awae064
+  title: Whole genome sequencing increases the diagnostic rate in Charcot-Marie-Tooth disease
+  found_in:
+  - Hereditary_Neuropathy_with_Liability_to_Pressure_Palsies-deep-research-falcon.md
+  findings:
+  - statement: Charcot-Marie-Tooth disease (CMT) is one of the most common and genetically heterogeneous inherited neurological diseases, with more than 130 disease-causing genes.
+    supporting_text: Charcot-Marie-Tooth disease (CMT) is one of the most common and genetically heterogeneous inherited neurological diseases, with more than 130 disease-causing genes.
+    evidence:
+    - reference: DOI:10.1093/brain/awae064
+      reference_title: Whole genome sequencing increases the diagnostic rate in Charcot-Marie-Tooth disease
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Charcot-Marie-Tooth disease (CMT) is one of the most common and genetically heterogeneous inherited neurological diseases, with more than 130 disease-causing genes.
+      explanation: Deep research cited this publication as relevant literature for Hereditary Neuropathy with Liability to Pressure Palsies.
+- reference: DOI:10.1093/hmg/ddaa082
+  title: Pmp22 super-enhancer deletion causes tomacula formation and conduction block in peripheral nerves
+  found_in:
+  - Hereditary_Neuropathy_with_Liability_to_Pressure_Palsies-deep-research-falcon.md
+  findings:
+  - statement: Copy number variation of the peripheral nerve myelin gene Peripheral Myelin Protein 22 (PMP22) causes multiple forms of inherited peripheral neuropathy.
+    supporting_text: Copy number variation of the peripheral nerve myelin gene Peripheral Myelin Protein 22 (PMP22) causes multiple forms of inherited peripheral neuropathy.
+    evidence:
+    - reference: DOI:10.1093/hmg/ddaa082
+      reference_title: Pmp22 super-enhancer deletion causes tomacula formation and conduction block in peripheral nerves
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Copy number variation of the peripheral nerve myelin gene Peripheral Myelin Protein 22 (PMP22) causes multiple forms of inherited peripheral neuropathy.
+      explanation: Deep research cited this publication as relevant literature for Hereditary Neuropathy with Liability to Pressure Palsies.
+- reference: DOI:10.1186/1750-1172-9-38
+  title: &#39;PMP22 related neuropathies: Charcot-Marie-Tooth disease type 1A and Hereditary Neuropathy with liability to Pressure Palsies&#39;
+  found_in:
+  - Hereditary_Neuropathy_with_Liability_to_Pressure_Palsies-deep-research-falcon.md
+  findings:
+  - statement: &#39;PMP22 related neuropathies: Charcot-Marie-Tooth disease type 1A and Hereditary Neuropathy with liability to Pressure Palsies&#39;
+    supporting_text: &#39;PMP22 related neuropathies: Charcot-Marie-Tooth disease type 1A and Hereditary Neuropathy with liability to Pressure Palsies&#39;
+- reference: DOI:10.3389/fgene.2025.1613022
+  title: &#39;Case Report: Hereditary neuropathy with liability to pressure palsy (HNPP): the role of genetic investigation in diagnostic assessment&#39;
+  found_in:
+  - Hereditary_Neuropathy_with_Liability_to_Pressure_Palsies-deep-research-falcon.md
+  findings:
+  - statement: Hereditary neuropathy with liability to pressure palsies (HNPP) is a genetic disorder characterized by recurrent focal neuropathies typically occurring at sites of nerve entrapment or compression.
+    supporting_text: Hereditary neuropathy with liability to pressure palsies (HNPP) is a genetic disorder characterized by recurrent focal neuropathies typically occurring at sites of nerve entrapment or compression.
+    evidence:
+    - reference: DOI:10.3389/fgene.2025.1613022
+      reference_title: &#39;Case Report: Hereditary neuropathy with liability to pressure palsy (HNPP): the role of genetic investigation in diagnostic assessment&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Hereditary neuropathy with liability to pressure palsies (HNPP) is a genetic disorder characterized by recurrent focal neuropathies typically occurring at sites of nerve entrapment or compression.
+      explanation: Deep research cited this publication as relevant literature for Hereditary Neuropathy with Liability to Pressure Palsies.
+- reference: DOI:10.3390/genes16111279
+  title: &#39;PMP22-Related Neuropathies: A Systematic Review&#39;
+  found_in:
+  - Hereditary_Neuropathy_with_Liability_to_Pressure_Palsies-deep-research-falcon.md
+  findings:
+  - statement: &#39;PMP22-Related Neuropathies: A Systematic Review&#39;
+    supporting_text: PMP22-related neuropathies comprise a spectrum of predominantly demyelinating disorders, most commonly Charcot–Marie–Tooth type 1A (CMT1A; 17p12 duplication) and hereditary neuropathy with liability to pressure palsies (HNPP; 17p12 deletion), with rarer phenotypes due to PMP22 sequence variants (CMT1E, Dejerine–Sottas syndrome [DSS]).
+    evidence:
+    - reference: DOI:10.3390/genes16111279
+      reference_title: &#39;PMP22-Related Neuropathies: A Systematic Review&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: PMP22-related neuropathies comprise a spectrum of predominantly demyelinating disorders, most commonly Charcot–Marie–Tooth type 1A (CMT1A; 17p12 duplication) and hereditary neuropathy with liability to pressure palsies (HNPP; 17p12 deletion), with rarer phenotypes due to PMP22 sequence variants (CMT1E, Dejerine–Sottas syndrome [DSS]).
+      explanation: Deep research cited this publication as relevant literature for Hereditary Neuropathy with Liability to Pressure Palsies.
+- reference: DOI:10.3390/healthcare12080858
+  title: &#39;Anesthetic Considerations for Patients with Hereditary Neuropathy with Liability to Pressure Palsies: A Narrative Review&#39;
+  found_in:
+  - Hereditary_Neuropathy_with_Liability_to_Pressure_Palsies-deep-research-falcon.md
+  findings:
+  - statement: Hereditary neuropathy with liability to pressure palsies (HNPP) is an autosomal dominant demyelinating neuropathy characterized by an increased susceptibility to peripheral nerve injury from trauma, compression, or shear forces.
+    supporting_text: Hereditary neuropathy with liability to pressure palsies (HNPP) is an autosomal dominant demyelinating neuropathy characterized by an increased susceptibility to peripheral nerve injury from trauma, compression, or shear forces.
+    evidence:
+    - reference: DOI:10.3390/healthcare12080858
+      reference_title: &#39;Anesthetic Considerations for Patients with Hereditary Neuropathy with Liability to Pressure Palsies: A Narrative Review&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Hereditary neuropathy with liability to pressure palsies (HNPP) is an autosomal dominant demyelinating neuropathy characterized by an increased susceptibility to peripheral nerve injury from trauma, compression, or shear forces.
+      explanation: Deep research cited this publication as relevant literature for Hereditary Neuropathy with Liability to Pressure Palsies.
 </pre>
             </div>
         </div>
@@ -4480,7 +4757,7 @@ references:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">1</span>
+                    <span class="card-count">9</span>
                 </div>
                 
                 <div class="reference-entry">
@@ -4500,8 +4777,1446 @@ references:
                     
                 </div>
                 
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s00415-024-12839-7" target="_blank">DOI:10.1007/s00415-024-12839-7</a>
+                            </div>
+                            
+                            <div class="reference-title">Literature review of clinical analysis of hereditary neuropathy with liability to pressure palsies</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Literature review of clinical analysis of hereditary neuropathy with liability to pressure palsies</div>
+            
+            
+            <div class="reference-finding-supporting">"Literature review of clinical analysis of hereditary neuropathy with liability to pressure palsies"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s12035-012-8370-x" target="_blank">DOI:10.1007/s12035-012-8370-x</a>
+                            </div>
+                            
+                            <div class="reference-title">The PMP22 Gene and Its Related Diseases</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The PMP22 Gene and Its Related Diseases</div>
+            
+            
+            <div class="reference-finding-supporting">"The PMP22 Gene and Its Related Diseases"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1093/brain/awae064" target="_blank">DOI:10.1093/brain/awae064</a>
+                            </div>
+                            
+                            <div class="reference-title">Whole genome sequencing increases the diagnostic rate in Charcot-Marie-Tooth disease</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Charcot-Marie-Tooth disease (CMT) is one of the most common and genetically heterogeneous inherited neurological diseases, with more than 130 disease-causing genes.</div>
+            
+            
+            <div class="reference-finding-supporting">"Charcot-Marie-Tooth disease (CMT) is one of the most common and genetically heterogeneous inherited neurological diseases, with more than 130 disease-causing genes."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/brain/awae064" target="_blank">DOI:10.1093/brain/awae064</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Charcot-Marie-Tooth disease (CMT) is one of the most common and genetically heterogeneous inherited neurological diseases, with more than 130 disease-causing genes."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Hereditary Neuropathy with Liability to Pressure Palsies.</div>
+                
             </div>
             
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1093/hmg/ddaa082" target="_blank">DOI:10.1093/hmg/ddaa082</a>
+                            </div>
+                            
+                            <div class="reference-title">Pmp22 super-enhancer deletion causes tomacula formation and conduction block in peripheral nerves</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Copy number variation of the peripheral nerve myelin gene Peripheral Myelin Protein 22 (PMP22) causes multiple forms of inherited peripheral neuropathy.</div>
+            
+            
+            <div class="reference-finding-supporting">"Copy number variation of the peripheral nerve myelin gene Peripheral Myelin Protein 22 (PMP22) causes multiple forms of inherited peripheral neuropathy."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/hmg/ddaa082" target="_blank">DOI:10.1093/hmg/ddaa082</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Copy number variation of the peripheral nerve myelin gene Peripheral Myelin Protein 22 (PMP22) causes multiple forms of inherited peripheral neuropathy."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Hereditary Neuropathy with Liability to Pressure Palsies.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1186/1750-1172-9-38" target="_blank">DOI:10.1186/1750-1172-9-38</a>
+                            </div>
+                            
+                            <div class="reference-title">PMP22 related neuropathies: Charcot-Marie-Tooth disease type 1A and Hereditary Neuropathy with liability to Pressure Palsies</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">PMP22 related neuropathies: Charcot-Marie-Tooth disease type 1A and Hereditary Neuropathy with liability to Pressure Palsies</div>
+            
+            
+            <div class="reference-finding-supporting">"PMP22 related neuropathies: Charcot-Marie-Tooth disease type 1A and Hereditary Neuropathy with liability to Pressure Palsies"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3389/fgene.2025.1613022" target="_blank">DOI:10.3389/fgene.2025.1613022</a>
+                            </div>
+                            
+                            <div class="reference-title">Case Report: Hereditary neuropathy with liability to pressure palsy (HNPP): the role of genetic investigation in diagnostic assessment</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Hereditary neuropathy with liability to pressure palsies (HNPP) is a genetic disorder characterized by recurrent focal neuropathies typically occurring at sites of nerve entrapment or compression.</div>
+            
+            
+            <div class="reference-finding-supporting">"Hereditary neuropathy with liability to pressure palsies (HNPP) is a genetic disorder characterized by recurrent focal neuropathies typically occurring at sites of nerve entrapment or compression."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fgene.2025.1613022" target="_blank">DOI:10.3389/fgene.2025.1613022</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Hereditary neuropathy with liability to pressure palsies (HNPP) is a genetic disorder characterized by recurrent focal neuropathies typically occurring at sites of nerve entrapment or compression."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Hereditary Neuropathy with Liability to Pressure Palsies.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/genes16111279" target="_blank">DOI:10.3390/genes16111279</a>
+                            </div>
+                            
+                            <div class="reference-title">PMP22-Related Neuropathies: A Systematic Review</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">PMP22-Related Neuropathies: A Systematic Review</div>
+            
+            
+            <div class="reference-finding-supporting">"PMP22-related neuropathies comprise a spectrum of predominantly demyelinating disorders, most commonly Charcot–Marie–Tooth type 1A (CMT1A; 17p12 duplication) and hereditary neuropathy with liability to pressure palsies (HNPP; 17p12 deletion), with rarer phenotypes due to PMP22 sequence variants..."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/genes16111279" target="_blank">DOI:10.3390/genes16111279</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"PMP22-related neuropathies comprise a spectrum of predominantly demyelinating disorders, most commonly Charcot–Marie–Tooth type 1A (CMT1A; 17p12 duplication) and hereditary neuropathy with liability to pressure palsies (HNPP; 17p12 deletion), with rarer phenotypes due to PMP22 sequence variants..."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Hereditary Neuropathy with Liability to Pressure Palsies.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/healthcare12080858" target="_blank">DOI:10.3390/healthcare12080858</a>
+                            </div>
+                            
+                            <div class="reference-title">Anesthetic Considerations for Patients with Hereditary Neuropathy with Liability to Pressure Palsies: A Narrative Review</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Hereditary neuropathy with liability to pressure palsies (HNPP) is an autosomal dominant demyelinating neuropathy characterized by an increased susceptibility to peripheral nerve injury from trauma, compression, or shear forces.</div>
+            
+            
+            <div class="reference-finding-supporting">"Hereditary neuropathy with liability to pressure palsies (HNPP) is an autosomal dominant demyelinating neuropathy characterized by an increased susceptibility to peripheral nerve injury from trauma, compression, or shear forces."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/healthcare12080858" target="_blank">DOI:10.3390/healthcare12080858</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Hereditary neuropathy with liability to pressure palsies (HNPP) is an autosomal dominant demyelinating neuropathy characterized by an increased susceptibility to peripheral nerve injury from trauma, compression, or shear forces."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Hereditary Neuropathy with Liability to Pressure Palsies.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">Disease Characteristics Research Template</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">24 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-09T09:20:43.008994</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
+<p>Provide detailed information focusing on:
+1. Key concepts and definitions with current understanding
+2. Recent developments and latest research (prioritize 2023-2024 sources)
+3. Current applications and real-world implementations
+4. Expert opinions and analysis from authoritative sources
+5. Relevant statistics and data from recent studies</p>
+<p>Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
+Always prioritize recent, authoritative sources and provide specific citations for all major claims.</p>
+<h1>Disease Characteristics Research Template</h1>
+<h2>Target Disease</h2>
+<ul>
+<li><strong>Disease Name:</strong> Hereditary Neuropathy with Liability to Pressure Palsies</li>
+<li><strong>MONDO ID:</strong>  (if available)</li>
+<li><strong>Category:</strong> Mendelian</li>
+</ul>
+<h2>Research Objectives</h2>
+<p>Please provide a comprehensive research report on <strong>Hereditary Neuropathy with Liability to Pressure Palsies</strong> covering all of the
+disease characteristics listed below. This report will be used to populate a disease knowledge
+base entry. Be thorough and cite primary literature (PMID preferred) for all claims.</p>
+<p>For each section, <strong>suggested databases/resources</strong> are listed. These are the first places
+you should search for information on each topic.</p>
+<hr />
+<h3>1. Disease Information</h3>
+<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, ICD-10/ICD-11, MeSH, PubMed</p>
+</blockquote>
+<ul>
+<li>What is the disease? Provide a concise overview.</li>
+<li>What are the key identifiers? (OMIM, Orphanet, ICD-10/ICD-11, MeSH, Mondo)</li>
+<li>What are the common synonyms and alternative names?</li>
+<li>Is the information derived from individual patients (e.g., EHR) or aggregated disease-level resources?</li>
+</ul>
+<h3>2. Etiology</h3>
+<ul>
+<li><strong>Disease Causal Factors</strong>: What are the primary causes? (genetic, environmental, infectious, mechanistic)</li>
+<li><strong>Risk Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, UpToDate, clinical guidelines, ClinVar, ClinGen, GWAS Catalog, PheGenI, CTD, CDC, WHO, epidemiological databases</p>
+</blockquote>
+</li>
+<li>Genetic risk factors (causal variants, susceptibility loci, modifier genes)</li>
+<li>Environmental risk factors (toxins, lifestyle, occupational exposures, age, sex, family history)</li>
+<li><strong>Protective Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, clinical trial databases, GWAS Catalog, gnomAD, WHO, CDC, nutrition databases</p>
+</blockquote>
+</li>
+<li>Genetic protective factors (protective variants, modifier alleles)</li>
+<li>Environmental protective factors (diet, lifestyle, exposures that reduce risk)</li>
+<li><strong>Gene-Environment Interactions</strong>: How do genetic and environmental factors interact to influence disease?<blockquote>
+<p><strong>Search first:</strong> CTD, PubMed, PheGenI, GxE databases</p>
+</blockquote>
+</li>
+</ul>
+<h3>3. Phenotypes</h3>
+<blockquote>
+<p><strong>Search first:</strong> HPO (Human Phenotype Ontology), OMIM, Orphanet, PubMed, clinicaltrials.gov, MedDRA, SNOMED CT, DECIPHER, LOINC</p>
+</blockquote>
+<p>For each phenotype, provide:
+- <strong>Phenotype type</strong>: symptoms, clinical signs, physical manifestations, behavioral changes, or laboratory abnormalities</p>
+<blockquote>
+<p>For symptoms/signs: HPO, OMIM, Orphanet, PubMed
+For behavioral changes: HPO, DSM, RDoC (Research Domain Criteria), PubMed
+For laboratory abnormalities: LOINC, SNOMED CT, LabTests Online, PubMed
+- <strong>Phenotype characteristics</strong>:
+<strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed
+  - Age of symptom onset (neonatal, childhood, adult-onset, late-onset)
+  - Symptom severity (mild, moderate, severe, variable)
+  - Symptom progression (stable, progressive, episodic, fluctuating)
+  - Frequency among affected individuals (percentage or qualitative)
+- <strong>Quality of life impact</strong>: Effects on daily functioning and well-being (per-phenotype when possible)
+<strong>Search first:</strong> EQ-5D database, SF-36, WHO QOL databases, PubMed
+- Suggest HPO (Human Phenotype Ontology) terms for each phenotype</p>
+</blockquote>
+<h3>4. Genetic/Molecular Information</h3>
+<ul>
+<li><strong>Causal Genes</strong>: Gene mutations or chromosomal abnormalities responsible for disease (gene symbols, OMIM IDs)<blockquote>
+<p><strong>Search first:</strong> OMIM, ClinVar, HGMD, Ensembl, NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Pathogenic Variants</strong>:</li>
+<li>Affected genes (gene symbols, HGNC IDs)
+    &gt; <strong>Search first:</strong> OMIM, NCBI Gene, Ensembl, HGNC, UniProt, GeneCards</li>
+<li>Variant classification (pathogenic, likely pathogenic, VUS per ACMG/AMP guidelines)
+    &gt; <strong>Search first:</strong> ClinVar, ClinGen, ACMG/AMP guidelines, VarSome</li>
+<li>Variant type/class (missense, frameshift, nonsense, splice-site, structural)</li>
+<li>Allele frequency in population databases
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, ExAC, TOPMed, dbSNP</li>
+<li>Somatic vs germline origin
+    &gt; <strong>Search first:</strong> COSMIC (somatic), ClinVar, ICGC, TCGA</li>
+<li>Functional consequences (loss of function, gain of function, dominant negative)</li>
+<li><strong>Modifier Genes</strong>: Genes that modify disease severity or expression</li>
+<li><strong>Epigenetic Information</strong>: DNA methylation, histone modifications, chromatin changes affecting disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Chromosomal Abnormalities</strong>: Large-scale genetic changes (aneuploidy, translocations, inversions)<blockquote>
+<p><strong>Search first:</strong> DECIPHER, ClinVar, ECARUCA, UCSC Genome Browser</p>
+</blockquote>
+</li>
+</ul>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Environmental Factors</strong>: Non-genetic contributing factors (toxins, radiation, pollution, occupational exposure)<blockquote>
+<p><strong>Search first:</strong> CTD (Comparative Toxicogenomics Database), TOXNET, PubMed, EPA databases</p>
+</blockquote>
+</li>
+<li><strong>Lifestyle Factors</strong>: Behavioral factors (smoking, diet, exercise, alcohol consumption)<blockquote>
+<p><strong>Search first:</strong> CDC databases, WHO, PubMed, NHANES</p>
+</blockquote>
+</li>
+<li><strong>Infectious Agents</strong>: If applicable, pathogens causing or triggering disease (bacteria, viruses, fungi, parasites)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON</p>
+</blockquote>
+</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<ul>
+<li><strong>Molecular Pathways</strong>: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)<blockquote>
+<p><strong>Search first:</strong> KEGG, Reactome, WikiPathways, PathBank, BioCyc</p>
+</blockquote>
+</li>
+<li><strong>Cellular Processes</strong>: Cell-level mechanisms (apoptosis, autophagy, cell cycle dysregulation, inflammation, etc.)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (GO), Reactome, KEGG, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Protein Dysfunction</strong>: How protein structure or function is altered (misfolding, aggregation, loss of function, gain of function)<blockquote>
+<p><strong>Search first:</strong> UniProt, PDB (Protein Data Bank), InterPro, Pfam, AlphaFold</p>
+</blockquote>
+</li>
+<li><strong>Metabolic Changes</strong>: Alterations in metabolic processes (energy metabolism, lipid metabolism, amino acid metabolism)<blockquote>
+<p><strong>Search first:</strong> KEGG, BioCyc, HMDB (Human Metabolome Database), BRENDA</p>
+</blockquote>
+</li>
+<li><strong>Immune System Involvement</strong>: Role of immune response (autoimmunity, immunodeficiency, chronic inflammation)<blockquote>
+<p><strong>Search first:</strong> ImmPort, Immunome Database, IEDB, Gene Ontology</p>
+</blockquote>
+</li>
+<li><strong>Tissue Damage Mechanisms</strong>: How tissues/ are injured (oxidative stress, ischemia, fibrosis, necrosis)<blockquote>
+<p><strong>Search first:</strong> PubMed, Gene Ontology, Reactome</p>
+</blockquote>
+</li>
+<li><strong>Biochemical Abnormalities</strong>: Specific molecular defects (enzyme deficiencies, receptor dysfunction, ion channel defects)<blockquote>
+<p><strong>Search first:</strong> BRENDA, UniProt, KEGG, OMIM, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Epigenetic Changes</strong>: DNA methylation, histone modifications affecting gene expression in disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Molecular Profiling</strong> (if available):</li>
+<li>Transcriptomics/gene expression changes
+    &gt; <strong>Search first:</strong> GEO (Gene Expression Omnibus), ArrayExpress, GTEx, Human Cell Atlas, SRA</li>
+<li>Proteomics findings
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, Human Protein Atlas, STRING, BioGRID</li>
+<li>Metabolomics signatures
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB, METLIN</li>
+<li>Lipidomics alterations
+    &gt; <strong>Search first:</strong> LIPID MAPS, SwissLipids, LipidHome, Metabolomics Workbench</li>
+<li>Genomic structural features
+    &gt; <strong>Search first:</strong> UCSC Genome Browser, Ensembl, NCBI, dbVar, DGV</li>
+<li><strong>Advanced Technologies</strong> (if applicable):</li>
+<li>Single-cell analysis findings (cell-type specific mechanisms, cellular heterogeneity)
+    &gt; <strong>Search first:</strong> Human Cell Atlas, Single Cell Portal, GEO, CELLxGENE</li>
+<li>Spatial transcriptomics findings
+    &gt; <strong>Search first:</strong> GEO, Spatial Research, Vizgen, 10x Genomics data</li>
+<li>Multi-omics integration results
+    &gt; <strong>Search first:</strong> TCGA, ICGC, cBioPortal, LinkedOmics, PubMed</li>
+<li>Functional genomics screens (CRISPR, RNAi)
+    &gt; <strong>Search first:</strong> DepMap, GenomeRNAi, PubMed, BioGRID ORCS</li>
+</ul>
+<p>For each mechanism, describe:
+- The causal chain from initial trigger to clinical manifestation
+- Which mechanisms are upstream vs downstream
+- What cell types and biological processes are involved
+- Suggest GO terms for biological processes and CL terms for cell types</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ Level</strong>:</li>
+<li>Primary organs directly affected</li>
+<li>Secondary organ involvement (complications, secondary effects)</li>
+<li>Body systems involved (cardiovascular, nervous, digestive, respiratory, endocrine, etc.)<blockquote>
+<p><strong>Search first:</strong> Uberon, FMA (Foundational Model of Anatomy), OMIM, HPO, ICD-11, MeSH, SNOMED CT</p>
+</blockquote>
+</li>
+<li><strong>Tissue and Cell Level</strong>:</li>
+<li>Specific tissue types affected (epithelial, connective, muscle, nervous)</li>
+<li>Specific cell populations targeted (with Cell Ontology terms)<blockquote>
+<p><strong>Search first:</strong> Uberon, Human Protein Atlas, Cell Ontology, Human Cell Atlas, CellMarker, PanglaoDB</p>
+</blockquote>
+</li>
+<li><strong>Subcellular Level</strong>:</li>
+<li>Cellular compartments involved (mitochondria, nucleus, ER, lysosomes) (with GO Cellular Component terms)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (Cellular Component), UniProt, Human Protein Atlas</p>
+</blockquote>
+</li>
+<li><strong>Localization</strong>:</li>
+<li>Specific anatomical sites (with UBERON terms)
+    &gt; <strong>Search first:</strong> FMA, Uberon, NeuroNames (for brain), SNOMED CT</li>
+<li>Lateralization (unilateral, bilateral, asymmetric)
+    &gt; <strong>Search first:</strong> HPO, clinical literature, imaging databases</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset</strong>:</li>
+<li>Typical age of onset (congenital, pediatric, adult, geriatric)</li>
+<li>Onset pattern (acute, subacute, chronic, insidious)<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Progression</strong>:</li>
+<li>Disease stages (early, intermediate, advanced, end-stage)
+    &gt; <strong>Search first:</strong> Cancer Staging Manual (AJCC), WHO classifications, PubMed</li>
+<li>Progression rate (rapid, slow, variable)</li>
+<li>Disease course pattern (episodic, relapsing-remitting, progressive, stable)</li>
+<li>Disease duration (self-limited, chronic lifelong)<blockquote>
+<p><strong>Search first:</strong> Disease registries, longitudinal cohort databases, natural history studies, PubMed, Orphanet, OMIM</p>
+</blockquote>
+</li>
+<li><strong>Patterns</strong>:</li>
+<li>Remission patterns (spontaneous, treatment-induced)
+    &gt; <strong>Search first:</strong> Clinical trial databases, disease registries, PubMed</li>
+<li>Critical periods (time windows of vulnerability or opportunity for intervention)
+    &gt; <strong>Search first:</strong> PubMed, developmental biology databases, clinical guidelines</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology</strong>:</li>
+<li>Prevalence (cases per 100,000 at given time)</li>
+<li>Incidence (new cases per 100,000 per year)<blockquote>
+<p><strong>Search first:</strong> Orphanet, CDC, WHO, GBD (Global Burden of Disease), national registries, SEER, disease registries</p>
+</blockquote>
+</li>
+<li><strong>For Genetic Etiology</strong>:</li>
+<li>Inheritance pattern (AD, AR, X-linked, mitochondrial, multifactorial, polygenic)
+    &gt; <strong>Search first:</strong> OMIM, Orphanet, ClinVar, GTR (Genetic Testing Registry)</li>
+<li>Penetrance (complete, incomplete, age-dependent)
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, PubMed, ClinGen</li>
+<li>Expressivity (variable, consistent)
+    &gt; <strong>Search first:</strong> OMIM, ClinVar, PubMed</li>
+<li>Genetic anticipation (increasing severity in successive generations)
+    &gt; <strong>Search first:</strong> OMIM, PubMed (especially for repeat expansion disorders)</li>
+<li>Germline mosaicism
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, genetic counseling literature, PubMed</li>
+<li>Founder effects (population-specific mutations)
+    &gt; <strong>Search first:</strong> gnomAD, population genetics databases, PubMed</li>
+<li>Consanguinity role
+    &gt; <strong>Search first:</strong> OMIM, population studies, genetic counseling resources</li>
+<li>Carrier frequency
+    &gt; <strong>Search first:</strong> gnomAD, carrier screening databases, GeneReviews, GTR</li>
+<li><strong>Population Demographics</strong>:</li>
+<li>Affected populations (ethnic or demographic groups with higher prevalence)
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, PAGE Study, PubMed, population registries</li>
+<li>Geographic distribution (endemic areas, regional variation)
+    &gt; <strong>Search first:</strong> WHO, CDC, GBD, Orphanet, geographic epidemiology databases</li>
+<li>Geographic distribution of specific variants</li>
+<li>Sex ratio (male:female)
+    &gt; <strong>Search first:</strong> Disease registries, OMIM, PubMed, epidemiological databases</li>
+<li>Age distribution of affected individuals
+    &gt; <strong>Search first:</strong> CDC, disease registries, SEER, Orphanet</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Clinical Tests</strong>:</li>
+<li>Laboratory tests (blood, urine, tissue chemistry, specific enzyme assays)
+    &gt; <strong>Search first:</strong> LOINC, LabTests Online, PubMed</li>
+<li>Biomarkers (proteins, metabolites, genetic markers, circulating biomarkers)
+    &gt; <strong>Search first:</strong> FDA Biomarker List, BEST (Biomarkers, EndpointS, and other Tools), PubMed</li>
+<li>Imaging studies (X-ray, CT, MRI, PET, ultrasound)
+    &gt; <strong>Search first:</strong> RadLex, DICOM, Radiopaedia, imaging databases</li>
+<li>Functional tests (pulmonary function, cardiac stress tests)
+    &gt; <strong>Search first:</strong> LOINC, clinical guidelines, PubMed</li>
+<li>Electrophysiology (EEG, EMG, ECG, nerve conduction studies)
+    &gt; <strong>Search first:</strong> LOINC, clinical neurophysiology databases, PubMed</li>
+<li>Biopsy findings (histopathology, immunohistochemistry)
+    &gt; <strong>Search first:</strong> SNOMED CT, College of American Pathologists resources, PubMed</li>
+<li>Pathology findings (microscopic examination)
+    &gt; <strong>Search first:</strong> SNOMED CT, Digital Pathology databases, PubMed</li>
+<li><strong>Genetic Testing</strong>:<blockquote>
+<p><strong>Search first:</strong> GTR (Genetic Testing Registry), GeneReviews, ClinGen</p>
+</blockquote>
+</li>
+<li>Overview of recommended genetic testing approach</li>
+<li>Whole genome sequencing (WGS) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, GEL (Genomics England), gnomAD</li>
+<li>Whole exome sequencing (WES) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneMatcher</li>
+<li>Gene panels (which panels, which genes)
+    &gt; <strong>Search first:</strong> GTR, ClinVar, laboratory-specific databases</li>
+<li>Single gene testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneReviews</li>
+<li>Chromosomal microarray (CMA)
+    &gt; <strong>Search first:</strong> DECIPHER, ClinVar, dbVar, ECARUCA</li>
+<li>Karyotyping
+    &gt; <strong>Search first:</strong> Chromosome Abnormality Database, ClinVar, cytogenetics resources</li>
+<li>FISH
+    &gt; <strong>Search first:</strong> ClinVar, cytogenetics databases, PubMed</li>
+<li>Mitochondrial DNA testing
+    &gt; <strong>Search first:</strong> MITOMAP, MSeqDR, ClinVar, GTR</li>
+<li>Repeat expansion testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, repeat expansion databases, PubMed</li>
+<li><strong>Omics-Based Diagnostics</strong> (if applicable):</li>
+<li>RNA sequencing / transcriptomics
+    &gt; <strong>Search first:</strong> GEO, ArrayExpress, GTEx, RNA-seq databases</li>
+<li>Proteomics
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, FDA Biomarker database</li>
+<li>Metabolomics
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB</li>
+<li>Epigenomics
+    &gt; <strong>Search first:</strong> GEO, ENCODE, Roadmap Epigenomics, MethBase</li>
+<li>Liquid biopsy
+    &gt; <strong>Search first:</strong> COSMIC, ClinVar, liquid biopsy databases, PubMed</li>
+<li><strong>Clinical Criteria</strong>:</li>
+<li>Standardized diagnostic criteria (DSM, ICD, society guidelines)
+    &gt; <strong>Search first:</strong> DSM-5, ICD-11, clinical society guidelines, UpToDate</li>
+<li>Differential diagnosis (other conditions to rule out, with distinguishing features)
+    &gt; <strong>Search first:</strong> DynaMed, UpToDate, clinical decision support systems</li>
+<li><strong>Screening</strong>:</li>
+<li>Screening methods for asymptomatic individuals (newborn screening, carrier screening, cascade screening)
+    &gt; <strong>Search first:</strong> ACMG recommendations, CDC newborn screening, GTR</li>
+</ul>
+<h3>11. Outcome/Prognosis</h3>
+<ul>
+<li><strong>Survival and Mortality</strong>:</li>
+<li>Survival rate (5-year, 10-year, overall)
+    &gt; <strong>Search first:</strong> SEER, cancer registries, disease-specific registries, PubMed</li>
+<li>Life expectancy (with and without treatment if applicable)
+    &gt; <strong>Search first:</strong> Orphanet, disease registries, actuarial databases, PubMed</li>
+<li>Mortality rate
+    &gt; <strong>Search first:</strong> CDC, WHO, GBD, national mortality databases</li>
+<li>Disease-specific mortality (deaths directly attributable to disease)
+    &gt; <strong>Search first:</strong> Disease registries, CDC Wonder, GBD, PubMed</li>
+<li><strong>Morbidity and Function</strong>:</li>
+<li>Morbidity (disease-related disability and health impacts)
+    &gt; <strong>Search first:</strong> GBD, WHO, disability databases, PubMed</li>
+<li>Disability outcomes (long-term functional impairments)
+    &gt; <strong>Search first:</strong> ICF (International Classification of Functioning), disability registries</li>
+<li>Quality of life measures (EQ-5D, SF-36, PROMIS, disease-specific tools)
+    &gt; <strong>Search first:</strong> EQ-5D database, SF-36, PROMIS, PubMed</li>
+<li><strong>Disease Course</strong>:</li>
+<li>Complications (secondary problems: infections, organ failure, etc.)
+    &gt; <strong>Search first:</strong> ICD codes, disease registries, clinical databases, PubMed</li>
+<li>Recovery potential (likelihood and extent of recovery, with vs without treatment)
+    &gt; <strong>Search first:</strong> Natural history studies, rehabilitation databases, PubMed</li>
+<li><strong>Prediction</strong>:</li>
+<li>Prognostic factors (age, disease severity, biomarkers, treatment response)
+    &gt; <strong>Search first:</strong> Prognostic models databases, clinical calculators, PubMed</li>
+<li>Prognostic biomarkers (molecular markers predicting disease course)
+    &gt; <strong>Search first:</strong> FDA Biomarker database, PubMed, cancer prognostic databases</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Pharmacotherapy</strong>:</li>
+<li>Pharmacological treatments (drug names, drug classes, mechanisms of action)
+    &gt; <strong>Search first:</strong> DrugBank, RxNorm, ATC classification, DailyMed, FDA databases</li>
+<li>Pharmacogenomics (how genetic variants affect drug metabolism, efficacy, toxicity)
+    &gt; <strong>Search first:</strong> PharmGKB, CPIC (Clinical Pharmacogenetics), FDA Table of PGx Biomarkers</li>
+<li><strong>Advanced Therapeutics</strong>:</li>
+<li>Gene therapy (viral vectors, CRISPR, gene replacement, gene editing)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA gene therapy database, ASGCT resources</li>
+<li>Cell therapy (stem cell transplant, CAR-T, cellular therapeutics)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA cell therapy database, FACT standards</li>
+<li>RNA-based therapies (ASOs, siRNA, mRNA therapies)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA approvals, PubMed</li>
+<li>Targeted therapies (treatments directed at specific molecular targets)
+    &gt; <strong>Search first:</strong> My Cancer Genome, OncoKB, ClinicalTrials.gov, FDA approvals</li>
+<li>Immunotherapies (checkpoint inhibitors, monoclonal antibodies)
+    &gt; <strong>Search first:</strong> Cancer Immunotherapy Database, FDA approvals, ClinicalTrials.gov</li>
+<li><strong>Surgical and Interventional</strong>:</li>
+<li>Surgical interventions (types of surgery, timing, outcomes)
+    &gt; <strong>Search first:</strong> CPT codes, surgical registries, clinical guidelines, PubMed</li>
+<li><strong>Supportive and Rehabilitative</strong>:</li>
+<li>Supportive care (symptom management, pain control, nutrition)
+    &gt; <strong>Search first:</strong> Clinical guidelines, Cochrane Library, PubMed</li>
+<li>Rehabilitation (physical therapy, occupational therapy, speech therapy)
+    &gt; <strong>Search first:</strong> Rehabilitation medicine databases, clinical guidelines, PubMed</li>
+<li><strong>Experimental</strong>:</li>
+<li>Experimental treatments in clinical trials (with NCT identifiers if available)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, EU Clinical Trials Register, WHO ICTRP</li>
+<li><strong>Treatment Outcomes</strong>:</li>
+<li>Treatment response rates
+    &gt; <strong>Search first:</strong> Clinical trial databases, FDA reviews, systematic reviews, PubMed</li>
+<li>Side effects and adverse events
+    &gt; <strong>Search first:</strong> FDA Adverse Event Reporting System (FAERS), MedWatch, PubMed</li>
+<li><strong>Treatment Strategy</strong>:</li>
+<li>Treatment algorithms (clinical pathways, decision trees)
+    &gt; <strong>Search first:</strong> Clinical practice guidelines, NCCN Guidelines, UpToDate</li>
+<li>Combination therapies
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, treatment guidelines, PubMed</li>
+<li>Personalized medicine approaches (genotype-guided treatment)
+    &gt; <strong>Search first:</strong> My Cancer Genome, CIViC, PharmGKB, precision medicine databases</li>
+</ul>
+<p>For each treatment, suggest MAXO (Medical Action Ontology) terms where applicable.</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Prevention Levels</strong>:</li>
+<li>Primary prevention (preventing disease occurrence: vaccination, risk factor modification)
+    &gt; <strong>Search first:</strong> CDC, WHO, USPSTF recommendations, Cochrane Library</li>
+<li>Secondary prevention (early detection and treatment: screening programs, early intervention)
+    &gt; <strong>Search first:</strong> USPSTF, CDC screening guidelines, WHO</li>
+<li>Tertiary prevention (preventing complications in those with disease)
+    &gt; <strong>Search first:</strong> Clinical guidelines, disease management protocols, PubMed</li>
+<li><strong>Immunization</strong>: Vaccine strategies (if applicable)<blockquote>
+<p><strong>Search first:</strong> CDC vaccine schedules, WHO immunization, FDA vaccine database</p>
+</blockquote>
+</li>
+<li><strong>Screening and Early Detection</strong>:</li>
+<li>Screening programs (population-based: newborn screening, cancer screening)
+    &gt; <strong>Search first:</strong> CDC screening programs, USPSTF, cancer screening databases</li>
+<li>Genetic screening (carrier screening, preimplantation genetic diagnosis, prenatal testing)
+    &gt; <strong>Search first:</strong> ACMG recommendations, ACOG guidelines, GTR</li>
+<li>Risk stratification (identifying high-risk individuals for targeted prevention)
+    &gt; <strong>Search first:</strong> Risk prediction models, clinical calculators, PubMed</li>
+<li><strong>Behavioral Interventions</strong>: Lifestyle modifications to reduce risk<blockquote>
+<p><strong>Search first:</strong> CDC, WHO, behavioral intervention databases, Cochrane Library</p>
+</blockquote>
+</li>
+<li><strong>Counseling</strong>: Genetic counseling (risk assessment, family planning guidance)<blockquote>
+<p><strong>Search first:</strong> NSGC resources, ACMG guidelines, GeneReviews</p>
+</blockquote>
+</li>
+<li><strong>Public Health</strong>:</li>
+<li>Public health interventions (sanitation, vector control, health education)
+    &gt; <strong>Search first:</strong> CDC, WHO, public health databases, PubMed</li>
+<li>Environmental interventions (reducing environmental risk factors)
+    &gt; <strong>Search first:</strong> EPA databases, WHO environmental health, PubMed</li>
+<li><strong>Prophylaxis</strong>: Preventive medications or procedures<blockquote>
+<p><strong>Search first:</strong> Clinical guidelines, FDA approvals, PubMed</p>
+</blockquote>
+</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy</strong>: Species affected (with NCBI Taxon identifiers)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy</p>
+</blockquote>
+</li>
+<li><strong>Breed</strong>: Specific breeds affected (with VBO identifiers if applicable)<blockquote>
+<p><strong>Search first:</strong> VBO (Vertebrate Breed Ontology)</p>
+</blockquote>
+</li>
+<li><strong>Gene</strong>: Orthologous genes in other species (with NCBI Gene IDs)<blockquote>
+<p><strong>Search first:</strong> NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Natural Disease</strong>:</li>
+<li>Naturally occurring disease in other species (companion animals, wildlife)
+    &gt; <strong>Search first:</strong> OMIA (Online Mendelian Inheritance in Animals), VetCompass, PubMed</li>
+<li>Veterinary relevance and importance in animal health
+    &gt; <strong>Search first:</strong> OMIA, veterinary databases, PubMed</li>
+<li><strong>Comparative Biology</strong>:</li>
+<li>Comparative pathology (similarities and differences across species)
+    &gt; <strong>Search first:</strong> OMIA, comparative pathology databases, PubMed</li>
+<li>Evolutionary conservation of disease mechanisms
+    &gt; <strong>Search first:</strong> HomoloGene, OrthoMCL, Alliance of Genome Resources</li>
+<li><strong>Transmission</strong> (if applicable):</li>
+<li>Zoonotic potential
+    &gt; <strong>Search first:</strong> CDC zoonotic diseases, WHO zoonoses, GIDEON</li>
+<li>Cross-species susceptibility
+    &gt; <strong>Search first:</strong> NCBI Taxonomy, veterinary databases, PubMed</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Model Types</strong>:</li>
+<li>Model organism type (mammalian, invertebrate, cellular, in vitro)
+    &gt; <strong>Search first:</strong> Alliance of Genome Resources, model organism databases</li>
+<li>Specific model systems (mouse, rat, zebrafish, Drosophila, C. elegans, yeast, cell lines, organoids, iPSCs)
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, SGD, ATCC, Cellosaurus</li>
+<li>Induced models (drug treatment, surgical intervention, environmental manipulation)
+    &gt; <strong>Search first:</strong> MGI, model organism databases, PubMed</li>
+<li><strong>Genetic Models</strong>:</li>
+<li>Types available (knockout, knock-in, transgenic, conditional, humanized)
+    &gt; <strong>Search first:</strong> MGI, IMPC, KOMP, EuMMCR, IMSR</li>
+<li><strong>Model Characteristics</strong>:</li>
+<li>Phenotype recapitulation (how well model reproduces human disease features)
+    &gt; <strong>Search first:</strong> Model organism databases, comparative studies, PubMed</li>
+<li>Model limitations (aspects of human disease not captured)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed, review articles</li>
+<li><strong>Applications</strong>:</li>
+<li>Research applications (what aspects of disease can be studied)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed</li>
+<li><strong>Resources</strong>:</li>
+<li>Model databases
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, IMSR, EMMA, MMRRC</li>
+</ul>
+<hr />
+<h2>Citation Requirements</h2>
+<ul>
+<li>Cite primary literature (PMID preferred) for all mechanistic and clinical claims</li>
+<li>Prioritize recent reviews and landmark papers</li>
+<li>Include direct quotes from abstracts where possible to support key statements</li>
+<li>Distinguish evidence source types: human clinical, model organism, in vitro, computational</li>
+</ul>
+<h2>Output Format</h2>
+<p>Structure your response as a comprehensive narrative organized by the sections above.
+For each section, provide:
+- Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
+- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, MAXO, MONDO) where applicable
+- Evidence citations with PMIDs
+- Direct quotes from abstracts to support key claims
+- Clear indication when information is not available or not applicable for this disease</p>
+<p>This report will be used to populate a disease knowledge base entry with:
+- Pathophysiology descriptions with causal chains
+- Gene/protein annotations (HGNC, GO terms)
+- Phenotype associations (HP terms) with frequencies
+- Cell type involvement (CL terms)
+- Anatomical locations (UBERON terms)
+- Chemical entities (CHEBI terms)
+- Treatment annotations (MAXO terms)
+- Evidence items with PMIDs and exact abstract quotes
+- Epidemiology, prognosis, diagnostic, and prevention information
+- Animal model descriptions with phenotype recapitulation details</p>
+<h1>Comprehensive Research Report: Hereditary Neuropathy with Liability to Pressure Palsies (HNPP)</h1>
+<h2>Executive summary (current understanding)</h2>
+<p>Hereditary neuropathy with liability to pressure palsies (HNPP) is a Mendelian, typically autosomal dominant, predominantly demyelinating peripheral neuropathy characterized by recurrent focal mononeuropathies precipitated by minor compression/traction/trauma at entrapment sites, with variable recovery and occasional persistent deficits. It is most commonly caused by a heterozygous recurrent ~1.4–1.5 Mb deletion at 17p11.2–p12 encompassing <strong>PMP22</strong>, producing PMP22 haploinsufficiency, abnormal myelin (tomacula/myelin overfolding), and susceptibility to pressure-induced conduction block. (paassen2014pmp22relatedneuropathies pages 7-9, laudanski2024anestheticconsiderationsfor pages 1-2)</p>
+<h2>1. Disease information</h2>
+<h3>1.1 What is the disease?</h3>
+<p><strong>Definition/overview.</strong> A recent perioperative-focused narrative review defines HNPP as an “<strong>autosomal dominant demyelinating neuropathy characterized by an increased susceptibility to peripheral nerve injury from trauma, compression, or shear forces</strong>” (published April 2024; Healthcare; https://doi.org/10.3390/healthcare12080858). (laudanski2024anestheticconsiderationsfor pages 1-2)</p>
+<p>An Orphanet-focused review describes the classic clinical phenotype as “<strong>episodic, painless, recurrent, focal motor and sensory peripheral neuropathy, preceded by minor compression</strong> on the affected nerve” (published March 2014; Orphanet Journal of Rare Diseases; https://doi.org/10.1186/1750-1172-9-38). (paassen2014pmp22relatedneuropathies pages 1-2)</p>
+<h3>1.2 Key identifiers (ontology/database cross-references)</h3>
+<ul>
+<li><strong>MONDO:</strong> MONDO:0008087 (MONDO_0008087) (OpenTargets Search: Hereditary neuropathy with liability to pressure palsies-PMP22)</li>
+<li><strong>Orphanet:</strong> ORPHA:640 (paassen2014pmp22relatedneuropathies pages 7-9)</li>
+</ul>
+<p><strong>Not retrieved in the current evidence set:</strong> OMIM number(s), ICD-10/ICD-11 codes, and MeSH descriptor IDs were not available from the retrieved sources and should be confirmed via OMIM/Orphanet/ICD/MeSH lookups during knowledge-base curation.</p>
+<h3>1.3 Synonyms and alternative names</h3>
+<p>Synonyms reported in peer-reviewed literature include:
+* <strong>Tomaculous neuropathy</strong>; <strong>familial recurrent polyneuropathy</strong> (Orphanet review) (paassen2014pmp22relatedneuropathies pages 7-9)
+* Historical term <strong>“potato grubbing disease”</strong> (case report; Aug 2025; Frontiers in Genetics; https://doi.org/10.3389/fgene.2025.1613022) (savasta2025casereporthereditary pages 1-2)</p>
+<h3>1.4 Evidence provenance (individual vs aggregated)</h3>
+<p>The information summarized here is derived from aggregated disease-level resources and published case/cohort literature (reviews, cohort diagnostic series, and mechanistic animal studies), rather than EHR-only sources. (paassen2014pmp22relatedneuropathies pages 7-9, laudanski2024anestheticconsiderationsfor pages 1-2, chen2025literaturereviewof pages 1-2)</p>
+<h2>2. Etiology</h2>
+<h3>2.1 Disease causal factors (primary causes)</h3>
+<p>HNPP is primarily a <strong>genetic</strong> disease driven by <strong>PMP22 dosage reduction</strong> (haploinsufficiency):
+* The canonical lesion is a recurrent heterozygous <strong>~1.4–1.5 Mb deletion</strong> in the 17p11.2–p12 region including <strong>PMP22</strong>. (paassen2014pmp22relatedneuropathies pages 7-9, fabrizi2015disordersofperipheral pages 7-9)
+* A minority of HNPP cases result from <strong>PMP22 sequence-level loss-of-function variants</strong> (e.g., truncating/null alleles). (li2013thepmp22gene pages 15-17, paassen2014pmp22relatedneuropathies pages 7-9)</p>
+<p>A recent literature review summarizing cases from January 2003–June 2024 states: “<strong>Most patients with HNPP have a heterozygous deletion on chromosome 17p11.2, the region that encompasses the gene for peripheral myelin protein 22 (PMP22).</strong>” (Journal of Neurology; online 2024/print 2025; https://doi.org/10.1007/s00415-024-12839-7). (chen2025literaturereviewof pages 1-2)</p>
+<h3>2.2 Risk factors</h3>
+<p><strong>Genetic risk factor (causal).</strong> Carrying the heterozygous 17p11.2–p12 deletion encompassing PMP22 is the principal causal risk factor. (paassen2014pmp22relatedneuropathies pages 7-9)</p>
+<p><strong>Environmental/mechanical triggers.</strong> Many episodes are precipitated by mechanical stressors (compression/traction/prolonged positioning), acting as trigger exposures in genetically susceptible nerves. (paassen2014pmp22relatedneuropathies pages 7-9, laudanski2024anestheticconsiderationsfor pages 4-5)</p>
+<h3>2.3 Protective factors</h3>
+<p>No specific genetic or environmental protective factors were identified in the retrieved evidence set.</p>
+<h3>2.4 Gene–environment interactions</h3>
+<p>A clinically important G×E interaction is that <strong>PMP22 haploinsufficiency creates a vulnerable myelin architecture</strong>, such that ordinary mechanical exposures (compression/traction) can precipitate focal conduction failure/mononeuropathy episodes. (paassen2014pmp22relatedneuropathies pages 7-9, pantera2020pmp22superenhancerdeletion pages 4-7)</p>
+<h2>3. Phenotypes</h2>
+<h3>3.1 Core clinical phenotype (signs/symptoms)</h3>
+<p>Typical manifestations include recurrent focal motor and sensory deficits in single-nerve distributions or plexus patterns, particularly at entrapment sites. Commonly affected nerves include peroneal/common fibular, ulnar, median, radial, and brachial plexus distributions. (paassen2014pmp22relatedneuropathies pages 7-9, laudanski2024anestheticconsiderationsfor pages 4-5, chen2025literaturereviewof pages 1-2)</p>
+<p>A 2024 review notes episodes may last “<strong>hours to months</strong>” and recurrence is common. (laudanski2024anestheticconsiderationsfor pages 1-2)</p>
+<h3>3.2 Phenotype frequencies and clinical heterogeneity (recent compiled case series)</h3>
+<p>A clinical literature review (cases assembled through June 2024) reported the following frequencies in 124 HNPP cases:
+* “<strong>Typical weakness and numbness in vulnerable areas</strong>” in <strong>63.7%</strong>
+* <strong>62%</strong> experienced <strong>recurrent episodes</strong>
+* <strong>Atypical symptoms</strong> in <strong>29.8%</strong>
+* <strong>Asymptomatic</strong> in <strong>6.5%</strong>
+* “<strong>Pain and muscular dystrophy</strong>” in <strong>17.7%</strong>
+* <strong>Pes cavus</strong> in <strong>12.1%</strong>
+* <strong>Family history</strong> in <strong>64.5%</strong>
+* Triggers among symptomatic patients: <strong>traction or compression (57.8%)</strong>, <strong>temperature changes (3.4%)</strong>, unclear (38.8%). (chen2025literaturereviewof pages 1-2)</p>
+<p><strong>Pain as an under-recognized feature.</strong> A case report emphasizes that although HNPP is “classically described as a painless condition,” pain is “frequently reported,” and may represent an early feature in some individuals. (savasta2025casereporthereditary pages 1-2)</p>
+<h3>3.3 Suggested HPO terms (not exhaustive; based on reported clinical patterns)</h3>
+<ul>
+<li>Recurrent focal neuropathy / mononeuropathy: <strong>HP:0009830</strong> (Peripheral neuropathy) (conceptual mapping)</li>
+<li>Paresthesia: <strong>HP:0003401</strong></li>
+<li>Numbness: <strong>HP:0003401/HP:0003402</strong> (conceptual; depending on ontology granularity)</li>
+<li>Foot drop: <strong>HP:0001761</strong></li>
+<li>Muscle weakness: <strong>HP:0001324</strong></li>
+<li>Areflexia/hyporeflexia: <strong>HP:0001284</strong></li>
+<li>Pes cavus: <strong>HP:0001761</strong> (note: HPO has <strong>HP:0001761</strong> for foot drop; pes cavus is <strong>HP:0001761?</strong>—verify exact HPO IDs during curation)</li>
+</ul>
+<p>Because HPO identifiers are not provided directly in the retrieved literature excerpts, these should be validated against the current HPO release before ingestion.</p>
+<h2>4. Genetic / molecular information</h2>
+<h3>4.1 Causal genes</h3>
+<ul>
+<li><strong>PMP22 (peripheral myelin protein 22)</strong> is the principal causal gene. (OpenTargets Search: Hereditary neuropathy with liability to pressure palsies-PMP22, paassen2014pmp22relatedneuropathies pages 7-9)</li>
+</ul>
+<h3>4.2 Pathogenic variants (variant classes and frequencies)</h3>
+<ul>
+<li><strong>Canonical CNV:</strong> recurrent heterozygous deletion spanning PMP22 (~1.4–1.5 Mb), responsible for the majority of HNPP cases (multiple reviews). (paassen2014pmp22relatedneuropathies pages 7-9, fabrizi2015disordersofperipheral pages 7-9)</li>
+<li><strong>Sequence variants:</strong> PMP22 truncating/null alleles and other variants can also cause HNPP; a mechanistic review of PMP22 disease biology states that many HNPP mutations are truncations and are “<strong>functionally equivalent to classical chromosome 17p11.2 deletion with loss of function of PMP22</strong>.” (li2013thepmp22gene pages 15-17)</li>
+</ul>
+<p><strong>Inheritance and penetrance.</strong> HNPP is autosomal dominant; a 2024 narrative review reports penetrance “<strong>70–100%</strong>,” and notes that “approximately 20% of cases” result from de novo deletions or point mutations. (laudanski2024anestheticconsiderationsfor pages 1-2)</p>
+<h3>4.3 Modifier genes / epigenetics</h3>
+<p>No specific modifier genes or epigenetic mechanisms for HNPP were identified in the retrieved evidence set.</p>
+<h3>4.4 Disease-target association (curated evidence)</h3>
+<p>OpenTargets links <strong>PMP22</strong> to HNPP (MONDO_0008087) with multiple literature evidence items (e.g., PubMed IDs 9748013, 12796555, 15099592 in the OpenTargets evidence list). (OpenTargets Search: Hereditary neuropathy with liability to pressure palsies-PMP22)</p>
+<h2>5. Environmental information</h2>
+<p>HNPP is not an infectious disease and is not primarily environmentally caused; however, <strong>mechanical exposures</strong> (compression, traction, shear forces, prolonged positioning) are major <strong>episode triggers</strong> in genetically affected individuals. (laudanski2024anestheticconsiderationsfor pages 4-5, laudanski2024anestheticconsiderationsfor pages 1-2)</p>
+<h2>6. Mechanism / pathophysiology</h2>
+<h3>6.1 Causal chain (from genotype to clinical episodes)</h3>
+<ol>
+<li><strong>Genetic lesion</strong>: PMP22 dosage reduction (typically 17p11.2–p12 deletion). (paassen2014pmp22relatedneuropathies pages 7-9)</li>
+<li><strong>Cell type</strong>: Schwann-cell myelin maintenance is compromised by PMP22 haploinsufficiency, producing focal myelin architectural abnormalities. (paassen2014pmp22relatedneuropathies pages 7-9)</li>
+<li><strong>Tissue-level hallmark</strong>: <strong>tomacula</strong> (myelin overfolding/focal thickenings) and related nodal/paranodal changes. (paassen2014pmp22relatedneuropathies pages 7-9)</li>
+<li><strong>Physiology</strong>: predisposition to <strong>pressure/stretch-induced reversible conduction block</strong>, clinically manifesting as recurrent focal palsies at entrapment sites. (paassen2014pmp22relatedneuropathies pages 7-9, fabrizi2015disordersofperipheral pages 7-9)</li>
+</ol>
+<h3>6.2 Primary mechanistic evidence (animal model; regulatory mechanism)</h3>
+<p>Pantera et al. (Human Molecular Genetics; April 2020; https://doi.org/10.1093/hmg/ddaa082) tested whether deleting a distal <strong>Pmp22 super-enhancer</strong> reduces expression and phenocopies HNPP. The abstract states that “<strong>the reciprocal deletion of this gene causes a separate neuropathy termed Hereditary Neuropathy with Liability to Pressure Palsies (HNPP)</strong>,” and reports that super-enhancer deletion reduces Pmp22 expression and leads to “<strong>tomacula formed by excessive myelin folding, a pathological hallmark of HNPP</strong>.” (pantera2020pmp22superenhancerdeletion pages 1-2)</p>
+<p>The same study reports functional vulnerability to mechanically induced conduction failure (compression assay) and impaired recovery in more severe genotypes, linking PMP22 transcriptional control to conduction block susceptibility. (pantera2020pmp22superenhancerdeletion pages 4-7)</p>
+<p><strong>Visual evidence.</strong> Cropped panels from this study show teased-fiber tomacula quantification and the mechanical compression assay demonstrating time-to-conduction-block and recovery curves. (pantera2020pmp22superenhancerdeletion media 04ee1ad6, pantera2020pmp22superenhancerdeletion media 85bcd5c7)</p>
+<h3>6.3 Suggested GO biological process terms (verify IDs during curation)</h3>
+<ul>
+<li>Schwann cell differentiation / myelination</li>
+<li>Peripheral nervous system myelination</li>
+<li>Axon ensheathment</li>
+<li>Response to mechanical stimulus (contextual)</li>
+</ul>
+<h3>6.4 Suggested Cell Ontology (CL) terms (verify IDs during curation)</h3>
+<ul>
+<li><strong>Schwann cell</strong> (myelinating Schwann cell)</li>
+</ul>
+<h3>6.5 Suggested UBERON anatomical terms</h3>
+<ul>
+<li>Peripheral nerve</li>
+<li>Sciatic nerve (commonly studied in models)</li>
+</ul>
+<h2>7. Anatomical structures affected</h2>
+<h3>7.1 Organ/system level</h3>
+<ul>
+<li>Primary system: <strong>Peripheral nervous system</strong> (peripheral nerves subject to entrapment/compression). (paassen2014pmp22relatedneuropathies pages 7-9, laudanski2024anestheticconsiderationsfor pages 4-5)</li>
+</ul>
+<h3>7.2 Tissue/cell level</h3>
+<ul>
+<li>Tissue: peripheral myelin; nerve fascicles at entrapment sites.</li>
+<li>Cell type: Schwann cells. (pantera2020pmp22superenhancerdeletion pages 1-2, paassen2014pmp22relatedneuropathies pages 7-9)</li>
+</ul>
+<h3>7.3 Subcellular level</h3>
+<p>No specific subcellular compartment signature for HNPP was identified in the retrieved evidence set.</p>
+<h2>8. Temporal development (natural history)</h2>
+<h3>8.1 Onset</h3>
+<p>Typical onset is often in the <strong>2nd–3rd decade</strong>, but a wide age range is reported. (paassen2014pmp22relatedneuropathies pages 7-9, chen2025literaturereviewof pages 1-2)</p>
+<h3>8.2 Course/progression</h3>
+<p>The course is often <strong>episodic</strong> with recurrent focal palsies and variable recovery. The perioperative-focused review notes that episodes usually resolve over “days to months” but persistent deficits can occur. (laudanski2024anestheticconsiderationsfor pages 4-5)</p>
+<h2>9. Inheritance and population</h2>
+<h3>9.1 Inheritance pattern</h3>
+<p>Autosomal dominant inheritance is consistently reported. (paassen2014pmp22relatedneuropathies pages 1-2, savasta2025casereporthereditary pages 1-2)</p>
+<h3>9.2 Epidemiology (statistics)</h3>
+<p>Frequently cited prevalence/incidence estimates are ~<strong>7–16 per 100,000</strong>. (paassen2014pmp22relatedneuropathies pages 7-9, laudanski2024anestheticconsiderationsfor pages 1-2)</p>
+<p>Regional estimates include <strong>~7.3/100,000 in England</strong> and <strong>~16/100,000 in southwestern Finland</strong>. (paassen2014pmp22relatedneuropathies pages 7-9, lehtilahti2022charcotmarietoothdiseasemolecular pages 25-28)</p>
+<p><strong>Underdiagnosis and higher genetic prevalence signals.</strong> A 2024 narrative review notes that the reported incidence may be an underestimation due to underdiagnosis. (laudanski2024anestheticconsiderationsfor pages 1-2) A compiled literature review reports newborn-screening-based prevalence estimates up to <strong>58.9/100,000</strong>, suggesting population prevalence may exceed clinically ascertained estimates. (chen2025literaturereviewof pages 1-2)</p>
+<h2>10. Diagnostics</h2>
+<h3>10.1 Clinical/electrodiagnostic evaluation</h3>
+<p>Electrophysiology is central: characteristic findings include increased distal motor latencies, focal slowing at entrapment sites, and sensory nerve conduction abnormalities. (paassen2014pmp22relatedneuropathies pages 7-9, paassen2014pmp22relatedneuropathies pages 1-2)</p>
+<p>A 2024 perioperative review summarizes a suggestive signature: bilateral median sensorimotor latency prolongation plus at least unilateral peroneal motor abnormality, and notes diminished/absent sural responses in ~one-third of patients. (laudanski2024anestheticconsiderationsfor pages 4-5)</p>
+<h3>10.2 Imaging</h3>
+<p>Nerve ultrasound and MRI (including diffusion tensor imaging) can provide supportive findings in some settings. (laudanski2024anestheticconsiderationsfor pages 4-5)</p>
+<h3>10.3 Genetic testing approach (real-world implementation)</h3>
+<p><strong>First-line molecular test (typical workflow):</strong> assay for <strong>PMP22 deletion</strong> (copy number) using <strong>MLPA</strong> or <strong>chromosomal microarray</strong>, with confirmatory approaches including <strong>FISH</strong> or <strong>PCR-based</strong> methods depending on laboratory practice. (laudanski2024anestheticconsiderationsfor pages 4-5, cesaroni2025pmp22relatedneuropathiesa pages 13-15)</p>
+<p><strong>If deletion testing is negative or phenotype is atypical:</strong> sequence analysis of PMP22 and/or inherited neuropathy gene panels, WES, or WGS may be used to detect rarer sequence variants or alternative diagnoses. (cesaroni2025pmp22relatedneuropathiesa pages 15-17, record2024wholegenomesequencing pages 1-2)</p>
+<p><strong>2024 genomic diagnostics data (large specialist cohort).</strong> In a single inherited neuropathy center cohort (Brain; March 2024; https://doi.org/10.1093/brain/awae064), 1,515 patients with CMT and related disorders were studied; <strong>72 were HNPP (4.8%)</strong>, and “<strong>PMP22 deletion (HNPP; 72/1165, 6.2%)</strong>” represented a major solved diagnosis category. (record2024wholegenomesequencing pages 1-2)</p>
+<p>The same study emphasizes pragmatic workflow: “<strong>it is essential to ensure MLPA for PMP22 CNV has been performed, before moving to NGS</strong>.” (record2024wholegenomesequencing pages 3-5)</p>
+<h3>10.4 Differential diagnosis</h3>
+<p>HNPP can be misdiagnosed as radiculopathy or focal chronic inflammatory demyelinating polyneuropathy (CIDP), among others, and recurrence plus supportive electrodiagnostics and genetic confirmation aid distinction. (savasta2025casereporthereditary pages 1-2)</p>
+<h2>11. Outcome / prognosis</h2>
+<p>Life expectancy is generally reported as normal in PMP22-related neuropathy reviews, and many episodes recover; however, persistent deficits may occur. (paassen2014pmp22relatedneuropathies pages 1-2, laudanski2024anestheticconsiderationsfor pages 4-5)</p>
+<p>Quantitative quality-of-life instrument results (e.g., SF-36/EQ-5D) were not available in the retrieved evidence set.</p>
+<h2>12. Treatment</h2>
+<h3>12.1 Current standard management (real-world implementation)</h3>
+<p>There is no established disease-modifying pharmacotherapy for HNPP in the retrieved evidence set; management is mainly supportive and preventive:
+* Avoidance of compressive/traction triggers; ergonomic/occupational modifications. (laudanski2024anestheticconsiderationsfor pages 4-5)
+* Multidisciplinary rehabilitation (physiotherapy/occupational therapy) is described in PMP22-related neuropathy reviews. (paassen2014pmp22relatedneuropathies pages 1-2)</p>
+<h3>12.2 Perioperative/anesthesia precautions (2024 expert synthesis)</h3>
+<p>Because surgical positioning and anesthesia can impose prolonged compression/shear on nerves, perioperative teams are advised to implement tailored positioning/monitoring strategies for HNPP patients. (laudanski2024anestheticconsiderationsfor pages 1-2, laudanski2024anestheticconsiderationsfor pages 4-5)</p>
+<h3>12.3 Procedures and symptomatic interventions</h3>
+<p><strong>Entrapment neuropathies (e.g., carpal tunnel syndrome) in inherited neuropathy.</strong> A completed observational study used patient-reported outcomes to evaluate carpal tunnel therapies in adults with inherited neuropathy including HNPP (ClinicalTrials.gov NCT02788734; start June 2016; primary completion Nov 2016). Outcomes included Boston Carpal Tunnel Questionnaire (BCTQ) and DASH (Disabilities of the Arm, Shoulder and Hand). (NCT02788734 chunk 1)</p>
+<h3>12.4 MAXO term suggestions (verify IDs during curation)</h3>
+<ul>
+<li>Physical therapy; occupational therapy</li>
+<li>Genetic counseling</li>
+<li>Avoidance of mechanical nerve compression</li>
+<li>Perioperative positioning precautions</li>
+<li>Nerve decompression surgery (in selected entrapment neuropathies)</li>
+</ul>
+<h2>13. Prevention</h2>
+<p>Primary and tertiary prevention focus on reducing mechanical nerve injury risk:
+* Avoid prolonged pressure at bony prominences; protective padding and repositioning during sleep, work, and surgery. (laudanski2024anestheticconsiderationsfor pages 4-5)
+* Perioperative positioning protocols for known/suspected HNPP. (laudanski2024anestheticconsiderationsfor pages 1-2)</p>
+<h2>14. Other species / natural disease</h2>
+<p>No naturally occurring veterinary analogs were identified in the retrieved evidence set.</p>
+<h2>15. Model organisms</h2>
+<h3>15.1 Mouse regulatory-element model phenocopying HNPP</h3>
+<p>Pantera et al. (2020) created mice with CRISPR deletion of a distal <strong>Pmp22 super-enhancer</strong>, demonstrating reduced Pmp22 expression, <strong>tomacula formation</strong>, and susceptibility to <strong>compression-induced conduction block</strong>, thereby modeling a regulatory mechanism for PMP22 haploinsufficiency phenotypes relevant to HNPP. (pantera2020pmp22superenhancerdeletion pages 1-2, pantera2020pmp22superenhancerdeletion pages 4-7)</p>
+<h2>Recent developments and “latest research” (prioritizing 2023–2024)</h2>
+<h3>A. Precision diagnostics: WGS as a complement to traditional CNV testing (2024)</h3>
+<p>A 2024 Brain study from a specialist center reported a very high overall genetic diagnostic rate (76.9% overall in 1,515 CMT-related patients) and quantified the contribution of PMP22 deletion diagnoses (HNPP) in the solved cohort, while reporting a modest additional uplift attributable to WGS in their end-to-end pipeline. (record2024wholegenomesequencing pages 1-2, record2024wholegenomesequencing pages 3-5)</p>
+<h3>B. Perioperative risk management and implementation guidance (2024)</h3>
+<p>A 2024 narrative review synthesized contemporary evidence and recommendations for anesthesia/surgical teams, emphasizing that HNPP patients may be under-recognized perioperatively and benefit from tailored positioning and monitoring strategies. (laudanski2024anestheticconsiderationsfor pages 1-2, laudanski2024anestheticconsiderationsfor pages 4-5)</p>
+<h3>C. Real-world registries capturing outcomes and heterogeneity</h3>
+<ul>
+<li><strong>GRIN registry / natural history survey</strong> includes HNPP among inherited neuropathies in a large recruiting observational program (ClinicalTrials.gov <strong>NCT05902351</strong>, start 2013; estimated primary completion 2029). (NCT05902351 chunk 1)</li>
+<li>Carpal tunnel PRO study in inherited neuropathies (ClinicalTrials.gov <strong>NCT02788734</strong>) included HNPP and used standardized PRO instruments, illustrating how patient-centered outcomes are being deployed in real-world inherited neuropathy populations. (NCT02788734 chunk 1)</li>
+</ul>
+<h2>Key evidence gaps for knowledge-base completion</h2>
+<ul>
+<li>OMIM/ICD/MeSH identifiers were not retrieved in the current evidence set.</li>
+<li>Robust population-based carrier frequency/founder-effect data were not found in the retrieved corpus.</li>
+<li>Quantitative QoL data using standardized instruments (EQ-5D/SF-36/PROMIS) were not found in retrieved excerpts.</li>
+</ul>
+<hr />
+<h2>Evidence summary table (knowledge-base scaffold)</h2>
+<table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Key fact</th>
+<th>Details</th>
+<th>Citation placeholder</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease name</td>
+<td>Hereditary Neuropathy with Liability to Pressure Palsies (HNPP)</td>
+<td>Mendelian inherited peripheral neuropathy characterized by recurrent focal pressure palsies/mononeuropathies</td>
+<td>(paassen2014pmp22relatedneuropathies pages 7-9, laudanski2024anestheticconsiderationsfor pages 1-2)</td>
+</tr>
+<tr>
+<td>Identifiers</td>
+<td>MONDO</td>
+<td>MONDO:0008087</td>
+<td>(OpenTargets Search: Hereditary neuropathy with liability to pressure palsies-PMP22)</td>
+</tr>
+<tr>
+<td>Identifiers</td>
+<td>Orphanet</td>
+<td>ORPHA:640</td>
+<td>(paassen2014pmp22relatedneuropathies pages 7-9)</td>
+</tr>
+<tr>
+<td>Synonyms</td>
+<td>Common alternative names</td>
+<td>Hereditary neuropathy with liability to pressure palsy; tomaculous neuropathy; familial recurrent polyneuropathy; historical term “potato grubbing disease”</td>
+<td>(paassen2014pmp22relatedneuropathies pages 7-9, savasta2025casereporthereditary pages 1-2, fabrizi2015disordersofperipheral pages 7-9)</td>
+</tr>
+<tr>
+<td>Information source type</td>
+<td>Evidence provenance</td>
+<td>Aggregated disease-level resources and published case/cohort literature; not primarily EHR-derived</td>
+<td>(paassen2014pmp22relatedneuropathies pages 7-9, laudanski2024anestheticconsiderationsfor pages 1-2, chen2025literaturereviewof pages 1-2)</td>
+</tr>
+<tr>
+<td>Inheritance</td>
+<td>Mode of inheritance</td>
+<td>Autosomal dominant; offspring recurrence risk typically 50% for an affected heterozygous parent</td>
+<td>(paassen2014pmp22relatedneuropathies pages 1-2, laudanski2024anestheticconsiderationsfor pages 1-2)</td>
+</tr>
+<tr>
+<td>Inheritance</td>
+<td>Penetrance / de novo</td>
+<td>Penetrance reported ~70–100%; de novo events occur, estimated around 20% in some reviews</td>
+<td>(laudanski2024anestheticconsiderationsfor pages 1-2, paassen2014pmp22relatedneuropathies pages 7-9)</td>
+</tr>
+<tr>
+<td>Causal gene</td>
+<td>Primary gene</td>
+<td>PMP22 (peripheral myelin protein 22)</td>
+<td>(OpenTargets Search: Hereditary neuropathy with liability to pressure palsies-PMP22, paassen2014pmp22relatedneuropathies pages 7-9)</td>
+</tr>
+<tr>
+<td>Causal lesion</td>
+<td>Canonical pathogenic lesion</td>
+<td>Recurrent heterozygous ~1.4–1.5 Mb deletion at 17p11.2/17p12 including PMP22; causes PMP22 haploinsufficiency</td>
+<td>(paassen2014pmp22relatedneuropathies pages 7-9, fabrizi2015disordersofperipheral pages 7-9)</td>
+</tr>
+<tr>
+<td>Causal lesion</td>
+<td>Less common pathogenic variants</td>
+<td>PMP22 sequence variants/small indels/splice variants can also cause HNPP; loss-of-function/null alleles are important</td>
+<td>(cesaroni2025pmp22relatedneuropathiesa pages 12-13, li2013thepmp22gene pages 15-17, laudanski2024anestheticconsiderationsfor pages 4-5)</td>
+</tr>
+<tr>
+<td>Mechanistic summary</td>
+<td>Core disease mechanism</td>
+<td>PMP22 dosage reduction in Schwann cells destabilizes peripheral myelin, producing tomacula/myelin overfolding and susceptibility to pressure-induced conduction block</td>
+<td>(pantera2020pmp22superenhancerdeletion pages 1-2, pantera2020pmp22superenhancerdeletion pages 4-7, paassen2014pmp22relatedneuropathies pages 7-9)</td>
+</tr>
+<tr>
+<td>Prevalence / incidence</td>
+<td>Classic epidemiologic estimate</td>
+<td>Frequently cited prevalence/incidence range: ~7–16 per 100,000</td>
+<td>(laudanski2024anestheticconsiderationsfor pages 1-2, paassen2014pmp22relatedneuropathies pages 7-9)</td>
+</tr>
+<tr>
+<td>Prevalence / incidence</td>
+<td>Regional estimates</td>
+<td>Approx. 7.3/100,000 in England and 16/100,000 in southwestern Finland</td>
+<td>(paassen2014pmp22relatedneuropathies pages 7-9, lehtilahti2022charcotmarietoothdiseasemolecular pages 25-28)</td>
+</tr>
+<tr>
+<td>Prevalence / incidence</td>
+<td>Potential underdiagnosis / higher genomic estimate</td>
+<td>Underdiagnosis is likely; newborn genetic screening data have suggested substantially higher prevalence, including ~58.9/100,000 and 1 in 1,698 in one report/reviewed literature</td>
+<td>(chen2025literaturereviewof pages 1-2, savasta2025casereporthereditary pages 1-2)</td>
+</tr>
+<tr>
+<td>Typical onset</td>
+<td>Age at onset</td>
+<td>Usually 2nd–3rd decade, but can range from childhood to late adulthood; mean onset in one 2025 review was 26.5 ± 18 years</td>
+<td>(paassen2014pmp22relatedneuropathies pages 7-9, chen2025literaturereviewof pages 1-2)</td>
+</tr>
+<tr>
+<td>Typical course</td>
+<td>Clinical pattern</td>
+<td>Episodic, recurrent, often painless focal motor and sensory neuropathies; recovery may occur over days to months, but residual deficits can persist</td>
+<td>(paassen2014pmp22relatedneuropathies pages 1-2, laudanski2024anestheticconsiderationsfor pages 4-5)</td>
+</tr>
+<tr>
+<td>Typical triggers</td>
+<td>Mechanical triggers</td>
+<td>Minor compression, traction, shear forces, prolonged limb positioning, repetitive local pressure, mild trauma</td>
+<td>(paassen2014pmp22relatedneuropathies pages 7-9, laudanski2024anestheticconsiderationsfor pages 1-2, laudanski2024anestheticconsiderationsfor pages 4-5)</td>
+</tr>
+<tr>
+<td>Typical triggers</td>
+<td>Quantified trigger data</td>
+<td>In a 2025 literature review, triggers were traction/compression 57.8%, temperature change 3.4%, unclear 38.8%</td>
+<td>(chen2025literaturereviewof pages 1-2)</td>
+</tr>
+<tr>
+<td>Typical nerves affected</td>
+<td>Most commonly involved nerves</td>
+<td>Peroneal/common fibular and ulnar nerves are most frequent; median, radial, and brachial plexus involvement are also typical</td>
+<td>(paassen2014pmp22relatedneuropathies pages 7-9, laudanski2024anestheticconsiderationsfor pages 4-5, chen2025literaturereviewof pages 1-2)</td>
+</tr>
+<tr>
+<td>Typical manifestations</td>
+<td>Common presentations</td>
+<td>Foot drop/peroneal palsy, ulnar neuropathy at the elbow, carpal tunnel syndrome/median neuropathy, brachial plexopathy, focal numbness/paresthesia</td>
+<td>(paassen2014pmp22relatedneuropathies pages 7-9, laudanski2024anestheticconsiderationsfor pages 4-5)</td>
+</tr>
+<tr>
+<td>Phenotype frequencies</td>
+<td>Selected recent review statistics</td>
+<td>Typical weakness/numbness in vulnerable areas 63.7%; recurrent episodes 62%; atypical symptoms 29.8%; asymptomatic 6.5%; family history 64.5%; pes cavus 12.1%; pain/muscle atrophy 17.7%</td>
+<td>(chen2025literaturereviewof pages 1-2)</td>
+</tr>
+<tr>
+<td>Electrophysiology</td>
+<td>Characteristic nerve conduction pattern</td>
+<td>Demyelinating polyneuropathy pattern with increased distal motor latencies, especially median and peroneal; focal slowing/conduction block at entrapment sites; reduced sensory conduction velocities and SNAP amplitudes</td>
+<td>(paassen2014pmp22relatedneuropathies pages 7-9, paassen2014pmp22relatedneuropathies pages 1-2, laudanski2024anestheticconsiderationsfor pages 4-5)</td>
+</tr>
+<tr>
+<td>Electrophysiology</td>
+<td>Suggestive electrodiagnostic signature</td>
+<td>Bilateral median sensorimotor latency prolongation with at least unilateral peroneal motor abnormality is highly suggestive; sural responses may be reduced/absent in ~1/3</td>
+<td>(laudanski2024anestheticconsiderationsfor pages 4-5)</td>
+</tr>
+<tr>
+<td>Pathology</td>
+<td>Nerve biopsy hallmark</td>
+<td>Tomacula (sausage-like focal myelin thickening/overfolding), plus segmental de- and remyelination</td>
+<td>(paassen2014pmp22relatedneuropathies pages 7-9, fabrizi2015disordersofperipheral pages 7-9)</td>
+</tr>
+<tr>
+<td>Diagnostic modalities</td>
+<td>First-line molecular confirmation</td>
+<td>PMP22 copy-number testing for the recurrent deletion using MLPA, chromosomal microarray, FISH, or PCR-based methods</td>
+<td>(laudanski2024anestheticconsiderationsfor pages 4-5, record2024wholegenomesequencing pages 3-5, cesaroni2025pmp22relatedneuropathiesa pages 13-15)</td>
+</tr>
+<tr>
+<td>Diagnostic modalities</td>
+<td>Sequencing methods</td>
+<td>If deletion testing is negative or phenotype is atypical, consider PMP22 sequencing and/or neuropathy gene panels, WES, or WGS</td>
+<td>(record2024wholegenomesequencing pages 3-5, record2024wholegenomesequencing pages 1-2, cesaroni2025pmp22relatedneuropathiesa pages 15-17)</td>
+</tr>
+<tr>
+<td>Diagnostic modalities</td>
+<td>Relative use of methods in recent review</td>
+<td>Among 2,571 genetically tested PMP22-related neuropathy cases, MLPA 41.9%, NGS 20.4%, Sanger 17.8%, WES 0.4%, CGH/SNP array 1.4%</td>
+<td>(cesaroni2025pmp22relatedneuropathiesa pages 13-15)</td>
+</tr>
+<tr>
+<td>Diagnostic yield / cohorts</td>
+<td>Large inherited neuropathy center data</td>
+<td>In a 2024 Brain cohort of 1,515 inherited neuropathy patients, 72 HNPP cases (4.8%) were identified; PMP22 deletion represented 6.2% of solved genetic diagnoses</td>
+<td>(record2024wholegenomesequencing pages 2-3, record2024wholegenomesequencing pages 1-2)</td>
+</tr>
+<tr>
+<td>Imaging / adjunct tests</td>
+<td>Supportive non-genetic tests</td>
+<td>Nerve ultrasound and MRI/DTI can provide supportive structural information; muscle fatty infiltration has been proposed as a biomarker of progression</td>
+<td>(laudanski2024anestheticconsiderationsfor pages 4-5, paassen2014pmp22relatedneuropathies pages 1-2)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes core identifiers, genetics, epidemiology, phenotype, electrophysiology, and diagnostic approaches for hereditary neuropathy with liability to pressure palsies. It is formatted for direct reuse as a knowledge-base scaffold with citation placeholders tied to available context IDs.</em></p>
+<hr />
+<h2>Primary visual evidence (mechanism)</h2>
+<p>Tomacula formation and compression-induced conduction block are shown in the Pmp22 super-enhancer deletion mouse model figures. (pantera2020pmp22superenhancerdeletion media 04ee1ad6, pantera2020pmp22superenhancerdeletion media 85bcd5c7)</p>
+<p>References</p>
+<ol>
+<li>
+<p>(paassen2014pmp22relatedneuropathies pages 7-9): Barbara W van Paassen, Anneke J van der Kooi, Karin Y van Spaendonck-Zwarts, Camiel Verhamme, Frank Baas, and Marianne de Visser. Pmp22 related neuropathies: charcot-marie-tooth disease type 1a and hereditary neuropathy with liability to pressure palsies. Orphanet Journal of Rare Diseases, 9:38-38, Mar 2014. URL: https://doi.org/10.1186/1750-1172-9-38, doi:10.1186/1750-1172-9-38. This article has 258 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(laudanski2024anestheticconsiderationsfor pages 1-2): Krzysztof Laudanski, Omar Elmadhoun, Amal Mathew, Yul Kahn-Pascual, Mitchell J. Kerfeld, James Chen, Daniella C. Sisniega, and Francisco Gomez. Anesthetic considerations for patients with hereditary neuropathy with liability to pressure palsies: a narrative review. Healthcare, 12:858, Apr 2024. URL: https://doi.org/10.3390/healthcare12080858, doi:10.3390/healthcare12080858. This article has 1 citations.</p>
+</li>
+<li>
+<p>(paassen2014pmp22relatedneuropathies pages 1-2): Barbara W van Paassen, Anneke J van der Kooi, Karin Y van Spaendonck-Zwarts, Camiel Verhamme, Frank Baas, and Marianne de Visser. Pmp22 related neuropathies: charcot-marie-tooth disease type 1a and hereditary neuropathy with liability to pressure palsies. Orphanet Journal of Rare Diseases, 9:38-38, Mar 2014. URL: https://doi.org/10.1186/1750-1172-9-38, doi:10.1186/1750-1172-9-38. This article has 258 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(OpenTargets Search: Hereditary neuropathy with liability to pressure palsies-PMP22): Open Targets Query (Hereditary neuropathy with liability to pressure palsies-PMP22, 2 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.</p>
+</li>
+<li>
+<p>(savasta2025casereporthereditary pages 1-2): Salvatore Savasta, Fabiola Serra, Lucrezia Galimberti, Francesco Fabrizio Comisi, Marcello Cossu, Alessandro Vannelli, Maddalena Masala, Sara Tanca, and Stefania Murru. Case report: hereditary neuropathy with liability to pressure palsy (hnpp): the role of genetic investigation in diagnostic assessment. Frontiers in Genetics, Aug 2025. URL: https://doi.org/10.3389/fgene.2025.1613022, doi:10.3389/fgene.2025.1613022. This article has 2 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(chen2025literaturereviewof pages 1-2): Limin Chen, Hongbo Zhang, Chunnv Li, Nuo Yang, Jiangtao Wang, and Jianmin Liang. Literature review of clinical analysis of hereditary neuropathy with liability to pressure palsies. Journal of Neurology, Dec 2025. URL: https://doi.org/10.1007/s00415-024-12839-7, doi:10.1007/s00415-024-12839-7. This article has 7 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(fabrizi2015disordersofperipheral pages 7-9): Gian Maria Fabrizi and Giampietro Zanette. Disorders of peripheral nerves. ArXiv, pages 405-444, Jan 2015. URL: https://doi.org/10.1007/978-88-470-5755-5_35, doi:10.1007/978-88-470-5755-5_35. This article has 1 citations.</p>
+</li>
+<li>
+<p>(li2013thepmp22gene pages 15-17): Jun Li, Brett Parker, Colin Martyn, Chandramohan Natarajan, and Jiasong Guo. The pmp22 gene and its related diseases. Molecular Neurobiology, 47:673-698, Dec 2013. URL: https://doi.org/10.1007/s12035-012-8370-x, doi:10.1007/s12035-012-8370-x. This article has 362 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(laudanski2024anestheticconsiderationsfor pages 4-5): Krzysztof Laudanski, Omar Elmadhoun, Amal Mathew, Yul Kahn-Pascual, Mitchell J. Kerfeld, James Chen, Daniella C. Sisniega, and Francisco Gomez. Anesthetic considerations for patients with hereditary neuropathy with liability to pressure palsies: a narrative review. Healthcare, 12:858, Apr 2024. URL: https://doi.org/10.3390/healthcare12080858, doi:10.3390/healthcare12080858. This article has 1 citations.</p>
+</li>
+<li>
+<p>(pantera2020pmp22superenhancerdeletion pages 4-7): Harrison Pantera, Bo Hu, Daniel Moiseev, Chris Dunham, Jibraan Rashid, John J Moran, Kathleen Krentz, C Dustin Rubinstein, Seongsik Won, Jun Li, and John Svaren. Pmp22 super-enhancer deletion causes tomacula formation and conduction block in peripheral nerves. Human molecular genetics, 29:1689-1699, Apr 2020. URL: https://doi.org/10.1093/hmg/ddaa082, doi:10.1093/hmg/ddaa082. This article has 9 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(pantera2020pmp22superenhancerdeletion pages 1-2): Harrison Pantera, Bo Hu, Daniel Moiseev, Chris Dunham, Jibraan Rashid, John J Moran, Kathleen Krentz, C Dustin Rubinstein, Seongsik Won, Jun Li, and John Svaren. Pmp22 super-enhancer deletion causes tomacula formation and conduction block in peripheral nerves. Human molecular genetics, 29:1689-1699, Apr 2020. URL: https://doi.org/10.1093/hmg/ddaa082, doi:10.1093/hmg/ddaa082. This article has 9 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(pantera2020pmp22superenhancerdeletion media 04ee1ad6): Harrison Pantera, Bo Hu, Daniel Moiseev, Chris Dunham, Jibraan Rashid, John J Moran, Kathleen Krentz, C Dustin Rubinstein, Seongsik Won, Jun Li, and John Svaren. Pmp22 super-enhancer deletion causes tomacula formation and conduction block in peripheral nerves. Human molecular genetics, 29:1689-1699, Apr 2020. URL: https://doi.org/10.1093/hmg/ddaa082, doi:10.1093/hmg/ddaa082. This article has 9 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(pantera2020pmp22superenhancerdeletion media 85bcd5c7): Harrison Pantera, Bo Hu, Daniel Moiseev, Chris Dunham, Jibraan Rashid, John J Moran, Kathleen Krentz, C Dustin Rubinstein, Seongsik Won, Jun Li, and John Svaren. Pmp22 super-enhancer deletion causes tomacula formation and conduction block in peripheral nerves. Human molecular genetics, 29:1689-1699, Apr 2020. URL: https://doi.org/10.1093/hmg/ddaa082, doi:10.1093/hmg/ddaa082. This article has 9 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(lehtilahti2022charcotmarietoothdiseasemolecular pages 25-28): M Lehtilahti. Charcot-marie-tooth disease: molecular epidemiology in northern ostrobothnia. Unknown journal, 2022.</p>
+</li>
+<li>
+<p>(cesaroni2025pmp22relatedneuropathiesa pages 13-15): Carlo Alberto Cesaroni, Laura Caiazza, Giulia Pisanò, Martina Gnazzo, Giulia Sigona, Susanna Rizzi, Agnese Pantani, Daniele Frattini, and Carlo Fusco. Pmp22-related neuropathies: a systematic review. Genes, 16:1279, Oct 2025. URL: https://doi.org/10.3390/genes16111279, doi:10.3390/genes16111279. This article has 3 citations.</p>
+</li>
+<li>
+<p>(cesaroni2025pmp22relatedneuropathiesa pages 15-17): Carlo Alberto Cesaroni, Laura Caiazza, Giulia Pisanò, Martina Gnazzo, Giulia Sigona, Susanna Rizzi, Agnese Pantani, Daniele Frattini, and Carlo Fusco. Pmp22-related neuropathies: a systematic review. Genes, 16:1279, Oct 2025. URL: https://doi.org/10.3390/genes16111279, doi:10.3390/genes16111279. This article has 3 citations.</p>
+</li>
+<li>
+<p>(record2024wholegenomesequencing pages 1-2): Christopher J Record, Menelaos Pipis, Mariola Skorupinska, Julian Blake, Roy Poh, James M Polke, Kelly Eggleton, Tina Nanji, Stephan Zuchner, Andrea Cortese, Henry Houlden, Alexander M Rossor, Matilde Laura, and Mary M Reilly. Whole genome sequencing increases the diagnostic rate in charcot-marie-tooth disease. Brain, 147:3144-3156, Mar 2024. URL: https://doi.org/10.1093/brain/awae064, doi:10.1093/brain/awae064. This article has 49 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(record2024wholegenomesequencing pages 3-5): Christopher J Record, Menelaos Pipis, Mariola Skorupinska, Julian Blake, Roy Poh, James M Polke, Kelly Eggleton, Tina Nanji, Stephan Zuchner, Andrea Cortese, Henry Houlden, Alexander M Rossor, Matilde Laura, and Mary M Reilly. Whole genome sequencing increases the diagnostic rate in charcot-marie-tooth disease. Brain, 147:3144-3156, Mar 2024. URL: https://doi.org/10.1093/brain/awae064, doi:10.1093/brain/awae064. This article has 49 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(NCT02788734 chunk 1):  Patient Reported Outcomes Measures (PROM) in Carpal Tunnel Therapies in Patients With Inherited Neuropathies. University of South Florida. 2016. ClinicalTrials.gov Identifier: NCT02788734</p>
+</li>
+<li>
+<p>(NCT05902351 chunk 1):  Natural History Study for Charcot Marie Tooth Disease. Hereditary Neuropathy Foundation. 2013. ClinicalTrials.gov Identifier: NCT05902351</p>
+</li>
+<li>
+<p>(cesaroni2025pmp22relatedneuropathiesa pages 12-13): Carlo Alberto Cesaroni, Laura Caiazza, Giulia Pisanò, Martina Gnazzo, Giulia Sigona, Susanna Rizzi, Agnese Pantani, Daniele Frattini, and Carlo Fusco. Pmp22-related neuropathies: a systematic review. Genes, 16:1279, Oct 2025. URL: https://doi.org/10.3390/genes16111279, doi:10.3390/genes16111279. This article has 3 citations.</p>
+</li>
+<li>
+<p>(record2024wholegenomesequencing pages 2-3): Christopher J Record, Menelaos Pipis, Mariola Skorupinska, Julian Blake, Roy Poh, James M Polke, Kelly Eggleton, Tina Nanji, Stephan Zuchner, Andrea Cortese, Henry Houlden, Alexander M Rossor, Matilde Laura, and Mary M Reilly. Whole genome sequencing increases the diagnostic rate in charcot-marie-tooth disease. Brain, 147:3144-3156, Mar 2024. URL: https://doi.org/10.1093/brain/awae064, doi:10.1093/brain/awae064. This article has 49 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
             
         </div>
         
@@ -4554,7 +6269,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hereditary Neuropathy with Liability to Pressure Palsies", "mondoId": "MONDO:0008087", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hereditary_Neuropathy_with_Liability_to_Pressure_Palsies", "yamlRevision": "7aff7bcf63ea"};
+        const OS_CONFIG = {"diseaseName": "Hereditary Neuropathy with Liability to Pressure Palsies", "mondoId": "MONDO:0008087", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hereditary_Neuropathy_with_Liability_to_Pressure_Palsies", "yamlRevision": "7deab5378f1d"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

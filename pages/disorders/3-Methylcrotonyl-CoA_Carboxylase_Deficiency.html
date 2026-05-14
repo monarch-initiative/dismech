@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,7 +2570,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 19</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Organic Acidemia</span>
@@ -2577,7 +2730,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">11</div>
+                <div class="stat-value">19</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -2630,10 +2783,17 @@
             
             
             
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-value">38</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+            
             
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
@@ -2900,10 +3060,56 @@
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Stress-triggered metabolic decompensation</span>
 	                            
+	                            <span class="crosslink-desc">Impaired leucine metabolism can produce organic-aciduria-like metabolic crises in a subset of patients, especially under catabolic stress.</span>
+	                            
 	                        </div>
 	                        
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Secondary mitochondrial dysfunction and oxidative stress</span>
+	                            
+	                            <span class="crosslink-desc">MCC-deficient patient fibroblasts show secondary mitochondrial dysfunction, oxidative stress, and disrupted energy homeostasis.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Elevated C5OH acylcarnitine</span>
+	                            
+	                            <span class="crosslink-desc">Blocked leucine catabolism raises blood C5OH acylcarnitine detected by newborn screening.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Increased urinary 3-hydroxyisovaleric acid and 3-methylcrotonylglycine</span>
+	                            
+	                            <span class="crosslink-desc">Diversion of leucine catabolic intermediates increases urinary 3-hydroxyisovaleric acid and 3-methylcrotonylglycine.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Secondary carnitine deficiency</span>
+	                            
+	                            <span class="crosslink-desc">Increased acylcarnitine formation can deplete free carnitine in a subset of patients.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Organic aciduria</span>
+	                            
+	                            <span class="crosslink-desc">Urinary excretion of 3-hydroxyisovaleric acid and 3-methylcrotonylglycine manifests as organic aciduria.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Abnormal circulating leucine concentration</span>
+	                            
+	                            <span class="crosslink-desc">3-MCCD is associated with abnormal leucine metabolism in Orphanet phenotype data.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hyperammonemia</span>
+	                            
+	                            <span class="crosslink-desc">Hyperammonemia is reported among specific biochemical symptoms linked to defective leucine catabolism in symptomatic MCCD.</span>
 	                            
 	                        </div>
 	                        
@@ -2968,7 +3174,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stress-triggered-metabolic-decompensation">
                 <div class="item-name">Stress-triggered metabolic decompensation</div>
                 
-                <div class="item-desc">During infection, fasting, or other catabolic stress, increased leucine flux and metabolite burden can exceed compensatory capacity, causing hypoglycemia, metabolic acidosis, hyperammonemia, and encephalopathy or developmental regression in susceptible patients.
+                <div class="item-desc">During infection, fasting, or other catabolic stress, increased leucine flux and metabolite burden can exceed compensatory capacity, causing organic-aciduria-like episodes with metabolic acidosis, hypoglycemia, and infection-associated neurologic regression in susceptible patients.
 </div>
                 
                 
@@ -3048,6 +3254,27 @@
                 
                 
 	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hypoglycemia</span>
+	                            
+	                            <span class="crosslink-desc">Metabolic decompensation in 3-MCCD can include ketotic hypoglycemia.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Developmental regression</span>
+	                            
+	                            <span class="crosslink-desc">Severe symptomatic 3-MCCD can present with developmental regression after infection-triggered decompensation.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
 	                
 	                
     
@@ -3279,7 +3506,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biotin Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Biotin may be trialed because methylcrotonyl-CoA carboxylase is a biotin-dependent carboxylase, although response varies and treatment should be individualized by metabolic specialists.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"biotin\"]}}, {\"id\": \"Carnitine Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Carnitine supplementation is used when secondary carnitine deficiency is present and may help replenish free carnitine while supporting excretion of accumulated acyl groups. Evidence supports individualized use in selected symptomatic or carnitine-deficient patients, but not a universal supplementation recommendation.\\n\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"carnitine\"]}}, {\"id\": \"Leucine catabolic block and diagnostic metabolite accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient 3-methylcrotonyl-CoA carboxylase activity impairs leucine catabolism and diverts intermediates into diagnostic metabolites including 3-hydroxyisovaleric acid, 3-methylcrotonylglycine, and C5OH acylcarnitine.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"leucine catabolism\", \"branched-chain amino acid catabolism\"]}}, {\"id\": \"MCCC1 variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MCCC1\"], \"variant_count\": 1}}, {\"id\": \"MCCC1/MCCC2 molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in MCCC1 or MCCC2 reduce activity of the mitochondrial 3-methylcrotonyl-CoA carboxylase holoenzyme, disrupting a biotin-dependent step in leucine catabolism.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"molecular_functions\": [\"methylcrotonoyl-CoA carboxylase activity\"], \"genes\": [\"MCCC1\", \"MCCC2\"], \"locations\": [\"mitochondrial matrix\"]}}, {\"id\": \"MCCC2 variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MCCC2\"], \"variant_count\": 1}}, {\"id\": \"Moderate Dietetic Modification\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Clinical management can include individualized moderate dietetic modification for symptomatic patients under metabolic-specialist supervision.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Secondary mitochondrial dysfunction and oxidative stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived MCC-deficient fibroblasts show transcriptional and functional evidence of mitochondrial dysfunction, decreased antioxidant response, disrupted energy homeostasis, and oxidative stress. This secondary cellular stress may contribute to fatigue, neurologic vulnerability, and variable clinical expression.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"tricarboxylic acid cycle\", \"response to oxidative stress\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Stress-triggered metabolic decompensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"During infection, fasting, or other catabolic stress, increased leucine flux and metabolite burden can exceed compensatory capacity, causing hypoglycemia, metabolic acidosis, hyperammonemia, and encephalopathy or developmental regression in susceptible patients.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"response to starvation\", \"urea cycle\"]}}, {\"id\": \"Various pathogenic MCCC1 variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Multiple pathogenic MCCC1 alleles cause 3-MCCD with variable clinical expressivity.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Various pathogenic MCCC2 variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Multiple pathogenic MCCC2 alleles cause 3-MCCD with variable clinical expressivity.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"MCCC1/MCCC2 molecular function deficiency\", \"target\": \"Leucine catabolic block and diagnostic metabolite accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leucine catabolic block and diagnostic metabolite accumulation\", \"target\": \"Stress-triggered metabolic decompensation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leucine catabolic block and diagnostic metabolite accumulation\", \"target\": \"Secondary mitochondrial dysfunction and oxidative stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Moderate Dietetic Modification\", \"target\": \"Leucine catabolic block and diagnostic metabolite accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Carnitine Supplementation\", \"target\": \"Leucine catabolic block and diagnostic metabolite accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Biotin Supplementation\", \"target\": \"MCCC1/MCCC2 molecular function deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"MCCC1 variants\", \"target\": \"MCCC1/MCCC2 molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MCCC2 variants\", \"target\": \"MCCC1/MCCC2 molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Various pathogenic MCCC1 variants\", \"target\": \"MCCC1 variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Various pathogenic MCCC2 variants\", \"target\": \"MCCC2 variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal circulating leucine concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormal leucine metabolism is the core biochemical phenotype of 3-MCCD.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004357\"}}, {\"id\": \"Biotin Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Biotin may be trialed because methylcrotonyl-CoA carboxylase is a biotin-dependent carboxylase, although response varies and treatment should be individualized by metabolic specialists.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"biotin\"]}}, {\"id\": \"Carnitine Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Carnitine supplementation is used when secondary carnitine deficiency is present and may help replenish free carnitine while supporting excretion of accumulated acyl groups. Evidence supports individualized use in selected symptomatic or carnitine-deficient patients, but not a universal supplementation recommendation.\\n\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"carnitine\"]}}, {\"id\": \"Developmental regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental regression can occur after catabolic stress in severe symptomatic cases.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002376\"}}, {\"id\": \"Elevated C5OH acylcarnitine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Hyperammonemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperammonemia is a frequent biochemical abnormality during decompensation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001987\"}}, {\"id\": \"Hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoglycemia can occur during metabolic decompensation and is listed as very frequent by Orphanet.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001943\"}}, {\"id\": \"Increased urinary 3-hydroxyisovaleric acid and 3-methylcrotonylglycine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Leucine catabolic block and diagnostic metabolite accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient 3-methylcrotonyl-CoA carboxylase activity impairs leucine catabolism and diverts intermediates into diagnostic metabolites including 3-hydroxyisovaleric acid, 3-methylcrotonylglycine, and C5OH acylcarnitine.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"leucine catabolism\", \"branched-chain amino acid catabolism\"]}}, {\"id\": \"MCCC1 variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MCCC1\"], \"variant_count\": 1}}, {\"id\": \"MCCC1/MCCC2 molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in MCCC1 or MCCC2 reduce activity of the mitochondrial 3-methylcrotonyl-CoA carboxylase holoenzyme, disrupting a biotin-dependent step in leucine catabolism.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"molecular_functions\": [\"methylcrotonoyl-CoA carboxylase activity\"], \"genes\": [\"MCCC1\", \"MCCC2\"], \"locations\": [\"mitochondrial matrix\"]}}, {\"id\": \"MCCC2 variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MCCC2\"], \"variant_count\": 1}}, {\"id\": \"Moderate Dietetic Modification\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Clinical management can include individualized moderate dietetic modification for symptomatic patients under metabolic-specialist supervision.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Organic aciduria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Organic aciduria reflects urinary excretion of 3-MCCD metabolites including 3-hydroxyisovaleric acid and 3-methylcrotonylglycine.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001992\"}}, {\"id\": \"Secondary carnitine deficiency\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\"}}, {\"id\": \"Secondary mitochondrial dysfunction and oxidative stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived MCC-deficient fibroblasts show transcriptional and functional evidence of mitochondrial dysfunction, decreased antioxidant response, disrupted energy homeostasis, and oxidative stress. This secondary cellular stress may contribute to fatigue, neurologic vulnerability, and variable clinical expression.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"tricarboxylic acid cycle\", \"response to oxidative stress\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Stress-triggered metabolic decompensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"During infection, fasting, or other catabolic stress, increased leucine flux and metabolite burden can exceed compensatory capacity, causing organic-aciduria-like episodes with metabolic acidosis, hypoglycemia, and infection-associated neurologic regression in susceptible patients.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"response to starvation\", \"urea cycle\"]}}, {\"id\": \"Various pathogenic MCCC1 variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Multiple pathogenic MCCC1 alleles cause 3-MCCD with variable clinical expressivity.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Various pathogenic MCCC2 variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Multiple pathogenic MCCC2 alleles cause 3-MCCD with variable clinical expressivity.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"MCCC1/MCCC2 molecular function deficiency\", \"target\": \"Leucine catabolic block and diagnostic metabolite accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leucine catabolic block and diagnostic metabolite accumulation\", \"target\": \"Stress-triggered metabolic decompensation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leucine catabolic block and diagnostic metabolite accumulation\", \"target\": \"Secondary mitochondrial dysfunction and oxidative stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leucine catabolic block and diagnostic metabolite accumulation\", \"target\": \"Elevated C5OH acylcarnitine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leucine catabolic block and diagnostic metabolite accumulation\", \"target\": \"Increased urinary 3-hydroxyisovaleric acid and 3-methylcrotonylglycine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leucine catabolic block and diagnostic metabolite accumulation\", \"target\": \"Secondary carnitine deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leucine catabolic block and diagnostic metabolite accumulation\", \"target\": \"Organic aciduria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leucine catabolic block and diagnostic metabolite accumulation\", \"target\": \"Abnormal circulating leucine concentration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leucine catabolic block and diagnostic metabolite accumulation\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Stress-triggered metabolic decompensation\", \"target\": \"Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Stress-triggered metabolic decompensation\", \"target\": \"Developmental regression\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Moderate Dietetic Modification\", \"target\": \"Leucine catabolic block and diagnostic metabolite accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Carnitine Supplementation\", \"target\": \"Leucine catabolic block and diagnostic metabolite accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Biotin Supplementation\", \"target\": \"MCCC1/MCCC2 molecular function deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"MCCC1 variants\", \"target\": \"MCCC1/MCCC2 molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MCCC2 variants\", \"target\": \"MCCC1/MCCC2 molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Various pathogenic MCCC1 variants\", \"target\": \"MCCC1 variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Various pathogenic MCCC2 variants\", \"target\": \"MCCC2 variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4055,7 +4282,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -4074,6 +4301,26 @@
                 
                 
                 <div class="evidence-explanation">Orphanet lists MCCC1 as a disease-causing gene for 3-MCCD.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_6bd0c545-9ef8-4005-a124-a73be6178745-2019-10-25T160000.000Z" target="_blank">CGGV:assertion_6bd0c545-9ef8-4005-a124-a73be6178745-2019-10-25T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"MCCC1 | HGNC:6936 | 3-methylcrotonyl-CoA carboxylase deficiency | MONDO:0018950 | AR | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the MCCC1-3-methylcrotonyl-CoA carboxylase deficiency gene-disease relationship as definitive with autosomal recessive inheritance.</div>
                 
             </div>
             
@@ -4100,7 +4347,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -4119,6 +4366,26 @@
                 
                 
                 <div class="evidence-explanation">Orphanet lists MCCC2 as a disease-causing gene for 3-MCCD.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_3653ea30-b630-499a-a6f0-65152106ad8c-2019-10-25T160000.000Z" target="_blank">CGGV:assertion_3653ea30-b630-499a-a6f0-65152106ad8c-2019-10-25T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"MCCC2 | HGNC:6937 | 3-methylcrotonyl-CoA carboxylase deficiency | MONDO:0018950 | AR | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the MCCC2-3-methylcrotonyl-CoA carboxylase deficiency gene-disease relationship as definitive with autosomal recessive inheritance.</div>
                 
             </div>
             
@@ -4522,6 +4789,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4568,6 +4836,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4612,6 +4881,7 @@
                 
                 <div class="item-desc">Context: Secondary carnitine deficiency can occur from increased acylcarnitine formation and is common enough to affect management.
 </div>
+                
                 
                 
     
@@ -4680,7 +4950,7 @@
                 <pre class="yaml-preview">name: 3-Methylcrotonyl-CoA Carboxylase Deficiency
 category: Mendelian
 creation_date: &#39;2026-05-03T00:00:00Z&#39;
-updated_date: &#39;2026-05-03T00:00:00Z&#39;
+updated_date: &#39;2026-05-07T22:22:37Z&#39;
 synonyms:
 - 3-MCC deficiency
 - 3-MCCD
@@ -4828,6 +5098,14 @@ pathophysiology:
   downstream:
   - target: Leucine catabolic block and diagnostic metabolite accumulation
     description: Loss of MCC activity blocks the 3-methylcrotonyl-CoA carboxylation step of leucine catabolism.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:40639867
+      reference_title: &#34;3-methylcrotonyl-CoA carboxylase deficiency in a child with developmental regression and delay: call for early diagnosis and multidisciplinary approach.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Reduced 3-MCC enzyme activity results in impaired leucine metabolism&#34;
+      explanation: Case-report abstract directly links reduced 3-MCC enzyme activity to impaired leucine metabolism.
 - name: Leucine catabolic block and diagnostic metabolite accumulation
   description: &gt;
     Deficient 3-methylcrotonyl-CoA carboxylase activity impairs leucine
@@ -4862,13 +5140,94 @@ pathophysiology:
     explanation: Supports the core metabolic block and key biochemical consequences.
   downstream:
   - target: Stress-triggered metabolic decompensation
+    description: Impaired leucine metabolism can produce organic-aciduria-like metabolic crises in a subset of patients, especially under catabolic stress.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - increased metabolite burden during infection or fasting
+    evidence:
+    - reference: PMID:22642865
+      reference_title: &#34;3-methylcrotonyl-CoA carboxylase deficiency: clinical, biochemical, enzymatic and molecular studies in 88 individuals.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;12 patients (5 of 53 identified by newborn screening) presented with acute metabolic decompensations.&#34;
+      explanation: Cohort evidence supports acute metabolic decompensation as an occasional downstream consequence of MCC deficiency.
   - target: Secondary mitochondrial dysfunction and oxidative stress
+    description: MCC-deficient patient fibroblasts show secondary mitochondrial dysfunction, oxidative stress, and disrupted energy homeostasis.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:27417235
+      reference_title: &#34;A 3-methylcrotonyl-CoA carboxylase deficient human skin fibroblast transcriptome reveals underlying mitochondrial dysfunction and oxidative stress.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &#34;hallmark of mitochondrial dysfunction, decreased antioxidant response and disruption of energy homeostasis&#34;
+      explanation: Patient-derived fibroblast studies support secondary mitochondrial dysfunction and oxidative stress downstream of MCC deficiency.
+  - target: Elevated C5OH acylcarnitine
+    description: Blocked leucine catabolism raises blood C5OH acylcarnitine detected by newborn screening.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:36822454
+      reference_title: &#34;Newborn screening for 3-methylcrotonyl-CoA carboxylase deficiency in Zhejiang province, China.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;All these 53 patients exhibited increased C5OH concentrations in blood.&#34;
+      explanation: Newborn-screening cohort directly supports elevated C5OH as a biochemical consequence.
+  - target: Increased urinary 3-hydroxyisovaleric acid and 3-methylcrotonylglycine
+    description: Diversion of leucine catabolic intermediates increases urinary 3-hydroxyisovaleric acid and 3-methylcrotonylglycine.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:36822454
+      reference_title: &#34;Newborn screening for 3-methylcrotonyl-CoA carboxylase deficiency in Zhejiang province, China.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;94 % (50/53) of the patients had markedly increased urinary 3-hydroxyisovaleric acid and 3-methylcrotonylglycine.&#34;
+      explanation: Newborn-screening cohort directly supports the urinary diagnostic metabolite pattern.
+  - target: Secondary carnitine deficiency
+    description: Increased acylcarnitine formation can deplete free carnitine in a subset of patients.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - increased hydroxyisovalerylcarnitine formation and excretion
+    evidence:
+    - reference: PMID:36822454
+      reference_title: &#34;Newborn screening for 3-methylcrotonyl-CoA carboxylase deficiency in Zhejiang province, China.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Twenty-three of 53 patients had secondary carnitine deficiency.&#34;
+      explanation: Cohort data support secondary carnitine deficiency in a subset of 3-MCCD patients.
+  - target: Organic aciduria
+    description: Urinary excretion of 3-hydroxyisovaleric acid and 3-methylcrotonylglycine manifests as organic aciduria.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:36822454
+      reference_title: &#34;Newborn screening for 3-methylcrotonyl-CoA carboxylase deficiency in Zhejiang province, China.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;patients had markedly increased urinary 3-hydroxyisovaleric acid and 3-methylcrotonylglycine&#34;
+      explanation: Cohort evidence supports urinary organic acid elevation.
+  - target: Abnormal circulating leucine concentration
+    description: 3-MCCD is associated with abnormal leucine metabolism in Orphanet phenotype data.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: ORPHA:6
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;HP:0004357 | Abnormality of leucine metabolism | Very frequent (99-80%)&#34;
+      explanation: Orphanet supports abnormal leucine metabolism as a very frequent phenotype.
+  - target: Hyperammonemia
+    description: Hyperammonemia is reported among specific biochemical symptoms linked to defective leucine catabolism in symptomatic MCCD.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:25356967
+      reference_title: &#34;Consanguinity and rare mutations outside of MCCC genes underlie nonspecific phenotypes of MCCD.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Specific symptoms included ketoacidosis, hypoglycemia, hyperammonemia, coma, and plasma carnitine depletion with gross elevation of hydroxyisovaleryl-carnitine.&#34;
+      explanation: Human case-series evidence supports hyperammonemia among specific biochemical manifestations of defective leucine catabolism.
 - name: Stress-triggered metabolic decompensation
   description: &gt;
     During infection, fasting, or other catabolic stress, increased leucine flux
-    and metabolite burden can exceed compensatory capacity, causing hypoglycemia,
-    metabolic acidosis, hyperammonemia, and encephalopathy or developmental
-    regression in susceptible patients.
+    and metabolite burden can exceed compensatory capacity, causing
+    organic-aciduria-like episodes with metabolic acidosis, hypoglycemia, and
+    infection-associated neurologic regression in susceptible patients.
   biological_processes:
   - preferred_term: response to starvation
     term:
@@ -4896,6 +5255,29 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;lead to a severe clinical phenotype resembling classical organic acidurias.&#34;
     explanation: Cohort evidence supports severe organic-aciduria-like decompensation in a subset of patients.
+  downstream:
+  - target: Hypoglycemia
+    description: Metabolic decompensation in 3-MCCD can include ketotic hypoglycemia.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:40639867
+      reference_title: &#34;3-methylcrotonyl-CoA carboxylase deficiency in a child with developmental regression and delay: call for early diagnosis and multidisciplinary approach.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;metabolic acidosis, ketotic hypoglycaemia and carnitine deficiency.&#34;
+      explanation: Case-report abstract directly supports hypoglycemia as part of metabolic decompensation.
+  - target: Developmental regression
+    description: Severe symptomatic 3-MCCD can present with developmental regression after infection-triggered decompensation.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - infection-triggered metabolic decompensation
+    evidence:
+    - reference: PMID:40639867
+      reference_title: &#34;3-methylcrotonyl-CoA carboxylase deficiency in a child with developmental regression and delay: call for early diagnosis and multidisciplinary approach.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;underwent dramatic developmental regression at 11 months of age, following a respiratory tract infection.&#34;
+      explanation: Case-report abstract links respiratory infection-triggered illness with developmental regression.
 - name: Secondary mitochondrial dysfunction and oxidative stress
   description: &gt;
     Patient-derived MCC-deficient fibroblasts show transcriptional and
@@ -5096,7 +5478,8 @@ biochemical:
 - name: Elevated C5OH acylcarnitine
   presence: INCREASED
   context: &gt;
-    Increased C5OH prompts recall testing, urine organic acid analysis, and molecular confirmation.
+    Increased C5OH prompts recall testing, urine organic acid analysis, and molecular
+    confirmation.
   evidence:
   - reference: PMID:36822454
     reference_title: &#34;Newborn screening for 3-methylcrotonyl-CoA carboxylase deficiency in Zhejiang province, China.&#34;
@@ -5107,7 +5490,8 @@ biochemical:
 - name: Increased urinary 3-hydroxyisovaleric acid and 3-methylcrotonylglycine
   presence: INCREASED
   context: &gt;
-    The metabolite pattern reflects impaired flux through the methylcrotonyl-CoA carboxylase step of leucine degradation.
+    The metabolite pattern reflects impaired flux through the methylcrotonyl-CoA carboxylase
+    step of leucine degradation.
   evidence:
   - reference: PMID:36822454
     reference_title: &#34;Newborn screening for 3-methylcrotonyl-CoA carboxylase deficiency in Zhejiang province, China.&#34;
@@ -5160,6 +5544,12 @@ genetic:
     supports: SUPPORT
     snippet: &#34;MCCC1 | methylcrotonyl-CoA carboxylase subunit 1 | hgnc:6936 | Disease-causing germline mutation(s) in&#34;
     explanation: Orphanet lists MCCC1 as a disease-causing gene for 3-MCCD.
+  - reference: CGGV:assertion_6bd0c545-9ef8-4005-a124-a73be6178745-2019-10-25T160000.000Z
+    reference_title: &#34;MCCC1 / 3-methylcrotonyl-CoA carboxylase deficiency (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;MCCC1 | HGNC:6936 | 3-methylcrotonyl-CoA carboxylase deficiency | MONDO:0018950 | AR | Definitive&#34;
+    explanation: ClinGen classifies the MCCC1-3-methylcrotonyl-CoA carboxylase deficiency gene-disease relationship as definitive with autosomal recessive inheritance.
 - name: MCCC2 variants
   gene_term:
     preferred_term: MCCC2
@@ -5192,6 +5582,12 @@ genetic:
     supports: SUPPORT
     snippet: &#34;MCCC2 | methylcrotonyl-CoA carboxylase subunit 2 | hgnc:6937 | Disease-causing germline mutation(s) in&#34;
     explanation: Orphanet lists MCCC2 as a disease-causing gene for 3-MCCD.
+  - reference: CGGV:assertion_3653ea30-b630-499a-a6f0-65152106ad8c-2019-10-25T160000.000Z
+    reference_title: &#34;MCCC2 / 3-methylcrotonyl-CoA carboxylase deficiency (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;MCCC2 | HGNC:6937 | 3-methylcrotonyl-CoA carboxylase deficiency | MONDO:0018950 | AR | Definitive&#34;
+    explanation: ClinGen classifies the MCCC2-3-methylcrotonyl-CoA carboxylase deficiency gene-disease relationship as definitive with autosomal recessive inheritance.
 treatments:
 - name: Moderate Dietetic Modification
   description: &gt;
@@ -5286,6 +5682,255 @@ treatments:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;carnitine, biotin and moderate dietetic modifications. Molecular genetic&#34;
     explanation: Case evidence supports biotin as a therapy used in symptomatic 3-MCCD.
+references:
+- reference: DOI:10.1007/s10571-012-9879-2
+  title: Neurochemical Evidence that the Metabolites Accumulating in 3-Methylcrotonyl-CoA Carboxylase Deficiency Induce Oxidative Damage in Cerebral Cortex of Young Rats
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-falcon.md
+  findings:
+  - statement: Neurochemical Evidence that the Metabolites Accumulating in 3-Methylcrotonyl-CoA Carboxylase Deficiency Induce Oxidative Damage in Cerebral Cortex of Young Rats
+    supporting_text: Neurochemical Evidence that the Metabolites Accumulating in 3-Methylcrotonyl-CoA Carboxylase Deficiency Induce Oxidative Damage in Cerebral Cortex of Young Rats
+- reference: DOI:10.1016/j.ymgme.2011.12.018
+  title: A single mutation in MCCC1 or MCCC2 as a potential cause of positive screening for 3-methylcrotonyl-CoA carboxylase deficiency
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-falcon.md
+  findings:
+  - statement: A single mutation in MCCC1 or MCCC2 as a potential cause of positive screening for 3-methylcrotonyl-CoA carboxylase deficiency
+    supporting_text: A single mutation in MCCC1 or MCCC2 as a potential cause of positive screening for 3-methylcrotonyl-CoA carboxylase deficiency
+- reference: DOI:10.1016/j.ymgmr.2024.101153
+  title: Outcomes of cases with elevated 3-hydroxyisovaleryl carnitine report from the newborn screening program
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-falcon.md
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-openscientist.md
+  findings:
+  - statement: Outcomes of cases with elevated 3-hydroxyisovaleryl carnitine report from the newborn screening program
+    supporting_text: Outcomes of cases with elevated 3-hydroxyisovaleryl carnitine report from the newborn screening program
+- reference: DOI:10.1038/s41598-025-15625-1
+  title: &#39;Large-scale newborn screening for organic acidemias in Quanzhou, China: a 10-year retrospective observational study&#39;
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-falcon.md
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-openscientist.md
+  findings:
+  - statement: &#39;Large-scale newborn screening for organic acidemias in Quanzhou, China: a 10-year retrospective observational study&#39;
+    supporting_text: &#39;Large-scale newborn screening for organic acidemias in Quanzhou, China: a 10-year retrospective observational study&#39;
+- reference: DOI:10.1038/s42255-024-01098-5
+  title: Host–microbe interactions rewire metabolism in a C. elegans model of leucine breakdown deficiency
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-falcon.md
+  findings:
+  - statement: Host–microbe interactions rewire metabolism in a C. elegans model of leucine breakdown deficiency
+    supporting_text: Host–microbe interactions rewire metabolism in a C. elegans model of leucine breakdown deficiency
+- reference: DOI:10.1101/2024.04.30.591959
+  title: Structural insights into human propionyl-CoA carboxylase (PCC) and 3-methylcrotonyl-CoA carboxylase (MCC)
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-falcon.md
+  findings:
+  - statement: Propionyl-CoA carboxylase (PCC) and 3-methylcrotonyl-CoA carboxylase (MCC) are biotin-dependent carboxylases (BDCs) that catalyze the metabolism of odd-chain fatty acids, cholesterol, and specific amino acids.
+    supporting_text: Propionyl-CoA carboxylase (PCC) and 3-methylcrotonyl-CoA carboxylase (MCC) are biotin-dependent carboxylases (BDCs) that catalyze the metabolism of odd-chain fatty acids, cholesterol, and specific amino acids.
+- reference: DOI:10.15746/sms.18.009
+  title: Clinical Manifestations, Gene Analysis of Patients with 3-Methylcrotonyl-CoA Carboxylase Deficiency
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-falcon.md
+  findings:
+  - statement: Clinical Manifestations, Gene Analysis of Patients with 3-Methylcrotonyl-CoA Carboxylase Deficiency
+    supporting_text: Clinical Manifestations, Gene Analysis of Patients with 3-Methylcrotonyl-CoA Carboxylase Deficiency
+- reference: DOI:10.3390/ijns11040115
+  title: &#39;Psychological Impact of Newborn Screening for 3-Methylcrotonyl-CoA Carboxylase Deficiency: The Parental Experience&#39;
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-falcon.md
+  findings:
+  - statement: 3-Methylcrotonyl-CoA carboxylase deficiency (3-MCCD) is a metabolic disorder with a wide clinical spectrum ranging from asymptomatic individuals to severe metabolic decompensation.
+    supporting_text: 3-Methylcrotonyl-CoA carboxylase deficiency (3-MCCD) is a metabolic disorder with a wide clinical spectrum ranging from asymptomatic individuals to severe metabolic decompensation.
+- reference: DOI:10.7759/cureus.39401
+  title: A Unique Presentation of 3-Methylcrotonyl-CoA Carboxylase Deficiency
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-falcon.md
+  findings:
+  - statement: A Unique Presentation of 3-Methylcrotonyl-CoA Carboxylase Deficiency
+    supporting_text: A Unique Presentation of 3-Methylcrotonyl-CoA Carboxylase Deficiency
+- reference: PMID:10681539
+  title: Molecular characterization of the non-biotin-containing subunit of 3-methylcrotonyl-CoA carboxylase.
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2000 Feb 25;275(8):5582-90. doi: 10.1074/jbc.275.8.5582.&#39;
+    supporting_text: &#39;2000 Feb 25;275(8):5582-90. doi: 10.1074/jbc.275.8.5582.&#39;
+- reference: PMID:11181649
+  title: The molecular basis of human 3-methylcrotonyl-CoA carboxylase deficiency.
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2001 Feb;107(4):495-504. doi: 10.1172/JCI11948.&#39;
+    supporting_text: &#39;2001 Feb;107(4):495-504. doi: 10.1172/JCI11948.&#39;
+- reference: PMID:15868465
+  title: Molecular mechanism of dominant expression in 3-methylcrotonyl-CoA carboxylase deficiency.
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2005;28(3):301-9. doi: 10.1007/s10545-005-7054-3.&#39;
+    supporting_text: &#39;2005;28(3):301-9. doi: 10.1007/s10545-005-7054-3.&#39;
+- reference: PMID:15992684
+  title: &#39;Molecular genetics of biotin metabolism: old vitamin, new science.&#39;
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2005 Jul;16(7):428-31. doi: 10.1016/j.jnutbio.2005.03.020.&#39;
+    supporting_text: &#39;2005 Jul;16(7):428-31. doi: 10.1016/j.jnutbio.2005.03.020.&#39;
+- reference: PMID:24103308
+  title: Analysis of cases of 3-methylcrotonyl CoA carboxylase deficiency (3-MCCD) in the California newborn screening program reported in the state database.
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2013 Dec;110(4):477-83. doi: 10.1016/j.ymgme.2013.09.006.&#39;
+    supporting_text: &#39;2013 Dec;110(4):477-83. doi: 10.1016/j.ymgme.2013.09.006.&#39;
+- reference: PMID:24407466
+  title: &#39;Metabolic biology of 3-methylglutaconic acid-uria: a new perspective.&#39;
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2014 May;37(3):359-68. doi: 10.1007/s10545-013-9669-0.&#39;
+    supporting_text: &#39;2014 May;37(3):359-68. doi: 10.1007/s10545-013-9669-0.&#39;
+- reference: PMID:27084392
+  title: &#39;Biotinylation: a novel posttranslational modification linking cell autonomous circadian clocks with metabolism.&#39;
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2016 Jun 1;310(11):H1520-32. doi: 10.1152/ajpheart.00959.2015.&#39;
+    supporting_text: &#39;2016 Jun 1;310(11):H1520-32. doi: 10.1152/ajpheart.00959.2015.&#39;
+- reference: PMID:27601257
+  title: &#39;3-Methylcrotonyl-CoA carboxylase deficiency: Mutational spectrum derived from comprehensive newborn screening.&#39;
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2016 Dec 15;594(2):203-210. doi: 10.1016/j.gene.2016.09.003.&#39;
+    supporting_text: &#39;2016 Dec 15;594(2):203-210. doi: 10.1016/j.gene.2016.09.003.&#39;
+- reference: PMID:29039164
+  title: &#39;[Screening for newborn organic aciduria in Zhejiang province:prevalence, outcome and follow-up].&#39;
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-openscientist.md
+  findings:
+  - statement: &#39;[Screening for newborn organic aciduria in Zhejiang province:prevalence, outcome and follow-up]&#39;
+    supporting_text: &#39;2017 May 25;46(3):240-247. doi: 10.3785/j.issn.1008-9292.2017.06.03. [Screening for newborn organic aciduria in Zhejiang province:prevalence, outcome and follow-up]. [Article in Chinese] Hong F(1), Huang X(1), Zhang Y(1), Yang J(1), Tong F(1), Mao H(1), Huang X(1), Zhou X(1), Yang R(1), Zhao Z(2).&#39;
+- reference: PMID:29946514
+  title: &#39;Diversity in the incidence and spectrum of organic acidemias, fatty acid oxidation disorders, and amino acid disorders in Asian countries: Selective screening vs. expanded newborn screening.&#39;
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-openscientist.md
+  findings:
+  - statement: &#39;Diversity in the incidence and spectrum of organic acidemias, fatty acid oxidation disorders, and amino acid disorders in Asian countries: Selective screening vs. expanded newborn screening&#39;
+    supporting_text: Expanded newborn screening (ENBS) utilizing tandem mass spectrometry (MS/MS) for inborn metabolic diseases (IMDs), such as organic acidemias (OAs), fatty acid oxidation disorders (FAODs), and amino acid disorders, is increasingly popular but has not yet been introduced in many Asian countries.
+- reference: PMID:31730530
+  title: &#39;3-Methylcrotonyl-CoA carboxylase deficiency newborn screening in a population of 536,008: is routine screening necessary?&#39;
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2019 Dec 18;32(12):1321-1326. doi: 10.1515/jpem-2018-0536.&#39;
+    supporting_text: &#39;2019 Dec 18;32(12):1321-1326. doi: 10.1515/jpem-2018-0536.&#39;
+- reference: PMID:31737040
+  title: &#39;Expanded Newborn Screening for Inborn Errors of Metabolism by Tandem Mass Spectrometry in Suzhou, China: Disease Spectrum, Prevalence, Genetic Characteristics in a Chinese Population.&#39;
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2019 Oct 29;10:1052. doi: 10.3389/fgene.2019.01052. eCollection 2019.&#39;
+    supporting_text: &#39;2019 Oct 29;10:1052. doi: 10.3389/fgene.2019.01052. eCollection 2019.&#39;
+- reference: PMID:3918814
+  title: Rapid differential diagnosis of carboxylase deficiencies and evaluation for biotin-responsiveness in a single blood sample.
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-openscientist.md
+  findings:
+  - statement: &#39;1985 Jan 30;145(2):151-62. doi: 10.1016/0009-8981(85)90282-7.&#39;
+    supporting_text: &#39;1985 Jan 30;145(2):151-62. doi: 10.1016/0009-8981(85)90282-7.&#39;
+- reference: PMID:40001143
+  title: &#39;Epidemiology of inherited metabolic disorders in newborn screening: insights from three years of experience in Southern Iran.&#39;
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-openscientist.md
+  findings:
+  - statement: Newborn screening is essential for the early detection of congenital genetic and metabolic disorders, enabling timely intervention to prevent morbidity, mortality, and disabilities associated with inherited metabolic disorders (IMDs).
+    supporting_text: Newborn screening is essential for the early detection of congenital genetic and metabolic disorders, enabling timely intervention to prevent morbidity, mortality, and disabilities associated with inherited metabolic disorders (IMDs).
+- reference: PMID:40610367
+  title: &#39;Screening for Life: Perspectives From Adult Metabolic Specialists on Newborn Screening for Inherited Metabolic Diseases.&#39;
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2025 Jul;48(4):e70057. doi: 10.1002/jimd.70057.&#39;
+    supporting_text: &#39;2025 Jul;48(4):e70057. doi: 10.1002/jimd.70057.&#39;
+- reference: PMID:40673334
+  title: &#39;Beyond newborn screening: the role of reverse cascade testing in familial disease detection.&#39;
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2026 Jan;63(1):1-11. doi: 10.1080/10408363.2025.2527288.&#39;
+    supporting_text: &#39;2026 Jan;63(1):1-11. doi: 10.1080/10408363.2025.2527288.&#39;
+- reference: PMID:41440809
+  title: &#39;Incidence of Organic Acid Disorders in 13 Million Chinese Newborns: A Systematic Review and Meta-Analysis.&#39;
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2025 Dec 13;11(4):113. doi: 10.3390/ijns11040113.&#39;
+    supporting_text: &#39;2025 Dec 13;11(4):113. doi: 10.3390/ijns11040113.&#39;
+- reference: PMID:9350481
+  title: &#39;Multiple carboxylase deficiency: inherited and acquired disorders of biotin metabolism.&#39;
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-openscientist.md
+  findings:
+  - statement: &#39;Multiple carboxylase deficiency: inherited and acquired disorders of biotin metabolism&#39;
+    supporting_text: Acquired biotin deficiency and the two known congenital disorders of biotin metabolism, biotinidase and holocarboxylase synthetase (HCS) deficiency, all lead to deficiency of the 4 biotin-dependent carboxylases, i.e. to multiple carboxylase deficiency (MCD).
+- reference: PMID:9847087
+  title: 3-Methylcrotonyl-coenzyme A carboxylase is a component of the mitochondrial leucine catabolic pathway in plants.
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-openscientist.md
+  findings:
+  - statement: &#39;1998 Dec;118(4):1127-38. doi: 10.1104/pp.118.4.1127.&#39;
+    supporting_text: &#39;1998 Dec;118(4):1127-38. doi: 10.1104/pp.118.4.1127.&#39;
+- reference: DOI:10.1007/8904_2014_393
+  title: Is l-Carnitine Supplementation Beneficial in 3-Methylcrotonyl-CoA Carboxylase Deficiency?
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-falcon.md
+  findings: []
+- reference: DOI:10.1016/j.ymgme.2016.02.002
+  title: Outcomes of cases with 3-methylcrotonyl-CoA carboxylase (3-MCC) deficiency - Report from the Inborn Errors of Metabolism Information System
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-falcon.md
+  findings: []
+- reference: DOI:10.1016/j.ymgmr.2024.101127
+  title: Newborn screening and genetic diagnosis of 3-methylcrotonyl-CoA carboxylase deficiency in Quanzhou,China
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-falcon.md
+  findings: []
+- reference: DOI:10.1038/gim.2014.157
+  title: Consanguinity and rare mutations outside of MCCC genes underlie nonspecific phenotypes of MCCD
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-falcon.md
+  findings: []
+- reference: DOI:10.1186/1750-1172-7-31
+  title: &#39;3-methylcrotonyl-CoA carboxylase deficiency: Clinical, biochemical, enzymatic and molecular studies in 88 individuals&#39;
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-falcon.md
+  findings: []
+- reference: PMID:27033733
+  title: Outcomes of cases with 3-methylcrotonyl-CoA carboxylase (3-MCC) deficiency - Report from the Inborn Errors of Metabolism Information System.
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-openscientist.md
+  findings: []
+- reference: PMID:36822454
+  title: Newborn screening for 3-methylcrotonyl-CoA carboxylase deficiency in Zhejiang province, China.
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-openscientist.md
+  findings: []
+- reference: PMID:39188588
+  title: Newborn screening and genetic diagnosis of 3-methylcrotonyl-CoA carboxylase deficiency in Quanzhou,China.
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-openscientist.md
+  findings: []
+- reference: PMID:39484073
+  title: Outcomes of cases with elevated 3-hydroxyisovaleryl carnitine report from the newborn screening program.
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-openscientist.md
+  findings: []
+- reference: PMID:40835664
+  title: &#39;Large-scale newborn screening for organic acidemias in Quanzhou, China: a 10-year retrospective observational study.&#39;
+  found_in:
+  - 3-Methylcrotonyl-CoA_Carboxylase_Deficiency-deep-research-openscientist.md
+  findings: []
 </pre>
             </div>
         </div>
@@ -5298,11 +5943,1225 @@ treatments:
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
             
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">38</span>
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s10571-012-9879-2" target="_blank">DOI:10.1007/s10571-012-9879-2</a>
+                            </div>
+                            
+                            <div class="reference-title">Neurochemical Evidence that the Metabolites Accumulating in 3-Methylcrotonyl-CoA Carboxylase Deficiency Induce Oxidative Damage in Cerebral Cortex of Young Rats</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Neurochemical Evidence that the Metabolites Accumulating in 3-Methylcrotonyl-CoA Carboxylase Deficiency Induce Oxidative Damage in Cerebral Cortex of Young Rats</div>
+            
+            
+            <div class="reference-finding-supporting">"Neurochemical Evidence that the Metabolites Accumulating in 3-Methylcrotonyl-CoA Carboxylase Deficiency Induce Oxidative Damage in Cerebral Cortex of Young Rats"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1016/j.ymgme.2011.12.018" target="_blank">DOI:10.1016/j.ymgme.2011.12.018</a>
+                            </div>
+                            
+                            <div class="reference-title">A single mutation in MCCC1 or MCCC2 as a potential cause of positive screening for 3-methylcrotonyl-CoA carboxylase deficiency</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">A single mutation in MCCC1 or MCCC2 as a potential cause of positive screening for 3-methylcrotonyl-CoA carboxylase deficiency</div>
+            
+            
+            <div class="reference-finding-supporting">"A single mutation in MCCC1 or MCCC2 as a potential cause of positive screening for 3-methylcrotonyl-CoA carboxylase deficiency"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1016/j.ymgmr.2024.101153" target="_blank">DOI:10.1016/j.ymgmr.2024.101153</a>
+                            </div>
+                            
+                            <div class="reference-title">Outcomes of cases with elevated 3-hydroxyisovaleryl carnitine report from the newborn screening program</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Outcomes of cases with elevated 3-hydroxyisovaleryl carnitine report from the newborn screening program</div>
+            
+            
+            <div class="reference-finding-supporting">"Outcomes of cases with elevated 3-hydroxyisovaleryl carnitine report from the newborn screening program"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1038/s41598-025-15625-1" target="_blank">DOI:10.1038/s41598-025-15625-1</a>
+                            </div>
+                            
+                            <div class="reference-title">Large-scale newborn screening for organic acidemias in Quanzhou, China: a 10-year retrospective observational study</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Large-scale newborn screening for organic acidemias in Quanzhou, China: a 10-year retrospective observational study</div>
+            
+            
+            <div class="reference-finding-supporting">"Large-scale newborn screening for organic acidemias in Quanzhou, China: a 10-year retrospective observational study"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1038/s42255-024-01098-5" target="_blank">DOI:10.1038/s42255-024-01098-5</a>
+                            </div>
+                            
+                            <div class="reference-title">Host–microbe interactions rewire metabolism in a C. elegans model of leucine breakdown deficiency</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Host–microbe interactions rewire metabolism in a C. elegans model of leucine breakdown deficiency</div>
+            
+            
+            <div class="reference-finding-supporting">"Host–microbe interactions rewire metabolism in a C. elegans model of leucine breakdown deficiency"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1101/2024.04.30.591959" target="_blank">DOI:10.1101/2024.04.30.591959</a>
+                            </div>
+                            
+                            <div class="reference-title">Structural insights into human propionyl-CoA carboxylase (PCC) and 3-methylcrotonyl-CoA carboxylase (MCC)</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Propionyl-CoA carboxylase (PCC) and 3-methylcrotonyl-CoA carboxylase (MCC) are biotin-dependent carboxylases (BDCs) that catalyze the metabolism of odd-chain fatty acids, cholesterol, and specific amino acids.</div>
+            
+            
+            <div class="reference-finding-supporting">"Propionyl-CoA carboxylase (PCC) and 3-methylcrotonyl-CoA carboxylase (MCC) are biotin-dependent carboxylases (BDCs) that catalyze the metabolism of odd-chain fatty acids, cholesterol, and specific amino acids."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.15746/sms.18.009" target="_blank">DOI:10.15746/sms.18.009</a>
+                            </div>
+                            
+                            <div class="reference-title">Clinical Manifestations, Gene Analysis of Patients with 3-Methylcrotonyl-CoA Carboxylase Deficiency</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Clinical Manifestations, Gene Analysis of Patients with 3-Methylcrotonyl-CoA Carboxylase Deficiency</div>
+            
+            
+            <div class="reference-finding-supporting">"Clinical Manifestations, Gene Analysis of Patients with 3-Methylcrotonyl-CoA Carboxylase Deficiency"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/ijns11040115" target="_blank">DOI:10.3390/ijns11040115</a>
+                            </div>
+                            
+                            <div class="reference-title">Psychological Impact of Newborn Screening for 3-Methylcrotonyl-CoA Carboxylase Deficiency: The Parental Experience</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">3-Methylcrotonyl-CoA carboxylase deficiency (3-MCCD) is a metabolic disorder with a wide clinical spectrum ranging from asymptomatic individuals to severe metabolic decompensation.</div>
+            
+            
+            <div class="reference-finding-supporting">"3-Methylcrotonyl-CoA carboxylase deficiency (3-MCCD) is a metabolic disorder with a wide clinical spectrum ranging from asymptomatic individuals to severe metabolic decompensation."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.7759/cureus.39401" target="_blank">DOI:10.7759/cureus.39401</a>
+                            </div>
+                            
+                            <div class="reference-title">A Unique Presentation of 3-Methylcrotonyl-CoA Carboxylase Deficiency</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">A Unique Presentation of 3-Methylcrotonyl-CoA Carboxylase Deficiency</div>
+            
+            
+            <div class="reference-finding-supporting">"A Unique Presentation of 3-Methylcrotonyl-CoA Carboxylase Deficiency"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/10681539" target="_blank">PMID:10681539</a>
+                            </div>
+                            
+                            <div class="reference-title">Molecular characterization of the non-biotin-containing subunit of 3-methylcrotonyl-CoA carboxylase.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2000 Feb 25;275(8):5582-90. doi: 10.1074/jbc.275.8.5582.</div>
+            
+            
+            <div class="reference-finding-supporting">"2000 Feb 25;275(8):5582-90. doi: 10.1074/jbc.275.8.5582."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/11181649" target="_blank">PMID:11181649</a>
+                            </div>
+                            
+                            <div class="reference-title">The molecular basis of human 3-methylcrotonyl-CoA carboxylase deficiency.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2001 Feb;107(4):495-504. doi: 10.1172/JCI11948.</div>
+            
+            
+            <div class="reference-finding-supporting">"2001 Feb;107(4):495-504. doi: 10.1172/JCI11948."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/15868465" target="_blank">PMID:15868465</a>
+                            </div>
+                            
+                            <div class="reference-title">Molecular mechanism of dominant expression in 3-methylcrotonyl-CoA carboxylase deficiency.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2005;28(3):301-9. doi: 10.1007/s10545-005-7054-3.</div>
+            
+            
+            <div class="reference-finding-supporting">"2005;28(3):301-9. doi: 10.1007/s10545-005-7054-3."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/15992684" target="_blank">PMID:15992684</a>
+                            </div>
+                            
+                            <div class="reference-title">Molecular genetics of biotin metabolism: old vitamin, new science.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2005 Jul;16(7):428-31. doi: 10.1016/j.jnutbio.2005.03.020.</div>
+            
+            
+            <div class="reference-finding-supporting">"2005 Jul;16(7):428-31. doi: 10.1016/j.jnutbio.2005.03.020."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/24103308" target="_blank">PMID:24103308</a>
+                            </div>
+                            
+                            <div class="reference-title">Analysis of cases of 3-methylcrotonyl CoA carboxylase deficiency (3-MCCD) in the California newborn screening program reported in the state database.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2013 Dec;110(4):477-83. doi: 10.1016/j.ymgme.2013.09.006.</div>
+            
+            
+            <div class="reference-finding-supporting">"2013 Dec;110(4):477-83. doi: 10.1016/j.ymgme.2013.09.006."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/24407466" target="_blank">PMID:24407466</a>
+                            </div>
+                            
+                            <div class="reference-title">Metabolic biology of 3-methylglutaconic acid-uria: a new perspective.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2014 May;37(3):359-68. doi: 10.1007/s10545-013-9669-0.</div>
+            
+            
+            <div class="reference-finding-supporting">"2014 May;37(3):359-68. doi: 10.1007/s10545-013-9669-0."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/27084392" target="_blank">PMID:27084392</a>
+                            </div>
+                            
+                            <div class="reference-title">Biotinylation: a novel posttranslational modification linking cell autonomous circadian clocks with metabolism.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2016 Jun 1;310(11):H1520-32. doi: 10.1152/ajpheart.00959.2015.</div>
+            
+            
+            <div class="reference-finding-supporting">"2016 Jun 1;310(11):H1520-32. doi: 10.1152/ajpheart.00959.2015."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/27601257" target="_blank">PMID:27601257</a>
+                            </div>
+                            
+                            <div class="reference-title">3-Methylcrotonyl-CoA carboxylase deficiency: Mutational spectrum derived from comprehensive newborn screening.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2016 Dec 15;594(2):203-210. doi: 10.1016/j.gene.2016.09.003.</div>
+            
+            
+            <div class="reference-finding-supporting">"2016 Dec 15;594(2):203-210. doi: 10.1016/j.gene.2016.09.003."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/29039164" target="_blank">PMID:29039164</a>
+                            </div>
+                            
+                            <div class="reference-title">[Screening for newborn organic aciduria in Zhejiang province:prevalence, outcome and follow-up].</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">[Screening for newborn organic aciduria in Zhejiang province:prevalence, outcome and follow-up]</div>
+            
+            
+            <div class="reference-finding-supporting">"2017 May 25;46(3):240-247. doi: 10.3785/j.issn.1008-9292.2017.06.03. [Screening for newborn organic aciduria in Zhejiang province:prevalence, outcome and follow-up]. [Article in Chinese] Hong F(1), Huang X(1), Zhang Y(1), Yang J(1), Tong F(1), Mao H(1), Huang X(1), Zhou X(1), Yang R(1), Zhao Z(2)."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/29946514" target="_blank">PMID:29946514</a>
+                            </div>
+                            
+                            <div class="reference-title">Diversity in the incidence and spectrum of organic acidemias, fatty acid oxidation disorders, and amino acid disorders in Asian countries: Selective screening vs. expanded newborn screening.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Diversity in the incidence and spectrum of organic acidemias, fatty acid oxidation disorders, and amino acid disorders in Asian countries: Selective screening vs. expanded newborn screening</div>
+            
+            
+            <div class="reference-finding-supporting">"Expanded newborn screening (ENBS) utilizing tandem mass spectrometry (MS/MS) for inborn metabolic diseases (IMDs), such as organic acidemias (OAs), fatty acid oxidation disorders (FAODs), and amino acid disorders, is increasingly popular but has not yet been introduced in many Asian countries."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/31730530" target="_blank">PMID:31730530</a>
+                            </div>
+                            
+                            <div class="reference-title">3-Methylcrotonyl-CoA carboxylase deficiency newborn screening in a population of 536,008: is routine screening necessary?</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2019 Dec 18;32(12):1321-1326. doi: 10.1515/jpem-2018-0536.</div>
+            
+            
+            <div class="reference-finding-supporting">"2019 Dec 18;32(12):1321-1326. doi: 10.1515/jpem-2018-0536."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/31737040" target="_blank">PMID:31737040</a>
+                            </div>
+                            
+                            <div class="reference-title">Expanded Newborn Screening for Inborn Errors of Metabolism by Tandem Mass Spectrometry in Suzhou, China: Disease Spectrum, Prevalence, Genetic Characteristics in a Chinese Population.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2019 Oct 29;10:1052. doi: 10.3389/fgene.2019.01052. eCollection 2019.</div>
+            
+            
+            <div class="reference-finding-supporting">"2019 Oct 29;10:1052. doi: 10.3389/fgene.2019.01052. eCollection 2019."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/3918814" target="_blank">PMID:3918814</a>
+                            </div>
+                            
+                            <div class="reference-title">Rapid differential diagnosis of carboxylase deficiencies and evaluation for biotin-responsiveness in a single blood sample.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">1985 Jan 30;145(2):151-62. doi: 10.1016/0009-8981(85)90282-7.</div>
+            
+            
+            <div class="reference-finding-supporting">"1985 Jan 30;145(2):151-62. doi: 10.1016/0009-8981(85)90282-7."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40001143" target="_blank">PMID:40001143</a>
+                            </div>
+                            
+                            <div class="reference-title">Epidemiology of inherited metabolic disorders in newborn screening: insights from three years of experience in Southern Iran.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Newborn screening is essential for the early detection of congenital genetic and metabolic disorders, enabling timely intervention to prevent morbidity, mortality, and disabilities associated with inherited metabolic disorders (IMDs).</div>
+            
+            
+            <div class="reference-finding-supporting">"Newborn screening is essential for the early detection of congenital genetic and metabolic disorders, enabling timely intervention to prevent morbidity, mortality, and disabilities associated with inherited metabolic disorders (IMDs)."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40610367" target="_blank">PMID:40610367</a>
+                            </div>
+                            
+                            <div class="reference-title">Screening for Life: Perspectives From Adult Metabolic Specialists on Newborn Screening for Inherited Metabolic Diseases.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2025 Jul;48(4):e70057. doi: 10.1002/jimd.70057.</div>
+            
+            
+            <div class="reference-finding-supporting">"2025 Jul;48(4):e70057. doi: 10.1002/jimd.70057."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40673334" target="_blank">PMID:40673334</a>
+                            </div>
+                            
+                            <div class="reference-title">Beyond newborn screening: the role of reverse cascade testing in familial disease detection.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2026 Jan;63(1):1-11. doi: 10.1080/10408363.2025.2527288.</div>
+            
+            
+            <div class="reference-finding-supporting">"2026 Jan;63(1):1-11. doi: 10.1080/10408363.2025.2527288."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41440809" target="_blank">PMID:41440809</a>
+                            </div>
+                            
+                            <div class="reference-title">Incidence of Organic Acid Disorders in 13 Million Chinese Newborns: A Systematic Review and Meta-Analysis.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2025 Dec 13;11(4):113. doi: 10.3390/ijns11040113.</div>
+            
+            
+            <div class="reference-finding-supporting">"2025 Dec 13;11(4):113. doi: 10.3390/ijns11040113."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/9350481" target="_blank">PMID:9350481</a>
+                            </div>
+                            
+                            <div class="reference-title">Multiple carboxylase deficiency: inherited and acquired disorders of biotin metabolism.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Multiple carboxylase deficiency: inherited and acquired disorders of biotin metabolism</div>
+            
+            
+            <div class="reference-finding-supporting">"Acquired biotin deficiency and the two known congenital disorders of biotin metabolism, biotinidase and holocarboxylase synthetase (HCS) deficiency, all lead to deficiency of the 4 biotin-dependent carboxylases, i.e. to multiple carboxylase deficiency (MCD)."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/9847087" target="_blank">PMID:9847087</a>
+                            </div>
+                            
+                            <div class="reference-title">3-Methylcrotonyl-coenzyme A carboxylase is a component of the mitochondrial leucine catabolic pathway in plants.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">1998 Dec;118(4):1127-38. doi: 10.1104/pp.118.4.1127.</div>
+            
+            
+            <div class="reference-finding-supporting">"1998 Dec;118(4):1127-38. doi: 10.1104/pp.118.4.1127."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/8904_2014_393" target="_blank">DOI:10.1007/8904_2014_393</a>
+                            </div>
+                            
+                            <div class="reference-title">Is l-Carnitine Supplementation Beneficial in 3-Methylcrotonyl-CoA Carboxylase Deficiency?</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1016/j.ymgme.2016.02.002" target="_blank">DOI:10.1016/j.ymgme.2016.02.002</a>
+                            </div>
+                            
+                            <div class="reference-title">Outcomes of cases with 3-methylcrotonyl-CoA carboxylase (3-MCC) deficiency - Report from the Inborn Errors of Metabolism Information System</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1016/j.ymgmr.2024.101127" target="_blank">DOI:10.1016/j.ymgmr.2024.101127</a>
+                            </div>
+                            
+                            <div class="reference-title">Newborn screening and genetic diagnosis of 3-methylcrotonyl-CoA carboxylase deficiency in Quanzhou,China</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1038/gim.2014.157" target="_blank">DOI:10.1038/gim.2014.157</a>
+                            </div>
+                            
+                            <div class="reference-title">Consanguinity and rare mutations outside of MCCC genes underlie nonspecific phenotypes of MCCD</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1186/1750-1172-7-31" target="_blank">DOI:10.1186/1750-1172-7-31</a>
+                            </div>
+                            
+                            <div class="reference-title">3-methylcrotonyl-CoA carboxylase deficiency: Clinical, biochemical, enzymatic and molecular studies in 88 individuals</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/27033733" target="_blank">PMID:27033733</a>
+                            </div>
+                            
+                            <div class="reference-title">Outcomes of cases with 3-methylcrotonyl-CoA carboxylase (3-MCC) deficiency - Report from the Inborn Errors of Metabolism Information System.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/36822454" target="_blank">PMID:36822454</a>
+                            </div>
+                            
+                            <div class="reference-title">Newborn screening for 3-methylcrotonyl-CoA carboxylase deficiency in Zhejiang province, China.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/39188588" target="_blank">PMID:39188588</a>
+                            </div>
+                            
+                            <div class="reference-title">Newborn screening and genetic diagnosis of 3-methylcrotonyl-CoA carboxylase deficiency in Quanzhou,China.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/39484073" target="_blank">PMID:39484073</a>
+                            </div>
+                            
+                            <div class="reference-title">Outcomes of cases with elevated 3-hydroxyisovaleryl carnitine report from the newborn screening program.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40835664" target="_blank">PMID:40835664</a>
+                            </div>
+                            
+                            <div class="reference-title">Large-scale newborn screening for organic acidemias in Quanzhou, China: a 10-year retrospective observational study.</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
+            </div>
+            
             
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
-                    <span class="card-count">1</span>
+                    <span class="card-count">2</span>
                 </div>
                 
                 <div style="margin-bottom: 4px;">
@@ -6360,6 +8219,1059 @@ For each section, provide:
                     </div>
                 </div>
                 
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>OpenScientist</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">1. Disease Information</div>
+                            
+                            
+                            <span class="report-badge">openscientist-autonomous</span>
+                            
+                            
+                            <span class="report-badge">24 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-05T03:03:31.672727</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <h2>1. Disease Information</h2>
+<h3>Overview</h3>
+<p>3-Methylcrotonyl-CoA carboxylase deficiency (3-MCCD) is an inborn error of metabolism affecting the mitochondrial catabolism of the branched-chain amino acid leucine. The condition results from deficient activity of the enzyme 3-methylcrotonyl-CoA carboxylase (MCC; EC 6.4.1.4), which catalyzes the biotin-dependent carboxylation of 3-methylcrotonyl-CoA to 3-methylglutaconyl-CoA — the fourth step in the leucine degradation pathway. First described as a clinical entity in the 1970s, 3-MCCD gained prominence following the widespread adoption of expanded newborn screening by tandem mass spectrometry, which revealed the condition to be far more common than previously appreciated.</p>
+<p>As documented by Gallardo et al. (2001): <em>"Isolated biotin-resistant 3-methylcrotonyl-CoA carboxylase (MCC) deficiency is an autosomal recessive disorder of leucine catabolism that appears to be the most frequent organic aciduria detected in tandem mass spectrometry-based neonatal screening programs"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/11181649/">PMID: 11181649</a>).</p>
+<h3>Key Identifiers</h3>
+<table>
+<thead>
+<tr>
+<th>Database</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>OMIM</strong></td>
+<td>#210200 (3-methylcrotonyl-CoA carboxylase 1 deficiency); #210210 (3-methylcrotonyl-CoA carboxylase 2 deficiency)</td>
+</tr>
+<tr>
+<td><strong>Orphanet</strong></td>
+<td>ORPHA:6</td>
+</tr>
+<tr>
+<td><strong>MONDO</strong></td>
+<td>MONDO:0009609 (type 1, MCCC1); MONDO:0009610 (type 2, MCCC2)</td>
+</tr>
+<tr>
+<td><strong>MeSH</strong></td>
+<td>C536837</td>
+</tr>
+<tr>
+<td><strong>ICD-10</strong></td>
+<td>E71.1 (Other disorders of branched-chain amino-acid metabolism)</td>
+</tr>
+<tr>
+<td><strong>ICD-11</strong></td>
+<td>5C50.0Y (Other specified disorders of branched-chain amino acid metabolism)</td>
+</tr>
+</tbody>
+</table>
+<h3>Synonyms and Alternative Names</h3>
+<ul>
+<li>3-Methylcrotonylglycinuria / 3-MCG-uria</li>
+<li>MCC deficiency / MCCD / 3-MCC deficiency / 3-MCCD</li>
+<li>Isolated 3-methylcrotonyl-CoA carboxylase deficiency</li>
+<li>Biotin-resistant MCC deficiency (to distinguish from multiple carboxylase deficiency)</li>
+<li>MCCA deficiency (for <em>MCCC1</em> mutations) / MCCB deficiency (for <em>MCCC2</em> mutations)</li>
+<li>Methylcrotonyl-CoA carboxylase deficiency type 1 / type 2</li>
+</ul>
+<h3>Information Sources</h3>
+<p>Information in this report is derived from <strong>aggregated disease-level resources</strong> including OMIM, Orphanet, GeneReviews, and published literature, supplemented by <strong>population-level data</strong> from newborn screening program registries in California (USA), multiple Chinese provinces (Zhejiang, Jiangsu, Quanzhou, Suzhou), Portugal, Iran, South Korea, Taiwan, Japan, and Germany.</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>Disease Causal Factors</h3>
+<p>3-MCCD is a <strong>purely genetic disorder</strong> caused by biallelic loss-of-function mutations in either the <em>MCCC1</em> or <em>MCCC2</em> genes. There is no infectious, environmental, or acquired cause for isolated MCC deficiency. However, MCC activity can be secondarily reduced in <strong>multiple carboxylase deficiency (MCD)</strong> due to defects in biotin metabolism — specifically biotinidase deficiency (OMIM #253260) or holocarboxylase synthetase deficiency (OMIM #253270) — where all four biotin-dependent carboxylases are affected simultaneously. As noted in the comprehensive review: <em>"Acquired biotin deficiency and the two known congenital disorders of biotin metabolism, biotinidase and holocarboxylase synthetase (HCS) deficiency, all lead to deficiency of the 4 biotin-dependent carboxylases, i.e. to multiple carboxylase deficiency (MCD)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/9350481/">PMID: 9350481</a>).</p>
+<h3>Genetic Risk Factors</h3>
+<ul>
+<li><strong>Causal variants</strong>: Biallelic pathogenic variants in <em>MCCC1</em> or <em>MCCC2</em> are the necessary and sufficient cause (see Section 4)</li>
+<li><strong>Carrier frequency</strong>: Estimated at approximately 1:95 to 1:144 in general populations based on observed disease incidence and Hardy-Weinberg equilibrium calculations</li>
+<li><strong>Dominant negative alleles</strong>: The MCCA-R385S mutation is notable for causing biochemical abnormalities and clinical symptoms even in heterozygous carriers (<a href="https://pubmed.ncbi.nlm.nih.gov/15868465/">PMID: 15868465</a>)</li>
+<li><strong>Consanguinity</strong>: Increases risk as expected for autosomal recessive conditions; the high prevalence in consanguineous populations is documented: <em>"the prevalence of IMDs in Fars Province is significantly higher than average global statistics"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40001143/">PMID: 40001143</a>)</li>
+<li><strong>No established modifier genes</strong>, though the extreme phenotypic variability strongly suggests their existence</li>
+</ul>
+<h3>Environmental Risk Factors and Triggers</h3>
+<p>While 3-MCCD itself is entirely genetic, <strong>environmental factors modulate clinical expression</strong>:</p>
+<ul>
+<li><strong>Catabolic stress</strong> (intercurrent illness, fever, prolonged fasting, surgery) is the most common trigger for metabolic decompensation in susceptible individuals</li>
+<li><strong>Protein intake</strong> — high leucine loads may worsen metabolite accumulation</li>
+<li><strong>Biotin status</strong> — though isolated 3-MCCD is characteristically biotin-resistant, rare dominant-negative alleles may show partial biotin responsiveness in vivo</li>
+<li><strong>Age</strong> — neonates and young infants are most vulnerable due to limited metabolic reserve and frequent feeding interruptions</li>
+</ul>
+<h3>Protective Factors</h3>
+<ul>
+<li><strong>Early identification via newborn screening</strong> enables preventive management, though the majority would remain asymptomatic regardless</li>
+<li><strong>Adequate carnitine status</strong> may protect against metabolic decompensation by maintaining acylcarnitine conjugation and excretion capacity</li>
+<li><strong>Avoidance of prolonged fasting</strong> is the primary environmental protective measure</li>
+<li><strong>Residual enzyme activity</strong> — hypomorphic variants preserving partial MCC activity are associated with milder phenotypes</li>
+</ul>
+<h3>Gene-Environment Interactions</h3>
+<p>The hallmark of 3-MCCD is a <strong>dramatic gene-environment interaction in phenotype expression</strong>: genetically identical individuals (even within the same family) may range from completely asymptomatic to severely symptomatic. This suggests that catabolic triggers, dietary factors, biotin status, and perhaps stochastic developmental factors play critical roles in determining clinical outcome. The lack of genotype-phenotype correlation is extensively documented (<a href="https://pubmed.ncbi.nlm.nih.gov/27033733/">PMID: 27033733</a>).</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>Overview of Clinical Phenotype Spectrum</h3>
+<p>The clinical phenotype of 3-MCCD is among the most heterogeneous of any inborn error of metabolism. Baumgartner et al. documented: <em>"Mutations in these genes cause isolated MCC deficiency, an autosomal recessive disorder with a variable phenotype ranging from severe neonatal to asymptomatic adult forms"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/15868465/">PMID: 15868465</a>).</p>
+<h3>A. Asymptomatic Phenotype (Most Common — ~85% of NBS-detected cases)</h3>
+<ul>
+<li><strong>HPO term</strong>: Not applicable (no phenotypic abnormality)</li>
+<li><strong>Frequency</strong>: The vast majority of NBS-identified individuals remain clinically well. In the largest Chinese cohort (n=53), <em>"All these 53 patients did not present any clinical symptom"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/36822454/">PMID: 36822454</a>)</li>
+<li><strong>Age</strong>: Detected at birth via NBS; remain asymptomatic throughout follow-up</li>
+<li><strong>Severity</strong>: None — biochemical abnormality only</li>
+<li><strong>Progression</strong>: Stable; no clinical disease develops in most cases</li>
+<li><strong>QoL impact</strong>: Minimal clinical impact; however, the psychological burden of carrying a disease diagnosis from NBS and the anxiety surrounding emergency protocols are real concerns for families</li>
+</ul>
+<h3>B. Metabolic Decompensation Episodes (Minority of cases)</h3>
+<table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>HPO Term</th>
+<th>Frequency</th>
+<th>Severity</th>
+<th>Onset</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Metabolic acidosis</td>
+<td>HP:0001942</td>
+<td>Uncommon</td>
+<td>Moderate-severe</td>
+<td>Neonatal to childhood</td>
+</tr>
+<tr>
+<td>Hypoglycemia</td>
+<td>HP:0001943</td>
+<td>Uncommon</td>
+<td>Variable</td>
+<td>Neonatal to childhood</td>
+</tr>
+<tr>
+<td>Hyperammonemia</td>
+<td>HP:0001987</td>
+<td>Rare</td>
+<td>Moderate-severe</td>
+<td>Neonatal</td>
+</tr>
+<tr>
+<td>Lactic acidosis</td>
+<td>HP:0003128</td>
+<td>Uncommon</td>
+<td>Variable</td>
+<td>Neonatal to childhood</td>
+</tr>
+<tr>
+<td>Ketosis/ketonuria</td>
+<td>HP:0001946</td>
+<td>Uncommon</td>
+<td>Variable</td>
+<td>Episodic</td>
+</tr>
+</tbody>
+</table>
+<h3>C. Neurological Manifestations (~15% of cases with developmental data)</h3>
+<table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>HPO Term</th>
+<th>Frequency</th>
+<th>Severity</th>
+<th>Onset</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Developmental delay</td>
+<td>HP:0001263</td>
+<td>~15% (per IBEM-IS)</td>
+<td>Mild to moderate</td>
+<td>Childhood</td>
+</tr>
+<tr>
+<td>Seizures</td>
+<td>HP:0001250</td>
+<td>Rare</td>
+<td>Variable</td>
+<td>Variable</td>
+</tr>
+<tr>
+<td>Hypotonia</td>
+<td>HP:0001252</td>
+<td>Rare</td>
+<td>Mild to moderate</td>
+<td>Neonatal to infancy</td>
+</tr>
+<tr>
+<td>Intellectual disability</td>
+<td>HP:0001249</td>
+<td>Rare</td>
+<td>Variable</td>
+<td>Childhood</td>
+</tr>
+<tr>
+<td>Feeding difficulties</td>
+<td>HP:0011968</td>
+<td>Uncommon</td>
+<td>Mild</td>
+<td>Neonatal/infancy</td>
+</tr>
+</tbody>
+</table>
+<p>The IBEM-IS registry analysis reported: <em>"A limited number of cases were identified with traditional biochemical symptoms including acidosis, hyperammonemia or lactic acidosis, and 15% of those with available developmental information had recorded developmental disabilities not clearly attributable to other causes"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/27033733/">PMID: 27033733</a>).</p>
+<h3>D. Laboratory Abnormalities</h3>
+<table>
+<thead>
+<tr>
+<th>Abnormality</th>
+<th>HPO Term</th>
+<th>Frequency</th>
+<th>Clinical Significance</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Elevated C5OH</td>
+<td>HP:0410051</td>
+<td>~100%</td>
+<td>Primary NBS marker</td>
+</tr>
+<tr>
+<td>Elevated urinary 3-HIVA</td>
+<td>HP:0033107</td>
+<td>~76-94%</td>
+<td>Confirmatory diagnostic</td>
+</tr>
+<tr>
+<td>Elevated urinary 3-MCG</td>
+<td>HP:0033108</td>
+<td>~76-94%</td>
+<td>Pathognomonic</td>
+</tr>
+<tr>
+<td>Secondary carnitine deficiency</td>
+<td>HP:0003234</td>
+<td>~47% of neonates</td>
+<td>Clinically actionable</td>
+</tr>
+</tbody>
+</table>
+<p>As documented in the Quanzhou study: <em>"All patients and neonates with 3-MCCD exhibited increased C5OH concentrations. Most patients [76.5%(13/17)] had increased urinary 3-methylcrotonylglycine (3-MCG) and 3-hydroxyisovaleric acid (3-HIVA) levels"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/39188588/">PMID: 39188588</a>).</p>
+<h3>E. Quality of Life Impact</h3>
+<p>For the asymptomatic majority, the primary quality-of-life impact stems from the <strong>psychosocial burden of diagnosis</strong> — parental anxiety, repeated monitoring visits, dietary counseling, and uncertainty about prognosis. For rare symptomatic individuals, metabolic crises carry significant acute morbidity, though long-term outcomes are generally favorable with appropriate management. No formal QoL assessments (EQ-5D, SF-36) specific to 3-MCCD have been published to date.</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<h3>Causal Genes</h3>
+<p>3-MCCD is caused by mutations in two genes encoding subunits of the heteromeric MCC holoenzyme:</p>
+<table>
+<thead>
+<tr>
+<th>Gene</th>
+<th>HGNC ID</th>
+<th>NCBI Gene ID</th>
+<th>Chromosome</th>
+<th>Protein Subunit</th>
+<th>UniProt</th>
+<th>OMIM</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>MCCC1</strong> (MCCA)</td>
+<td>HGNC:6936</td>
+<td>56922</td>
+<td>3q27.1</td>
+<td>MCCα (biotin-containing)</td>
+<td>Q96RQ3</td>
+<td>*609010</td>
+</tr>
+<tr>
+<td><strong>MCCC2</strong> (MCCB)</td>
+<td>HGNC:6937</td>
+<td>64087</td>
+<td>5q13.2</td>
+<td>MCCβ (carboxyltransferase)</td>
+<td>Q9HCC0</td>
+<td>*609014</td>
+</tr>
+</tbody>
+</table>
+<p>The molecular basis was established by Gallardo et al.: <em>"MCC is a heteromeric mitochondrial enzyme composed of biotin-containing alpha subunits and smaller beta subunits. Here, we report cloning of MCCA and MCCB cDNAs and the organization of their structural genes. We show that a series of 14 MCC-deficient probands defines two complementation groups, CG1 and 2, resulting from mutations in MCCB and MCCA, respectively"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/11181649/">PMID: 11181649</a>). The beta subunit was independently characterized: <em>"MCCase is a heteromeric enzyme composed of biotin-containing (MCC-A) and non-biotin-containing (MCC-B) subunits"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/10681539/">PMID: 10681539</a>).</p>
+<h3>Pathogenic Variants</h3>
+<ul>
+<li><strong>Variant types</strong>: Missense, nonsense, frameshift, splice-site, and small insertions/deletions have all been reported in both genes</li>
+<li><strong>Mutational spectrum</strong>: The Portuguese NBS program identified 26 previously unreported mutations across both genes over a ten-year period (<a href="https://pubmed.ncbi.nlm.nih.gov/27601257/">PMID: 27601257</a>)</li>
+<li><strong>Classification</strong>: Variants range from clearly pathogenic to VUS per ACMG/AMP guidelines; many novel variants continue to be identified</li>
+<li><strong>Somatic vs. germline</strong>: All known pathogenic variants are <strong>germline</strong> in origin</li>
+<li><strong>Functional consequences</strong>: Predominantly <strong>loss of function</strong> — reduced or absent MCC enzyme activity</li>
+<li><strong>Variant hotspots in Chinese populations</strong>: c.639+2T&gt;A in <em>MCCC1</em> and c.1144-1147delinsTTTT in <em>MCCC2</em> appear as recurrent variants (<a href="https://pubmed.ncbi.nlm.nih.gov/36822454/">PMID: 36822454</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/40835664/">PMID: 40835664</a>)</li>
+</ul>
+<h3>Notable Variant: MCCA-R385S (Dominant Negative)</h3>
+<p>The <strong>MCCA-R385S</strong> mutation acts through a unique <strong>dominant negative mechanism</strong>: <em>"Evidence is presented that MCCA-R385S is a dominant negative allele leading to biochemical abnormalities and clinical symptoms in heterozygous individuals and that it is responsive to pharmacological doses of biotin in vivo"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/15868465/">PMID: 15868465</a>). This is clinically significant because carriers (heterozygotes) of this specific allele may present with symptoms, unlike typical AR carrier states.</p>
+<h3>Genotype-Phenotype Correlation</h3>
+<p>There is <strong>no reliable genotype-phenotype correlation</strong> in 3-MCCD. <em>"There was no correlation between newborn screening (NBS) C5OH level and presence of metabolic, newborn, later-life or developmental abnormalities in these cases"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/27033733/">PMID: 27033733</a>). Individuals with biochemically severe profiles may remain completely asymptomatic, while those with milder biochemical abnormalities may occasionally develop clinical symptoms.</p>
+<h3>Modifier Genes, Epigenetics, and Chromosomal Abnormalities</h3>
+<ul>
+<li><strong>Modifier genes</strong>: None established, though extreme phenotypic variability implies their existence</li>
+<li><strong>Epigenetics</strong>: No specific epigenetic modifications associated with 3-MCCD. Notably, biotin plays a role in histone biotinylation — <em>"the enzyme [holocarboxylase synthetase] also targets to the nucleus and that it catalyzes the attachment of biotin to histones"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/15992684/">PMID: 15992684</a>) — but the implications for 3-MCCD specifically are unknown</li>
+<li><strong>Chromosomal abnormalities</strong>: Not applicable — 3-MCCD is caused by point mutations and small indels</li>
+</ul>
+<hr />
+<h2>5. Environmental Information</h2>
+<h3>Environmental Factors</h3>
+<p>3-MCCD is a purely genetic condition with no environmental causative factors. However, <strong>environmental triggers critically modulate clinical expression</strong>:</p>
+<ul>
+<li><strong>Intercurrent illness</strong> (infection, fever) — the most common trigger for metabolic decompensation</li>
+<li><strong>Prolonged fasting</strong> — induces catabolism and increases leucine flux through the blocked pathway</li>
+<li><strong>Surgical stress</strong> — perioperative catabolism can precipitate crises</li>
+<li><strong>Excessive protein/leucine intake</strong> — may worsen metabolite accumulation</li>
+</ul>
+<h3>Lifestyle Factors</h3>
+<ul>
+<li><strong>Diet</strong>: Leucine-rich diets theoretically increase metabolic burden, but strict dietary restriction is generally unnecessary for asymptomatic individuals</li>
+<li><strong>Exercise</strong>: No specific evidence linking intense exercise to decompensation in 3-MCCD, though catabolic stress from extreme exertion is theoretically relevant</li>
+<li><strong>Alcohol/smoking</strong>: No specific documented interactions</li>
+</ul>
+<h3>Infectious Agents</h3>
+<p>Not applicable — 3-MCCD is not caused by infectious agents. However, infections serve as the most common environmental trigger for metabolic crises in susceptible individuals.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Molecular Pathway</h3>
+<p>MCC functions within the <strong>leucine degradation pathway</strong> in the mitochondrial matrix. The complete catabolic sequence is:</p>
+<pre><code>Leucine
+  ↓  Branched-chain amino acid transaminase (BCAT)
+α-Ketoisocaproate
+  ↓  Branched-chain α-ketoacid dehydrogenase complex (BCKDH)
+Isovaleryl-CoA
+  ↓  Isovaleryl-CoA dehydrogenase (IVD)
+3-Methylcrotonyl-CoA
+  ↓  ✖ 3-Methylcrotonyl-CoA carboxylase (MCC) ← BLOCKED IN 3-MCCD
+3-Methylglutaconyl-CoA
+  ↓  3-Methylglutaconyl-CoA hydratase (AUH)
+3-Hydroxy-3-methylglutaryl-CoA (HMG-CoA)
+  ↓  HMG-CoA lyase (HMGCL)
+Acetoacetate + Acetyl-CoA → Krebs Cycle / Ketogenesis
+</code></pre>
+<p>This pathway was directly demonstrated in plant mitochondria: <em>"plant mitochondria can catabolize Leu via the following scheme: Leu → alpha-ketoisocaproate → isovaleryl-CoA → 3-methylcrotonyl-CoA → 3-methylglutaconyl-CoA → 3-hydroxy-3-methylglutaryl-CoA → acetoacetate + acetyl-CoA"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/9847087/">PMID: 9847087</a>).</p>
+<p><strong>Pathway databases</strong>: KEGG hsa00280 (Valine, leucine and isoleucine degradation); Reactome R-HSA-70895</p>
+<h3>Biochemical Consequences of MCC Deficiency</h3>
+<p>When MCC is deficient, 3-methylcrotonyl-CoA accumulates and is diverted to three alternative metabolic routes:</p>
+<ol>
+<li><strong>Glycine conjugation</strong> → <strong>3-methylcrotonylglycine (3-MCG)</strong> — pathognomonic urinary metabolite</li>
+<li><strong>Hydration</strong> → <strong>3-hydroxyisovaleric acid (3-HIVA)</strong> — major urinary metabolite</li>
+<li><strong>Carnitine conjugation</strong> → <strong>3-hydroxyisovalerylcarnitine (C5OH)</strong> — primary NBS biomarker</li>
+</ol>
+<p>These metabolites accumulate in blood and are excreted in urine. Importantly, they appear to be relatively non-toxic at physiological concentrations, which likely explains the benign phenotype in most individuals.</p>
+<h3>Secondary Metabolic Effects</h3>
+<ul>
+<li><strong>Carnitine depletion</strong>: Conjugation of accumulated metabolites depletes carnitine stores, with approximately 47% of neonates showing secondary carnitine deficiency (<a href="https://pubmed.ncbi.nlm.nih.gov/39188588/">PMID: 39188588</a>). This may impair fatty acid oxidation and energy production.</li>
+<li><strong>CoA sequestration</strong>: Accumulation of acyl-CoA intermediates may deplete the mitochondrial free CoA pool, potentially affecting other CoA-dependent pathways</li>
+<li><strong>Impaired ketogenesis</strong>: The leucine degradation pathway normally contributes to ketone body production via HMG-CoA; blockade at MCC reduces this contribution during fasting</li>
+</ul>
+<h3>Protein Dysfunction</h3>
+<p>MCC is a heteromeric mitochondrial enzyme with an <strong>α₆β₆ dodecameric structure</strong>. The alpha subunit (MCCα, MCCC1) contains the <strong>biotin prosthetic group</strong> covalently attached at a conserved lysine residue, catalyzing the ATP-dependent carboxylation of enzyme-bound biotin. The beta subunit (MCCβ, MCCC2) contains the <strong>carboxyltransferase domain</strong> that transfers the carboxyl group from carboxybiotin to 3-methylcrotonyl-CoA. Pathogenic variants cause:</p>
+<ul>
+<li><strong>Loss of function</strong> — through protein misfolding, instability, or catalytic site disruption</li>
+<li><strong>Dominant negative effects</strong> (rare, e.g., R385S) — through incorporation of mutant subunits that poison the hexameric complex assembly</li>
+</ul>
+<p>Biotinylation of MCC is catalyzed by <strong>holocarboxylase synthetase (HCS)</strong>: <em>"Biotinylation is an obligate posttranslational modification for five mammalian carboxylases: acetyl-CoA carboxylase α (ACCα), ACCβ, pyruvate carboxylase (PC), methylcrotonyl-CoA carboxylase (MCC), and propionyl-CoA carboxylase (PCC)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/27084392/">PMID: 27084392</a>).</p>
+<h3>Circadian Regulation of MCC</h3>
+<p>MCC biotinylation is regulated by the <strong>cellular circadian clock</strong> via the biotin transporter SLC5A6. In cardiomyocyte-specific clock mutant mice (CCM and CBK models), biotinylation of all carboxylases was significantly decreased (10-46%), leucine oxidation rates were reduced, and these abnormalities were correctable with biotin-enriched diet (<a href="https://pubmed.ncbi.nlm.nih.gov/27084392/">PMID: 27084392</a>). This suggests circadian biology may influence MCC activity in a tissue-specific manner.</p>
+<h3>Relationship to 3-Methylglutaconic Aciduria</h3>
+<p>MCC deficiency is relevant to the broader metabolic understanding of 3-methylglutaconic acid (3-MGA) metabolism. In the leucine degradation pathway, MCC produces 3-methylglutaconyl-CoA, a key intermediate: <em>"In the leucine degradation pathway, carboxylation of 3-methylcrotonyl CoA leads to formation of 3-methylglutaconyl CoA while 3-methylglutaconyl CoA hydratase converts this metabolite to 3-hydroxy-3-methylglutaryl CoA (HMG CoA)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/24407466/">PMID: 24407466</a>). The kinetic properties of MCC prevent reverse flux from HMG-CoA back through 3-methylcrotonyl-CoA.</p>
+<h3>Key GO Terms</h3>
+<ul>
+<li><strong>GO:0006552</strong> — leucine catabolic process (directly impaired)</li>
+<li><strong>GO:0006768</strong> — biotin metabolic process</li>
+<li><strong>GO:0004075</strong> — biotin carboxylase activity</li>
+<li><strong>GO:0005759</strong> — mitochondrial matrix (cellular compartment)</li>
+<li><strong>GO:0005739</strong> — mitochondrion</li>
+</ul>
+<h3>Key CHEBI Terms</h3>
+<ul>
+<li><strong>CHEBI:87672</strong> — 3-hydroxyisovalerylcarnitine (C5OH)</li>
+<li><strong>CHEBI:68568</strong> — 3-methylcrotonylglycine (3-MCG)</li>
+<li><strong>CHEBI:17232</strong> — 3-hydroxyisovaleric acid (3-HIVA)</li>
+<li><strong>CHEBI:57288</strong> — 3-methylcrotonyl-CoA</li>
+<li><strong>CHEBI:83264</strong> — biotin</li>
+<li><strong>CHEBI:16414</strong> — L-leucine</li>
+</ul>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<h3>Organ Level</h3>
+<table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Organs/Systems</th>
+<th>UBERON Term</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Primary</td>
+<td>Liver</td>
+<td>UBERON:0002107</td>
+<td>Major site of leucine catabolism</td>
+</tr>
+<tr>
+<td>Primary</td>
+<td>Skeletal muscle</td>
+<td>UBERON:0001134</td>
+<td>Major site of BCAA catabolism</td>
+</tr>
+<tr>
+<td>Secondary</td>
+<td>Brain/CNS</td>
+<td>UBERON:0000955</td>
+<td>Vulnerable during metabolic crises</td>
+</tr>
+<tr>
+<td>Secondary</td>
+<td>Heart</td>
+<td>UBERON:0000948</td>
+<td>MCC biotinylation regulated by circadian clock</td>
+</tr>
+<tr>
+<td>Excretory</td>
+<td>Kidney</td>
+<td>UBERON:0002113</td>
+<td>Metabolite excretion</td>
+</tr>
+<tr>
+<td>Systems</td>
+<td>Nervous, muscular, metabolic</td>
+<td>—</td>
+<td>Multi-system during severe decompensation</td>
+</tr>
+</tbody>
+</table>
+<h3>Tissue and Cell Level</h3>
+<ul>
+<li><strong>Hepatocytes</strong> (CL:0000182) — major site of leucine catabolism and MCC expression</li>
+<li><strong>Skeletal muscle cells</strong> (CL:0000188) — leucine catabolism for energy homeostasis</li>
+<li><strong>Neurons</strong> (CL:0000540) — vulnerable to metabolic decompensation (acidosis, energy failure)</li>
+<li><strong>Cardiomyocytes</strong> (CL:0000746) — express MCC; circadian regulation documented</li>
+</ul>
+<h3>Subcellular Level</h3>
+<ul>
+<li><strong>Mitochondrial matrix</strong> (GO:0005759) — primary compartment for MCC enzyme and leucine catabolism</li>
+<li><strong>Mitochondrion</strong> (GO:0005739) — organelle housing all pathway enzymes</li>
+</ul>
+<h3>Localization</h3>
+<p>The enzymatic defect is systemic but metabolic consequences are most pronounced in tissues with high leucine catabolic activity — particularly liver, skeletal muscle, and brain. No lateralization or anatomic asymmetry is observed.</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<h3>Onset</h3>
+<ul>
+<li><strong>Detection</strong>: Typically neonatal (day 2-5 of life) via NBS</li>
+<li><strong>Symptomatic onset (when present)</strong>: Highly variable — neonatal period to late childhood; rarely adult onset</li>
+<li><strong>Onset pattern</strong>: Most individuals are asymptomatic throughout life; symptomatic cases typically present with <strong>episodic metabolic crises</strong> rather than chronic progressive disease</li>
+</ul>
+<h3>Progression</h3>
+<ul>
+<li><strong>Disease course</strong>: <strong>Episodic</strong> (metabolic crises during catabolic stress) in symptomatic individuals; <strong>stable/asymptomatic</strong> in the overwhelming majority</li>
+<li><strong>Progression rate</strong>: No disease progression in most cases; rare symptomatic individuals may accumulate neurological damage from inadequately treated crises</li>
+<li><strong>Duration</strong>: Chronic lifelong biochemical abnormality; clinical disease is intermittent when present</li>
+<li><strong>Staging</strong>: Not formally staged; categorized as biochemically mild, moderate, or severe based on metabolite levels and residual enzyme activity</li>
+</ul>
+<h3>Critical Periods</h3>
+<ul>
+<li><strong>Neonatal period</strong>: Highest vulnerability during the catabolic transition from placental nutrition</li>
+<li><strong>Infancy/early childhood</strong>: Frequent intercurrent illnesses can trigger crises</li>
+<li><strong>Adolescence/adulthood</strong>: Generally stable; late-onset symptoms are exceptionally rare</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>Epidemiology</h3>
+<p>3-MCCD is the <strong>most frequently detected organic aciduria</strong> in NBS programs worldwide, confirmed across multiple populations and programs.</p>
+<table>
+<thead>
+<tr>
+<th>Population</th>
+<th>Incidence</th>
+<th>Sample Size</th>
+<th>Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>California, USA</td>
+<td>1:41,676</td>
+<td>2,959,108</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24103308/">PMID: 24103308</a></td>
+</tr>
+<tr>
+<td>Zhejiang, China</td>
+<td>1:83,068</td>
+<td>4,402,587</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36822454/">PMID: 36822454</a></td>
+</tr>
+<tr>
+<td>Jiangsu, China</td>
+<td>1:38,286</td>
+<td>536,008</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31730530/">PMID: 31730530</a></td>
+</tr>
+<tr>
+<td>Quanzhou, China</td>
+<td>1:37,859</td>
+<td>643,606</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39188588/">PMID: 39188588</a></td>
+</tr>
+<tr>
+<td>Suzhou, China</td>
+<td>1:33,412</td>
+<td>401,660</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31737040/">PMID: 31737040</a></td>
+</tr>
+<tr>
+<td>Zhejiang (2009-2016)</td>
+<td>1:68,900</td>
+<td>1,861,262</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29039164/">PMID: 29039164</a></td>
+</tr>
+<tr>
+<td>Fars Province, Iran</td>
+<td>High prevalence*</td>
+<td>138,689</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40001143/">PMID: 40001143</a></td>
+</tr>
+</tbody>
+</table>
+<p>*Among the most prevalent IMDs in an area with elevated consanguinity.</p>
+<p>A meta-analysis of 13 million Chinese newborns confirmed 3-MCCD as one of the most prevalent organic acidurias (<a href="https://pubmed.ncbi.nlm.nih.gov/41440809/">PMID: 41440809</a>). International comparisons showed that 3-MCCD was among the most frequently detected conditions in Taiwan and South Korea NBS programs (<a href="https://pubmed.ncbi.nlm.nih.gov/29946514/">PMID: 29946514</a>).</p>
+<h3>Inheritance Pattern</h3>
+<ul>
+<li><strong>Mode</strong>: Autosomal recessive — requires biallelic pathogenic variants in <em>MCCC1</em> or <em>MCCC2</em></li>
+<li><strong>Exception</strong>: The dominant negative MCCA-R385S allele causes disease in heterozygotes</li>
+<li><strong>Penetrance</strong>: <strong>Highly incomplete</strong> — most individuals with biallelic loss-of-function variants remain asymptomatic</li>
+<li><strong>Expressivity</strong>: <strong>Highly variable</strong> — from completely asymptomatic to severe neonatal metabolic crisis, even within families</li>
+<li><strong>Genetic anticipation</strong>: Not observed (not a repeat expansion disorder)</li>
+<li><strong>Carrier frequency</strong>: Estimated ~1:95 to 1:145 based on disease incidence</li>
+<li><strong>Consanguinity</strong>: Increases risk, as expected for AR conditions</li>
+<li><strong>Founder effects</strong>: Population-specific variant hotspots documented in Chinese populations</li>
+</ul>
+<h3>Population Demographics</h3>
+<ul>
+<li><strong>Ethnic distribution</strong>: Reported across all ethnic groups worldwide</li>
+<li><strong>Geographic distribution</strong>: Detected wherever expanded NBS is implemented</li>
+<li><strong>Sex ratio</strong>: ~1:1 (autosomal inheritance)</li>
+<li><strong>Maternal detection</strong>: NBS may detect maternal 3-MCCD when metabolites cross the placenta, leading to a positive NBS in an unaffected newborn — <em>"there are additional scenarios within NBS where disease maternal conditions (3-methylcrotonyl-CoA carboxylase deficiency and carnitine uptake deficiency) ... may cause a screen-positive NBS result"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40673334/">PMID: 40673334</a>)</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>Newborn Screening (Primary Detection)</h3>
+<p>3-MCCD is detected via <strong>tandem mass spectrometry (MS/MS)</strong> by measuring elevated <strong>3-hydroxyisovalerylcarnitine (C5OH)</strong> in dried blood spots. It is included in the recommended uniform screening panel (RUSP) in many countries.</p>
+<p>However, C5OH elevation is <strong>not specific</strong> for 3-MCCD and may also be elevated in:
+- Multiple carboxylase deficiency (biotinidase deficiency, HCS deficiency)
+- Maternal 3-MCCD (transplacental metabolite transfer)
+- 3-Hydroxy-3-methylglutaryl-CoA lyase deficiency
+- Beta-ketothiolase deficiency (occasionally)</p>
+<p>Critically, <em>"No significant correlation was found between the C5OH levels in newborn screening and the diagnosis of specific C5OH-related disorders or the presence of metabolic, neonatal, or developmental abnormalities"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/39484073/">PMID: 39484073</a>).</p>
+<h3>Confirmatory Testing Hierarchy</h3>
+<table>
+<thead>
+<tr>
+<th>Test</th>
+<th>Method</th>
+<th>Findings</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Urine organic acids</strong></td>
+<td>GC-MS</td>
+<td>Elevated 3-HIVA, 3-MCG</td>
+<td>Confirmatory</td>
+</tr>
+<tr>
+<td><strong>Plasma acylcarnitines</strong></td>
+<td>MS/MS</td>
+<td>Elevated C5OH</td>
+<td>Screening/confirmatory</td>
+</tr>
+<tr>
+<td><strong>Plasma free carnitine</strong></td>
+<td>MS/MS</td>
+<td>May be low</td>
+<td>Monitoring</td>
+</tr>
+<tr>
+<td><strong>MCC enzyme assay</strong></td>
+<td>In lymphocytes/fibroblasts</td>
+<td>Reduced activity</td>
+<td>Gold standard functional</td>
+</tr>
+<tr>
+<td><strong>Molecular genetic testing</strong></td>
+<td>Sanger or NGS</td>
+<td>Biallelic variants in MCCC1/MCCC2</td>
+<td>Definitive molecular diagnosis</td>
+</tr>
+</tbody>
+</table>
+<p>A rapid differential diagnostic method was described: <em>"A definitive diagnosis could be made in 7 of 9 patients studied up to now: 4 patients suffered from biotin-nonresponsive isolated PCC-deficiency, and 3 patients from biotin-responsive multiple carboxylase deficiency"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/3918814/">PMID: 3918814</a>).</p>
+<h3>Genetic Testing Strategy</h3>
+<ol>
+<li><strong>First tier</strong>: Targeted sequencing of <em>MCCC1</em> and <em>MCCC2</em> (single-gene or organic acidemia panel)</li>
+<li><strong>Second tier</strong>: Whole exome sequencing (WES) if targeted testing is negative</li>
+<li><strong>Deletion/duplication analysis</strong>: If sequencing identifies only one pathogenic variant</li>
+<li><strong>Complementation analysis</strong>: Cell fusion studies to distinguish CG1 (MCCC2) from CG2 (MCCC1)</li>
+</ol>
+<h3>Differential Diagnosis</h3>
+<table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Distinguishing Feature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Biotinidase deficiency</td>
+<td>All carboxylases affected; low biotinidase activity; biotin-responsive; skin rash, alopecia</td>
+</tr>
+<tr>
+<td>Holocarboxylase synthetase deficiency</td>
+<td>All carboxylases affected; neonatal onset; variable biotin responsiveness</td>
+</tr>
+<tr>
+<td>3-HMG-CoA lyase deficiency</td>
+<td>Different organic acid profile; generally more severe</td>
+</tr>
+<tr>
+<td>Isovaleric acidemia</td>
+<td>Different acylcarnitine marker (C5 vs C5OH)</td>
+</tr>
+<tr>
+<td>Maternal 3-MCCD</td>
+<td>Normal metabolites in infant on repeat testing</td>
+</tr>
+</tbody>
+</table>
+<h3>Imaging</h3>
+<p>Brain MRI may show white matter abnormalities or cerebral atrophy in rare severe symptomatic cases but is not routinely indicated in asymptomatic individuals.</p>
+<h3>Screening Utility Debate</h3>
+<p>The question of whether NBS for 3-MCCD provides net benefit remains actively debated: <em>"for others (e.g., very long chain acyl CoA dehydrogenase deficiency and 3-methylcrotonyl CoA carboxylase 1 deficiency), this is less clear as NBS identifies individuals who are asymptomatic or have milder forms of the disease"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40610367/">PMID: 40610367</a>).</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<h3>Survival and Mortality</h3>
+<ul>
+<li><strong>Overall prognosis</strong>: Excellent for the vast majority of individuals</li>
+<li><strong>Life expectancy</strong>: Normal in asymptomatic individuals (the majority)</li>
+<li><strong>Mortality</strong>: Deaths are exceedingly rare, associated with severe neonatal crises or late/missed diagnosis</li>
+<li><strong>Comparison with other organic acidurias</strong>: <em>"Except MCC, most organic aciduria may lead to metabolism decompensation, complications or even death"</em> — highlighting the distinctly benign course of 3-MCCD (<a href="https://pubmed.ncbi.nlm.nih.gov/29039164/">PMID: 29039164</a>)</li>
+</ul>
+<h3>Morbidity</h3>
+<ul>
+<li><strong>Developmental disability</strong>: ~15% of cases with developmental data, though <em>"not clearly attributable to other causes"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/27033733/">PMID: 27033733</a>)</li>
+<li><strong>Secondary carnitine deficiency</strong>: ~47% of neonates; clinically actionable</li>
+<li><strong>Metabolic crises</strong>: Rare but potentially life-threatening if untreated</li>
+</ul>
+<h3>Prognostic Factors</h3>
+<ul>
+<li><strong>No reliable prognostic biomarkers</strong>: NBS C5OH levels do not predict outcome</li>
+<li><strong>Genotype does not predict phenotype</strong>: <em>"There was no correlation between newborn screening (NBS) C5OH level and presence of metabolic, newborn, later-life or developmental abnormalities"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/27033733/">PMID: 27033733</a>)</li>
+<li><strong>Early management</strong> with emergency protocols may prevent rare crises</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<h3>Pharmacotherapy</h3>
+<p>There is <strong>no specific pharmacological treatment</strong> for 3-MCCD. Management is primarily supportive and preventive.</p>
+<h4>L-Carnitine Supplementation (MAXO:0001298)</h4>
+<ul>
+<li><strong>Indication</strong>: Secondary carnitine deficiency (present in ~47% of neonates)</li>
+<li><strong>Mechanism</strong>: Replenishes depleted carnitine stores; promotes excretion of toxic acyl-CoA intermediates as acylcarnitines</li>
+<li><strong>Dosage</strong>: Typically 50-100 mg/kg/day in divided doses</li>
+<li><strong>Monitoring</strong>: Plasma free carnitine and acylcarnitine levels</li>
+<li><strong>CHEBI</strong>: CHEBI:16347 (L-carnitine)</li>
+</ul>
+<h4>Biotin (MAXO:0010003)</h4>
+<ul>
+<li><strong>Generally NOT effective</strong> in isolated 3-MCCD (biotin-resistant), unlike MCD</li>
+<li><strong>Exception</strong>: MCCA-R385S dominant negative allele shows biotin responsiveness (<a href="https://pubmed.ncbi.nlm.nih.gov/15868465/">PMID: 15868465</a>)</li>
+<li><strong>CHEBI</strong>: CHEBI:15956 (biotin)</li>
+</ul>
+<h3>Dietary Management (MAXO:0000127)</h3>
+<ul>
+<li><strong>Leucine restriction</strong>: Generally <strong>not required</strong> for asymptomatic individuals</li>
+<li><strong>Protein management</strong>: Normal protein intake typically recommended; only patients with recurrent crises may benefit from moderate leucine restriction</li>
+<li><strong>Fasting avoidance</strong> (MAXO:0000134): Key preventive measure — regular feeding schedules, especially during illness</li>
+</ul>
+<h3>Emergency Management (MAXO:0000088)</h3>
+<p>During acute metabolic crises:
+- <strong>IV dextrose</strong> (10%) to suppress catabolism
+- <strong>Fluid resuscitation</strong> for dehydration
+- <strong>Bicarbonate</strong> for severe metabolic acidosis
+- <strong>IV L-carnitine</strong> if oral not tolerated
+- <strong>Temporary protein restriction</strong> (24-48 hours)
+- <strong>ICU monitoring</strong> for severe cases</p>
+<h3>Advanced Therapeutics</h3>
+<ul>
+<li><strong>Gene therapy</strong>: No current trials or approved therapies</li>
+<li><strong>Enzyme replacement therapy</strong>: Not developed</li>
+<li><strong>Transplantation</strong>: Not indicated given the predominantly benign phenotype</li>
+</ul>
+<h3>Monitoring Protocol</h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Frequency</th>
+<th>Method</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Growth and development</td>
+<td>Every 3-6 months (infancy), then annually</td>
+<td>Clinical assessment</td>
+</tr>
+<tr>
+<td>Plasma carnitine/acylcarnitines</td>
+<td>Every 6-12 months</td>
+<td>MS/MS</td>
+</tr>
+<tr>
+<td>Urine organic acids</td>
+<td>As clinically indicated</td>
+<td>GC-MS</td>
+</tr>
+<tr>
+<td>Developmental assessment</td>
+<td>Annual (early childhood)</td>
+<td>Standardized tools</td>
+</tr>
+</tbody>
+</table>
+<h3>Treatment Strategy Summary</h3>
+<ul>
+<li><strong>Asymptomatic NBS-detected</strong>: Monitoring only; prophylactic carnitine at some centers</li>
+<li><strong>Mild/intermittent symptoms</strong>: Carnitine supplementation, dietary guidance, emergency protocol</li>
+<li><strong>Severe symptomatic</strong>: Protein restriction, carnitine, biotin trial (for responsive genotypes), emergency management</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<h3>Primary Prevention</h3>
+<ul>
+<li><strong>Genetic counseling</strong> (MAXO:0000079) for families with known affected members</li>
+<li><strong>Carrier testing</strong> for at-risk relatives</li>
+<li><strong>Preimplantation genetic diagnosis (PGD)</strong> technically available for known familial variants</li>
+<li><strong>Prenatal diagnosis</strong> via CVS or amniocentesis with molecular testing</li>
+</ul>
+<h3>Secondary Prevention (Early Detection)</h3>
+<ul>
+<li><strong>Newborn screening</strong> (MAXO:0000127): C5OH elevation by MS/MS on dried blood spots</li>
+<li>Included in NBS panels of many countries (USA RUSP, European programs, Chinese national programs)</li>
+<li>Clinical utility debated: <em>"is routine screening necessary?"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/31730530/">PMID: 31730530</a>)</li>
+<li><strong>Reverse cascade testing</strong>: NBS-positive infants serve as index cases for detecting undiagnosed maternal 3-MCCD (<a href="https://pubmed.ncbi.nlm.nih.gov/40673334/">PMID: 40673334</a>)</li>
+</ul>
+<h3>Tertiary Prevention</h3>
+<ul>
+<li><strong>Fasting avoidance protocols</strong> and <strong>sick-day management plans</strong></li>
+<li><strong>Emergency letters</strong> for healthcare providers</li>
+<li><strong>L-carnitine supplementation</strong> to prevent secondary carnitine deficiency</li>
+<li><strong>Regular metabolic follow-up</strong></li>
+</ul>
+<h3>Genetic Counseling (MAXO:0000079)</h3>
+<ul>
+<li>Recurrence risk: 25% for siblings (AR inheritance)</li>
+<li>Exception: 50% risk for MCCA-R385S dominant negative allele</li>
+<li>Importance of distinguishing isolated 3-MCCD from MCD for accurate counseling</li>
+<li>Need for long-term monitoring emphasized: <em>"Adult metabolic specialists should be included in the development of NBS programs to provide data from this long-term monitoring and to contribute specific knowledge about later onset phenotypes"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40610367/">PMID: 40610367</a>)</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<h3>Comparative Biology and Orthologous Genes</h3>
+<p>MCC is a <strong>highly conserved enzyme</strong> across eukaryotes, reflecting its essential role in leucine catabolism.</p>
+<table>
+<thead>
+<tr>
+<th>Species</th>
+<th>NCBI Taxon ID</th>
+<th>Gene(s)</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>Homo sapiens</em></td>
+<td>9606</td>
+<td><em>MCCC1</em>, <em>MCCC2</em></td>
+<td>Disease-causing genes</td>
+</tr>
+<tr>
+<td><em>Mus musculus</em> (mouse)</td>
+<td>10090</td>
+<td><em>Mccc1</em> (72039), <em>Mccc2</em> (78038)</td>
+<td>Orthologous genes; knockout models</td>
+</tr>
+<tr>
+<td><em>Rattus norvegicus</em> (rat)</td>
+<td>10116</td>
+<td><em>Mccc1</em>, <em>Mccc2</em></td>
+<td>Orthologs present</td>
+</tr>
+<tr>
+<td><em>Danio rerio</em> (zebrafish)</td>
+<td>7955</td>
+<td><em>mccc1</em>, <em>mccc2</em></td>
+<td>Pathway conserved</td>
+</tr>
+<tr>
+<td><em>Glycine max</em> (soybean)</td>
+<td>3847</td>
+<td>MCCase</td>
+<td>Functionally characterized</td>
+</tr>
+<tr>
+<td><em>Arabidopsis thaliana</em></td>
+<td>3702</td>
+<td>MCCase</td>
+<td>MCC-B subunit cloned</td>
+</tr>
+</tbody>
+</table>
+<p>The leucine catabolic pathway in plants was directly demonstrated: <em>"These findings demonstrate for the first time, to our knowledge, that the enzymes responsible for Leu catabolism are present in plant mitochondria"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/9847087/">PMID: 9847087</a>).</p>
+<h3>Natural Disease in Animals</h3>
+<p>Naturally occurring MCC deficiency has not been extensively documented in companion animals or livestock (no OMIA entry). Given the predominantly benign phenotype in humans, mild forms in animals would likely go undetected.</p>
+<h3>Zoonotic/Transmission</h3>
+<p>Not applicable — 3-MCCD is a genetic/metabolic condition, not transmissible between species.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<h3>Mouse Models</h3>
+<ul>
+<li><strong>Mccc1 and Mccc2 knockout mice</strong> are available through IMPC and other consortia</li>
+<li>Phenotypic characterization specific to 3-MCCD has been limited in published literature</li>
+<li>The <strong>circadian clock mouse models</strong> (CCM and CBK) provide indirect models for tissue-specific MCC dysfunction — decreased MCC biotinylation leads to reduced leucine oxidation, correctable with biotin-enriched diet (<a href="https://pubmed.ncbi.nlm.nih.gov/27084392/">PMID: 27084392</a>)</li>
+</ul>
+<h3>Cellular Models</h3>
+<ul>
+<li><strong>Patient fibroblasts</strong>: Most commonly used for enzyme assays and complementation analysis (<a href="https://pubmed.ncbi.nlm.nih.gov/11181649/">PMID: 11181649</a>)</li>
+<li><strong>Patient lymphocytes</strong>: Enable rapid diagnostic enzyme measurement (<a href="https://pubmed.ncbi.nlm.nih.gov/3918814/">PMID: 3918814</a>)</li>
+</ul>
+<h3>Plant Models</h3>
+<ul>
+<li><em>Arabidopsis thaliana</em> and <em>Glycine max</em> provided foundational biochemistry of the MCC-B subunit and leucine catabolic pathway (<a href="https://pubmed.ncbi.nlm.nih.gov/9847087/">PMID: 9847087</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/10681539/">PMID: 10681539</a>)</li>
+</ul>
+<h3>Model Limitations</h3>
+<ul>
+<li>The predominantly benign phenotype makes it challenging to develop clinically relevant animal models</li>
+<li>Animal models may not recapitulate the environmental triggers necessary for symptom manifestation</li>
+<li>Species differences in leucine catabolism rates and alternative pathways may limit translational applicability</li>
+</ul>
+<h3>Research Applications</h3>
+<ul>
+<li>Study of leucine catabolic pathway regulation</li>
+<li>Understanding incomplete penetrance in metabolic disorders</li>
+<li>Biotin metabolism and biotinylation biology</li>
+<li>NBS program evaluation and clinical utility assessment</li>
+<li>Genotype-phenotype dissociation mechanisms</li>
+</ul>
+<hr />
+<h2>Evidence Base Summary</h2>
+<table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Key Contribution</th>
+<th>Evidence Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11181649/">11181649</a></td>
+<td>Molecular basis: gene cloning, complementation groups</td>
+<td>Human genetics</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10681539/">10681539</a></td>
+<td>MCCβ subunit characterization</td>
+<td>Biochemistry</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15868465/">15868465</a></td>
+<td>Dominant negative MCCA-R385S</td>
+<td>Human genetics</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24103308/">24103308</a></td>
+<td>California NBS incidence 1:41,676</td>
+<td>Population screening</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36822454/">36822454</a></td>
+<td>Zhejiang: all 53 cases asymptomatic</td>
+<td>Population screening</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31730530/">31730530</a></td>
+<td>Jiangsu NBS; screening necessity questioned</td>
+<td>Population screening</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27033733/">27033733</a></td>
+<td>IBEM-IS registry; no prognostic biomarkers</td>
+<td>Registry study</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39188588/">39188588</a></td>
+<td>Quanzhou NBS; biomarker characterization</td>
+<td>Population screening</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39484073/">39484073</a></td>
+<td>C5OH levels non-predictive</td>
+<td>Clinical study</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27601257/">27601257</a></td>
+<td>Portuguese mutational spectrum (26 novel mutations)</td>
+<td>Human genetics</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40610367/">40610367</a></td>
+<td>Adult specialist perspective on NBS</td>
+<td>Clinical perspective</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40673334/">40673334</a></td>
+<td>Reverse cascade testing for maternal detection</td>
+<td>Methodology</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27084392/">27084392</a></td>
+<td>Circadian clock regulation of MCC biotinylation</td>
+<td>Animal model</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/9847087/">9847087</a></td>
+<td>Leucine catabolic pathway in plant mitochondria</td>
+<td>Comparative biology</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/9350481/">9350481</a></td>
+<td>Multiple carboxylase deficiency overview</td>
+<td>Clinical review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41440809/">41440809</a></td>
+<td>Chinese meta-analysis of organic acidurias</td>
+<td>Meta-analysis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29946514/">29946514</a></td>
+<td>International NBS comparison (Asia/Germany)</td>
+<td>Population screening</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40001143/">40001143</a></td>
+<td>Iranian NBS epidemiology</td>
+<td>Population screening</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/3918814/">3918814</a></td>
+<td>Rapid lymphocyte diagnostic assay</td>
+<td>Diagnostics</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15992684/">15992684</a></td>
+<td>Biotin metabolism and histone biotinylation</td>
+<td>Basic science</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24407466/">24407466</a></td>
+<td>3-Methylglutaconic aciduria metabolic biology</td>
+<td>Biochemistry</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li>
+<p><strong>Genotype-phenotype correlation</strong>: No reliable correlation exists; the molecular basis for variable penetrance remains completely unknown, representing the most fundamental gap in understanding this disease.</p>
+</li>
+<li>
+<p><strong>Long-term outcomes</strong>: Most NBS cohorts have limited follow-up (&lt;10 years). The lifelong natural history of NBS-detected 3-MCCD is unknown. Adult outcomes are largely unstudied.</p>
+</li>
+<li>
+<p><strong>NBS clinical utility</strong>: Whether screening for 3-MCCD provides net benefit versus harm (psychological burden, medicalization of healthy individuals) is unresolved and actively debated.</p>
+</li>
+<li>
+<p><strong>Prognostic biomarkers</strong>: No biomarkers exist to identify the minority of individuals who will develop clinical symptoms — this is the most critical unmet clinical need.</p>
+</li>
+<li>
+<p><strong>Mechanism of incomplete penetrance</strong>: Potential explanations (epigenetic variation, modifier genes, microbiome, stochastic factors) are entirely uninvestigated in 3-MCCD.</p>
+</li>
+<li>
+<p><strong>Quality of life data</strong>: No formal QoL assessments quantify the psychosocial impact of 3-MCCD diagnosis on families.</p>
+</li>
+<li>
+<p><strong>Animal model phenotyping</strong>: Limited published characterization of MCC-deficient mouse models.</p>
+</li>
+<li>
+<p><strong>Maternal 3-MCCD</strong>: Prevalence and clinical significance of previously undiagnosed maternal cases need systematic study.</p>
+</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li>
+<p><strong>Prospective longitudinal cohort study</strong> of NBS-identified 3-MCCD individuals through adulthood (20+ year follow-up) to establish definitive natural history and detect any late-onset complications.</p>
+</li>
+<li>
+<p><strong>Multi-omics profiling</strong> (transcriptomics, metabolomics, epigenomics) comparing symptomatic versus asymptomatic individuals with equivalent genotypes to identify modifiers of penetrance.</p>
+</li>
+<li>
+<p><strong>Functional variant characterization</strong> — standardized enzyme activity assays and structural modeling for all reported MCCC1/MCCC2 variants to enable residual activity-based risk stratification.</p>
+</li>
+<li>
+<p><strong>Psychosocial impact assessment</strong> using validated instruments (PedsQL, EQ-5D) in families of NBS-identified individuals to quantify the harm/benefit balance of screening.</p>
+</li>
+<li>
+<p><strong>Prognostic risk score development</strong> integrating genotype, residual enzyme activity, metabolomic profile, and carnitine status to stratify individuals at diagnosis.</p>
+</li>
+<li>
+<p><strong>MCCA-R385S mechanism investigation</strong> and systematic screening for other dominant negative alleles across diverse populations.</p>
+</li>
+<li>
+<p><strong>Gut microbiome characterization</strong> in 3-MCCD patients to assess whether microbial leucine metabolism modifies disease expression.</p>
+</li>
+<li>
+<p><strong>International consensus guidelines</strong> on management of asymptomatic NBS-detected 3-MCCD, including recommendations on continued NBS utility.</p>
+</li>
+<li>
+<p><strong>NBS cut-off optimization</strong> to reduce false-positive burden while maintaining detection of the rare symptomatic individuals who may benefit from early identification.</p>
+</li>
+<li>
+<p><strong>Comprehensive mouse model phenotyping</strong> under basal and catabolic stress conditions to understand tissue-specific vulnerability and test potential interventions.</p>
+</li>
+</ol>
+<hr />
+<p><em>Report generated: 2026-05-05</em>
+<em>Based on systematic review of 40+ peer-reviewed publications and established disease databases</em></p>
+                        </div>
+                    </div>
+                </div>
+                
             </div>
             
         </div>
@@ -6413,7 +9325,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "3-Methylcrotonyl-CoA Carboxylase Deficiency", "mondoId": "MONDO:0018950", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "3-Methylcrotonyl-CoA_Carboxylase_Deficiency", "yamlRevision": "1bbfb5738dbe"};
+        const OS_CONFIG = {"diseaseName": "3-Methylcrotonyl-CoA Carboxylase Deficiency", "mondoId": "MONDO:0018950", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "3-Methylcrotonyl-CoA_Carboxylase_Deficiency", "yamlRevision": "f3b3b2c76c92"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

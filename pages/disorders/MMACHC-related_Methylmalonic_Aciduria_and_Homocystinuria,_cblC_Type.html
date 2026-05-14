@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,7 +2570,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 25</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Organic Acidemia</span>
@@ -2555,7 +2708,7 @@
             
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
-                <div class="stat-value">7</div>
+                <div class="stat-value">10</div>
                 <div class="stat-label">Pathophysiology</div>
             </div>
             </a>
@@ -2579,7 +2732,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">9</div>
+                <div class="stat-value">25</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -2811,7 +2964,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">7</span>
+                <span class="card-count">10</span>
             </div>
             
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mmachc-intracellular-cobalamin-processing-deficiency">
@@ -3227,6 +3380,13 @@
 	                            
 	                        </div>
 	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Propionylcarnitine (C3)</span>
+	                            
+	                            <span class="crosslink-desc">Impaired mutase-side flux can be detected on newborn screening as abnormal C3 or C3-ratio markers, although mild cases may require second-tier MMA testing.</span>
+	                            
+	                        </div>
+	                        
 	                    </div>
 	                </div>
 	                
@@ -3305,6 +3465,34 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Total homocysteine</span>
+	                            
+	                            <span class="crosslink-desc">Remethylation failure is measured clinically as increased plasma total homocysteine.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Methionine</span>
+	                            
+	                            <span class="crosslink-desc">Failure to remethylate homocysteine depletes circulating methionine.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Combined methylmalonic acidemia and homocystinuria injury</span>
+	                            
+	                            <span class="crosslink-desc">Hyperhomocysteinemia and low methionine are one component of the combined metabolic state that drives neuro-ocular, vascular, and renal morbidity.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
@@ -3380,6 +3568,27 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Methylmalonic acid</span>
+	                            
+	                            <span class="crosslink-desc">The mutase-side branch is measured clinically as elevated methylmalonic acid or methylmalonic aciduria.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Combined methylmalonic acidemia and homocystinuria injury</span>
+	                            
+	                            <span class="crosslink-desc">Methylmalonic acid accumulation is the second component of the combined metabolic state that drives neuro-ocular, vascular, and renal morbidity.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
@@ -3405,6 +3614,307 @@
                 
                 
                 <div class="evidence-explanation">Human cohort data directly support methylmalonic acid accumulation as a defining biochemical feature.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+	            </div>
+	            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-combined-methylmalonic-acidemia-and-homocystinuria-injury">
+                <div class="item-name">Combined methylmalonic acidemia and homocystinuria injury</div>
+                
+                <div class="item-desc">Concurrent methylmalonic acidemia and homocystinuria create the multisystem injury state responsible for the neurological, ocular, vascular, and renal complications of cblC disease.
+</div>
+                
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        homocysteine metabolic process
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0050667" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    <span class="tag tag-bio">
+                        L-methylmalonyl-CoA metabolic process
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0046491" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Intellectual disability</span>
+	                            
+	                            <span class="crosslink-desc">Early-onset combined biochemical disease is associated with persistent neurodevelopmental impairment.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Seizure</span>
+	                            
+	                            <span class="crosslink-desc">Neurologic injury in cblC includes seizures in pediatric cohorts.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hypotonia</span>
+	                            
+	                            <span class="crosslink-desc">Neurologic injury in cblC includes hypotonia in pediatric cohorts.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Early retinal degeneration and maculopathy</span>
+	                            
+	                            <span class="crosslink-desc">The combined methylmalonic acidemia-homocystinuria state can lead to infantile retinal degeneration and maculopathy.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cardiovascular involvement in MMA-homocysteinemia</span>
+	                            
+	                            <span class="crosslink-desc">Children with methylmalonic acidemia and homocysteinemia can develop severe cardiovascular involvement, often including pulmonary hypertension.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Renal thrombotic microangiopathy with tubular injury</span>
+	                            
+	                            <span class="crosslink-desc">Renal cblC disease includes thrombotic microangiopathy and tubular injury in the setting of elevated serum and urine homocysteine.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Proteinuria</span>
+	                            
+	                            <span class="crosslink-desc">Renal cblC injury can present clinically with proteinuria.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
+	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39152755" target="_blank">PMID:39152755</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Cobalamin C (Cbl-C) defect causes methylmalonic acidemia, homocystinuria, intellectual disability and visual impairment, despite treatment adherence."</div>
+                
+                
+                <div class="evidence-explanation">Early-onset treatment cohort directly connects the combined biochemical phenotype to neurodevelopmental and visual morbidity.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32071835" target="_blank">PMID:32071835</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Individuals with late-onset cblC may be asymptomatic until manifesting neuropsychiatric symptoms, thromboembolic events, and renal disease."</div>
+                
+                
+                <div class="evidence-explanation">Adult late-onset case series supports multisystem morbidity downstream of the combined cblC biochemical state.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+	            </div>
+	            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-early-retinal-degeneration-and-maculopathy">
+                <div class="item-name">Early retinal degeneration and maculopathy</div>
+                
+                <div class="item-desc">Early-onset cblC can cause retinal degeneration and maculopathy within the first months of life, sometimes despite timely metabolic treatment and biochemical control.
+</div>
+                
+                
+                
+                
+                
+                
+                
+                
+                
+	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Visual impairment</span>
+	                            
+	                            <span class="crosslink-desc">Retinal degeneration and maculopathy provide the ocular mechanism for visual impairment in cblC.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
+	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40565527" target="_blank">PMID:40565527</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"In cblC, retinal degeneration occurs in the first months of life despite timely treatment and adequate biochemical control, and it may manifest before any signs of visual deprivation appear."</div>
+                
+                
+                <div class="evidence-explanation">Ophthalmic case study and review support early retinal degeneration as a cblC organ-injury mechanism.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+	            </div>
+	            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiovascular-involvement-in-mma-homocysteinemia">
+                <div class="item-name">Cardiovascular involvement in MMA-homocysteinemia</div>
+                
+                <div class="item-desc">A subset of children with methylmalonic acidemia and homocysteinemia develop cardiovascular complications, most notably pulmonary hypertension.
+</div>
+                
+                
+                
+                
+                
+                
+                
+                
+                
+	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Pulmonary arterial hypertension</span>
+	                            
+	                            <span class="crosslink-desc">Pulmonary hypertension is the most common cardiovascular complication reported in the cohort.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
+	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40830795" target="_blank">PMID:40830795</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Cardiovascular complications were found between the ages of 2 months and 12 years, with 9 patients having pulmonary hypertension, 7 having hypertension, and 5 having non-compaction of ventricular myocardium."</div>
+                
+                
+                <div class="evidence-explanation">Pediatric cohort directly documents cardiovascular manifestations in MMA-homocysteinemia, with most cases confirmed as MMACHC-related cblC.</div>
                 
             </div>
             
@@ -3483,6 +3993,16 @@
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
+            <div class="graph-warning">
+                <strong>Referential integrity issues (1):</strong>
+                <ul>
+                    
+                    <li>Target &#39;Renal thrombotic microangiopathy with tubular injury&#39; (from &#39;Combined methylmalonic acidemia and homocystinuria injury&#39;) not found in named elements</li>
+                    
+                    
+                </ul>
+            </div>
+            
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -3493,7 +4013,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Hyperhomocysteinemia and hypomethioninemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Remethylation failure elevates total homocysteine while depleting methionine, creating the homocystinuria branch of cblC disease.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"homocysteine metabolic process\"]}}, {\"id\": \"Impaired methionine synthase-dependent remethylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disrupted cobalamin delivery to the methionine synthase arm produces remethylation failure with homocysteine accumulation and methionine depletion.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"homocysteine metabolic process\"]}}, {\"id\": \"Impaired methylmalonyl-CoA mutase-dependent metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure to supply adenosylcobalamin impairs the methylmalonyl-CoA mutase pathway and drives methylmalonic acid accumulation.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"L-methylmalonyl-CoA metabolic process\", \"propionate catabolic process\"]}}, {\"id\": \"MMACHC intracellular cobalamin processing deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic MMACHC pathogenic variants impair intracellular processing of dietary cobalamin into its two metabolically active cofactor forms.\\n\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"MMACHC\"]}}, {\"id\": \"MMACHC pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MMACHC\"], \"variant_count\": 1}}, {\"id\": \"Methylmalonic acid accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired mutase-side cobalamin handling produces persistent methylmalonic acid elevation as the MMA branch of the combined metabolic phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"L-methylmalonyl-CoA metabolic process\"]}}, {\"id\": \"Reduced adenosylcobalamin supply\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient adenosylcobalamin availability compromises the mitochondrial methylmalonyl-CoA mutase arm of cobalamin metabolism.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Reduced methylcobalamin supply\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient methylcobalamin availability compromises the remethylation arm of cobalamin metabolism.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"c.482G\u003eA (p.Arg161Gln)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent MMACHC variant associated with later-onset, milder disease, lower mortality, and better neurological outcomes than comparison cohorts lacking this allele.\\n\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"MMACHC intracellular cobalamin processing deficiency\", \"target\": \"Reduced methylcobalamin supply\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"MMACHC intracellular cobalamin processing deficiency\", \"target\": \"Reduced adenosylcobalamin supply\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced methylcobalamin supply\", \"target\": \"Impaired methionine synthase-dependent remethylation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methionine synthase-dependent remethylation\", \"target\": \"Hyperhomocysteinemia and hypomethioninemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced adenosylcobalamin supply\", \"target\": \"Impaired methylmalonyl-CoA mutase-dependent metabolism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA mutase-dependent metabolism\", \"target\": \"Methylmalonic acid accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"MMACHC pathogenic variants\", \"target\": \"MMACHC intracellular cobalamin processing deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.482G\u003eA (p.Arg161Gln)\", \"target\": \"MMACHC pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Betaine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Betaine is used as adjunctive remethylation therapy together with hydroxocobalamin-based regimens, particularly in late-onset or severe disease.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cardiovascular involvement in MMA-homocysteinemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of children with methylmalonic acidemia and homocysteinemia develop cardiovascular complications, most notably pulmonary hypertension.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Combined methylmalonic acidemia and homocystinuria injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Concurrent methylmalonic acidemia and homocystinuria create the multisystem injury state responsible for the neurological, ocular, vascular, and renal complications of cblC disease.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"homocysteine metabolic process\", \"L-methylmalonyl-CoA metabolic process\"]}}, {\"id\": \"Early retinal degeneration and maculopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Early-onset cblC can cause retinal degeneration and maculopathy within the first months of life, sometimes despite timely metabolic treatment and biochemical control.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hydroxocobalamin therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Parenteral hydroxocobalamin is the central disease-modifying therapy for cblC deficiency. Higher-dose regimens are associated with better biochemical and neurodevelopmental outcomes in early-onset disease and with rapid metabolic correction in late-onset adults.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hyperhomocysteinemia and hypomethioninemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Remethylation failure elevates total homocysteine while depleting methionine, creating the homocystinuria branch of cblC disease.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"homocysteine metabolic process\"]}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized hypotonia is frequent in pediatric cohorts and accompanies the neurodevelopmental presentation of cblC disease.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired methionine synthase-dependent remethylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disrupted cobalamin delivery to the methionine synthase arm produces remethylation failure with homocysteine accumulation and methionine depletion.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"homocysteine metabolic process\"]}}, {\"id\": \"Impaired methylmalonyl-CoA mutase-dependent metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure to supply adenosylcobalamin impairs the methylmalonyl-CoA mutase pathway and drives methylmalonic acid accumulation.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"L-methylmalonyl-CoA metabolic process\", \"propionate catabolic process\"]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neurocognitive impairment remains a major morbidity burden in cblC, including in treated early-onset cohorts.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"MMACHC intracellular cobalamin processing deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic MMACHC pathogenic variants impair intracellular processing of dietary cobalamin into its two metabolically active cofactor forms.\\n\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"MMACHC\"]}}, {\"id\": \"MMACHC pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"MMACHC\"], \"variant_count\": 1}}, {\"id\": \"Methionine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\"}}, {\"id\": \"Methylmalonic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Methylmalonic acid accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired mutase-side cobalamin handling produces persistent methylmalonic acid elevation as the MMA branch of the combined metabolic phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"L-methylmalonyl-CoA metabolic process\"]}}, {\"id\": \"Propionylcarnitine (C3)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Proteinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Renal involvement can present with proteinuria and hypertension, often reflecting underlying microangiopathic kidney injury.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000093\"}}, {\"id\": \"Pulmonary arterial hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pulmonary hypertension is an important and potentially lethal vascular complication that can improve after metabolic therapy.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002092\"}}, {\"id\": \"Reduced adenosylcobalamin supply\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient adenosylcobalamin availability compromises the mitochondrial methylmalonyl-CoA mutase arm of cobalamin metabolism.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Reduced methylcobalamin supply\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient methylcobalamin availability compromises the remethylation arm of cobalamin metabolism.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Renal thrombotic microangiopathy with tubular injury\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are a common neurological manifestation, particularly in more severe pediatric disease.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Total homocysteine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Visual impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infantile maculopathy and retinal degeneration can progress in the first months of life despite early treatment and biochemical control.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000505\"}}, {\"id\": \"c.482G\u003eA (p.Arg161Gln)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent MMACHC variant associated with later-onset, milder disease, lower mortality, and better neurological outcomes than comparison cohorts lacking this allele.\\n\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"MMACHC intracellular cobalamin processing deficiency\", \"target\": \"Reduced methylcobalamin supply\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"MMACHC intracellular cobalamin processing deficiency\", \"target\": \"Reduced adenosylcobalamin supply\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced methylcobalamin supply\", \"target\": \"Impaired methionine synthase-dependent remethylation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methionine synthase-dependent remethylation\", \"target\": \"Hyperhomocysteinemia and hypomethioninemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced adenosylcobalamin supply\", \"target\": \"Impaired methylmalonyl-CoA mutase-dependent metabolism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA mutase-dependent metabolism\", \"target\": \"Methylmalonic acid accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA mutase-dependent metabolism\", \"target\": \"Propionylcarnitine (C3)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperhomocysteinemia and hypomethioninemia\", \"target\": \"Total homocysteine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperhomocysteinemia and hypomethioninemia\", \"target\": \"Methionine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperhomocysteinemia and hypomethioninemia\", \"target\": \"Combined methylmalonic acidemia and homocystinuria injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Methylmalonic acid accumulation\", \"target\": \"Methylmalonic acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Methylmalonic acid accumulation\", \"target\": \"Combined methylmalonic acidemia and homocystinuria injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Combined methylmalonic acidemia and homocystinuria injury\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Combined methylmalonic acidemia and homocystinuria injury\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Combined methylmalonic acidemia and homocystinuria injury\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Combined methylmalonic acidemia and homocystinuria injury\", \"target\": \"Early retinal degeneration and maculopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Combined methylmalonic acidemia and homocystinuria injury\", \"target\": \"Cardiovascular involvement in MMA-homocysteinemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Combined methylmalonic acidemia and homocystinuria injury\", \"target\": \"Renal thrombotic microangiopathy with tubular injury\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"Combined methylmalonic acidemia and homocystinuria injury\", \"target\": \"Proteinuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Early retinal degeneration and maculopathy\", \"target\": \"Visual impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiovascular involvement in MMA-homocysteinemia\", \"target\": \"Pulmonary arterial hypertension\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hydroxocobalamin therapy\", \"target\": \"Reduced methylcobalamin supply\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hydroxocobalamin therapy\", \"target\": \"Reduced adenosylcobalamin supply\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Betaine supplementation\", \"target\": \"Hyperhomocysteinemia and hypomethioninemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"MMACHC pathogenic variants\", \"target\": \"MMACHC intracellular cobalamin processing deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.482G\u003eA (p.Arg161Gln)\", \"target\": \"MMACHC pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": [\"Renal thrombotic microangiopathy with tubular injury\"]}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3948,7 +4468,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
             
@@ -3989,6 +4509,26 @@
                 
                 
                 <div class="evidence-explanation">Large cohort directly supports genotype-dependent heterogeneity in treatment response and neurological outcome.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_6feb4bda-539f-4592-acaf-26dc186e953a-2020-06-29T174303.503Z" target="_blank">CGGV:assertion_6feb4bda-539f-4592-acaf-26dc186e953a-2020-06-29T174303.503Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"MMACHC | HGNC:24525 | methylmalonic aciduria and homocystinuria type cblC | MONDO:0010184 | AR | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the MMACHC-methylmalonic aciduria and homocystinuria type cblC gene-disease relationship as definitive with autosomal recessive inheritance.</div>
                 
             </div>
             
@@ -4051,6 +4591,97 @@
                 <div class="item-desc">Parenteral hydroxocobalamin is the central disease-modifying therapy for cblC deficiency. Higher-dose regimens are associated with better biochemical and neurodevelopmental outcomes in early-onset disease and with rapid metabolic correction in late-onset adults.
 </div>
                 
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            RESTORES
+                        </span>
+                        <strong style="color: #5b21b6;">Reduced methylcobalamin supply</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Hydroxocobalamin improves homocysteine and methionine values, consistent with correcting the methylcobalamin/remethylation branch.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39152755" target="_blank">PMID:39152755</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Biochemical analyses revealed better values of homocysteine, methionine and methylmalonic acid in Group A compared to Group B1 (p &lt; 0.01, p &lt; 0.05 and p &lt; 0.01, respectively) and B2 (p &lt; 0.001, p &lt; 0.01 and p &lt; 0.001, respectively)."</div>
+                
+                
+                <div class="evidence-explanation">High-dose hydroxocobalamin improved remethylation-linked metabolites in treated children.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            RESTORES
+                        </span>
+                        <strong style="color: #5b21b6;">Reduced adenosylcobalamin supply</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Hydroxocobalamin improves methylmalonic acid values, consistent with correcting the adenosylcobalamin/mutase branch.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39152755" target="_blank">PMID:39152755</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Biochemical analyses revealed better values of homocysteine, methionine and methylmalonic acid in Group A compared to Group B1 (p &lt; 0.01, p &lt; 0.05 and p &lt; 0.01, respectively) and B2 (p &lt; 0.001, p &lt; 0.01 and p &lt; 0.001, respectively)."</div>
+                
+                
+                <div class="evidence-explanation">High-dose hydroxocobalamin improved methylmalonic acid in treated children, supporting impact on the adenosylcobalamin-dependent branch.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
                 
                 
                 
@@ -4149,6 +4780,54 @@
                 <div class="item-desc">Betaine is used as adjunctive remethylation therapy together with hydroxocobalamin-based regimens, particularly in late-onset or severe disease.
 </div>
                 
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            BYPASSES
+                        </span>
+                        <strong style="color: #5b21b6;">Hyperhomocysteinemia and hypomethioninemia</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Betaine supports an alternate remethylation route through betaine-homocysteine methyltransferase, lowering homocysteine and generating methionine.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32071835" target="_blank">PMID:32071835</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Betaine is used to lower homocysteine as a substrate for betaine‐homocysteine methyltransferase, which can convert homocysteine into methionine."</div>
+                
+                
+                <div class="evidence-explanation">Human clinical report background describes the mechanism by which betaine bypasses impaired cobalamin-dependent remethylation.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
                 
                 
                 
@@ -4370,6 +5049,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4414,6 +5094,7 @@
                 
                 <div class="item-desc">Context: Methylmalonic acid accumulation reflects impairment of the adenosylcobalamin- dependent mutase branch.
 </div>
+                
                 
                 
     
@@ -4462,6 +5143,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4506,6 +5188,7 @@
                 
                 <div class="item-desc">Context: Elevated C3 or abnormal C3-based ratios can trigger newborn-screening recall, but normal second-sample C3 does not exclude mild cblC if second-tier MMA testing is performed.
 </div>
+                
                 
                 
     
@@ -4574,7 +5257,7 @@
                 <pre class="yaml-preview">name: MMACHC-related Methylmalonic Aciduria and Homocystinuria, cblC Type
 category: Mendelian
 creation_date: &#39;2026-04-13T01:16:34Z&#39;
-updated_date: &#39;2026-04-22T20:53:03Z&#39;
+updated_date: &#39;2026-05-10T10:16:51Z&#39;
 synonyms:
 - Cobalamin C deficiency
 - cblC deficiency
@@ -4643,8 +5326,24 @@ pathophysiology:
   downstream:
   - target: Reduced methylcobalamin supply
     description: Loss of MMACHC lowers intracellular methylcobalamin available for methionine synthase.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:39225018
+      reference_title: &#34;Evaluation of the clinical, biochemical, and molecular spectrum of Cobalamin C (CblC) defect in 33 patients from Pakistan.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Cobalamin C is the most common inborn error of intracellular cobalamin metabolism caused by biallelic pathogenic variants in the MMACHC gene, leading to impaired conversion of dietary vitamin B12 into its two metabolically active forms, methylcobalamin and adenosylcobalamin.
+      explanation: Human cohort abstract directly links biallelic MMACHC variants to impaired generation of methylcobalamin.
   - target: Reduced adenosylcobalamin supply
     description: Loss of MMACHC lowers intracellular adenosylcobalamin available for methylmalonyl-CoA mutase.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:39225018
+      reference_title: &#34;Evaluation of the clinical, biochemical, and molecular spectrum of Cobalamin C (CblC) defect in 33 patients from Pakistan.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Cobalamin C is the most common inborn error of intracellular cobalamin metabolism caused by biallelic pathogenic variants in the MMACHC gene, leading to impaired conversion of dietary vitamin B12 into its two metabolically active forms, methylcobalamin and adenosylcobalamin.
+      explanation: Human cohort abstract directly links biallelic MMACHC variants to impaired generation of adenosylcobalamin.
 - name: Reduced methylcobalamin supply
   description: &#39;Deficient methylcobalamin availability compromises the remethylation arm of cobalamin metabolism.
 
@@ -4659,6 +5358,14 @@ pathophysiology:
   downstream:
   - target: Impaired methionine synthase-dependent remethylation
     description: Reduced methylcobalamin supply lowers methionine synthase-side remethylation capacity.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:32071835
+      reference_title: &#34;High-dose hydroxocobalamin achieves biochemical correction and improvement of neuropsychiatric deficits in adults with late onset cobalamin C deficiency.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: MeCbl is a cofactor for methionine synthase, which converts homocysteine into methionine in the cytosol.
+      explanation: Human clinical report background identifies methylcobalamin as the methionine synthase cofactor, supporting this branch.
 - name: Impaired methionine synthase-dependent remethylation
   description: &#39;Disrupted cobalamin delivery to the methionine synthase arm produces remethylation failure with homocysteine accumulation and methionine depletion.
 
@@ -4684,6 +5391,14 @@ pathophysiology:
   downstream:
   - target: Hyperhomocysteinemia and hypomethioninemia
     description: Remethylation failure produces the defining sulfur-amino-acid abnormalities of cblC disease.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:39225018
+      reference_title: &#34;Evaluation of the clinical, biochemical, and molecular spectrum of Cobalamin C (CblC) defect in 33 patients from Pakistan.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Biochemical hallmarks are elevated plasma total homocysteine (HCYs) and low methionine accompanied by methylmalonic aciduria.
+      explanation: Human cohort abstract identifies high homocysteine and low methionine as the biochemical output of the remethylation branch.
 - name: Reduced adenosylcobalamin supply
   description: &#39;Deficient adenosylcobalamin availability compromises the mitochondrial methylmalonyl-CoA mutase arm of cobalamin metabolism.
 
@@ -4698,6 +5413,14 @@ pathophysiology:
   downstream:
   - target: Impaired methylmalonyl-CoA mutase-dependent metabolism
     description: Reduced adenosylcobalamin supply lowers methylmalonyl-CoA mutase-side flux.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:32071835
+      reference_title: &#34;High-dose hydroxocobalamin achieves biochemical correction and improvement of neuropsychiatric deficits in adults with late onset cobalamin C deficiency.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: AdoCbl is a cofactor for methylmalonyl‐CoA mutase, which converts methylmalonyl‐CoA into succinyl‐CoA in the mitochondria.
+      explanation: Human clinical report background identifies adenosylcobalamin as the methylmalonyl-CoA mutase cofactor.
 - name: Impaired methylmalonyl-CoA mutase-dependent metabolism
   description: &#39;Failure to supply adenosylcobalamin impairs the methylmalonyl-CoA mutase pathway and drives methylmalonic acid accumulation.
 
@@ -4721,6 +5444,26 @@ pathophysiology:
   downstream:
   - target: Methylmalonic acid accumulation
     description: Impaired mutase-side flux produces the MMA branch of the combined disorder.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:32186706
+      reference_title: &#34;The vitamin B12 processing enzyme, mmachc, is essential for zebrafish survival, growth and retinal morphology.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: This recessive disorder is characterized by a failure to metabolize cobalamin into adenosyl- and methylcobalamin, which results in the biochemical perturbations of methylmalonic acidemia, hyperhomocysteinemia and hypomethioninemia caused by the impaired activity of the downstream enzymes, methylmalonyl-CoA mutase and methionine synthase.
+      explanation: Model-organism paper explicitly states that impaired methylmalonyl-CoA mutase activity contributes to methylmalonic acidemia in cblC.
+  - target: Propionylcarnitine (C3)
+    description: Impaired mutase-side flux can be detected on newborn screening as abnormal C3 or C3-ratio markers, although mild cases may require second-tier MMA testing.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Propionyl-CoA and related acylcarnitine accumulation upstream of impaired methylmalonyl-CoA mutase flux
+    evidence:
+    - reference: PMID:40981307
+      reference_title: &#34;Milder Form of Cobalamin C Disease May Be Missed by Newborn Screening: The Importance of Methylmalonic Acid Assessment.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: All were recalled due to abnormalities in C3 or related ratios, along with elevated methylmalonic acid (MMA) levels.
+      explanation: Newborn-screening cohort links confirmed cblC cases to abnormal C3-based markers and elevated MMA.
 - name: Hyperhomocysteinemia and hypomethioninemia
   description: &#39;Remethylation failure elevates total homocysteine while depleting methionine, creating the homocystinuria branch of cblC disease.
 
@@ -4737,6 +5480,37 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: Cobalamin C (cblC) deficiency is the most common inborn error of intracellular cobalamin metabolism caused by pathogenic variant(s) in MMACHC and manifests with methylmalonic acidemia, hyperhomocysteinemia, and hypomethioninemia with a variable age of presentation.
     explanation: Adult late-onset cohort directly supports hyperhomocysteinemia and hypomethioninemia as core biochemical outputs of cblC disease.
+  downstream:
+  - target: Total homocysteine
+    description: Remethylation failure is measured clinically as increased plasma total homocysteine.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:39225018
+      reference_title: &#34;Evaluation of the clinical, biochemical, and molecular spectrum of Cobalamin C (CblC) defect in 33 patients from Pakistan.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Biochemical hallmarks are elevated plasma total homocysteine (HCYs) and low methionine accompanied by methylmalonic aciduria.
+      explanation: Human cohort abstract directly supports increased total homocysteine as the measured biochemical endpoint.
+  - target: Methionine
+    description: Failure to remethylate homocysteine depletes circulating methionine.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:39225018
+      reference_title: &#34;Evaluation of the clinical, biochemical, and molecular spectrum of Cobalamin C (CblC) defect in 33 patients from Pakistan.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Biochemical hallmarks are elevated plasma total homocysteine (HCYs) and low methionine accompanied by methylmalonic aciduria.
+      explanation: Human cohort abstract directly supports low methionine as the measured biochemical endpoint.
+  - target: Combined methylmalonic acidemia and homocystinuria injury
+    description: Hyperhomocysteinemia and low methionine are one component of the combined metabolic state that drives neuro-ocular, vascular, and renal morbidity.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:32071835
+      reference_title: &#34;High-dose hydroxocobalamin achieves biochemical correction and improvement of neuropsychiatric deficits in adults with late onset cobalamin C deficiency.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Individuals with late-onset cblC may be asymptomatic until manifesting neuropsychiatric symptoms, thromboembolic events, and renal disease.
+      explanation: Human late-onset case series links the biochemical cblC disorder to multisystem clinical morbidity.
 - name: Methylmalonic acid accumulation
   description: &#39;Impaired mutase-side cobalamin handling produces persistent methylmalonic acid elevation as the MMA branch of the combined metabolic phenotype.
 
@@ -4753,6 +5527,172 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: Biochemical hallmarks are elevated plasma total homocysteine (HCYs) and low methionine accompanied by methylmalonic aciduria.
     explanation: Human cohort data directly support methylmalonic acid accumulation as a defining biochemical feature.
+  downstream:
+  - target: Methylmalonic acid
+    description: The mutase-side branch is measured clinically as elevated methylmalonic acid or methylmalonic aciduria.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:39225018
+      reference_title: &#34;Evaluation of the clinical, biochemical, and molecular spectrum of Cobalamin C (CblC) defect in 33 patients from Pakistan.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Biochemical hallmarks are elevated plasma total homocysteine (HCYs) and low methionine accompanied by methylmalonic aciduria.
+      explanation: Human cohort abstract directly supports methylmalonic aciduria as the measured biochemical endpoint.
+  - target: Combined methylmalonic acidemia and homocystinuria injury
+    description: Methylmalonic acid accumulation is the second component of the combined metabolic state that drives neuro-ocular, vascular, and renal morbidity.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:39152755
+      reference_title: &#34;Improved biochemical and neurodevelopmental profiles with high-dose hydroxocobalamin therapy in cobalamin C defect.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Cobalamin C (Cbl-C) defect causes methylmalonic acidemia, homocystinuria, intellectual disability and visual impairment, despite treatment adherence.
+      explanation: Early-onset treatment cohort links methylmalonic acidemia and homocystinuria to neurodevelopmental and visual morbidity.
+- name: Combined methylmalonic acidemia and homocystinuria injury
+  description: &#39;Concurrent methylmalonic acidemia and homocystinuria create the multisystem injury state responsible for the neurological, ocular, vascular, and renal complications of cblC disease.
+
+    &#39;
+  biological_processes:
+  - preferred_term: homocysteine metabolic process
+    term:
+      id: GO:0050667
+      label: homocysteine metabolic process
+  - preferred_term: L-methylmalonyl-CoA metabolic process
+    term:
+      id: GO:0046491
+      label: L-methylmalonyl-CoA metabolic process
+  evidence:
+  - reference: PMID:39152755
+    reference_title: &#34;Improved biochemical and neurodevelopmental profiles with high-dose hydroxocobalamin therapy in cobalamin C defect.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Cobalamin C (Cbl-C) defect causes methylmalonic acidemia, homocystinuria, intellectual disability and visual impairment, despite treatment adherence.
+    explanation: Early-onset treatment cohort directly connects the combined biochemical phenotype to neurodevelopmental and visual morbidity.
+  - reference: PMID:32071835
+    reference_title: &#34;High-dose hydroxocobalamin achieves biochemical correction and improvement of neuropsychiatric deficits in adults with late onset cobalamin C deficiency.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Individuals with late-onset cblC may be asymptomatic until manifesting neuropsychiatric symptoms, thromboembolic events, and renal disease.
+    explanation: Adult late-onset case series supports multisystem morbidity downstream of the combined cblC biochemical state.
+  downstream:
+  - target: Intellectual disability
+    description: Early-onset combined biochemical disease is associated with persistent neurodevelopmental impairment.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:39152755
+      reference_title: &#34;Improved biochemical and neurodevelopmental profiles with high-dose hydroxocobalamin therapy in cobalamin C defect.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Cobalamin C (Cbl-C) defect causes methylmalonic acidemia, homocystinuria, intellectual disability and visual impairment, despite treatment adherence.
+      explanation: The treatment cohort explicitly links the combined biochemical disease to intellectual disability.
+  - target: Seizure
+    description: Neurologic injury in cblC includes seizures in pediatric cohorts.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:39225018
+      reference_title: &#34;Evaluation of the clinical, biochemical, and molecular spectrum of Cobalamin C (CblC) defect in 33 patients from Pakistan.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The most common clinical features were cognitive impairment (n = 29), seizures (n = 23), motor developmental delay (n = 20), hypotonia (n = 17), and sparse/hypopigmented scalp hair (n = 16).
+      explanation: Cohort-level clinical data support seizures as a downstream neurological manifestation.
+  - target: Hypotonia
+    description: Neurologic injury in cblC includes hypotonia in pediatric cohorts.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:39225018
+      reference_title: &#34;Evaluation of the clinical, biochemical, and molecular spectrum of Cobalamin C (CblC) defect in 33 patients from Pakistan.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The most common clinical features were cognitive impairment (n = 29), seizures (n = 23), motor developmental delay (n = 20), hypotonia (n = 17), and sparse/hypopigmented scalp hair (n = 16).
+      explanation: Cohort-level clinical data support hypotonia as a downstream neurological manifestation.
+  - target: Early retinal degeneration and maculopathy
+    description: The combined methylmalonic acidemia-homocystinuria state can lead to infantile retinal degeneration and maculopathy.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:40565527
+      reference_title: &#34;Retinal Changes in Early-Onset cblC Methylmalonic Acidemia Identified Through Expanded Newborn Screening: Highlights from a Case Study and Literature Review.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Methylmalonic acidemia combined with homocystinuria (cblC) can lead to infantile maculopathy.
+      explanation: Ophthalmic case study and review directly link combined cblC disease to infantile maculopathy.
+  - target: Cardiovascular involvement in MMA-homocysteinemia
+    description: Children with methylmalonic acidemia and homocysteinemia can develop severe cardiovascular involvement, often including pulmonary hypertension.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:40830795
+      reference_title: &#34;Clinical and molecular spectrum of patients with methylmalonic acidemia and homocysteinemia complicated by cardiovascular manifestations.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Cardiovascular complications were found between the ages of 2 months and 12 years, with 9 patients having pulmonary hypertension, 7 having hypertension, and 5 having non-compaction of ventricular myocardium.
+      explanation: Pediatric cardiovascular cohort supports cardiovascular involvement downstream of MMA-homocysteinemia, mostly in genetically confirmed cblC cases.
+  - target: Renal thrombotic microangiopathy with tubular injury
+    description: Renal cblC disease includes thrombotic microangiopathy and tubular injury in the setting of elevated serum and urine homocysteine.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Homocysteine-associated renal endothelial injury and thrombotic microangiopathy
+    evidence:
+    - reference: PMID:39390411
+      reference_title: &#34;Late-onset renal TMA and tubular injury in cobalamin C disease: a report of three cases and literature review.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: They were diagnosed with renal involvement due to cblC deficiency after laboratory tests revealing elevated serum and urine homocysteine, renal biopsy showing TMA and tubular injury, along with genetic testing showing heterogeneous compound mutations in MMACHC.
+      explanation: Renal case series directly links cblC biochemical abnormalities and MMACHC variants to biopsy-proven TMA and tubular injury.
+  - target: Proteinuria
+    description: Renal cblC injury can present clinically with proteinuria.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Renal thrombotic microangiopathy and tubular injury
+    evidence:
+    - reference: PMID:39390411
+      reference_title: &#34;Late-onset renal TMA and tubular injury in cobalamin C disease: a report of three cases and literature review.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Here we described three teenage patients who presented with hematuria, proteinuria, and hypertension in clinical presentation.
+      explanation: Renal case series supports proteinuria as a clinical manifestation downstream of renal cblC involvement.
+- name: Early retinal degeneration and maculopathy
+  description: &#39;Early-onset cblC can cause retinal degeneration and maculopathy within the first months of life, sometimes despite timely metabolic treatment and biochemical control.
+
+    &#39;
+  evidence:
+  - reference: PMID:40565527
+    reference_title: &#34;Retinal Changes in Early-Onset cblC Methylmalonic Acidemia Identified Through Expanded Newborn Screening: Highlights from a Case Study and Literature Review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: In cblC, retinal degeneration occurs in the first months of life despite timely treatment and adequate biochemical control, and it may manifest before any signs of visual deprivation appear.
+    explanation: Ophthalmic case study and review support early retinal degeneration as a cblC organ-injury mechanism.
+  downstream:
+  - target: Visual impairment
+    description: Retinal degeneration and maculopathy provide the ocular mechanism for visual impairment in cblC.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:40565527
+      reference_title: &#34;Retinal Changes in Early-Onset cblC Methylmalonic Acidemia Identified Through Expanded Newborn Screening: Highlights from a Case Study and Literature Review.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: In cblC, retinal degeneration occurs in the first months of life despite timely treatment and adequate biochemical control, and it may manifest before any signs of visual deprivation appear.
+      explanation: Ophthalmic case study and review link early retinal degeneration to the preclinical window before visual deprivation.
+- name: Cardiovascular involvement in MMA-homocysteinemia
+  description: &#39;A subset of children with methylmalonic acidemia and homocysteinemia develop cardiovascular complications, most notably pulmonary hypertension.
+
+    &#39;
+  evidence:
+  - reference: PMID:40830795
+    reference_title: &#34;Clinical and molecular spectrum of patients with methylmalonic acidemia and homocysteinemia complicated by cardiovascular manifestations.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Cardiovascular complications were found between the ages of 2 months and 12 years, with 9 patients having pulmonary hypertension, 7 having hypertension, and 5 having non-compaction of ventricular myocardium.
+    explanation: Pediatric cohort directly documents cardiovascular manifestations in MMA-homocysteinemia, with most cases confirmed as MMACHC-related cblC.
+  downstream:
+  - target: Pulmonary arterial hypertension
+    description: Pulmonary hypertension is the most common cardiovascular complication reported in the cohort.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:40830795
+      reference_title: &#34;Clinical and molecular spectrum of patients with methylmalonic acidemia and homocysteinemia complicated by cardiovascular manifestations.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Cardiovascular complications were found between the ages of 2 months and 12 years, with 9 patients having pulmonary hypertension, 7 having hypertension, and 5 having non-compaction of ventricular myocardium.
+      explanation: Cohort-level data directly support pulmonary hypertension as a downstream cardiovascular manifestation.
 phenotypes:
 - category: Neurological
   name: Intellectual disability
@@ -4969,6 +5909,12 @@ genetic:
     evidence_source: HUMAN_CLINICAL
     snippet: Patients with this mutation tend to have a relatively better response to hydroxocobalamin, better metabolic control, and more favorable neurological outcomes.
     explanation: Large cohort directly supports genotype-dependent heterogeneity in treatment response and neurological outcome.
+  - reference: CGGV:assertion_6feb4bda-539f-4592-acaf-26dc186e953a-2020-06-29T174303.503Z
+    reference_title: &#34;MMACHC / methylmalonic aciduria and homocystinuria type cblC (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;MMACHC | HGNC:24525 | methylmalonic aciduria and homocystinuria type cblC | MONDO:0010184 | AR | Definitive&#34;
+    explanation: ClinGen classifies the MMACHC-methylmalonic aciduria and homocystinuria type cblC gene-disease relationship as definitive with autosomal recessive inheritance.
 diagnosis:
 - name: Newborn screening with second-tier methylmalonic acid assessment
   description: &#39;Expanded newborn screening can identify cblC presymptomatically, but mild disease may be missed if follow-up relies only on first-tier C3 markers without second-tier MMA measurement.
@@ -4991,6 +5937,27 @@ treatments:
     term:
       id: MAXO:0000058
       label: pharmacotherapy
+  target_mechanisms:
+  - target: Reduced methylcobalamin supply
+    treatment_effect: RESTORES
+    description: Hydroxocobalamin improves homocysteine and methionine values, consistent with correcting the methylcobalamin/remethylation branch.
+    evidence:
+    - reference: PMID:39152755
+      reference_title: &#34;Improved biochemical and neurodevelopmental profiles with high-dose hydroxocobalamin therapy in cobalamin C defect.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Biochemical analyses revealed better values of homocysteine, methionine and methylmalonic acid in Group A compared to Group B1 (p &lt; 0.01, p &lt; 0.05 and p &lt; 0.01, respectively) and B2 (p &lt; 0.001, p &lt; 0.01 and p &lt; 0.001, respectively).
+      explanation: High-dose hydroxocobalamin improved remethylation-linked metabolites in treated children.
+  - target: Reduced adenosylcobalamin supply
+    treatment_effect: RESTORES
+    description: Hydroxocobalamin improves methylmalonic acid values, consistent with correcting the adenosylcobalamin/mutase branch.
+    evidence:
+    - reference: PMID:39152755
+      reference_title: &#34;Improved biochemical and neurodevelopmental profiles with high-dose hydroxocobalamin therapy in cobalamin C defect.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Biochemical analyses revealed better values of homocysteine, methionine and methylmalonic acid in Group A compared to Group B1 (p &lt; 0.01, p &lt; 0.05 and p &lt; 0.01, respectively) and B2 (p &lt; 0.001, p &lt; 0.01 and p &lt; 0.001, respectively).
+      explanation: High-dose hydroxocobalamin improved methylmalonic acid in treated children, supporting impact on the adenosylcobalamin-dependent branch.
   evidence:
   - reference: PMID:39152755
     reference_title: &#34;Improved biochemical and neurodevelopmental profiles with high-dose hydroxocobalamin therapy in cobalamin C defect.&#34;
@@ -5013,6 +5980,17 @@ treatments:
     term:
       id: MAXO:0000106
       label: nutritional supplementation
+  target_mechanisms:
+  - target: Hyperhomocysteinemia and hypomethioninemia
+    treatment_effect: BYPASSES
+    description: Betaine supports an alternate remethylation route through betaine-homocysteine methyltransferase, lowering homocysteine and generating methionine.
+    evidence:
+    - reference: PMID:32071835
+      reference_title: &#34;High-dose hydroxocobalamin achieves biochemical correction and improvement of neuropsychiatric deficits in adults with late onset cobalamin C deficiency.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Betaine is used to lower homocysteine as a substrate for betaine‐homocysteine methyltransferase, which can convert homocysteine into methionine.
+      explanation: Human clinical report background describes the mechanism by which betaine bypasses impaired cobalamin-dependent remethylation.
   evidence:
   - reference: PMID:32071835
     reference_title: &#34;High-dose hydroxocobalamin achieves biochemical correction and improvement of neuropsychiatric deficits in adults with late onset cobalamin C deficiency.&#34;
@@ -5281,7 +6259,7 @@ notes: &#39;cblC disease should be curated as a distinct combined cobalamin-proc
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "MMACHC-related Methylmalonic Aciduria and Homocystinuria, cblC Type", "mondoId": "MONDO:0010184", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "MMACHC-related_Methylmalonic_Aciduria_and_Homocystinuria,_cblC_Type", "yamlRevision": "a4a07d9dab66"};
+        const OS_CONFIG = {"diseaseName": "MMACHC-related Methylmalonic Aciduria and Homocystinuria, cblC Type", "mondoId": "MONDO:0010184", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "MMACHC-related_Methylmalonic_Aciduria_and_Homocystinuria,_cblC_Type", "yamlRevision": "d220fa7d81a8"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

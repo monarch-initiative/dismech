@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,7 +2570,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 40</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Organic Acidemia</span>
@@ -2577,7 +2730,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">8</div>
+                <div class="stat-value">40</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -2585,7 +2738,7 @@
             
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
@@ -2726,10 +2879,14 @@
                     <span class="tag tag-gene">
                         PCCA
                         
+                        <a href="https://bioregistry.io/hgnc:8653" target="_blank" class="linkout">link</a>
+                        
                     </span>
                     
                     <span class="tag tag-gene">
                         PCCB
+                        
+                        <a href="https://bioregistry.io/hgnc:8654" target="_blank" class="linkout">link</a>
                         
                     </span>
                     
@@ -2809,7 +2966,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -2892,6 +3049,139 @@
 	                            
 	                        </div>
 	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Metabolic acidosis</span>
+	                            
+	                            <span class="crosslink-desc">Accumulated organic acids directly drive high-anion-gap metabolic acidosis during decompensation.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Vomiting</span>
+	                            
+	                            <span class="crosslink-desc">Acute toxic metabolite accumulation and metabolic decompensation produce gastrointestinal symptoms including vomiting.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Lethargy</span>
+	                            
+	                            <span class="crosslink-desc">Systemic metabolic decompensation and energy stress reduce alertness during acute crises.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Failure to thrive</span>
+	                            
+	                            <span class="crosslink-desc">Recurrent catabolic crises, restricted intake, and chronic metabolite stress impair growth.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Global developmental delay</span>
+	                            
+	                            <span class="crosslink-desc">Brain energy stress and recurrent metabolic injury contribute to delayed neurodevelopment.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Intellectual disability</span>
+	                            
+	                            <span class="crosslink-desc">Metabolic and mitochondrial stress biomarkers track with more severe intellectual disability in PA.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Autism spectrum disorder</span>
+	                            
+	                            <span class="crosslink-desc">PA is associated with autism spectrum disorder, but the causal intermediates remain incompletely resolved.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Seizures</span>
+	                            
+	                            <span class="crosslink-desc">Acute and chronic neurometabolic injury can lower seizure threshold in PA.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Basal ganglia necrosis</span>
+	                            
+	                            <span class="crosslink-desc">Metabolic stroke-like injury from toxic metabolite accumulation affects basal ganglia structures.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Pancreatitis</span>
+	                            
+	                            <span class="crosslink-desc">Organic acidemia-related metabolic stress contributes to episodic pancreatic inflammation.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Optic atrophy</span>
+	                            
+	                            <span class="crosslink-desc">Chronic mitochondrial and neurometabolic stress provides a mechanistic route to optic nerve degeneration.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hearing impairment</span>
+	                            
+	                            <span class="crosslink-desc">Chronic metabolic disease burden is associated with late-onset hearing loss in PA.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Rhabdomyolysis</span>
+	                            
+	                            <span class="crosslink-desc">Severe metabolic decompensation can injure skeletal muscle and produce rhabdomyolysis.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Propionylcarnitine (C3)</span>
+	                            
+	                            <span class="crosslink-desc">Excess propionyl-CoA is conjugated with carnitine, producing elevated propionylcarnitine.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">2-Methylcitric acid</span>
+	                            
+	                            <span class="crosslink-desc">Propionyl-CoA excess is diverted into methylcitric acid formation.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Glycine</span>
+	                            
+	                            <span class="crosslink-desc">Disrupted propionate metabolism is reflected in the classical hyperglycinemia biochemical profile.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">3-Hydroxypropionate</span>
+	                            
+	                            <span class="crosslink-desc">Accumulated propionyl-CoA-derived metabolites include urinary 3-hydroxypropionate.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Propionylglycine</span>
+	                            
+	                            <span class="crosslink-desc">Propionyl-CoA excess is conjugated with glycine, producing elevated propionylglycine.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">FGF21 and GDF15</span>
+	                            
+	                            <span class="crosslink-desc">Mitochondrial stress signaling in PA is reflected by increased FGF21 and GDF15.</span>
+	                            
+	                        </div>
+	                        
 	                    </div>
 	                </div>
 	                
@@ -2912,7 +3202,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -2969,6 +3259,20 @@
                 
                 
 	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hyperammonemia</span>
+	                            
+	                            <span class="crosslink-desc">Secondary NAG deficiency reduces CPS1 activation and impairs ureagenesis, causing hyperammonemia.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
 	                
 	                
     
@@ -3244,6 +3548,20 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Chronic kidney disease</span>
+	                            
+	                            <span class="crosslink-desc">Impaired renal mitochondrial quality control drives progressive kidney dysfunction in PA.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
@@ -3374,6 +3692,27 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Dilated cardiomyopathy</span>
+	                            
+	                            <span class="crosslink-desc">PA cardiac mitochondrial and metabolic pathway disruption culminates in dilated cardiomyopathy.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Prolonged QT interval</span>
+	                            
+	                            <span class="crosslink-desc">Cardiac metabolic and excitation-contraction abnormalities provide the mechanistic basis for QT prolongation.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
@@ -3391,7 +3730,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3434,7 +3773,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cardiac multi-mechanism pathogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cardiac complications in PA involve multiple cellular pathways including impaired substrate delivery to TCA cycle, secondary mitochondrial electron transport chain dysfunction, oxidative stress, coenzyme Q10 deficiency, metabolic reprogramming, and carnitine deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"mitochondrial electron transport, NADH to ubiquinone\"], \"locations\": [\"heart\"]}}, {\"id\": \"Cardiac oxidative stress via circulating propionate\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In PA, accumulated propionyl-CoA and diminished hepatic propionate clearance lead to elevated circulating propionate. Gut microbiome-derived propionate is the primary cardiac propionyl-CoA source, and prolonged exposure induces significant oxidative stress in cardiomyocytes.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"response to oxidative stress\"], \"locations\": [\"heart\"]}}, {\"id\": \"PCCA or PCCB variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"variant_count\": 1}}, {\"id\": \"Propionyl-CoA carboxylase molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in PCCA or PCCB reduce propionyl-CoA carboxylase catalytic activity in mitochondria.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"molecular_functions\": [\"catalytic activity\"], \"genes\": [\"PCCA\", \"PCCB\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Renal mitochondrial quality control impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In a PA mouse model, kidneys show altered mitochondrial ultrastructure, shifted mitochondrial networks towards fission, marked reduction of mitophagy, and steep reduction of PGC-1-alpha. These disturbances in mitochondrial homeostasis and quality control are involved in chronic kidney disease development.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epithelial cell of proximal tubule\"], \"biological_processes\": [\"mitochondrial fission\", \"mitophagy\"], \"locations\": [\"kidney\"]}}, {\"id\": \"Secondary NAG deficiency and hyperammonemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperammonemia in PA is related to secondary deficiency of N-acetylglutamate (NAG), the allosteric activator of carbamoyl phosphate synthetase 1 (CPS1), which is an irreversible rate-limiting enzyme in the urea cycle. CPS1 inhibition by accumulated propionyl-CoA metabolites impairs ureagenesis.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"urea cycle\"]}}, {\"id\": \"Toxic metabolite burden and mitochondrial stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulation of propionyl-CoA related metabolites contributes to metabolic acidosis, secondary hyperammonemia, and cellular energy stress in liver, brain, and myocardium.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"tricarboxylic acid cycle\"]}}, {\"id\": \"Various PCCA and PCCB pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"PA results from biallelic pathogenic variants in PCCA (chromosome 13q32) or PCCB (chromosome 3q22.3), encoding the alpha and beta subunits of propionyl-CoA carboxylase. Over 100 pathogenic variants have been described in each gene.\\n\"}], \"edges\": [{\"source\": \"Propionyl-CoA carboxylase molecular function deficiency\", \"target\": \"Toxic metabolite burden and mitochondrial stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Secondary NAG deficiency and hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Cardiac oxidative stress via circulating propionate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Renal mitochondrial quality control impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiac oxidative stress via circulating propionate\", \"target\": \"Cardiac multi-mechanism pathogenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Various PCCA and PCCB pathogenic variants\", \"target\": \"PCCA or PCCB variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"2-Methylcitric acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"3-Hydroxypropionate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Acute decompensation management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Emergency supportive care with reversal of catabolism via high glucose infusion, cessation of protein intake, and correction of metabolic acidosis.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ammonia-lowering therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sodium benzoate or sodium phenylbutyrate for pharmacologic ammonia reduction during hyperammonemic episodes.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Autism spectrum disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autism spectrum disorder occurs in approximately 39% of PA patients. ASD was associated with increased serum erythropoietin and decreased plasma glutamine.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000717\"}}, {\"id\": \"Basal ganglia necrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral basal ganglia necrosis, particularly of the caudate and putamen, is a recognized neurological complication of PA during metabolic decompensation.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012128\"}}, {\"id\": \"Cardiac multi-mechanism pathogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cardiac complications in PA involve multiple cellular pathways including impaired substrate delivery to TCA cycle, secondary mitochondrial electron transport chain dysfunction, oxidative stress, coenzyme Q10 deficiency, metabolic reprogramming, and carnitine deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"mitochondrial electron transport, NADH to ubiquinone\"], \"locations\": [\"heart\"]}}, {\"id\": \"Cardiac oxidative stress via circulating propionate\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In PA, accumulated propionyl-CoA and diminished hepatic propionate clearance lead to elevated circulating propionate. Gut microbiome-derived propionate is the primary cardiac propionyl-CoA source, and prolonged exposure induces significant oxidative stress in cardiomyocytes.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"response to oxidative stress\"], \"locations\": [\"heart\"]}}, {\"id\": \"Cardiac pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard cardiac therapies including ACE inhibitors, beta-blockers, and coenzyme Q10 supplementation for management of cardiomyopathy and QTc prolongation. Multicenter approaches are needed to strengthen efficacy data.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Carglumic acid (CGA)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Carglumic acid is a synthetic structural analog of N-acetylglutamate (NAG) approved for treatment of hyperammonemia in PA. Chronic CGA use is associated with reduction in hyperammonemic decompensation episodes and hospital admissions.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Carnitine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Adjunctive therapy to support organic acid detoxification and excretion via formation of propionylcarnitine.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Chronic kidney disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive renal dysfunction is a long-term complication of PA. In mouse models, CKD involves mitochondrial quality control impairment with disturbances in fission/mitophagy balance.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012622\"}}, {\"id\": \"Dilated cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dilated cardiomyopathy is one of the most serious long-term complications of PA. In a cohort study, DCM was observed in 17 of 23 PA patients with cardiac involvement.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001644\"}}, {\"id\": \"FGF21 and GDF15\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor growth due to recurrent catabolic crises and feeding difficulties.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay risk in severe or recurrent disease.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Glycine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"Hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss is reported as a late-onset complication of PA.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Hyperammonemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Secondary hyperammonemia, especially in acute illness.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001987\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is common in PA. In a dedicated natural history study, 61% of participants received an ID diagnosis.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Decreased alertness during acute metabolic decompensation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001254\"}}, {\"id\": \"Liver transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Considered for severe recurrent decompensation and poor metabolic control. LT improves metabolic stability but does not fully correct the biochemical defect since PCC is expressed in extrahepatic tissues.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Metabolic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High-anion-gap metabolic acidosis during decompensation episodes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001942\"}}, {\"id\": \"Optic atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Optic atrophy has been reported as a long-term neurological complication of PA.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000648\"}}, {\"id\": \"PCCA pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PCCA\"], \"association\": \"Pathogenic Variants\", \"variant_count\": 1}}, {\"id\": \"PCCB pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PCCB\"], \"association\": \"Pathogenic Variants\", \"variant_count\": 1}}, {\"id\": \"Pancreatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute pancreatitis is a recognized complication of PA, occurring during or independent of metabolic decompensation episodes.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001733\"}}, {\"id\": \"Prolonged QT interval\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"QTc prolongation is a recognized arrhythmia risk in PA, associated with metabolic decompensation and chronic disease.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001657\"}}, {\"id\": \"Propionyl-CoA carboxylase molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in PCCA or PCCB reduce propionyl-CoA carboxylase catalytic activity in mitochondria.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"molecular_functions\": [\"catalytic activity\"], \"genes\": [\"PCCA\", \"PCCB\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Propionylcarnitine (C3)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Propionylglycine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Protein-restricted diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Restriction of propiogenic amino acids (valine, isoleucine, threonine, methionine) with specialized formula support is the cornerstone of PA management.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Renal mitochondrial quality control impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In a PA mouse model, kidneys show altered mitochondrial ultrastructure, shifted mitochondrial networks towards fission, marked reduction of mitophagy, and steep reduction of PGC-1-alpha. These disturbances in mitochondrial homeostasis and quality control are involved in chronic kidney disease development.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epithelial cell of proximal tubule\"], \"biological_processes\": [\"mitochondrial fission\", \"mitophagy\"], \"locations\": [\"kidney\"]}}, {\"id\": \"Rhabdomyolysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rhabdomyolysis can occur in PA, typically during severe metabolic decompensation.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0003201\"}}, {\"id\": \"Secondary NAG deficiency and hyperammonemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperammonemia in PA is related to secondary deficiency of N-acetylglutamate (NAG), the allosteric activator of carbamoyl phosphate synthetase 1 (CPS1), which is an irreversible rate-limiting enzyme in the urea cycle. CPS1 inhibition by accumulated propionyl-CoA metabolites impairs ureagenesis.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"urea cycle\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures may occur in PA, particularly in the context of metabolic decompensation and basal ganglia injury.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Toxic metabolite burden and mitochondrial stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulation of propionyl-CoA related metabolites contributes to metabolic acidosis, secondary hyperammonemia, and cellular energy stress in liver, brain, and myocardium.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"tricarboxylic acid cycle\"]}}, {\"id\": \"Various PCCA pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"PA can result from biallelic pathogenic variants in PCCA, encoding the alpha subunit of propionyl-CoA carboxylase. PCCA variants reduce PCC holoenzyme function and cause the PCCA complementation form of propionic acidemia.\\n\"}, {\"id\": \"Various PCCB pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"PA can result from biallelic pathogenic variants in PCCB, encoding the beta subunit of propionyl-CoA carboxylase. PCCB variants reduce PCC holoenzyme function and cause the PCCB complementation form of propionic acidemia.\\n\"}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent vomiting with poor intake during metabolic instability.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002013\"}}], \"edges\": [{\"source\": \"Propionyl-CoA carboxylase molecular function deficiency\", \"target\": \"Toxic metabolite burden and mitochondrial stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Secondary NAG deficiency and hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Cardiac oxidative stress via circulating propionate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Renal mitochondrial quality control impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Metabolic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Autism spectrum disorder\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Basal ganglia necrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Pancreatitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Optic atrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Rhabdomyolysis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Propionylcarnitine (C3)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"2-Methylcitric acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Glycine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"3-Hydroxypropionate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Propionylglycine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"FGF21 and GDF15\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary NAG deficiency and hyperammonemia\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiac oxidative stress via circulating propionate\", \"target\": \"Cardiac multi-mechanism pathogenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Renal mitochondrial quality control impairment\", \"target\": \"Chronic kidney disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiac multi-mechanism pathogenesis\", \"target\": \"Dilated cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiac multi-mechanism pathogenesis\", \"target\": \"Prolonged QT interval\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Protein-restricted diet\", \"target\": \"Toxic metabolite burden and mitochondrial stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Carnitine supplementation\", \"target\": \"Toxic metabolite burden and mitochondrial stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Carglumic acid (CGA)\", \"target\": \"Secondary NAG deficiency and hyperammonemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ammonia-lowering therapy\", \"target\": \"Secondary NAG deficiency and hyperammonemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Acute decompensation management\", \"target\": \"Toxic metabolite burden and mitochondrial stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Acute decompensation management\", \"target\": \"Secondary NAG deficiency and hyperammonemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Toxic metabolite burden and mitochondrial stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cardiac pharmacotherapy\", \"target\": \"Cardiac multi-mechanism pathogenesis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"PCCA pathogenic variants\", \"target\": \"Propionyl-CoA carboxylase molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PCCB pathogenic variants\", \"target\": \"Propionyl-CoA carboxylase molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Various PCCA pathogenic variants\", \"target\": \"PCCA pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Various PCCB pathogenic variants\", \"target\": \"PCCB pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3593,7 +3932,7 @@
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -4602,12 +4941,14 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">1</span>
+                <span class="card-count">2</span>
             </div>
             
             <div class="item-box genetic-box">
                 <div class="item-name">
-                    PCCA or PCCB variants
+                    PCCA pathogenic variants
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
                     
                 </div>
                 
@@ -4621,27 +4962,116 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37482098" target="_blank">PMID:37482098</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22593918" target="_blank">PMID:22593918</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"Propionic acidemia (PA) is a genetic metabolic disorder caused by mutations in the mitochondrial enzyme, propionyl-CoA carboxylase (PCC)"</div>
+                <div class="evidence-snippet">"Confirmation of the diagnosis relies on detection of biallelic pathogenic variants in PCCA or PCCB by molecular genetic testing, or detection of deficient PCC enzymatic activity."</div>
                 
                 
-                <div class="evidence-explanation">Directly supports genetic PCC defects as the causal mechanism.</div>
+                <div class="evidence-explanation">GeneReviews supports biallelic PCCA pathogenic variants as one molecular genetic basis of propionic acidemia.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_32a55e25-8632-4f31-84af-3eaf8098ca18-2018-12-13T170000.000Z" target="_blank">CGGV:assertion_32a55e25-8632-4f31-84af-3eaf8098ca18-2018-12-13T170000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"PCCA | HGNC:8653 | propionic acidemia | MONDO:0011628 | AR | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the PCCA-propionic acidemia gene-disease relationship as definitive with autosomal recessive inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    PCCB pathogenic variants
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                <div class="item-meta">
+                    
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22593918" target="_blank">PMID:22593918</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Confirmation of the diagnosis relies on detection of biallelic pathogenic variants in PCCA or PCCB by molecular genetic testing, or detection of deficient PCC enzymatic activity."</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews supports biallelic PCCB pathogenic variants as one molecular genetic basis of propionic acidemia.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_1cd49a9b-08c2-49db-8e97-e334f171e34d-2018-12-13T170000.000Z" target="_blank">CGGV:assertion_1cd49a9b-08c2-49db-8e97-e334f171e34d-2018-12-13T170000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"PCCB | HGNC:8654 | propionic acidemia | MONDO:0011628 | AR | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the PCCB-propionic acidemia gene-disease relationship as definitive with autosomal recessive inheritance.</div>
                 
             </div>
             
@@ -4704,6 +5134,54 @@
                 <div class="item-desc">Restriction of propiogenic amino acids (valine, isoleucine, threonine, methionine) with specialized formula support is the cornerstone of PA management.
 </div>
                 
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+                        <strong style="color: #5b21b6;">Toxic metabolite burden and mitochondrial stress</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Restricting propiogenic amino acid intake lowers substrate flux into the blocked PCC pathway and limits toxic metabolite production.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22593918" target="_blank">PMID:22593918</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Individualized dietary management should be directed by an experienced physician and metabolic dietician to control the intake of propiogenic substrates and to guide increased caloric intake during illness to prevent catabolism"</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews directly supports dietary management as substrate-control therapy in PA.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
                 
                 
                 
@@ -4783,6 +5261,54 @@
 </div>
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+                        <strong style="color: #5b21b6;">Toxic metabolite burden and mitochondrial stress</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Carnitine supports detoxification of propionyl groups through propionylcarnitine formation and excretion.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/6725560" target="_blank">PMID:6725560</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Treatment with L-carnitine greatly enhanced the formation and excretion of short-chain acylcarnitines in three patients with propionic acidemia and in three normal controls."</div>
+                
+                
+                <div class="evidence-explanation">Patient evidence supports carnitine-mediated acylcarnitine excretion in PA.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
+                
                 
                 
                 
@@ -4860,6 +5386,54 @@
                 <div class="item-desc">Carglumic acid is a synthetic structural analog of N-acetylglutamate (NAG) approved for treatment of hyperammonemia in PA. Chronic CGA use is associated with reduction in hyperammonemic decompensation episodes and hospital admissions.
 </div>
                 
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            BYPASSES
+                        </span>
+                        <strong style="color: #5b21b6;">Secondary NAG deficiency and hyperammonemia</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Carglumic acid bypasses secondary NAG deficiency by stimulating the first step of the urea cycle and reducing hyperammonemia.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30522498" target="_blank">PMID:30522498</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Treatment with N-carbamyl-L-glutamate can rapidly normalise ammonia levels by stimulating the first step of the urea cycle."</div>
+                
+                
+                <div class="evidence-explanation">The review describes the urea-cycle stimulation mechanism of carglumic acid/N-carbamyl-L-glutamate.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
                 
                 
                 
@@ -4959,6 +5533,54 @@
 </div>
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+                        <strong style="color: #5b21b6;">Secondary NAG deficiency and hyperammonemia</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Nitrogen-scavenger pharmacotherapy lowers ammonia burden downstream of impaired ureagenesis.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30522498" target="_blank">PMID:30522498</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"It may also include the administration of ammonia scavengers such as sodium benzoate or sodium phenylbutyrate."</div>
+                
+                
+                <div class="evidence-explanation">The organic-acidemia hyperammonemia review directly supports ammonia scavengers as therapy for this branch.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
+                
                 
                 
                 
@@ -4972,20 +5594,20 @@
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25205257" target="_blank">PMID:25205257</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30522498" target="_blank">PMID:30522498</a>
                     </span>
                     
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"Patients present either shortly after birth with acute deterioration, metabolic acidosis and hyperammonemia"</div>
+                <div class="evidence-snippet">"It may also include the administration of ammonia scavengers such as sodium benzoate or sodium phenylbutyrate."</div>
                 
                 
-                <div class="evidence-explanation">Presence of hyperammonemia supports use of ammonia-directed pharmacotherapy.</div>
+                <div class="evidence-explanation">Directly supports ammonia scavengers as ammonia-lowering pharmacotherapy in organic acidemia hyperammonemia.</div>
                 
             </div>
             
@@ -5037,6 +5659,97 @@
 </div>
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+                        <strong style="color: #5b21b6;">Toxic metabolite burden and mitochondrial stress</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Emergency reversal of catabolism and temporary protein cessation reduce acute substrate-driven toxic metabolite production.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22593918" target="_blank">PMID:22593918</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"reverse catabolism by providing intravenous glucose and lipids; manage protein intake to reduce propiogenic precursors; remove toxic compounds using intravenous carnitine"</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews directly supports reversal of catabolism, precursor reduction, and toxic-compound removal during acute PA management.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+                        <strong style="color: #5b21b6;">Secondary NAG deficiency and hyperammonemia</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Acute decompensation protocols include correction of hyperammonemia during crises.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30522498" target="_blank">PMID:30522498</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Correcting metabolic imbalance and hyperammonaemia are critical to prevent brain damage in affected patients."</div>
+                
+                
+                <div class="evidence-explanation">The review supports hyperammonemia correction as an acute management target in organic acidemias.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
+                
                 
                 
                 
@@ -5050,20 +5763,20 @@
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25205257" target="_blank">PMID:25205257</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22593918" target="_blank">PMID:22593918</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"Patients present either shortly after birth with acute deterioration, metabolic acidosis and hyperammonemia"</div>
+                <div class="evidence-snippet">"The treatment of individuals with acutely decompensated PA is a medical emergency"</div>
                 
                 
-                <div class="evidence-explanation">Supports crisis-focused supportive management during acute deterioration.</div>
+                <div class="evidence-explanation">GeneReviews supports emergency management for acute PA decompensation.</div>
                 
             </div>
             
@@ -5114,6 +5827,54 @@
                 <div class="item-desc">Considered for severe recurrent decompensation and poor metabolic control. LT improves metabolic stability but does not fully correct the biochemical defect since PCC is expressed in extrahepatic tissues.
 </div>
                 
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+                        <strong style="color: #5b21b6;">Toxic metabolite burden and mitochondrial stress</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Liver transplantation improves hepatic propionate handling and metabolic stability, while extrahepatic PCC deficiency remains.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33093405" target="_blank">PMID:33093405</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The pooled estimate rates were 0.98 (95% CI, 0.88-1.00) for metabolic stability"</div>
+                
+                
+                <div class="evidence-explanation">Systematic-review evidence directly supports improved metabolic stability after liver transplantation.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
                 
                 
                 
@@ -5193,6 +5954,54 @@
 </div>
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+                        <strong style="color: #5b21b6;">Cardiac multi-mechanism pathogenesis</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Standard cardiac medications and coenzyme Q10 target the downstream cardiomyopathy and electrophysiology branch rather than the upstream PCC defect.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37110221" target="_blank">PMID:37110221</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The guidelines for the management of patients affected by propionic acidemia (PA) recommend standard cardiac therapy in the presence of cardiac complications."</div>
+                
+                
+                <div class="evidence-explanation">The cardiac-complication guideline recommendation supports targeting the cardiac pathogenesis branch.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
+                
                 
                 
                 
@@ -5212,7 +6021,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -5413,6 +6222,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5459,6 +6269,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5503,6 +6314,7 @@
                 
                 <div class="item-desc">Context: Elevated glycine is a classical feature of PA. Notably, plasma glycine was not meaningfully associated with intellectual disability or ASD severity.
 </div>
+                
                 
                 
     
@@ -5571,6 +6383,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5617,6 +6430,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5661,6 +6475,7 @@
                 
                 <div class="item-desc">Context: Mitochondrial biomarkers FGF21 and GDF15 are elevated in PA and associated with more severe intellectual disability profile, suggesting their potential as surrogate endpoints.
 </div>
+                
                 
                 
     
@@ -5729,17 +6544,13 @@
                 <pre class="yaml-preview">name: Propionic Acidemia
 category: Mendelian
 creation_date: &#39;2026-02-23T00:00:00Z&#39;
-updated_date: &#39;2026-02-28T01:15:00Z&#39;
+updated_date: &#39;2026-05-09T07:02:40Z&#39;
 synonyms:
 - Propionic aciduria
 - PA
 - Propionyl-CoA carboxylase deficiency
 - Ketotic hyperglycinemia
-description: &#39;Propionic acidemia is an autosomal recessive organic acidemia caused by deficiency of propionyl-CoA carboxylase
-  (PCC), usually due to biallelic PCCA or PCCB pathogenic variants. Defective propionate metabolism leads to toxic organic
-  acid accumulation, metabolic acidosis, hyperammonemia, and recurrent episodes of life-threatening metabolic decompensation.
-  Long-term complications include cardiomyopathy, prolonged QTc, intellectual disability, basal ganglia necrosis, pancreatitis,
-  chronic kidney disease, and optic atrophy.
+description: &#39;Propionic acidemia is an autosomal recessive organic acidemia caused by deficiency of propionyl-CoA carboxylase (PCC), usually due to biallelic PCCA or PCCB pathogenic variants. Defective propionate metabolism leads to toxic organic acid accumulation, metabolic acidosis, hyperammonemia, and recurrent episodes of life-threatening metabolic decompensation. Long-term complications include cardiomyopathy, prolonged QTc, intellectual disability, basal ganglia necrosis, pancreatitis, chronic kidney disease, and optic atrophy.
 
   &#39;
 disease_term:
@@ -5773,13 +6584,18 @@ prevalence:
     explanation: This review confirms the disease&#39;s rarity while focusing on regional epidemiology in China.
 pathophysiology:
 - name: Propionyl-CoA carboxylase molecular function deficiency
-  description: &#39;Biallelic pathogenic variants in PCCA or PCCB reduce propionyl-CoA
-    carboxylase catalytic activity in mitochondria.
+  description: &#39;Biallelic pathogenic variants in PCCA or PCCB reduce propionyl-CoA carboxylase catalytic activity in mitochondria.
 
     &#39;
   genes:
   - preferred_term: PCCA
+    term:
+      id: hgnc:8653
+      label: PCCA
   - preferred_term: PCCB
+    term:
+      id: hgnc:8654
+      label: PCCB
   molecular_functions:
   - preferred_term: catalytic activity
     term:
@@ -5799,17 +6615,14 @@ pathophysiology:
   - reference: PMID:37482098
     reference_title: &#34;Pathophysiological mechanisms of complications associated with propionic acidemia.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: Propionic acidemia (PA) is a genetic metabolic disorder caused by mutations in the mitochondrial enzyme, propionyl-CoA
-      carboxylase (PCC), which is responsible for converting propionyl-CoA to methylmalonyl-CoA for further metabolism in
-      the tricarboxylic acid cycle.
+    evidence_source: OTHER
+    snippet: Propionic acidemia (PA) is a genetic metabolic disorder caused by mutations in the mitochondrial enzyme, propionyl-CoA carboxylase (PCC), which is responsible for converting propionyl-CoA to methylmalonyl-CoA for further metabolism in the tricarboxylic acid cycle.
     explanation: Directly supports deficient PCC function and blocked propionyl-CoA handling.
   downstream:
   - target: Toxic metabolite burden and mitochondrial stress
     description: Impaired propionyl-CoA carboxylation causes accumulation of propionyl-CoA-derived toxic metabolites.
 - name: Toxic metabolite burden and mitochondrial stress
-  description: &#39;Accumulation of propionyl-CoA related metabolites contributes to metabolic acidosis, secondary hyperammonemia,
-    and cellular energy stress in liver, brain, and myocardium.
+  description: &#39;Accumulation of propionyl-CoA related metabolites contributes to metabolic acidosis, secondary hyperammonemia, and cellular energy stress in liver, brain, and myocardium.
 
     &#39;
   biological_processes:
@@ -5821,9 +6634,8 @@ pathophysiology:
   - reference: PMID:37482098
     reference_title: &#34;Pathophysiological mechanisms of complications associated with propionic acidemia.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: When this process is disrupted, propionyl-CoA and its metabolites accumulate, leading to a variety of complications
-      including life-threatening cardiac diseases and other metabolic strokes.
+    evidence_source: OTHER
+    snippet: When this process is disrupted, propionyl-CoA and its metabolites accumulate, leading to a variety of complications including life-threatening cardiac diseases and other metabolic strokes.
     explanation: Supports toxic metabolite accumulation and multisystem downstream injury.
   downstream:
   - target: Secondary NAG deficiency and hyperammonemia
@@ -5832,10 +6644,222 @@ pathophysiology:
     description: Systemic propionate excess increases cardiac propionyl-CoA load and oxidative injury.
   - target: Renal mitochondrial quality control impairment
     description: Metabolite stress perturbs renal mitochondrial homeostasis, including fission-mitophagy balance.
+  - target: Metabolic acidosis
+    description: Accumulated organic acids directly drive high-anion-gap metabolic acidosis during decompensation.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:22593918
+      reference_title: &#34;Propionic Acidemia.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: It is frequently accompanied by metabolic acidosis with anion gap, lactic acidosis, ketonuria, hypoglycemia, hyperammonemia, and cytopenias.
+      explanation: GeneReviews links PA decompensation to metabolic acidosis.
+  - target: Vomiting
+    description: Acute toxic metabolite accumulation and metabolic decompensation produce gastrointestinal symptoms including vomiting.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Metabolic decompensation
+    evidence:
+    - reference: PMID:22593918
+      reference_title: &#34;Propionic Acidemia.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: may experience a more insidious onset with the development of multiorgan complications including vomiting, protein intolerance, failure to thrive, hypotonia, developmental delays or regression, movement disorders, or cardiomyopathy.
+      explanation: GeneReviews supports vomiting as part of PA multiorgan disease.
+  - target: Lethargy
+    description: Systemic metabolic decompensation and energy stress reduce alertness during acute crises.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Metabolic decompensation
+    - Progressive encephalopathy
+    evidence:
+    - reference: PMID:22593918
+      reference_title: &#34;Propionic Acidemia.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: this is followed by progressive encephalopathy manifesting as lethargy, seizures, or coma that can result in death.
+      explanation: GeneReviews supports lethargy downstream of PA metabolic encephalopathy.
+  - target: Failure to thrive
+    description: Recurrent catabolic crises, restricted intake, and chronic metabolite stress impair growth.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Recurrent metabolic decompensation
+    - Feeding intolerance
+    evidence:
+    - reference: PMID:22593918
+      reference_title: &#34;Propionic Acidemia.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: may experience a more insidious onset with the development of multiorgan complications including vomiting, protein intolerance, failure to thrive, hypotonia, developmental delays or regression, movement disorders, or cardiomyopathy.
+      explanation: GeneReviews supports failure to thrive as part of PA multiorgan disease.
+  - target: Global developmental delay
+    description: Brain energy stress and recurrent metabolic injury contribute to delayed neurodevelopment.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Neurometabolic injury
+    evidence:
+    - reference: PMID:22593918
+      reference_title: &#34;Propionic Acidemia.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: may experience a more insidious onset with the development of multiorgan complications including vomiting, protein intolerance, failure to thrive, hypotonia, developmental delays or regression, movement disorders, or cardiomyopathy.
+      explanation: GeneReviews supports developmental delay or regression in PA.
+  - target: Intellectual disability
+    description: Metabolic and mitochondrial stress biomarkers track with more severe intellectual disability in PA.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Neurometabolic injury
+    - Mitochondrial stress
+    evidence:
+    - reference: PMID:38200289
+      reference_title: &#34;Intellectual disability and autism in propionic acidemia: a biomarker-behavioral investigation implicating dysregulated mitochondrial biology.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Higher concentrations of plasma propionylcarnitine, plasma total 2-methylcitrate, serum erythropoietin, and mitochondrial biomarkers plasma FGF21 and GDF15 were associated with a more severe ID profile.
+      explanation: Patient biomarker data link PA metabolic/mitochondrial stress markers with more severe intellectual disability.
+  - target: Autism spectrum disorder
+    description: PA is associated with autism spectrum disorder, but the causal intermediates remain incompletely resolved.
+    causal_link_type: UNKNOWN
+    evidence:
+    - reference: PMID:38200289
+      reference_title: &#34;Intellectual disability and autism in propionic acidemia: a biomarker-behavioral investigation implicating dysregulated mitochondrial biology.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Only two parameters, increased serum erythropoietin and decreased plasma glutamine, were associated with ASD.
+      explanation: Patient biomarker data support an association between PA biochemical abnormalities and ASD.
+  - target: Seizures
+    description: Acute and chronic neurometabolic injury can lower seizure threshold in PA.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Neurometabolic injury
+    - Progressive encephalopathy
+    evidence:
+    - reference: PMID:22593918
+      reference_title: &#34;Propionic Acidemia.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: this is followed by progressive encephalopathy manifesting as lethargy, seizures, or coma that can result in death.
+      explanation: GeneReviews supports seizures downstream of PA metabolic encephalopathy.
+  - target: Basal ganglia necrosis
+    description: Metabolic stroke-like injury from toxic metabolite accumulation affects basal ganglia structures.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Metabolic stroke
+    evidence:
+    - reference: PMID:22593918
+      reference_title: &#34;Propionic Acidemia.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Manifestations of neonatal-onset and late-onset PA over time can include growth impairment, intellectual disability, seizures, basal ganglia lesions, pancreatitis, cardiomyopathy, and chronic kidney disease.
+      explanation: GeneReviews supports basal ganglia lesions as a PA manifestation.
+  - target: Pancreatitis
+    description: Organic acidemia-related metabolic stress contributes to episodic pancreatic inflammation.
+    causal_link_type: UNKNOWN
+    evidence:
+    - reference: PMID:22593918
+      reference_title: &#34;Propionic Acidemia.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Manifestations of neonatal-onset and late-onset PA over time can include growth impairment, intellectual disability, seizures, basal ganglia lesions, pancreatitis, cardiomyopathy, and chronic kidney disease.
+      explanation: GeneReviews supports pancreatitis as a PA manifestation.
+  - target: Optic atrophy
+    description: Chronic mitochondrial and neurometabolic stress provides a mechanistic route to optic nerve degeneration.
+    causal_link_type: UNKNOWN
+    evidence:
+    - reference: PMID:22593918
+      reference_title: &#34;Propionic Acidemia.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Other rarely reported complications include optic atrophy, sensorineural hearing loss, and premature ovarian insufficiency.
+      explanation: GeneReviews supports optic atrophy as a rare PA complication.
+  - target: Hearing impairment
+    description: Chronic metabolic disease burden is associated with late-onset hearing loss in PA.
+    causal_link_type: UNKNOWN
+    evidence:
+    - reference: PMID:22593918
+      reference_title: &#34;Propionic Acidemia.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Other rarely reported complications include optic atrophy, sensorineural hearing loss, and premature ovarian insufficiency.
+      explanation: GeneReviews supports hearing loss as a rare PA complication.
+  - target: Rhabdomyolysis
+    description: Severe metabolic decompensation can injure skeletal muscle and produce rhabdomyolysis.
+    causal_link_type: UNKNOWN
+    intermediate_mechanisms:
+    - Severe metabolic decompensation
+    evidence:
+    - reference: PMID:37689673
+      reference_title: &#34;Prevalence of propionic acidemia in China.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: intellectual disability, seizures, basal ganglia lesions, pancreatitis, cardiomyopathy, arrhythmias, adaptive immune defects, rhabdomyolysis, optic atrophy, hearing loss, premature ovarian failure, and chronic kidney disease
+      explanation: A clinical review lists rhabdomyolysis among PA complications.
+  - target: Propionylcarnitine (C3)
+    description: Excess propionyl-CoA is conjugated with carnitine, producing elevated propionylcarnitine.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:22593918
+      reference_title: &#34;Propionic Acidemia.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Newborns with PA tested by expanded newborn screening (NBS) have elevated C3 (propionylcarnitine).
+      explanation: GeneReviews supports elevated C3 as a direct PA biochemical marker.
+  - target: 2-Methylcitric acid
+    description: Propionyl-CoA excess is diverted into methylcitric acid formation.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:22593918
+      reference_title: &#34;Propionic Acidemia.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Testing of urine organic acids in persons who are symptomatic or those detected by NBS reveals elevated 3-hydroxypropionate and the presence of methylcitrate, tiglylglycine, propionylglycine, and lactic acid.
+      explanation: GeneReviews supports methylcitrate as a PA biochemical marker.
+  - target: Glycine
+    description: Disrupted propionate metabolism is reflected in the classical hyperglycinemia biochemical profile.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Secondary glycine metabolism disruption
+    evidence:
+    - reference: PMID:22593918
+      reference_title: &#34;Propionic Acidemia.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Testing of plasma amino acids generally reveals elevated glycine.
+      explanation: GeneReviews supports elevated glycine as a PA biochemical marker.
+  - target: 3-Hydroxypropionate
+    description: Accumulated propionyl-CoA-derived metabolites include urinary 3-hydroxypropionate.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:22593918
+      reference_title: &#34;Propionic Acidemia.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Testing of urine organic acids in persons who are symptomatic or those detected by NBS reveals elevated 3-hydroxypropionate and the presence of methylcitrate, tiglylglycine, propionylglycine, and lactic acid.
+      explanation: GeneReviews supports elevated 3-hydroxypropionate as a PA biochemical marker.
+  - target: Propionylglycine
+    description: Propionyl-CoA excess is conjugated with glycine, producing elevated propionylglycine.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:22593918
+      reference_title: &#34;Propionic Acidemia.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Testing of urine organic acids in persons who are symptomatic or those detected by NBS reveals elevated 3-hydroxypropionate and the presence of methylcitrate, tiglylglycine, propionylglycine, and lactic acid.
+      explanation: GeneReviews supports propionylglycine as a PA biochemical marker.
+  - target: FGF21 and GDF15
+    description: Mitochondrial stress signaling in PA is reflected by increased FGF21 and GDF15.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Mitochondrial stress response
+    evidence:
+    - reference: PMID:38200289
+      reference_title: &#34;Intellectual disability and autism in propionic acidemia: a biomarker-behavioral investigation implicating dysregulated mitochondrial biology.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Higher concentrations of plasma propionylcarnitine, plasma total 2-methylcitrate, serum erythropoietin, and mitochondrial biomarkers plasma FGF21 and GDF15 were associated with a more severe ID profile.
+      explanation: Patient biomarker data support FGF21 and GDF15 as mitochondrial stress markers in PA.
 - name: Secondary NAG deficiency and hyperammonemia
-  description: &#39;Hyperammonemia in PA is related to secondary deficiency of N-acetylglutamate (NAG), the allosteric activator
-    of carbamoyl phosphate synthetase 1 (CPS1), which is an irreversible rate-limiting enzyme in the urea cycle. CPS1 inhibition
-    by accumulated propionyl-CoA metabolites impairs ureagenesis.
+  description: &#39;Hyperammonemia in PA is related to secondary deficiency of N-acetylglutamate (NAG), the allosteric activator of carbamoyl phosphate synthetase 1 (CPS1), which is an irreversible rate-limiting enzyme in the urea cycle. CPS1 inhibition by accumulated propionyl-CoA metabolites impairs ureagenesis.
 
     &#39;
   biological_processes:
@@ -5848,13 +6872,21 @@ pathophysiology:
     reference_title: &#34;Role of carglumic acid in the long-term management of propionic and methylmalonic acidurias.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Hyperammonemia is related to a secondary deficiency of N-acetylglutamate (NAG), the activator of carbamoyl phosphate
-      synthetase 1, which is an irreversible rate-limiting enzyme in the urea cycle.
+    snippet: Hyperammonemia is related to a secondary deficiency of N-acetylglutamate (NAG), the activator of carbamoyl phosphate synthetase 1, which is an irreversible rate-limiting enzyme in the urea cycle.
     explanation: Directly explains the mechanism of secondary hyperammonemia in PA via NAG/CPS1 pathway.
+  downstream:
+  - target: Hyperammonemia
+    description: Secondary NAG deficiency reduces CPS1 activation and impairs ureagenesis, causing hyperammonemia.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:39695809
+      reference_title: &#34;Role of carglumic acid in the long-term management of propionic and methylmalonic acidurias.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Hyperammonemia is related to a secondary deficiency of N-acetylglutamate (NAG), the activator of carbamoyl phosphate synthetase 1, which is an irreversible rate-limiting enzyme in the urea cycle.
+      explanation: Review evidence directly links secondary NAG deficiency to hyperammonemia in PA/MMA.
 - name: Cardiac oxidative stress via circulating propionate
-  description: &#39;In PA, accumulated propionyl-CoA and diminished hepatic propionate clearance lead to elevated circulating
-    propionate. Gut microbiome-derived propionate is the primary cardiac propionyl-CoA source, and prolonged exposure induces
-    significant oxidative stress in cardiomyocytes.
+  description: &#39;In PA, accumulated propionyl-CoA and diminished hepatic propionate clearance lead to elevated circulating propionate. Gut microbiome-derived propionate is the primary cardiac propionyl-CoA source, and prolonged exposure induces significant oxidative stress in cardiomyocytes.
 
     &#39;
   biological_processes:
@@ -5877,23 +6909,19 @@ pathophysiology:
     reference_title: &#34;The attenuated hepatic clearance of propionate increases cardiac oxidative stress in propionic acidemia.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
-    snippet: gut microbiome-derived propionate rather than the propiogenic amino acids (valine, isoleucine, threonine, and
-      methionine) or odd-chain fatty acids was found to be the primary cardiac propionyl-CoA source
+    snippet: gut microbiome-derived propionate rather than the propiogenic amino acids (valine, isoleucine, threonine, and methionine) or odd-chain fatty acids was found to be the primary cardiac propionyl-CoA source
     explanation: Identifies gut-derived propionate as the primary cardiac propionyl-CoA source.
   - reference: PMID:38992300
     reference_title: &#34;The attenuated hepatic clearance of propionate increases cardiac oxidative stress in propionic acidemia.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
-    snippet: Prolonged propionate exposure induced significant oxidative stress in PCCA knockdown HL-1 cells and the hearts
-      of Pcca-/-(A138T) mice.
+    snippet: Prolonged propionate exposure induced significant oxidative stress in PCCA knockdown HL-1 cells and the hearts of Pcca-/-(A138T) mice.
     explanation: Demonstrates cardiac oxidative stress from propionate exposure in PA models.
   downstream:
   - target: Cardiac multi-mechanism pathogenesis
     description: Persistent oxidative injury amplifies broader cardiac mitochondrial and electrophysiologic dysfunction mechanisms.
 - name: Renal mitochondrial quality control impairment
-  description: &#39;In a PA mouse model, kidneys show altered mitochondrial ultrastructure, shifted mitochondrial networks towards
-    fission, marked reduction of mitophagy, and steep reduction of PGC-1-alpha. These disturbances in mitochondrial homeostasis
-    and quality control are involved in chronic kidney disease development.
+  description: &#39;In a PA mouse model, kidneys show altered mitochondrial ultrastructure, shifted mitochondrial networks towards fission, marked reduction of mitophagy, and steep reduction of PGC-1-alpha. These disturbances in mitochondrial homeostasis and quality control are involved in chronic kidney disease development.
 
     &#39;
   biological_processes:
@@ -5926,13 +6954,24 @@ pathophysiology:
     reference_title: &#34;Renal phenotyping in a hypomorphic murine model of propionic aciduria reveals common pathomechanisms in organic acidurias.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
-    snippet: We observed a steep reduction of PGC-1-α, the key mediator modulating mitochondrial functions and a counter actor
-      of mitochondrial fission.
+    snippet: We observed a steep reduction of PGC-1-α, the key mediator modulating mitochondrial functions and a counter actor of mitochondrial fission.
     explanation: PGC-1-alpha reduction links mitochondrial dysfunction to CKD pathogenesis.
+  downstream:
+  - target: Chronic kidney disease
+    description: Impaired renal mitochondrial quality control drives progressive kidney dysfunction in PA.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Altered mitochondrial fission
+    - Reduced mitophagy
+    evidence:
+    - reference: PMID:39681572
+      reference_title: &#34;Renal phenotyping in a hypomorphic murine model of propionic aciduria reveals common pathomechanisms in organic acidurias.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: Our results suggest that impairment of mitochondrial homeostasis and quality control are involved in CKD development in PA.
+      explanation: Model-organism evidence directly links renal mitochondrial quality-control impairment to CKD development.
 - name: Cardiac multi-mechanism pathogenesis
-  description: &#39;Cardiac complications in PA involve multiple cellular pathways including impaired substrate delivery to TCA
-    cycle, secondary mitochondrial electron transport chain dysfunction, oxidative stress, coenzyme Q10 deficiency, metabolic
-    reprogramming, and carnitine deficiency.
+  description: &#39;Cardiac complications in PA involve multiple cellular pathways including impaired substrate delivery to TCA cycle, secondary mitochondrial electron transport chain dysfunction, oxidative stress, coenzyme Q10 deficiency, metabolic reprogramming, and carnitine deficiency.
 
     &#39;
   biological_processes:
@@ -5954,11 +6993,36 @@ pathophysiology:
   - reference: PMID:37110221
     reference_title: &#34;Understanding the Pathogenesis of Cardiac Complications in Patients with Propionic Acidemia and Exploring Therapeutic Alternatives for Those Who Are Not Eligible or Are Waiting for Liver Transplantation.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#39;12 potential disease-specific or non-disease-specific pathogenetic mechanisms, namely: impaired substrate delivery
-      to TCA cycle and TCA dysfunction, secondary mitochondrial electron transport chain dysfunction and oxidative stress,
-      coenzyme Q10 deficiency, metabolic reprogramming, carnitine deficiency, cardiac excitation-contraction coupling alteration&#39;
+    evidence_source: OTHER
+    snippet: &#39;12 potential disease-specific or non-disease-specific pathogenetic mechanisms, namely: impaired substrate delivery to TCA cycle and TCA dysfunction, secondary mitochondrial electron transport chain dysfunction and oxidative stress, coenzyme Q10 deficiency, metabolic reprogramming, carnitine deficiency, cardiac excitation-contraction coupling alteration&#39;
     explanation: Comprehensive review identifying multiple cardiac pathogenetic mechanisms in PA.
+  downstream:
+  - target: Dilated cardiomyopathy
+    description: PA cardiac mitochondrial and metabolic pathway disruption culminates in dilated cardiomyopathy.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Mitochondrial electron transport chain dysfunction
+    - Oxidative stress
+    - Coenzyme Q10 deficiency
+    evidence:
+    - reference: PMID:37110221
+      reference_title: &#34;Understanding the Pathogenesis of Cardiac Complications in Patients with Propionic Acidemia and Exploring Therapeutic Alternatives for Those Who Are Not Eligible or Are Waiting for Liver Transplantation.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#39;12 potential disease-specific or non-disease-specific pathogenetic mechanisms, namely: impaired substrate delivery to TCA cycle and TCA dysfunction, secondary mitochondrial electron transport chain dysfunction and oxidative stress, coenzyme Q10 deficiency, metabolic reprogramming, carnitine deficiency, cardiac excitation-contraction coupling alteration&#39;
+      explanation: Review evidence supports multiple PA cardiac mechanisms that can contribute to cardiomyopathy.
+  - target: Prolonged QT interval
+    description: Cardiac metabolic and excitation-contraction abnormalities provide the mechanistic basis for QT prolongation.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Cardiac excitation-contraction coupling alteration
+    evidence:
+    - reference: PMID:37110221
+      reference_title: &#34;Understanding the Pathogenesis of Cardiac Complications in Patients with Propionic Acidemia and Exploring Therapeutic Alternatives for Those Who Are Not Eligible or Are Waiting for Liver Transplantation.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#39;12 potential disease-specific or non-disease-specific pathogenetic mechanisms, namely: impaired substrate delivery to TCA cycle and TCA dysfunction, secondary mitochondrial electron transport chain dysfunction and oxidative stress, coenzyme Q10 deficiency, metabolic reprogramming, carnitine deficiency, cardiac excitation-contraction coupling alteration&#39;
+      explanation: Review evidence supports excitation-contraction and metabolic cardiac mechanisms relevant to QT prolongation.
 phenotypes:
 - name: Metabolic acidosis
   frequency: VERY_FREQUENT
@@ -5973,8 +7037,7 @@ phenotypes:
     reference_title: &#34;Proposed guidelines for the diagnosis and management of methylmalonic and propionic acidemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Patients present either shortly after birth with acute deterioration, metabolic acidosis and hyperammonemia or
-      later at any age with a more heterogeneous clinical picture
+    snippet: Patients present either shortly after birth with acute deterioration, metabolic acidosis and hyperammonemia or later at any age with a more heterogeneous clinical picture
     explanation: Directly supports metabolic acidosis as a frequent presenting phenotype.
 - name: Hyperammonemia
   frequency: FREQUENT
@@ -5989,8 +7052,7 @@ phenotypes:
     reference_title: &#34;Proposed guidelines for the diagnosis and management of methylmalonic and propionic acidemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Patients present either shortly after birth with acute deterioration, metabolic acidosis and hyperammonemia or
-      later at any age with a more heterogeneous clinical picture
+    snippet: Patients present either shortly after birth with acute deterioration, metabolic acidosis and hyperammonemia or later at any age with a more heterogeneous clinical picture
     explanation: Directly supports hyperammonemia during PA decompensation.
 - name: Vomiting
   frequency: FREQUENT
@@ -6005,8 +7067,7 @@ phenotypes:
     reference_title: &#34;Proposed guidelines for the diagnosis and management of methylmalonic and propionic acidemia.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
-    snippet: Patients present either shortly after birth with acute deterioration, metabolic acidosis and hyperammonemia or
-      later at any age with a more heterogeneous clinical picture
+    snippet: Patients present either shortly after birth with acute deterioration, metabolic acidosis and hyperammonemia or later at any age with a more heterogeneous clinical picture
     explanation: Acute deterioration in PA commonly includes gastrointestinal decompensation symptoms such as vomiting.
 - name: Lethargy
   frequency: FREQUENT
@@ -6021,8 +7082,7 @@ phenotypes:
     reference_title: &#34;Proposed guidelines for the diagnosis and management of methylmalonic and propionic acidemia.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
-    snippet: Patients present either shortly after birth with acute deterioration, metabolic acidosis and hyperammonemia or
-      later at any age with a more heterogeneous clinical picture
+    snippet: Patients present either shortly after birth with acute deterioration, metabolic acidosis and hyperammonemia or later at any age with a more heterogeneous clinical picture
     explanation: The severe acute decompensation phenotype is consistent with lethargy and reduced responsiveness.
 - name: Failure to thrive
   frequency: FREQUENT
@@ -6056,8 +7116,7 @@ phenotypes:
     explanation: Supports frequent long-term neurodevelopmental morbidity.
 - name: Dilated cardiomyopathy
   frequency: FREQUENT
-  description: &#39;Dilated cardiomyopathy is one of the most serious long-term complications of PA. In a cohort study, DCM was
-    observed in 17 of 23 PA patients with cardiac involvement.
+  description: &#39;Dilated cardiomyopathy is one of the most serious long-term complications of PA. In a cohort study, DCM was observed in 17 of 23 PA patients with cardiac involvement.
 
     &#39;
   phenotype_term:
@@ -6080,8 +7139,7 @@ phenotypes:
     explanation: Supports high cardiac morbidity in PA.
 - name: Prolonged QT interval
   frequency: FREQUENT
-  description: &#39;QTc prolongation is a recognized arrhythmia risk in PA, associated with metabolic decompensation and chronic
-    disease.
+  description: &#39;QTc prolongation is a recognized arrhythmia risk in PA, associated with metabolic decompensation and chronic disease.
 
     &#39;
   phenotype_term:
@@ -6093,15 +7151,12 @@ phenotypes:
   - reference: PMID:37110221
     reference_title: &#34;Understanding the Pathogenesis of Cardiac Complications in Patients with Propionic Acidemia and Exploring Therapeutic Alternatives for Those Who Are Not Eligible or Are Waiting for Liver Transplantation.&#34;
     supports: PARTIAL
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#39;12 potential disease-specific or non-disease-specific pathogenetic mechanisms, namely: impaired substrate delivery
-      to TCA cycle and TCA dysfunction, secondary mitochondrial electron transport chain dysfunction and oxidative stress,
-      coenzyme Q10 deficiency, metabolic reprogramming, carnitine deficiency, cardiac excitation-contraction coupling alteration&#39;
+    evidence_source: OTHER
+    snippet: &#39;12 potential disease-specific or non-disease-specific pathogenetic mechanisms, namely: impaired substrate delivery to TCA cycle and TCA dysfunction, secondary mitochondrial electron transport chain dysfunction and oxidative stress, coenzyme Q10 deficiency, metabolic reprogramming, carnitine deficiency, cardiac excitation-contraction coupling alteration&#39;
     explanation: Provides mechanistic pathways compatible with QTc risk but does not directly quantify prolonged QT in patients.
 - name: Intellectual disability
   frequency: FREQUENT
-  description: &#39;Intellectual disability is common in PA. In a dedicated natural history study, 61% of participants received
-    an ID diagnosis.
+  description: &#39;Intellectual disability is common in PA. In a dedicated natural history study, 61% of participants received an ID diagnosis.
 
     &#39;
   phenotype_term:
@@ -6120,13 +7175,11 @@ phenotypes:
     reference_title: &#34;Intellectual disability and autism in propionic acidemia: a biomarker-behavioral investigation implicating dysregulated mitochondrial biology.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Higher concentrations of plasma propionylcarnitine, plasma total 2-methylcitrate, serum erythropoietin, and mitochondrial
-      biomarkers plasma FGF21 and GDF15 were associated with a more severe ID profile.
+    snippet: Higher concentrations of plasma propionylcarnitine, plasma total 2-methylcitrate, serum erythropoietin, and mitochondrial biomarkers plasma FGF21 and GDF15 were associated with a more severe ID profile.
     explanation: Links metabolic/mitochondrial biomarkers to severity of intellectual disability.
 - name: Autism spectrum disorder
   frequency: FREQUENT
-  description: &#39;Autism spectrum disorder occurs in approximately 39% of PA patients. ASD was associated with increased serum
-    erythropoietin and decreased plasma glutamine.
+  description: &#39;Autism spectrum disorder occurs in approximately 39% of PA patients. ASD was associated with increased serum erythropoietin and decreased plasma glutamine.
 
     &#39;
   phenotype_term:
@@ -6156,13 +7209,11 @@ phenotypes:
     reference_title: &#34;Prevalence of propionic acidemia in China.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: intellectual disability, seizures, basal ganglia lesions, pancreatitis, cardiomyopathy, arrhythmias, adaptive
-      immune defects, rhabdomyolysis, optic atrophy, hearing loss, premature ovarian failure, and chronic kidney disease
+    snippet: intellectual disability, seizures, basal ganglia lesions, pancreatitis, cardiomyopathy, arrhythmias, adaptive immune defects, rhabdomyolysis, optic atrophy, hearing loss, premature ovarian failure, and chronic kidney disease
     explanation: Lists seizures among late-onset complications of PA.
 - name: Basal ganglia necrosis
   frequency: OCCASIONAL
-  description: &#39;Bilateral basal ganglia necrosis, particularly of the caudate and putamen, is a recognized neurological complication
-    of PA during metabolic decompensation.
+  description: &#39;Bilateral basal ganglia necrosis, particularly of the caudate and putamen, is a recognized neurological complication of PA during metabolic decompensation.
 
     &#39;
   phenotype_term:
@@ -6175,13 +7226,11 @@ phenotypes:
     reference_title: &#34;Prevalence of propionic acidemia in China.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: intellectual disability, seizures, basal ganglia lesions, pancreatitis, cardiomyopathy, arrhythmias, adaptive
-      immune defects, rhabdomyolysis, optic atrophy, hearing loss, premature ovarian failure, and chronic kidney disease
+    snippet: intellectual disability, seizures, basal ganglia lesions, pancreatitis, cardiomyopathy, arrhythmias, adaptive immune defects, rhabdomyolysis, optic atrophy, hearing loss, premature ovarian failure, and chronic kidney disease
     explanation: Lists basal ganglia lesions among late-onset complications.
 - name: Pancreatitis
   frequency: OCCASIONAL
-  description: &#39;Acute pancreatitis is a recognized complication of PA, occurring during or independent of metabolic decompensation
-    episodes.
+  description: &#39;Acute pancreatitis is a recognized complication of PA, occurring during or independent of metabolic decompensation episodes.
 
     &#39;
   phenotype_term:
@@ -6194,13 +7243,11 @@ phenotypes:
     reference_title: &#34;Prevalence of propionic acidemia in China.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: intellectual disability, seizures, basal ganglia lesions, pancreatitis, cardiomyopathy, arrhythmias, adaptive
-      immune defects, rhabdomyolysis, optic atrophy, hearing loss, premature ovarian failure, and chronic kidney disease
+    snippet: intellectual disability, seizures, basal ganglia lesions, pancreatitis, cardiomyopathy, arrhythmias, adaptive immune defects, rhabdomyolysis, optic atrophy, hearing loss, premature ovarian failure, and chronic kidney disease
     explanation: Lists pancreatitis among late-onset complications.
 - name: Chronic kidney disease
   frequency: OCCASIONAL
-  description: &#39;Progressive renal dysfunction is a long-term complication of PA. In mouse models, CKD involves mitochondrial
-    quality control impairment with disturbances in fission/mitophagy balance.
+  description: &#39;Progressive renal dysfunction is a long-term complication of PA. In mouse models, CKD involves mitochondrial quality control impairment with disturbances in fission/mitophagy balance.
 
     &#39;
   phenotype_term:
@@ -6213,15 +7260,13 @@ phenotypes:
     reference_title: &#34;Renal phenotyping in a hypomorphic murine model of propionic aciduria reveals common pathomechanisms in organic acidurias.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
-    snippet: Chronic kidney disease (CKD) is a known long-term complication. However, good metabolic control and standard
-      therapy fail to prevent CKD.
+    snippet: Chronic kidney disease (CKD) is a known long-term complication. However, good metabolic control and standard therapy fail to prevent CKD.
     explanation: Directly supports CKD as a recognized long-term complication of PA.
   - reference: PMID:37689673
     reference_title: &#34;Prevalence of propionic acidemia in China.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: intellectual disability, seizures, basal ganglia lesions, pancreatitis, cardiomyopathy, arrhythmias, adaptive
-      immune defects, rhabdomyolysis, optic atrophy, hearing loss, premature ovarian failure, and chronic kidney disease
+    snippet: intellectual disability, seizures, basal ganglia lesions, pancreatitis, cardiomyopathy, arrhythmias, adaptive immune defects, rhabdomyolysis, optic atrophy, hearing loss, premature ovarian failure, and chronic kidney disease
     explanation: Lists CKD among human PA complications.
 - name: Optic atrophy
   frequency: OCCASIONAL
@@ -6238,8 +7283,7 @@ phenotypes:
     reference_title: &#34;Prevalence of propionic acidemia in China.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: intellectual disability, seizures, basal ganglia lesions, pancreatitis, cardiomyopathy, arrhythmias, adaptive
-      immune defects, rhabdomyolysis, optic atrophy, hearing loss, premature ovarian failure, and chronic kidney disease
+    snippet: intellectual disability, seizures, basal ganglia lesions, pancreatitis, cardiomyopathy, arrhythmias, adaptive immune defects, rhabdomyolysis, optic atrophy, hearing loss, premature ovarian failure, and chronic kidney disease
     explanation: Lists optic atrophy among late-onset complications.
 - name: Hearing impairment
   frequency: OCCASIONAL
@@ -6256,8 +7300,7 @@ phenotypes:
     reference_title: &#34;Prevalence of propionic acidemia in China.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: intellectual disability, seizures, basal ganglia lesions, pancreatitis, cardiomyopathy, arrhythmias, adaptive
-      immune defects, rhabdomyolysis, optic atrophy, hearing loss, premature ovarian failure, and chronic kidney disease
+    snippet: intellectual disability, seizures, basal ganglia lesions, pancreatitis, cardiomyopathy, arrhythmias, adaptive immune defects, rhabdomyolysis, optic atrophy, hearing loss, premature ovarian failure, and chronic kidney disease
     explanation: Lists hearing loss among late-onset complications.
 - name: Rhabdomyolysis
   frequency: VERY_RARE
@@ -6274,14 +7317,12 @@ phenotypes:
     reference_title: &#34;Prevalence of propionic acidemia in China.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: intellectual disability, seizures, basal ganglia lesions, pancreatitis, cardiomyopathy, arrhythmias, adaptive
-      immune defects, rhabdomyolysis, optic atrophy, hearing loss, premature ovarian failure, and chronic kidney disease
+    snippet: intellectual disability, seizures, basal ganglia lesions, pancreatitis, cardiomyopathy, arrhythmias, adaptive immune defects, rhabdomyolysis, optic atrophy, hearing loss, premature ovarian failure, and chronic kidney disease
     explanation: Lists rhabdomyolysis among late-onset complications.
 biochemical:
 - name: Propionylcarnitine (C3)
   presence: INCREASED
-  context: &#39;Elevated C3-acylcarnitine is a hallmark diagnostic marker for PA, detectable on newborn screening and during metabolic
-    decompensation.
+  context: &#39;Elevated C3-acylcarnitine is a hallmark diagnostic marker for PA, detectable on newborn screening and during metabolic decompensation.
 
     &#39;
   evidence:
@@ -6289,13 +7330,11 @@ biochemical:
     reference_title: &#34;Prevalence of propionic acidemia in China.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Elevated propionylcarnitine, 2-methylcitric acid (2MCA), propionylglycine, glycine and 3-hydroxypropionate can
-      be used to diagnose PA.
+    snippet: Elevated propionylcarnitine, 2-methylcitric acid (2MCA), propionylglycine, glycine and 3-hydroxypropionate can be used to diagnose PA.
     explanation: Directly supports elevated propionylcarnitine as a diagnostic marker.
 - name: 2-Methylcitric acid
   presence: INCREASED
-  context: &#39;2-Methylcitrate is a characteristic metabolite of PA, reflecting propionyl-CoA entry into the TCA cycle via citrate
-    synthase.
+  context: &#39;2-Methylcitrate is a characteristic metabolite of PA, reflecting propionyl-CoA entry into the TCA cycle via citrate synthase.
 
     &#39;
   evidence:
@@ -6303,13 +7342,11 @@ biochemical:
     reference_title: &#34;Prevalence of propionic acidemia in China.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Elevated propionylcarnitine, 2-methylcitric acid (2MCA), propionylglycine, glycine and 3-hydroxypropionate can
-      be used to diagnose PA.
+    snippet: Elevated propionylcarnitine, 2-methylcitric acid (2MCA), propionylglycine, glycine and 3-hydroxypropionate can be used to diagnose PA.
     explanation: Directly supports elevated 2-methylcitric acid as a diagnostic marker.
 - name: Glycine
   presence: INCREASED
-  context: &#39;Elevated glycine is a classical feature of PA. Notably, plasma glycine was not meaningfully associated with intellectual
-    disability or ASD severity.
+  context: &#39;Elevated glycine is a classical feature of PA. Notably, plasma glycine was not meaningfully associated with intellectual disability or ASD severity.
 
     &#39;
   evidence:
@@ -6317,8 +7354,7 @@ biochemical:
     reference_title: &#34;Prevalence of propionic acidemia in China.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Elevated propionylcarnitine, 2-methylcitric acid (2MCA), propionylglycine, glycine and 3-hydroxypropionate can
-      be used to diagnose PA.
+    snippet: Elevated propionylcarnitine, 2-methylcitric acid (2MCA), propionylglycine, glycine and 3-hydroxypropionate can be used to diagnose PA.
     explanation: Supports elevated glycine as a diagnostic marker.
   - reference: PMID:38200289
     reference_title: &#34;Intellectual disability and autism in propionic acidemia: a biomarker-behavioral investigation implicating dysregulated mitochondrial biology.&#34;
@@ -6336,8 +7372,7 @@ biochemical:
     reference_title: &#34;Prevalence of propionic acidemia in China.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Elevated propionylcarnitine, 2-methylcitric acid (2MCA), propionylglycine, glycine and 3-hydroxypropionate can
-      be used to diagnose PA.
+    snippet: Elevated propionylcarnitine, 2-methylcitric acid (2MCA), propionylglycine, glycine and 3-hydroxypropionate can be used to diagnose PA.
     explanation: Directly supports elevated 3-hydroxypropionate as a diagnostic marker.
 - name: Propionylglycine
   presence: INCREASED
@@ -6349,13 +7384,11 @@ biochemical:
     reference_title: &#34;Prevalence of propionic acidemia in China.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Elevated propionylcarnitine, 2-methylcitric acid (2MCA), propionylglycine, glycine and 3-hydroxypropionate can
-      be used to diagnose PA.
+    snippet: Elevated propionylcarnitine, 2-methylcitric acid (2MCA), propionylglycine, glycine and 3-hydroxypropionate can be used to diagnose PA.
     explanation: Directly supports elevated propionylglycine as a diagnostic marker.
 - name: FGF21 and GDF15
   presence: INCREASED
-  context: &#39;Mitochondrial biomarkers FGF21 and GDF15 are elevated in PA and associated with more severe intellectual disability
-    profile, suggesting their potential as surrogate endpoints.
+  context: &#39;Mitochondrial biomarkers FGF21 and GDF15 are elevated in PA and associated with more severe intellectual disability profile, suggesting their potential as surrogate endpoints.
 
     &#39;
   notes: &#39;These are emerging mitochondrial stress biomarkers, not standard diagnostic markers for PA.
@@ -6366,42 +7399,86 @@ biochemical:
     reference_title: &#34;Intellectual disability and autism in propionic acidemia: a biomarker-behavioral investigation implicating dysregulated mitochondrial biology.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Higher concentrations of plasma propionylcarnitine, plasma total 2-methylcitrate, serum erythropoietin, and mitochondrial
-      biomarkers plasma FGF21 and GDF15 were associated with a more severe ID profile.
+    snippet: Higher concentrations of plasma propionylcarnitine, plasma total 2-methylcitrate, serum erythropoietin, and mitochondrial biomarkers plasma FGF21 and GDF15 were associated with a more severe ID profile.
     explanation: Demonstrates FGF21 and GDF15 elevation and association with ID severity.
 genetic:
-- name: PCCA or PCCB variants
+- name: PCCA pathogenic variants
+  gene_term:
+    preferred_term: PCCA
+    term:
+      id: hgnc:8653
+      label: PCCA
+  association: Pathogenic Variants
   inheritance:
   - name: Autosomal recessive
     evidence:
-    - reference: PMID:25205257
-      reference_title: &#34;Proposed guidelines for the diagnosis and management of methylmalonic and propionic acidemia.&#34;
-      supports: PARTIAL
-      evidence_source: HUMAN_CLINICAL
-      snippet: Methylmalonic and propionic acidemia (MMA/PA) are inborn errors of metabolism
-      explanation: Supports inherited etiology for PA. AR inheritance is well established but not explicitly stated in this snippet.
+    - reference: PMID:22593918
+      reference_title: &#34;Propionic Acidemia.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: PA is inherited in an autosomal recessive manner.
+      explanation: GeneReviews directly states autosomal recessive inheritance for propionic acidemia.
   variants:
-  - name: Various PCCA and PCCB pathogenic variants
-    description: &#39;PA results from biallelic pathogenic variants in PCCA (chromosome 13q32) or PCCB (chromosome 3q22.3), encoding
-      the alpha and beta subunits of propionyl-CoA carboxylase. Over 100 pathogenic variants have been described in each gene.
+  - name: Various PCCA pathogenic variants
+    description: &#39;PA can result from biallelic pathogenic variants in PCCA, encoding the alpha subunit of propionyl-CoA carboxylase. PCCA variants reduce PCC holoenzyme function and cause the PCCA complementation form of propionic acidemia.
 
       &#39;
-  features: &#39;Biallelic pathogenic variants in PCCA or PCCB reduce propionyl-CoA carboxylase activity and define propionic
-    acidemia. PCCA and PCCB mutations occur with approximately equal frequency.
+  features: &#39;Biallelic pathogenic variants in PCCA reduce propionyl-CoA carboxylase activity and define one major genetic form of propionic acidemia.
 
     &#39;
   evidence:
-  - reference: PMID:37482098
-    reference_title: &#34;Pathophysiological mechanisms of complications associated with propionic acidemia.&#34;
+  - reference: PMID:22593918
+    reference_title: &#34;Propionic Acidemia.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: Propionic acidemia (PA) is a genetic metabolic disorder caused by mutations in the mitochondrial enzyme, propionyl-CoA
-      carboxylase (PCC)
-    explanation: Directly supports genetic PCC defects as the causal mechanism.
+    evidence_source: OTHER
+    snippet: Confirmation of the diagnosis relies on detection of biallelic pathogenic variants in PCCA or PCCB by molecular genetic testing, or detection of deficient PCC enzymatic activity.
+    explanation: GeneReviews supports biallelic PCCA pathogenic variants as one molecular genetic basis of propionic acidemia.
+  - reference: CGGV:assertion_32a55e25-8632-4f31-84af-3eaf8098ca18-2018-12-13T170000.000Z
+    reference_title: &#34;PCCA / propionic acidemia (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;PCCA | HGNC:8653 | propionic acidemia | MONDO:0011628 | AR | Definitive&#34;
+    explanation: ClinGen classifies the PCCA-propionic acidemia gene-disease relationship as definitive with autosomal recessive inheritance.
+- name: PCCB pathogenic variants
+  gene_term:
+    preferred_term: PCCB
+    term:
+      id: hgnc:8654
+      label: PCCB
+  association: Pathogenic Variants
+  inheritance:
+  - name: Autosomal recessive
+    evidence:
+    - reference: PMID:22593918
+      reference_title: &#34;Propionic Acidemia.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: PA is inherited in an autosomal recessive manner.
+      explanation: GeneReviews directly states autosomal recessive inheritance for propionic acidemia.
+  variants:
+  - name: Various PCCB pathogenic variants
+    description: &#39;PA can result from biallelic pathogenic variants in PCCB, encoding the beta subunit of propionyl-CoA carboxylase. PCCB variants reduce PCC holoenzyme function and cause the PCCB complementation form of propionic acidemia.
+
+      &#39;
+  features: &#39;Biallelic pathogenic variants in PCCB reduce propionyl-CoA carboxylase activity and define one major genetic form of propionic acidemia.
+
+    &#39;
+  evidence:
+  - reference: PMID:22593918
+    reference_title: &#34;Propionic Acidemia.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: Confirmation of the diagnosis relies on detection of biallelic pathogenic variants in PCCA or PCCB by molecular genetic testing, or detection of deficient PCC enzymatic activity.
+    explanation: GeneReviews supports biallelic PCCB pathogenic variants as one molecular genetic basis of propionic acidemia.
+  - reference: CGGV:assertion_1cd49a9b-08c2-49db-8e97-e334f171e34d-2018-12-13T170000.000Z
+    reference_title: &#34;PCCB / propionic acidemia (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;PCCB | HGNC:8654 | propionic acidemia | MONDO:0011628 | AR | Definitive&#34;
+    explanation: ClinGen classifies the PCCB-propionic acidemia gene-disease relationship as definitive with autosomal recessive inheritance.
 treatments:
 - name: Protein-restricted diet
-  description: &#39;Restriction of propiogenic amino acids (valine, isoleucine, threonine, methionine) with specialized formula
-    support is the cornerstone of PA management.
+  description: &#39;Restriction of propiogenic amino acids (valine, isoleucine, threonine, methionine) with specialized formula support is the cornerstone of PA management.
 
     &#39;
   treatment_term:
@@ -6409,6 +7486,17 @@ treatments:
     term:
       id: MAXO:0000088
       label: dietary intervention
+  target_mechanisms:
+  - target: Toxic metabolite burden and mitochondrial stress
+    treatment_effect: MODULATES
+    description: Restricting propiogenic amino acid intake lowers substrate flux into the blocked PCC pathway and limits toxic metabolite production.
+    evidence:
+    - reference: PMID:22593918
+      reference_title: &#34;Propionic Acidemia.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Individualized dietary management should be directed by an experienced physician and metabolic dietician to control the intake of propiogenic substrates and to guide increased caloric intake during illness to prevent catabolism
+      explanation: GeneReviews directly supports dietary management as substrate-control therapy in PA.
   evidence:
   - reference: PMID:25205257
     reference_title: &#34;Proposed guidelines for the diagnosis and management of methylmalonic and propionic acidemia.&#34;
@@ -6425,6 +7513,17 @@ treatments:
     term:
       id: MAXO:0010006
       label: carnitine supplementation
+  target_mechanisms:
+  - target: Toxic metabolite burden and mitochondrial stress
+    treatment_effect: MODULATES
+    description: Carnitine supports detoxification of propionyl groups through propionylcarnitine formation and excretion.
+    evidence:
+    - reference: PMID:6725560
+      reference_title: &#34;L-carnitine enhances excretion of propionyl coenzyme A as propionylcarnitine in propionic acidemia.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Treatment with L-carnitine greatly enhanced the formation and excretion of short-chain acylcarnitines in three patients with propionic acidemia and in three normal controls.
+      explanation: Patient evidence supports carnitine-mediated acylcarnitine excretion in PA.
   evidence:
   - reference: PMID:25205257
     reference_title: &#34;Proposed guidelines for the diagnosis and management of methylmalonic and propionic acidemia.&#34;
@@ -6433,8 +7532,7 @@ treatments:
     snippet: despite the existence of apparently effective therapy with a low protein diet and carnitine.
     explanation: Directly supports carnitine supplementation in management of PA.
 - name: Carglumic acid (CGA)
-  description: &#39;Carglumic acid is a synthetic structural analog of N-acetylglutamate (NAG) approved for treatment of hyperammonemia
-    in PA. Chronic CGA use is associated with reduction in hyperammonemic decompensation episodes and hospital admissions.
+  description: &#39;Carglumic acid is a synthetic structural analog of N-acetylglutamate (NAG) approved for treatment of hyperammonemia in PA. Chronic CGA use is associated with reduction in hyperammonemic decompensation episodes and hospital admissions.
 
     &#39;
   treatment_term:
@@ -6442,20 +7540,29 @@ treatments:
     term:
       id: MAXO:0000058
       label: pharmacotherapy
+  target_mechanisms:
+  - target: Secondary NAG deficiency and hyperammonemia
+    treatment_effect: BYPASSES
+    description: Carglumic acid bypasses secondary NAG deficiency by stimulating the first step of the urea cycle and reducing hyperammonemia.
+    evidence:
+    - reference: PMID:30522498
+      reference_title: &#34;Hyperammonaemia in classic organic acidaemias: a review of the literature and two case histories.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Treatment with N-carbamyl-L-glutamate can rapidly normalise ammonia levels by stimulating the first step of the urea cycle.
+      explanation: The review describes the urea-cycle stimulation mechanism of carglumic acid/N-carbamyl-L-glutamate.
   evidence:
   - reference: PMID:39695809
     reference_title: &#34;Role of carglumic acid in the long-term management of propionic and methylmalonic acidurias.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Carglumic acid (CGA) is a synthetic structural analog of human NAG and is approved for the treatment of patients
-      with hyperammonemia due to PA or MMA.
+    snippet: Carglumic acid (CGA) is a synthetic structural analog of human NAG and is approved for the treatment of patients with hyperammonemia due to PA or MMA.
     explanation: Directly supports CGA as an approved treatment for hyperammonemia in PA.
   - reference: PMID:39695809
     reference_title: &#34;Role of carglumic acid in the long-term management of propionic and methylmalonic acidurias.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: the addition of CGA is associated with a reduction in hyperammonemic decompensation episodes and admission to
-      hospital, compared with conventional dietary treatment alone.
+    snippet: the addition of CGA is associated with a reduction in hyperammonemic decompensation episodes and admission to hospital, compared with conventional dietary treatment alone.
     explanation: Supports long-term benefit of CGA in reducing decompensation episodes.
 - name: Ammonia-lowering therapy
   description: &#39;Sodium benzoate or sodium phenylbutyrate for pharmacologic ammonia reduction during hyperammonemic episodes.
@@ -6466,16 +7573,26 @@ treatments:
     term:
       id: MAXO:0000058
       label: pharmacotherapy
+  target_mechanisms:
+  - target: Secondary NAG deficiency and hyperammonemia
+    treatment_effect: MODULATES
+    description: Nitrogen-scavenger pharmacotherapy lowers ammonia burden downstream of impaired ureagenesis.
+    evidence:
+    - reference: PMID:30522498
+      reference_title: &#34;Hyperammonaemia in classic organic acidaemias: a review of the literature and two case histories.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: It may also include the administration of ammonia scavengers such as sodium benzoate or sodium phenylbutyrate.
+      explanation: The organic-acidemia hyperammonemia review directly supports ammonia scavengers as therapy for this branch.
   evidence:
-  - reference: PMID:25205257
-    reference_title: &#34;Proposed guidelines for the diagnosis and management of methylmalonic and propionic acidemia.&#34;
-    supports: PARTIAL
-    evidence_source: HUMAN_CLINICAL
-    snippet: Patients present either shortly after birth with acute deterioration, metabolic acidosis and hyperammonemia
-    explanation: Presence of hyperammonemia supports use of ammonia-directed pharmacotherapy.
+  - reference: PMID:30522498
+    reference_title: &#34;Hyperammonaemia in classic organic acidaemias: a review of the literature and two case histories.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: It may also include the administration of ammonia scavengers such as sodium benzoate or sodium phenylbutyrate.
+    explanation: Directly supports ammonia scavengers as ammonia-lowering pharmacotherapy in organic acidemia hyperammonemia.
 - name: Acute decompensation management
-  description: &#39;Emergency supportive care with reversal of catabolism via high glucose infusion, cessation of protein intake,
-    and correction of metabolic acidosis.
+  description: &#39;Emergency supportive care with reversal of catabolism via high glucose infusion, cessation of protein intake, and correction of metabolic acidosis.
 
     &#39;
   treatment_term:
@@ -6483,16 +7600,36 @@ treatments:
     term:
       id: MAXO:0000950
       label: supportive care
+  target_mechanisms:
+  - target: Toxic metabolite burden and mitochondrial stress
+    treatment_effect: MODULATES
+    description: Emergency reversal of catabolism and temporary protein cessation reduce acute substrate-driven toxic metabolite production.
+    evidence:
+    - reference: PMID:22593918
+      reference_title: &#34;Propionic Acidemia.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: reverse catabolism by providing intravenous glucose and lipids; manage protein intake to reduce propiogenic precursors; remove toxic compounds using intravenous carnitine
+      explanation: GeneReviews directly supports reversal of catabolism, precursor reduction, and toxic-compound removal during acute PA management.
+  - target: Secondary NAG deficiency and hyperammonemia
+    treatment_effect: MODULATES
+    description: Acute decompensation protocols include correction of hyperammonemia during crises.
+    evidence:
+    - reference: PMID:30522498
+      reference_title: &#34;Hyperammonaemia in classic organic acidaemias: a review of the literature and two case histories.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Correcting metabolic imbalance and hyperammonaemia are critical to prevent brain damage in affected patients.
+      explanation: The review supports hyperammonemia correction as an acute management target in organic acidemias.
   evidence:
-  - reference: PMID:25205257
-    reference_title: &#34;Proposed guidelines for the diagnosis and management of methylmalonic and propionic acidemia.&#34;
+  - reference: PMID:22593918
+    reference_title: &#34;Propionic Acidemia.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: Patients present either shortly after birth with acute deterioration, metabolic acidosis and hyperammonemia
-    explanation: Supports crisis-focused supportive management during acute deterioration.
+    evidence_source: OTHER
+    snippet: The treatment of individuals with acutely decompensated PA is a medical emergency
+    explanation: GeneReviews supports emergency management for acute PA decompensation.
 - name: Liver transplantation
-  description: &#39;Considered for severe recurrent decompensation and poor metabolic control. LT improves metabolic stability
-    but does not fully correct the biochemical defect since PCC is expressed in extrahepatic tissues.
+  description: &#39;Considered for severe recurrent decompensation and poor metabolic control. LT improves metabolic stability but does not fully correct the biochemical defect since PCC is expressed in extrahepatic tissues.
 
     &#39;
   treatment_term:
@@ -6500,17 +7637,26 @@ treatments:
     term:
       id: MAXO:0001175
       label: liver transplantation
+  target_mechanisms:
+  - target: Toxic metabolite burden and mitochondrial stress
+    treatment_effect: MODULATES
+    description: Liver transplantation improves hepatic propionate handling and metabolic stability, while extrahepatic PCC deficiency remains.
+    evidence:
+    - reference: PMID:33093405
+      reference_title: &#34;Liver Transplantation for Propionic Acidemia: Evidence From a Systematic Review and Meta-analysis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The pooled estimate rates were 0.98 (95% CI, 0.88-1.00) for metabolic stability
+      explanation: Systematic-review evidence directly supports improved metabolic stability after liver transplantation.
   evidence:
   - reference: PMID:33093405
     reference_title: &#34;Liver Transplantation for Propionic Acidemia: Evidence From a Systematic Review and Meta-analysis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Despite the risk of transplant-related complications, LT is a viable therapeutic option in PA patients with satisfactory
-      survival rates and clinical outcomes.
+    snippet: Despite the risk of transplant-related complications, LT is a viable therapeutic option in PA patients with satisfactory survival rates and clinical outcomes.
     explanation: Directly supports liver transplantation as a viable option for selected PA patients.
 - name: Cardiac pharmacotherapy
-  description: &#39;Standard cardiac therapies including ACE inhibitors, beta-blockers, and coenzyme Q10 supplementation for management
-    of cardiomyopathy and QTc prolongation. Multicenter approaches are needed to strengthen efficacy data.
+  description: &#39;Standard cardiac therapies including ACE inhibitors, beta-blockers, and coenzyme Q10 supplementation for management of cardiomyopathy and QTc prolongation. Multicenter approaches are needed to strengthen efficacy data.
 
     &#39;
   treatment_term:
@@ -6518,17 +7664,26 @@ treatments:
     term:
       id: MAXO:0000058
       label: pharmacotherapy
+  target_mechanisms:
+  - target: Cardiac multi-mechanism pathogenesis
+    treatment_effect: MODULATES
+    description: Standard cardiac medications and coenzyme Q10 target the downstream cardiomyopathy and electrophysiology branch rather than the upstream PCC defect.
+    evidence:
+    - reference: PMID:37110221
+      reference_title: &#34;Understanding the Pathogenesis of Cardiac Complications in Patients with Propionic Acidemia and Exploring Therapeutic Alternatives for Those Who Are Not Eligible or Are Waiting for Liver Transplantation.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: The guidelines for the management of patients affected by propionic acidemia (PA) recommend standard cardiac therapy in the presence of cardiac complications.
+      explanation: The cardiac-complication guideline recommendation supports targeting the cardiac pathogenesis branch.
   evidence:
   - reference: PMID:37110221
     reference_title: &#34;Understanding the Pathogenesis of Cardiac Complications in Patients with Propionic Acidemia and Exploring Therapeutic Alternatives for Those Who Are Not Eligible or Are Waiting for Liver Transplantation.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: The guidelines for the management of patients affected by propionic acidemia (PA) recommend standard cardiac
-      therapy in the presence of cardiac complications.
+    evidence_source: OTHER
+    snippet: The guidelines for the management of patients affected by propionic acidemia (PA) recommend standard cardiac therapy in the presence of cardiac complications.
     explanation: Supports standard cardiac pharmacotherapy for PA cardiac complications.
 - name: Genetic counseling
-  description: &#39;Genetic counseling for affected families, including discussion of autosomal recessive inheritance, recurrence
-    risk, and prenatal testing options.
+  description: &#39;Genetic counseling for affected families, including discussion of autosomal recessive inheritance, recurrence risk, and prenatal testing options.
 
     &#39;
   treatment_term:
@@ -6544,8 +7699,7 @@ treatments:
     snippet: Methylmalonic and propionic acidemia (MMA/PA) are inborn errors of metabolism
     explanation: Genetic etiology of PA supports the role of genetic counseling for affected families.
 - name: Newborn screening
-  description: &#39;PA is detectable by newborn screening via tandem mass spectrometry using elevated C3-acylcarnitine as the
-    primary marker. Early detection allows initiation of treatment before clinical decompensation.
+  description: &#39;PA is detectable by newborn screening via tandem mass spectrometry using elevated C3-acylcarnitine as the primary marker. Early detection allows initiation of treatment before clinical decompensation.
 
     &#39;
   treatment_term:
@@ -6558,8 +7712,7 @@ treatments:
     reference_title: &#34;Prevalence of propionic acidemia in China.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Elevated propionylcarnitine, 2-methylcitric acid (2MCA), propionylglycine, glycine and 3-hydroxypropionate can
-      be used to diagnose PA.
+    snippet: Elevated propionylcarnitine, 2-methylcitric acid (2MCA), propionylglycine, glycine and 3-hydroxypropionate can be used to diagnose PA.
     explanation: Supports use of propionylcarnitine as newborn screening biomarker.
 </pre>
             </div>
@@ -6968,7 +8121,7 @@ mRNA therapy: The 2024 review reports an ongoing phase I/II trial of mRNA-3927 w
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Propionic Acidemia", "mondoId": "MONDO:0011628", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Propionic_Acidemia", "yamlRevision": "89a48ed4a146"};
+        const OS_CONFIG = {"diseaseName": "Propionic Acidemia", "mondoId": "MONDO:0011628", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Propionic_Acidemia", "yamlRevision": "b23a36b5c1c5"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

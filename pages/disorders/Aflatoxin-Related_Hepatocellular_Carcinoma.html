@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2629,7 +2782,7 @@
             
             <a class="stat-link" href="#references">
             <div class="stat-item">
-                <div class="stat-value">11</div>
+                <div class="stat-value">60</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
@@ -2637,7 +2790,7 @@
             
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
@@ -3882,6 +4035,7 @@
                 </div>
                 
                 
+                
     
     
             </div>
@@ -3893,6 +4047,7 @@
                 </div>
                 
                 
+                
     
     
             </div>
@@ -3902,6 +4057,7 @@
                     Urinary Aflatoxin Metabolites
                     
                 </div>
+                
                 
                 
     
@@ -3939,7 +4095,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Aflatoxin-Related Hepatocellular Carcinoma
 creation_date: &#39;2026-01-26T02:55:13Z&#39;
-updated_date: &#39;2026-04-11T21:17:25Z&#39;
+updated_date: &#39;2026-05-05T11:34:04Z&#39;
 description: &gt;-
   Aflatoxin-related hepatocellular carcinoma (HCC) is a form of liver cancer strongly
   associated with dietary exposure to aflatoxin B1 (AFB1), a mycotoxin produced by
@@ -4341,13 +4497,6 @@ references:
   findings:
   - statement: A mutation in codon 249 of the TP53 gene (249Ser), related to aflatoxin B1 exposure, has previously been associated with hepatocellular carcinoma risk.
     supporting_text: A mutation in codon 249 of the TP53 gene (249Ser), related to aflatoxin B1 exposure, has previously been associated with hepatocellular carcinoma risk.
-    evidence:
-    - reference: DOI:10.1158/1055-9965.epi-05-0612
-      reference_title: Quantitative Analysis of Plasma TP53 249Ser-Mutated DNA by Electrospray Ionization Mass Spectrometry
-      supports: SUPPORT
-      evidence_source: HUMAN_CLINICAL
-      snippet: A mutation in codon 249 of the TP53 gene (249Ser), related to aflatoxin B1 exposure, has previously been associated with hepatocellular carcinoma risk.
-      explanation: Deep research cited this publication as relevant literature for Aflatoxin Related HCC.
 - reference: DOI:10.1158/1055-9965.epi-08-1102
   title: &lt;i&gt;TP53 R249S&lt;/i&gt; Mutations, Exposure to Aflatoxin, and Occurrence of Hepatocellular Carcinoma in a Cohort of Chronic Hepatitis B Virus Carriers from Qidong, China
   found_in:
@@ -4355,13 +4504,6 @@ references:
   findings:
   - statement: Hepatocellular carcinoma (HCC) has a high mortality in East Asia and Sub-Saharan Africa, two regions where the main etiologic factors are chronic infections with hepatitis B virus and dietary exposure to aflatoxin.
     supporting_text: Hepatocellular carcinoma (HCC) has a high mortality in East Asia and Sub-Saharan Africa, two regions where the main etiologic factors are chronic infections with hepatitis B virus and dietary exposure to aflatoxin.
-    evidence:
-    - reference: DOI:10.1158/1055-9965.epi-08-1102
-      reference_title: &lt;i&gt;TP53 R249S&lt;/i&gt; Mutations, Exposure to Aflatoxin, and Occurrence of Hepatocellular Carcinoma in a Cohort of Chronic Hepatitis B Virus Carriers from Qidong, China
-      supports: SUPPORT
-      evidence_source: HUMAN_CLINICAL
-      snippet: Hepatocellular carcinoma (HCC) has a high mortality in East Asia and Sub-Saharan Africa, two regions where the main etiologic factors are chronic infections with hepatitis B virus and dietary exposure to aflatoxin.
-      explanation: Deep research cited this publication as relevant literature for Aflatoxin Related HCC.
 - reference: DOI:10.1289/ehp.1103539
   title: Seasonal Variation in &lt;i&gt;TP53 R249S&lt;/i&gt; -Mutated Serum DNA with Aflatoxin Exposure and Hepatitis B Virus Infection
   found_in:
@@ -4383,13 +4525,6 @@ references:
   findings:
   - statement: Aflatoxins are mycotoxins produced by Aspergillus flavus and several other related organisms and are common contaminants of numerous grains and nuts, especially maize (corn) and peanuts.
     supporting_text: Aflatoxins are mycotoxins produced by Aspergillus flavus and several other related organisms and are common contaminants of numerous grains and nuts, especially maize (corn) and peanuts.
-    evidence:
-    - reference: DOI:10.3390/toxins16110496
-      reference_title: &#39;65 Years on—Aflatoxin Biomarkers Blossoming: Whither Next?&#39;
-      supports: SUPPORT
-      evidence_source: HUMAN_CLINICAL
-      snippet: Aflatoxins are mycotoxins produced by Aspergillus flavus and several other related organisms and are common contaminants of numerous grains and nuts, especially maize (corn) and peanuts.
-      explanation: Deep research cited this publication as relevant literature for Aflatoxin Related HCC.
 - reference: DOI:10.3390/toxins17020079
   title: &#39;Fifty Years of Aflatoxin Research in Qidong, China: A Celebration of Team Science to Improve Public Health&#39;
   found_in:
@@ -4397,13 +4532,6 @@ references:
   findings:
   - statement: The Qidong Liver Cancer Institute (QDLCI) and the Qidong Cancer Registry were established in 1972 with input from doctors, other medical practitioners, and non-medical investigators arriving from urban centers such as Shanghai and Nanjing.
     supporting_text: The Qidong Liver Cancer Institute (QDLCI) and the Qidong Cancer Registry were established in 1972 with input from doctors, other medical practitioners, and non-medical investigators arriving from urban centers such as Shanghai and Nanjing.
-    evidence:
-    - reference: DOI:10.3390/toxins17020079
-      reference_title: &#39;Fifty Years of Aflatoxin Research in Qidong, China: A Celebration of Team Science to Improve Public Health&#39;
-      supports: SUPPORT
-      evidence_source: HUMAN_CLINICAL
-      snippet: The Qidong Liver Cancer Institute (QDLCI) and the Qidong Cancer Registry were established in 1972 with input from doctors, other medical practitioners, and non-medical investigators arriving from urban centers such as Shanghai and Nanjing.
-      explanation: Deep research cited this publication as relevant literature for Aflatoxin Related HCC.
 - reference: DOI:10.3390/toxins18020061
   title: &#39;Aflatoxin and Liver Cancer in China: The Evolving Research Landscape&#39;
   found_in:
@@ -4411,13 +4539,6 @@ references:
   findings:
   - statement: Aflatoxins, particularly aflatoxin B1 (AFB1), are among the most potent naturally occurring carcinogens and remain a major food-borne hazard in parts of Asia and Africa.
     supporting_text: Aflatoxins, particularly aflatoxin B1 (AFB1), are among the most potent naturally occurring carcinogens and remain a major food-borne hazard in parts of Asia and Africa.
-    evidence:
-    - reference: DOI:10.3390/toxins18020061
-      reference_title: &#39;Aflatoxin and Liver Cancer in China: The Evolving Research Landscape&#39;
-      supports: SUPPORT
-      evidence_source: HUMAN_CLINICAL
-      snippet: Aflatoxins, particularly aflatoxin B1 (AFB1), are among the most potent naturally occurring carcinogens and remain a major food-borne hazard in parts of Asia and Africa.
-      explanation: Deep research cited this publication as relevant literature for Aflatoxin Related HCC.
 - reference: DOI:10.3390/toxins18020090
   title: &#39;Aflatoxins and Human Health: Global Exposure, Disease Burden, and One Health Strategies&#39;
   found_in:
@@ -4425,13 +4546,347 @@ references:
   findings:
   - statement: Mycotoxin contamination represents a major public health and economic burden worldwide.
     supporting_text: Mycotoxin contamination represents a major public health and economic burden worldwide.
-    evidence:
-    - reference: DOI:10.3390/toxins18020090
-      reference_title: &#39;Aflatoxins and Human Health: Global Exposure, Disease Burden, and One Health Strategies&#39;
-      supports: SUPPORT
-      evidence_source: HUMAN_CLINICAL
-      snippet: Mycotoxin contamination represents a major public health and economic burden worldwide.
-      explanation: Deep research cited this publication as relevant literature for Aflatoxin Related HCC.
+- reference: PMID:11185536
+  title: Epidemiology of hepatocellular carcinoma.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2000 Sep;14(8):703-9. doi: 10.1155/2000/371801.&#39;
+    supporting_text: &#39;2000 Sep;14(8):703-9. doi: 10.1155/2000/371801.&#39;
+- reference: PMID:11470760
+  title: &#39;Genetic polymorphisms of glutathione S-transferases M1 and T1 associated with susceptibility to aflatoxin-related hepatocarcinogenesis among chronic hepatitis B carriers: a nested case-control study in Taiwan.&#39;
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2001 Aug;22(8):1289-94. doi: 10.1093/carcin/22.8.1289.&#39;
+    supporting_text: &#39;2001 Aug;22(8):1289-94. doi: 10.1093/carcin/22.8.1289.&#39;
+- reference: PMID:11525595
+  title: Associations of plasma aflatoxin B1-albumin adduct level with plasma selenium level and genetic polymorphisms of glutathione S-transferase M1 and T1.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2000;38(2):179-85. doi: 10.1207/S15327914NC382_6.&#39;
+    supporting_text: &#39;2000;38(2):179-85. doi: 10.1207/S15327914NC382_6.&#39;
+- reference: PMID:11783914
+  title: &#39;Hepatocellular carcinoma: an update.&#39;
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2001 Nov-Dec;25(6):497-516. doi: 10.1080/019131201753343539.&#39;
+    supporting_text: &#39;2001 Nov-Dec;25(6):497-516. doi: 10.1080/019131201753343539.&#39;
+- reference: PMID:12534775
+  title: &#39;The role of aflatoxins and hepatitis viruses in the etiopathogenesis of hepatocellular carcinoma: A basis for primary prevention in Guinea-Conakry, West Africa.&#39;
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2002 Dec;17 Suppl:S441-8. doi: 10.1046/j.1440-1746.17.s4.7.x.&#39;
+    supporting_text: &#39;2002 Dec;17 Suppl:S441-8. doi: 10.1046/j.1440-1746.17.s4.7.x.&#39;
+- reference: PMID:15508099
+  title: Chemoprevention of hepatocellular carcinoma in aflatoxin endemic areas.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2004 Nov;127(5 Suppl 1):S310-8. doi: 10.1053/j.gastro.2004.09.046.&#39;
+    supporting_text: &#39;2004 Nov;127(5 Suppl 1):S310-8. doi: 10.1053/j.gastro.2004.09.046.&#39;
+- reference: PMID:15734960
+  title: Hepatocellular carcinoma and polymorphisms in carcinogen-metabolizing and DNA repair enzymes in a population with aflatoxin exposure and hepatitis B virus endemicity.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2005 Feb;14(2):373-9. doi: 10.1158/1055-9965.EPI-04-0161.&#39;
+    supporting_text: &#39;2005 Feb;14(2):373-9. doi: 10.1158/1055-9965.EPI-04-0161.&#39;
+- reference: PMID:16536303
+  title: &#39;[Study on the detoxication gene gstM1-gstT1-null and susceptibility to aflatoxin B1 related hepatocellular carcinoma in Guangxi].&#39;
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: 2005 Oct;26(10):777-81. [Study on the detoxication gene gstM1-gstT1-null and susceptibility to aflatoxin B1 related hepatocellular carcinoma in Guangxi]. [Article in Chinese] Long XD(1), Ma Y, Wei YP, Deng ZL.
+    supporting_text: 2005 Oct;26(10):777-81. [Study on the detoxication gene gstM1-gstT1-null and susceptibility to aflatoxin B1 related hepatocellular carcinoma in Guangxi]. [Article in Chinese] Long XD(1), Ma Y, Wei YP, Deng ZL.
+- reference: PMID:16799619
+  title: Genetics of hepatocellular tumors.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2006 Jun 26;25(27):3778-86. doi: 10.1038/sj.onc.1209547.&#39;
+    supporting_text: &#39;2006 Jun 26;25(27):3778-86. doi: 10.1038/sj.onc.1209547.&#39;
+- reference: PMID:16884947
+  title: The polymorphisms of GSTM1, GSTT1, HYL1*2, and XRCC1, and aflatoxin B1-related hepatocellular carcinoma in Guangxi population, China.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2006 Sep;36(1):48-55. doi: 10.1016/j.hepres.2006.06.004.&#39;
+    supporting_text: &#39;2006 Sep;36(1):48-55. doi: 10.1016/j.hepres.2006.06.004.&#39;
+- reference: PMID:19345001
+  title: &#39;A model of interaction: aflatoxins and hepatitis viruses in liver cancer aetiology and prevention.&#39;
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2009 Dec 1;286(1):22-8. doi: 10.1016/j.canlet.2009.02.053.&#39;
+    supporting_text: &#39;2009 Dec 1;286(1):22-8. doi: 10.1016/j.canlet.2009.02.053.&#39;
+- reference: PMID:20172840
+  title: &#39;Global burden of aflatoxin-induced hepatocellular carcinoma: a risk assessment.&#39;
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: Hepatocellular carcinoma (HCC), or liver cancer, is the third leading cause of cancer deaths worldwide, with prevalence 16-32 times higher in developing countries than in developed countries.
+    supporting_text: Hepatocellular carcinoma (HCC), or liver cancer, is the third leading cause of cancer deaths worldwide, with prevalence 16-32 times higher in developing countries than in developed countries.
+- reference: PMID:20538734
+  title: &#39;Effects of the TP53 p.R249S mutant on proliferation and clonogenic properties in human hepatocellular carcinoma cell lines: interaction with hepatitis B virus X protein.&#39;
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2010 Aug;31(8):1475-82. doi: 10.1093/carcin/bgq118.&#39;
+    supporting_text: &#39;2010 Aug;31(8):1475-82. doi: 10.1093/carcin/bgq118.&#39;
+- reference: PMID:20547305
+  title: The changing pattern of epidemiology in hepatocellular carcinoma.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2010 Jul;42 Suppl 3(Suppl 3):S206-14. doi: 10.1016/S1590-8658(10)60507-5.&#39;
+    supporting_text: &#39;2010 Jul;42 Suppl 3(Suppl 3):S206-14. doi: 10.1016/S1590-8658(10)60507-5.&#39;
+- reference: PMID:24299315
+  title: Transcriptome profiling of malignant transformed rat hepatic stem-like cells by aflatoxin B1.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2014;61(2):193-204. doi: 10.4149/neo_2014_025.&#39;
+    supporting_text: &#39;2014;61(2):193-204. doi: 10.4149/neo_2014_025.&#39;
+- reference: PMID:2430432
+  title: Epidemiology and early diagnosis of primary liver cancer in China.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: Epidemiological studies in different areas in China have revealed several outstanding risk factors of PLC, i.e., HBV infection, pollution of drinking water, contamination of food by AFB1 and/or nitrosamines, and family predisposition.
+    supporting_text: Epidemiological studies in different areas in China have revealed several outstanding risk factors of PLC, i.e., HBV infection, pollution of drinking water, contamination of food by AFB1 and/or nitrosamines, and family predisposition.
+- reference: PMID:24399650
+  title: Quantitative assessment of the effect of glutathione S-transferase genes GSTM1 and GSTT1 on hepatocellular carcinoma risk.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2014 May;35(5):4007-15. doi: 10.1007/s13277-013-1524-2.&#39;
+    supporting_text: &#39;2014 May;35(5):4007-15. doi: 10.1007/s13277-013-1524-2.&#39;
+- reference: PMID:24736102
+  title: Mutation spectrum of hepatocellular carcinoma from eastern-European patients betrays the impact of a complex exposome.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2015 May;25(3):256-63. doi: 10.1038/jes.2014.16.&#39;
+    supporting_text: &#39;2015 May;25(3):256-63. doi: 10.1038/jes.2014.16.&#39;
+- reference: PMID:25421688
+  title: Detection of epigenetic aberrations in the development of hepatocellular carcinoma.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2015;1238:709-31. doi: 10.1007/978-1-4939-1804-1_37.&#39;
+    supporting_text: &#39;2015;1238:709-31. doi: 10.1007/978-1-4939-1804-1_37.&#39;
+- reference: PMID:25921147
+  title: Purple rice bran extract attenuates the aflatoxin B1-induced initiation stage of hepatocarcinogenesis by alteration of xenobiotic metabolizing enzymes.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2015;16(8):3371-6. doi: 10.7314/apjcp.2015.16.8.3371.&#39;
+    supporting_text: &#39;2015;16(8):3371-6. doi: 10.7314/apjcp.2015.16.8.3371.&#39;
+- reference: PMID:25987009
+  title: Current trends and recent advances in diagnosis, therapy, and prevention of hepatocellular carcinoma.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2015;16(9):3595-604. doi: 10.7314/apjcp.2015.16.9.3595.&#39;
+    supporting_text: &#39;2015;16(9):3595-604. doi: 10.7314/apjcp.2015.16.9.3595.&#39;
+- reference: PMID:26035378
+  title: Molecular characterization of hepatocarcinogenesis using mouse models.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2015 Jul 1;8(7):743-53. doi: 10.1242/dmm.017624.&#39;
+    supporting_text: &#39;2015 Jul 1;8(7):743-53. doi: 10.1242/dmm.017624.&#39;
+- reference: PMID:27430420
+  title: Sequential dietary exposure to aflatoxin B1 and fumonisin B1 in F344 rats increases liver preneoplastic changes indicative of a synergistic interaction.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2016 Sep;95:188-95. doi: 10.1016/j.fct.2016.07.017.&#39;
+    supporting_text: &#39;2016 Sep;95:188-95. doi: 10.1016/j.fct.2016.07.017.&#39;
+- reference: PMID:27508181
+  title: &#39;Hepatocellular carcinoma: epidemiology and risk factors.&#39;
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2014 Aug 13;1:115-25. doi: 10.2147/JHC.S44381. eCollection 2014.&#39;
+    supporting_text: &#39;2014 Aug 13;1:115-25. doi: 10.2147/JHC.S44381. eCollection 2014.&#39;
+- reference: PMID:28114823
+  title: Comparison of urinary aflatoxin M1 and aflatoxin albumin adducts as biomarkers for assessing aflatoxin exposure in Tanzanian children.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2018 Mar;23(2):131-136. doi: 10.1080/1354750X.2017.1285960.&#39;
+    supporting_text: &#39;2018 Mar;23(2):131-136. doi: 10.1080/1354750X.2017.1285960.&#39;
+- reference: PMID:28973694
+  title: &#34;Editor&#39;s Highlight: Pregnancy Alters Aflatoxin B1 Metabolism and Increases DNA Damage in Mouse Liver.&#34;
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2017 Nov 1;160(1):173-179. doi: 10.1093/toxsci/kfx171.&#39;
+    supporting_text: &#39;2017 Nov 1;160(1):173-179. doi: 10.1093/toxsci/kfx171.&#39;
+- reference: PMID:29225033
+  title: Mutant p53 Gains Its Function via c-Myc Activation upon CDK4 Phosphorylation at Serine 249 and Consequent PIN1 Binding.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2017 Dec 21;68(6):1134-1146.e6. doi: 10.1016/j.molcel.2017.11.006.&#39;
+    supporting_text: &#39;2017 Dec 21;68(6):1134-1146.e6. doi: 10.1016/j.molcel.2017.11.006.&#39;
+- reference: PMID:29749584
+  title: Droplet digital PCR detects high rate of TP53 R249S mutants in cell-free DNA of middle African patients with hepatocellular carcinoma.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2018 Aug;18(3):421-431. doi: 10.1007/s10238-018-0502-9.&#39;
+    supporting_text: &#39;2018 Aug;18(3):421-431. doi: 10.1007/s10238-018-0502-9.&#39;
+- reference: PMID:30045675
+  title: Exome Sequencing of Fresh-frozen or Formalin-fixed Paraffin-embedded B6C3F1/N Mouse Hepatocellular Carcinomas Arising Either Spontaneously or due to Chronic Chemical Exposure.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2018 Aug;46(6):706-718. doi: 10.1177/0192623318789398.&#39;
+    supporting_text: &#39;2018 Aug;46(6):706-718. doi: 10.1177/0192623318789398.&#39;
+- reference: PMID:30304666
+  title: &#39;Epigenetic alterations caused by aflatoxin b1: a public health risk in the induction of hepatocellular carcinoma.&#39;
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2019 Feb;204:51-71. doi: 10.1016/j.trsl.2018.09.001.&#39;
+    supporting_text: &#39;2019 Feb;204:51-71. doi: 10.1016/j.trsl.2018.09.001.&#39;
+- reference: PMID:31747859
+  title: Co-targeting p53-R249S and CDK4 synergistically suppresses survival of hepatocellular carcinoma cells.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2020;21(3):269-277. doi: 10.1080/15384047.2019.1685289.&#39;
+    supporting_text: &#39;2020;21(3):269-277. doi: 10.1080/15384047.2019.1685289.&#39;
+- reference: PMID:33457005
+  title: Genome-wide association study of the TP53 R249S mutation in hepatocellular carcinoma with aflatoxin B1 exposure and infection with hepatitis B virus.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: Exposure to dietary aflatoxin B1 (AFB1) induces DNA damage and mutation in the TP53 gene at codon 249, known as the TP53 R249S mutation, and is a major risk factor for hepatocellular carcinoma (HCC).
+    supporting_text: Exposure to dietary aflatoxin B1 (AFB1) induces DNA damage and mutation in the TP53 gene at codon 249, known as the TP53 R249S mutation, and is a major risk factor for hepatocellular carcinoma (HCC).
+- reference: PMID:35438902
+  title: Aflatoxin levels and prevalence of TP53 aflatoxin-mutations in hepatocellular carcinomas in Mexico.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2022 Feb 25;64(1):35-40. doi: 10.21149/13189.&#39;
+    supporting_text: &#39;2022 Feb 25;64(1):35-40. doi: 10.21149/13189.&#39;
+- reference: PMID:35470382
+  title: Aflatoxin M1 in milk does not contribute substantially to global liver cancer incidence.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: For 60 y, it has been known that aflatoxin B1 (AFB1), a mycotoxin produced by Aspergillus fungi in certain food and feed crops, causes hepatocellular carcinoma (liver cancer; HCC) in humans.
+    supporting_text: For 60 y, it has been known that aflatoxin B1 (AFB1), a mycotoxin produced by Aspergillus fungi in certain food and feed crops, causes hepatocellular carcinoma (liver cancer; HCC) in humans.
+- reference: PMID:36851773
+  title: Genetic Susceptibility to Hepatocellular Carcinoma in Patients with Chronic Hepatitis Virus Infection.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2023 Feb 17;15(2):559. doi: 10.3390/v15020559.&#39;
+    supporting_text: &#39;2023 Feb 17;15(2):559. doi: 10.3390/v15020559.&#39;
+- reference: PMID:37589044
+  title: The role of lenvatinib in the era of immunotherapy of hepatocellular carcinoma.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2023 Sep;23(2):262-271. doi: 10.17998/jlc.2023.07.17.&#39;
+    supporting_text: &#39;2023 Sep;23(2):262-271. doi: 10.17998/jlc.2023.07.17.&#39;
+- reference: PMID:37774068
+  title: Low Frequency of Aflatoxin Induced TP53 Gene Codon 249 Mutation in Hepatocellular Carcinoma from Egyptian Patients Living in the Nile Delta Region.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2023 Sep 1;24(9):3165-3168. doi: 10.31557/APJCP.2023.24.9.3165.&#39;
+    supporting_text: &#39;2023 Sep 1;24(9):3165-3168. doi: 10.31557/APJCP.2023.24.9.3165.&#39;
+- reference: PMID:38751554
+  title: &#39;Balancing Efficacy and Tolerability of First-Line Systemic Therapies for Advanced Hepatocellular Carcinoma: A Network Meta-Analysis.&#39;
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: Atezolizumab + bevacizumab represent the current standard of care for first-line treatment of advanced hepatocellular carcinoma (HCC).
+    supporting_text: Atezolizumab + bevacizumab represent the current standard of care for first-line treatment of advanced hepatocellular carcinoma (HCC).
+- reference: PMID:38927059
+  title: Molecular Mechanisms in Tumorigenesis of Hepatocellular Carcinoma and in Target Treatments-An Overview.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2024 Jun 4;14(6):656. doi: 10.3390/biom14060656.&#39;
+    supporting_text: &#39;2024 Jun 4;14(6):656. doi: 10.3390/biom14060656.&#39;
+- reference: PMID:39824452
+  title: AFB1 consolidates HBV harm to induce liver injury and carcinogenic risk by inactivating FTCD-AS1-PXR-MASP1 axis.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2025 Feb;511:154057. doi: 10.1016/j.tox.2025.154057.&#39;
+    supporting_text: &#39;2025 Feb;511:154057. doi: 10.1016/j.tox.2025.154057.&#39;
+- reference: PMID:40082982
+  title: A real-world study of the efficacy of second-line treatment of unresectable hepatocellular carcinoma with esophagogastric varices after progression on first-line lenvatinib combined with PD-1 inhibitor.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2025 Mar 13;23(1):83. doi: 10.1186/s12957-025-03742-0.&#39;
+    supporting_text: &#39;2025 Mar 13;23(1):83. doi: 10.1186/s12957-025-03742-0.&#39;
+- reference: PMID:40250564
+  title: &#39;Impact of Probiotic Lacticaseibacillus paracasei Strain Shirota (LcS) on Aflatoxin Exposure among Healthy Malaysian Adults: A Randomized, Double-Blind, Placebo-Controlled Intervention Study.&#39;
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: Limited evidence suggests that probiotic Lacticaseibacillus paracasei strain Shirota (LcS) may reduce aflatoxin exposure in Malaysians, though individual factors influencing aflatoxin exposure remain unclear.
+    supporting_text: Limited evidence suggests that probiotic Lacticaseibacillus paracasei strain Shirota (LcS) may reduce aflatoxin exposure in Malaysians, though individual factors influencing aflatoxin exposure remain unclear.
+- reference: PMID:40344782
+  title: HBV-induced N6 methyladenosine modification of PARP1 enhanced AFB1-related DNA damage and synergistically contribute to HCC.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2025 Jun 15;298:118254. doi: 10.1016/j.ecoenv.2025.118254.&#39;
+    supporting_text: &#39;2025 Jun 15;298:118254. doi: 10.1016/j.ecoenv.2025.118254.&#39;
+- reference: PMID:40711142
+  title: &#39;Toxicity, Mitigation, and Chemical Analysis of Aflatoxins and Other Toxic Metabolites Produced by Aspergillus: A Comprehensive Review.&#39;
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2025 Jun 30;17(7):331. doi: 10.3390/toxins17070331.&#39;
+    supporting_text: &#39;2025 Jun 30;17(7):331. doi: 10.3390/toxins17070331.&#39;
+- reference: PMID:40789982
+  title: Aflatoxin B1 Promotes M2-like Macrophage Polarization via IL-6 Expression in Hepatocellular Carcinoma.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: The development of liver cancer in China is mainly caused by HBV, HCV infection, and exposure to aflatoxin.
+    supporting_text: The development of liver cancer in China is mainly caused by HBV, HCV infection, and exposure to aflatoxin.
+- reference: PMID:41201177
+  title: Recent Advancements in Known and Emerging Risk Factors of Hepatocellular Carcinoma.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: Hepatocellular carcinoma (HCC) is the most common primary liver malignancy and a leading cause of cancer-related deaths worldwide.
+    supporting_text: Hepatocellular carcinoma (HCC) is the most common primary liver malignancy and a leading cause of cancer-related deaths worldwide.
+- reference: PMID:41585427
+  title: Proton Radiotherapy Alone versus Combined with Immunotherapies or Tyrosine Kinase Inhibitors for Barcelona Clinic Liver Cancer Stage B or C Hepatocellular Carcinoma.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: Proton Radiotherapy Alone versus Combined with Immunotherapies or Tyrosine Kinase Inhibitors for Barcelona Clinic Liver Cancer Stage B or C Hepatocellular Carcinoma
+    supporting_text: Hsieh RC(1)(2)(3)(4)(5)(6), Chen WP(1), Lee JC(7), Lin CH(1)(8), Chang YC(1), Lee CW(7), Chan KM(7), Hung HC(7), Kuo T(9), Lin SY(10), Chen TC(11), Wu TJ(7), Su CW(9), Chou HS(7), Cheng CH(7), Hsieh YC(9), Huang CY(12), Tran KC(1)(2), Welsh J(13), Hsieh JC(12).
+- reference: PMID:8261428
+  title: Role of human microsomal and human complementary DNA-expressed cytochromes P4501A2 and P4503A4 in the bioactivation of aflatoxin B1.
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-openscientist.md
+  findings:
+  - statement: Gallagher EP(1), Wienkers LC, Stapleton PL, Kunze KL, Eaton DL.
+    supporting_text: Gallagher EP(1), Wienkers LC, Stapleton PL, Kunze KL, Eaton DL.
+- reference: DOI:10.3390/jox15040096
+  title: Cooperation Between Aflatoxin-Induced p53 Aberrations and Hepatitis B Virus in Hepatocellular Carcinoma
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-falcon.md
+  findings: []
 </pre>
             </div>
         </div>
@@ -4447,7 +4902,7 @@ references:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">11</span>
+                    <span class="card-count">60</span>
                 </div>
                 
                 <div class="reference-entry">
@@ -4589,36 +5044,6 @@ references:
             
             
     
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.1158/1055-9965.epi-05-0612" target="_blank">DOI:10.1158/1055-9965.epi-05-0612</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"A mutation in codon 249 of the TP53 gene (249Ser), related to aflatoxin B1 exposure, has previously been associated with hepatocellular carcinoma risk."</div>
-                
-                
-                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Aflatoxin Related HCC.</div>
-                
-            </div>
-            
-            
-        </div>
-    </details>
-    
     
         </div>
         
@@ -4655,36 +5080,6 @@ references:
             <div class="reference-finding-supporting">"Hepatocellular carcinoma (HCC) has a high mortality in East Asia and Sub-Saharan Africa, two regions where the main etiologic factors are chronic infections with hepatitis B virus and dietary exposure to aflatoxin."</div>
             
             
-    
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.1158/1055-9965.epi-08-1102" target="_blank">DOI:10.1158/1055-9965.epi-08-1102</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"Hepatocellular carcinoma (HCC) has a high mortality in East Asia and Sub-Saharan Africa, two regions where the main etiologic factors are chronic infections with hepatitis B virus and dietary exposure to aflatoxin."</div>
-                
-                
-                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Aflatoxin Related HCC.</div>
-                
-            </div>
-            
-            
-        </div>
-    </details>
     
     
         </div>
@@ -4797,36 +5192,6 @@ references:
             
             
     
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.3390/toxins16110496" target="_blank">DOI:10.3390/toxins16110496</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"Aflatoxins are mycotoxins produced by Aspergillus flavus and several other related organisms and are common contaminants of numerous grains and nuts, especially maize (corn) and peanuts."</div>
-                
-                
-                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Aflatoxin Related HCC.</div>
-                
-            </div>
-            
-            
-        </div>
-    </details>
-    
     
         </div>
         
@@ -4863,36 +5228,6 @@ references:
             <div class="reference-finding-supporting">"The Qidong Liver Cancer Institute (QDLCI) and the Qidong Cancer Registry were established in 1972 with input from doctors, other medical practitioners, and non-medical investigators arriving from urban centers such as Shanghai and Nanjing."</div>
             
             
-    
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.3390/toxins17020079" target="_blank">DOI:10.3390/toxins17020079</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"The Qidong Liver Cancer Institute (QDLCI) and the Qidong Cancer Registry were established in 1972 with input from doctors, other medical practitioners, and non-medical investigators arriving from urban centers such as Shanghai and Nanjing."</div>
-                
-                
-                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Aflatoxin Related HCC.</div>
-                
-            </div>
-            
-            
-        </div>
-    </details>
     
     
         </div>
@@ -4931,36 +5266,6 @@ references:
             
             
     
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.3390/toxins18020061" target="_blank">DOI:10.3390/toxins18020061</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"Aflatoxins, particularly aflatoxin B1 (AFB1), are among the most potent naturally occurring carcinogens and remain a major food-borne hazard in parts of Asia and Africa."</div>
-                
-                
-                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Aflatoxin Related HCC.</div>
-                
-            </div>
-            
-            
-        </div>
-    </details>
-    
     
         </div>
         
@@ -4998,35 +5303,42 @@ references:
             
             
     
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.3390/toxins18020090" target="_blank">DOI:10.3390/toxins18020090</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+    
+        </div>
+        
+    </div>
+    
+    
                     
                 </div>
                 
-                <div class="evidence-snippet">"Mycotoxin contamination represents a major public health and economic burden worldwide."</div>
-                
-                
-                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Aflatoxin Related HCC.</div>
-                
-            </div>
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/11185536" target="_blank">PMID:11185536</a>
+                            </div>
+                            
+                            <div class="reference-title">Epidemiology of hepatocellular carcinoma.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2000 Sep;14(8):703-9. doi: 10.1155/2000/371801.</div>
             
             
-        </div>
-    </details>
+            <div class="reference-finding-supporting">"2000 Sep;14(8):703-9. doi: 10.1155/2000/371801."</div>
+            
+            
     
     
         </div>
@@ -5037,13 +5349,1769 @@ references:
                     
                 </div>
                 
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/11470760" target="_blank">PMID:11470760</a>
+                            </div>
+                            
+                            <div class="reference-title">Genetic polymorphisms of glutathione S-transferases M1 and T1 associated with susceptibility to aflatoxin-related hepatocarcinogenesis among chronic hepatitis B carriers: a nested case-control study in Taiwan.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2001 Aug;22(8):1289-94. doi: 10.1093/carcin/22.8.1289.</div>
+            
+            
+            <div class="reference-finding-supporting">"2001 Aug;22(8):1289-94. doi: 10.1093/carcin/22.8.1289."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/11525595" target="_blank">PMID:11525595</a>
+                            </div>
+                            
+                            <div class="reference-title">Associations of plasma aflatoxin B1-albumin adduct level with plasma selenium level and genetic polymorphisms of glutathione S-transferase M1 and T1.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2000;38(2):179-85. doi: 10.1207/S15327914NC382_6.</div>
+            
+            
+            <div class="reference-finding-supporting">"2000;38(2):179-85. doi: 10.1207/S15327914NC382_6."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/11783914" target="_blank">PMID:11783914</a>
+                            </div>
+                            
+                            <div class="reference-title">Hepatocellular carcinoma: an update.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2001 Nov-Dec;25(6):497-516. doi: 10.1080/019131201753343539.</div>
+            
+            
+            <div class="reference-finding-supporting">"2001 Nov-Dec;25(6):497-516. doi: 10.1080/019131201753343539."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/12534775" target="_blank">PMID:12534775</a>
+                            </div>
+                            
+                            <div class="reference-title">The role of aflatoxins and hepatitis viruses in the etiopathogenesis of hepatocellular carcinoma: A basis for primary prevention in Guinea-Conakry, West Africa.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2002 Dec;17 Suppl:S441-8. doi: 10.1046/j.1440-1746.17.s4.7.x.</div>
+            
+            
+            <div class="reference-finding-supporting">"2002 Dec;17 Suppl:S441-8. doi: 10.1046/j.1440-1746.17.s4.7.x."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/15508099" target="_blank">PMID:15508099</a>
+                            </div>
+                            
+                            <div class="reference-title">Chemoprevention of hepatocellular carcinoma in aflatoxin endemic areas.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2004 Nov;127(5 Suppl 1):S310-8. doi: 10.1053/j.gastro.2004.09.046.</div>
+            
+            
+            <div class="reference-finding-supporting">"2004 Nov;127(5 Suppl 1):S310-8. doi: 10.1053/j.gastro.2004.09.046."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/15734960" target="_blank">PMID:15734960</a>
+                            </div>
+                            
+                            <div class="reference-title">Hepatocellular carcinoma and polymorphisms in carcinogen-metabolizing and DNA repair enzymes in a population with aflatoxin exposure and hepatitis B virus endemicity.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2005 Feb;14(2):373-9. doi: 10.1158/1055-9965.EPI-04-0161.</div>
+            
+            
+            <div class="reference-finding-supporting">"2005 Feb;14(2):373-9. doi: 10.1158/1055-9965.EPI-04-0161."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/16536303" target="_blank">PMID:16536303</a>
+                            </div>
+                            
+                            <div class="reference-title">[Study on the detoxication gene gstM1-gstT1-null and susceptibility to aflatoxin B1 related hepatocellular carcinoma in Guangxi].</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2005 Oct;26(10):777-81. [Study on the detoxication gene gstM1-gstT1-null and susceptibility to aflatoxin B1 related hepatocellular carcinoma in Guangxi]. [Article in Chinese] Long XD(1), Ma Y, Wei YP, Deng ZL.</div>
+            
+            
+            <div class="reference-finding-supporting">"2005 Oct;26(10):777-81. [Study on the detoxication gene gstM1-gstT1-null and susceptibility to aflatoxin B1 related hepatocellular carcinoma in Guangxi]. [Article in Chinese] Long XD(1), Ma Y, Wei YP, Deng ZL."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/16799619" target="_blank">PMID:16799619</a>
+                            </div>
+                            
+                            <div class="reference-title">Genetics of hepatocellular tumors.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2006 Jun 26;25(27):3778-86. doi: 10.1038/sj.onc.1209547.</div>
+            
+            
+            <div class="reference-finding-supporting">"2006 Jun 26;25(27):3778-86. doi: 10.1038/sj.onc.1209547."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/16884947" target="_blank">PMID:16884947</a>
+                            </div>
+                            
+                            <div class="reference-title">The polymorphisms of GSTM1, GSTT1, HYL1*2, and XRCC1, and aflatoxin B1-related hepatocellular carcinoma in Guangxi population, China.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2006 Sep;36(1):48-55. doi: 10.1016/j.hepres.2006.06.004.</div>
+            
+            
+            <div class="reference-finding-supporting">"2006 Sep;36(1):48-55. doi: 10.1016/j.hepres.2006.06.004."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/19345001" target="_blank">PMID:19345001</a>
+                            </div>
+                            
+                            <div class="reference-title">A model of interaction: aflatoxins and hepatitis viruses in liver cancer aetiology and prevention.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2009 Dec 1;286(1):22-8. doi: 10.1016/j.canlet.2009.02.053.</div>
+            
+            
+            <div class="reference-finding-supporting">"2009 Dec 1;286(1):22-8. doi: 10.1016/j.canlet.2009.02.053."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/20172840" target="_blank">PMID:20172840</a>
+                            </div>
+                            
+                            <div class="reference-title">Global burden of aflatoxin-induced hepatocellular carcinoma: a risk assessment.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Hepatocellular carcinoma (HCC), or liver cancer, is the third leading cause of cancer deaths worldwide, with prevalence 16-32 times higher in developing countries than in developed countries.</div>
+            
+            
+            <div class="reference-finding-supporting">"Hepatocellular carcinoma (HCC), or liver cancer, is the third leading cause of cancer deaths worldwide, with prevalence 16-32 times higher in developing countries than in developed countries."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/20538734" target="_blank">PMID:20538734</a>
+                            </div>
+                            
+                            <div class="reference-title">Effects of the TP53 p.R249S mutant on proliferation and clonogenic properties in human hepatocellular carcinoma cell lines: interaction with hepatitis B virus X protein.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2010 Aug;31(8):1475-82. doi: 10.1093/carcin/bgq118.</div>
+            
+            
+            <div class="reference-finding-supporting">"2010 Aug;31(8):1475-82. doi: 10.1093/carcin/bgq118."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/20547305" target="_blank">PMID:20547305</a>
+                            </div>
+                            
+                            <div class="reference-title">The changing pattern of epidemiology in hepatocellular carcinoma.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2010 Jul;42 Suppl 3(Suppl 3):S206-14. doi: 10.1016/S1590-8658(10)60507-5.</div>
+            
+            
+            <div class="reference-finding-supporting">"2010 Jul;42 Suppl 3(Suppl 3):S206-14. doi: 10.1016/S1590-8658(10)60507-5."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/24299315" target="_blank">PMID:24299315</a>
+                            </div>
+                            
+                            <div class="reference-title">Transcriptome profiling of malignant transformed rat hepatic stem-like cells by aflatoxin B1.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2014;61(2):193-204. doi: 10.4149/neo_2014_025.</div>
+            
+            
+            <div class="reference-finding-supporting">"2014;61(2):193-204. doi: 10.4149/neo_2014_025."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/2430432" target="_blank">PMID:2430432</a>
+                            </div>
+                            
+                            <div class="reference-title">Epidemiology and early diagnosis of primary liver cancer in China.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Epidemiological studies in different areas in China have revealed several outstanding risk factors of PLC, i.e., HBV infection, pollution of drinking water, contamination of food by AFB1 and/or nitrosamines, and family predisposition.</div>
+            
+            
+            <div class="reference-finding-supporting">"Epidemiological studies in different areas in China have revealed several outstanding risk factors of PLC, i.e., HBV infection, pollution of drinking water, contamination of food by AFB1 and/or nitrosamines, and family predisposition."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/24399650" target="_blank">PMID:24399650</a>
+                            </div>
+                            
+                            <div class="reference-title">Quantitative assessment of the effect of glutathione S-transferase genes GSTM1 and GSTT1 on hepatocellular carcinoma risk.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2014 May;35(5):4007-15. doi: 10.1007/s13277-013-1524-2.</div>
+            
+            
+            <div class="reference-finding-supporting">"2014 May;35(5):4007-15. doi: 10.1007/s13277-013-1524-2."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/24736102" target="_blank">PMID:24736102</a>
+                            </div>
+                            
+                            <div class="reference-title">Mutation spectrum of hepatocellular carcinoma from eastern-European patients betrays the impact of a complex exposome.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2015 May;25(3):256-63. doi: 10.1038/jes.2014.16.</div>
+            
+            
+            <div class="reference-finding-supporting">"2015 May;25(3):256-63. doi: 10.1038/jes.2014.16."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/25421688" target="_blank">PMID:25421688</a>
+                            </div>
+                            
+                            <div class="reference-title">Detection of epigenetic aberrations in the development of hepatocellular carcinoma.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2015;1238:709-31. doi: 10.1007/978-1-4939-1804-1_37.</div>
+            
+            
+            <div class="reference-finding-supporting">"2015;1238:709-31. doi: 10.1007/978-1-4939-1804-1_37."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/25921147" target="_blank">PMID:25921147</a>
+                            </div>
+                            
+                            <div class="reference-title">Purple rice bran extract attenuates the aflatoxin B1-induced initiation stage of hepatocarcinogenesis by alteration of xenobiotic metabolizing enzymes.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2015;16(8):3371-6. doi: 10.7314/apjcp.2015.16.8.3371.</div>
+            
+            
+            <div class="reference-finding-supporting">"2015;16(8):3371-6. doi: 10.7314/apjcp.2015.16.8.3371."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/25987009" target="_blank">PMID:25987009</a>
+                            </div>
+                            
+                            <div class="reference-title">Current trends and recent advances in diagnosis, therapy, and prevention of hepatocellular carcinoma.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2015;16(9):3595-604. doi: 10.7314/apjcp.2015.16.9.3595.</div>
+            
+            
+            <div class="reference-finding-supporting">"2015;16(9):3595-604. doi: 10.7314/apjcp.2015.16.9.3595."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/26035378" target="_blank">PMID:26035378</a>
+                            </div>
+                            
+                            <div class="reference-title">Molecular characterization of hepatocarcinogenesis using mouse models.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2015 Jul 1;8(7):743-53. doi: 10.1242/dmm.017624.</div>
+            
+            
+            <div class="reference-finding-supporting">"2015 Jul 1;8(7):743-53. doi: 10.1242/dmm.017624."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/27430420" target="_blank">PMID:27430420</a>
+                            </div>
+                            
+                            <div class="reference-title">Sequential dietary exposure to aflatoxin B1 and fumonisin B1 in F344 rats increases liver preneoplastic changes indicative of a synergistic interaction.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2016 Sep;95:188-95. doi: 10.1016/j.fct.2016.07.017.</div>
+            
+            
+            <div class="reference-finding-supporting">"2016 Sep;95:188-95. doi: 10.1016/j.fct.2016.07.017."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/27508181" target="_blank">PMID:27508181</a>
+                            </div>
+                            
+                            <div class="reference-title">Hepatocellular carcinoma: epidemiology and risk factors.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2014 Aug 13;1:115-25. doi: 10.2147/JHC.S44381. eCollection 2014.</div>
+            
+            
+            <div class="reference-finding-supporting">"2014 Aug 13;1:115-25. doi: 10.2147/JHC.S44381. eCollection 2014."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/28114823" target="_blank">PMID:28114823</a>
+                            </div>
+                            
+                            <div class="reference-title">Comparison of urinary aflatoxin M1 and aflatoxin albumin adducts as biomarkers for assessing aflatoxin exposure in Tanzanian children.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2018 Mar;23(2):131-136. doi: 10.1080/1354750X.2017.1285960.</div>
+            
+            
+            <div class="reference-finding-supporting">"2018 Mar;23(2):131-136. doi: 10.1080/1354750X.2017.1285960."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/28973694" target="_blank">PMID:28973694</a>
+                            </div>
+                            
+                            <div class="reference-title">Editor&#39;s Highlight: Pregnancy Alters Aflatoxin B1 Metabolism and Increases DNA Damage in Mouse Liver.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2017 Nov 1;160(1):173-179. doi: 10.1093/toxsci/kfx171.</div>
+            
+            
+            <div class="reference-finding-supporting">"2017 Nov 1;160(1):173-179. doi: 10.1093/toxsci/kfx171."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/29225033" target="_blank">PMID:29225033</a>
+                            </div>
+                            
+                            <div class="reference-title">Mutant p53 Gains Its Function via c-Myc Activation upon CDK4 Phosphorylation at Serine 249 and Consequent PIN1 Binding.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2017 Dec 21;68(6):1134-1146.e6. doi: 10.1016/j.molcel.2017.11.006.</div>
+            
+            
+            <div class="reference-finding-supporting">"2017 Dec 21;68(6):1134-1146.e6. doi: 10.1016/j.molcel.2017.11.006."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/29749584" target="_blank">PMID:29749584</a>
+                            </div>
+                            
+                            <div class="reference-title">Droplet digital PCR detects high rate of TP53 R249S mutants in cell-free DNA of middle African patients with hepatocellular carcinoma.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2018 Aug;18(3):421-431. doi: 10.1007/s10238-018-0502-9.</div>
+            
+            
+            <div class="reference-finding-supporting">"2018 Aug;18(3):421-431. doi: 10.1007/s10238-018-0502-9."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/30045675" target="_blank">PMID:30045675</a>
+                            </div>
+                            
+                            <div class="reference-title">Exome Sequencing of Fresh-frozen or Formalin-fixed Paraffin-embedded B6C3F1/N Mouse Hepatocellular Carcinomas Arising Either Spontaneously or due to Chronic Chemical Exposure.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2018 Aug;46(6):706-718. doi: 10.1177/0192623318789398.</div>
+            
+            
+            <div class="reference-finding-supporting">"2018 Aug;46(6):706-718. doi: 10.1177/0192623318789398."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/30304666" target="_blank">PMID:30304666</a>
+                            </div>
+                            
+                            <div class="reference-title">Epigenetic alterations caused by aflatoxin b1: a public health risk in the induction of hepatocellular carcinoma.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2019 Feb;204:51-71. doi: 10.1016/j.trsl.2018.09.001.</div>
+            
+            
+            <div class="reference-finding-supporting">"2019 Feb;204:51-71. doi: 10.1016/j.trsl.2018.09.001."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/31747859" target="_blank">PMID:31747859</a>
+                            </div>
+                            
+                            <div class="reference-title">Co-targeting p53-R249S and CDK4 synergistically suppresses survival of hepatocellular carcinoma cells.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2020;21(3):269-277. doi: 10.1080/15384047.2019.1685289.</div>
+            
+            
+            <div class="reference-finding-supporting">"2020;21(3):269-277. doi: 10.1080/15384047.2019.1685289."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/33457005" target="_blank">PMID:33457005</a>
+                            </div>
+                            
+                            <div class="reference-title">Genome-wide association study of the TP53 R249S mutation in hepatocellular carcinoma with aflatoxin B1 exposure and infection with hepatitis B virus.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Exposure to dietary aflatoxin B1 (AFB1) induces DNA damage and mutation in the TP53 gene at codon 249, known as the TP53 R249S mutation, and is a major risk factor for hepatocellular carcinoma (HCC).</div>
+            
+            
+            <div class="reference-finding-supporting">"Exposure to dietary aflatoxin B1 (AFB1) induces DNA damage and mutation in the TP53 gene at codon 249, known as the TP53 R249S mutation, and is a major risk factor for hepatocellular carcinoma (HCC)."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/35438902" target="_blank">PMID:35438902</a>
+                            </div>
+                            
+                            <div class="reference-title">Aflatoxin levels and prevalence of TP53 aflatoxin-mutations in hepatocellular carcinomas in Mexico.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2022 Feb 25;64(1):35-40. doi: 10.21149/13189.</div>
+            
+            
+            <div class="reference-finding-supporting">"2022 Feb 25;64(1):35-40. doi: 10.21149/13189."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/35470382" target="_blank">PMID:35470382</a>
+                            </div>
+                            
+                            <div class="reference-title">Aflatoxin M1 in milk does not contribute substantially to global liver cancer incidence.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">For 60 y, it has been known that aflatoxin B1 (AFB1), a mycotoxin produced by Aspergillus fungi in certain food and feed crops, causes hepatocellular carcinoma (liver cancer; HCC) in humans.</div>
+            
+            
+            <div class="reference-finding-supporting">"For 60 y, it has been known that aflatoxin B1 (AFB1), a mycotoxin produced by Aspergillus fungi in certain food and feed crops, causes hepatocellular carcinoma (liver cancer; HCC) in humans."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/36851773" target="_blank">PMID:36851773</a>
+                            </div>
+                            
+                            <div class="reference-title">Genetic Susceptibility to Hepatocellular Carcinoma in Patients with Chronic Hepatitis Virus Infection.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2023 Feb 17;15(2):559. doi: 10.3390/v15020559.</div>
+            
+            
+            <div class="reference-finding-supporting">"2023 Feb 17;15(2):559. doi: 10.3390/v15020559."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/37589044" target="_blank">PMID:37589044</a>
+                            </div>
+                            
+                            <div class="reference-title">The role of lenvatinib in the era of immunotherapy of hepatocellular carcinoma.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2023 Sep;23(2):262-271. doi: 10.17998/jlc.2023.07.17.</div>
+            
+            
+            <div class="reference-finding-supporting">"2023 Sep;23(2):262-271. doi: 10.17998/jlc.2023.07.17."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/37774068" target="_blank">PMID:37774068</a>
+                            </div>
+                            
+                            <div class="reference-title">Low Frequency of Aflatoxin Induced TP53 Gene Codon 249 Mutation in Hepatocellular Carcinoma from Egyptian Patients Living in the Nile Delta Region.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2023 Sep 1;24(9):3165-3168. doi: 10.31557/APJCP.2023.24.9.3165.</div>
+            
+            
+            <div class="reference-finding-supporting">"2023 Sep 1;24(9):3165-3168. doi: 10.31557/APJCP.2023.24.9.3165."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/38751554" target="_blank">PMID:38751554</a>
+                            </div>
+                            
+                            <div class="reference-title">Balancing Efficacy and Tolerability of First-Line Systemic Therapies for Advanced Hepatocellular Carcinoma: A Network Meta-Analysis.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Atezolizumab + bevacizumab represent the current standard of care for first-line treatment of advanced hepatocellular carcinoma (HCC).</div>
+            
+            
+            <div class="reference-finding-supporting">"Atezolizumab + bevacizumab represent the current standard of care for first-line treatment of advanced hepatocellular carcinoma (HCC)."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/38927059" target="_blank">PMID:38927059</a>
+                            </div>
+                            
+                            <div class="reference-title">Molecular Mechanisms in Tumorigenesis of Hepatocellular Carcinoma and in Target Treatments-An Overview.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2024 Jun 4;14(6):656. doi: 10.3390/biom14060656.</div>
+            
+            
+            <div class="reference-finding-supporting">"2024 Jun 4;14(6):656. doi: 10.3390/biom14060656."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/39824452" target="_blank">PMID:39824452</a>
+                            </div>
+                            
+                            <div class="reference-title">AFB1 consolidates HBV harm to induce liver injury and carcinogenic risk by inactivating FTCD-AS1-PXR-MASP1 axis.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2025 Feb;511:154057. doi: 10.1016/j.tox.2025.154057.</div>
+            
+            
+            <div class="reference-finding-supporting">"2025 Feb;511:154057. doi: 10.1016/j.tox.2025.154057."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40082982" target="_blank">PMID:40082982</a>
+                            </div>
+                            
+                            <div class="reference-title">A real-world study of the efficacy of second-line treatment of unresectable hepatocellular carcinoma with esophagogastric varices after progression on first-line lenvatinib combined with PD-1 inhibitor.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2025 Mar 13;23(1):83. doi: 10.1186/s12957-025-03742-0.</div>
+            
+            
+            <div class="reference-finding-supporting">"2025 Mar 13;23(1):83. doi: 10.1186/s12957-025-03742-0."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40250564" target="_blank">PMID:40250564</a>
+                            </div>
+                            
+                            <div class="reference-title">Impact of Probiotic Lacticaseibacillus paracasei Strain Shirota (LcS) on Aflatoxin Exposure among Healthy Malaysian Adults: A Randomized, Double-Blind, Placebo-Controlled Intervention Study.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Limited evidence suggests that probiotic Lacticaseibacillus paracasei strain Shirota (LcS) may reduce aflatoxin exposure in Malaysians, though individual factors influencing aflatoxin exposure remain unclear.</div>
+            
+            
+            <div class="reference-finding-supporting">"Limited evidence suggests that probiotic Lacticaseibacillus paracasei strain Shirota (LcS) may reduce aflatoxin exposure in Malaysians, though individual factors influencing aflatoxin exposure remain unclear."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40344782" target="_blank">PMID:40344782</a>
+                            </div>
+                            
+                            <div class="reference-title">HBV-induced N6 methyladenosine modification of PARP1 enhanced AFB1-related DNA damage and synergistically contribute to HCC.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2025 Jun 15;298:118254. doi: 10.1016/j.ecoenv.2025.118254.</div>
+            
+            
+            <div class="reference-finding-supporting">"2025 Jun 15;298:118254. doi: 10.1016/j.ecoenv.2025.118254."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40711142" target="_blank">PMID:40711142</a>
+                            </div>
+                            
+                            <div class="reference-title">Toxicity, Mitigation, and Chemical Analysis of Aflatoxins and Other Toxic Metabolites Produced by Aspergillus: A Comprehensive Review.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2025 Jun 30;17(7):331. doi: 10.3390/toxins17070331.</div>
+            
+            
+            <div class="reference-finding-supporting">"2025 Jun 30;17(7):331. doi: 10.3390/toxins17070331."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40789982" target="_blank">PMID:40789982</a>
+                            </div>
+                            
+                            <div class="reference-title">Aflatoxin B1 Promotes M2-like Macrophage Polarization via IL-6 Expression in Hepatocellular Carcinoma.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The development of liver cancer in China is mainly caused by HBV, HCV infection, and exposure to aflatoxin.</div>
+            
+            
+            <div class="reference-finding-supporting">"The development of liver cancer in China is mainly caused by HBV, HCV infection, and exposure to aflatoxin."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41201177" target="_blank">PMID:41201177</a>
+                            </div>
+                            
+                            <div class="reference-title">Recent Advancements in Known and Emerging Risk Factors of Hepatocellular Carcinoma.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Hepatocellular carcinoma (HCC) is the most common primary liver malignancy and a leading cause of cancer-related deaths worldwide.</div>
+            
+            
+            <div class="reference-finding-supporting">"Hepatocellular carcinoma (HCC) is the most common primary liver malignancy and a leading cause of cancer-related deaths worldwide."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41585427" target="_blank">PMID:41585427</a>
+                            </div>
+                            
+                            <div class="reference-title">Proton Radiotherapy Alone versus Combined with Immunotherapies or Tyrosine Kinase Inhibitors for Barcelona Clinic Liver Cancer Stage B or C Hepatocellular Carcinoma.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Proton Radiotherapy Alone versus Combined with Immunotherapies or Tyrosine Kinase Inhibitors for Barcelona Clinic Liver Cancer Stage B or C Hepatocellular Carcinoma</div>
+            
+            
+            <div class="reference-finding-supporting">"Hsieh RC(1)(2)(3)(4)(5)(6), Chen WP(1), Lee JC(7), Lin CH(1)(8), Chang YC(1), Lee CW(7), Chan KM(7), Hung HC(7), Kuo T(9), Lin SY(10), Chen TC(11), Wu TJ(7), Su CW(9), Chou HS(7), Cheng CH(7), Hsieh YC(9), Huang CY(12), Tran KC(1)(2), Welsh J(13), Hsieh JC(12)."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/8261428" target="_blank">PMID:8261428</a>
+                            </div>
+                            
+                            <div class="reference-title">Role of human microsomal and human complementary DNA-expressed cytochromes P4501A2 and P4503A4 in the bioactivation of aflatoxin B1.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Gallagher EP(1), Wienkers LC, Stapleton PL, Kunze KL, Eaton DL.</div>
+            
+            
+            <div class="reference-finding-supporting">"Gallagher EP(1), Wienkers LC, Stapleton PL, Kunze KL, Eaton DL."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/jox15040096" target="_blank">DOI:10.3390/jox15040096</a>
+                            </div>
+                            
+                            <div class="reference-title">Cooperation Between Aflatoxin-Induced p53 Aberrations and Hepatitis B Virus in Hepatocellular Carcinoma</div>
+                            
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+                    
+                </div>
+                
             </div>
             
             
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
-                    <span class="card-count">1</span>
+                    <span class="card-count">2</span>
                 </div>
                 
                 <div style="margin-bottom: 4px;">
@@ -5983,6 +8051,957 @@ For each section, provide:
                     </div>
                 </div>
                 
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>OpenScientist</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">Key Findings</div>
+                            
+                            
+                            <span class="report-badge">openscientist-autonomous</span>
+                            
+                            
+                            <span class="report-badge">48 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-05T02:43:23.016493</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <h2>Key Findings</h2>
+<h3>Finding 1: TP53 R249S — The Molecular Hallmark of AFB1 Exposure</h3>
+<p>The TP53 R249S mutation (AGG→AGT, p.Arg249Ser) is the most specific molecular biomarker of AFB1 exposure in hepatocarcinogenesis, functioning as both a diagnostic indicator and a mechanistic driver of disease. This somatic missense mutation results from a G→T transversion caused by AFB1-DNA adducts at the third base of codon 249 in the TP53 tumor suppressor gene.</p>
+<p>The mutation's predominance is striking: "a mutation at codon 249 (AGG to AGT, arginine to serine, p.R249S) accounts for 90% of TP53 mutations in AFB(1)-related HCC. This specificity suggests that p.R249S confers a selective advantage during hepatocarcinogenesis" (<a href="https://pubmed.ncbi.nlm.nih.gov/20538734/">PMID: 20538734</a>). Its role as a population-level biomarker is firmly established: "Lifelong intoxication with aflatoxin B1 is considered as one of the primary causes of this situation. The role of aflatoxin in HCC from a given population is commonly estimated through the prevalence of R249S mutation of TP53, a hallmark for previous exposure to the mycotoxin" (<a href="https://pubmed.ncbi.nlm.nih.gov/29749584/">PMID: 29749584</a>).</p>
+<p>Geographic prevalence of the R249S mutation directly correlates with AFB1 exposure levels:</p>
+<table>
+<thead>
+<tr>
+<th>Region</th>
+<th>R249S Prevalence</th>
+<th>Population</th>
+<th>Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Middle Africa</td>
+<td>24.8% of HCC patients vs 5.6% controls (P=2.2E-07)</td>
+<td>ddPCR of cell-free DNA</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29749584/">PMID: 29749584</a></td>
+</tr>
+<tr>
+<td>Mexico</td>
+<td>6% of HCC cases</td>
+<td>50 HCC tissue blocks</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35438902/">PMID: 35438902</a></td>
+</tr>
+<tr>
+<td>Romania</td>
+<td>Present (individual cases)</td>
+<td>48 consecutive HCC cases</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24736102/">PMID: 24736102</a></td>
+</tr>
+<tr>
+<td>Egypt (Nile Delta)</td>
+<td>1% of HCC cases</td>
+<td>104 HCC cases</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37774068/">PMID: 37774068</a></td>
+</tr>
+</tbody>
+</table>
+<p>Critically, R249S does not merely abolish p53 tumor suppressor function—it confers gain-of-function oncogenic activity. The mechanism involves: "CDK4 interacts with p53-RS in the G1/S phase of the cells, phosphorylates it, and enhances its nuclear localization. This is coupled with binding of a peptidyl-prolyl cis-trans isomerase NIMA-interacting 1 (PIN1) to p53-RS" (<a href="https://pubmed.ncbi.nlm.nih.gov/29225033/">PMID: 29225033</a>). This CDK4-PIN1-p53R249S-c-Myc axis drives ribosomal biogenesis and cell proliferation, representing a therapeutically targetable pathway. A genome-wide association study further identified three SNPs (ADAMTS18 rs9930984, rs75218075, rs8022091) associated with R249S mutation susceptibility in HCC patients exposed to AFB1 and HBV (<a href="https://pubmed.ncbi.nlm.nih.gov/33457005/">PMID: 33457005</a>).</p>
+<h3>Finding 2: Synergistic HBV–AFB1 Interaction Multiplies HCC Risk</h3>
+<p>The interaction between chronic HBV infection and AFB1 exposure produces a more-than-multiplicative increase in HCC risk, representing one of the best-characterized gene–environment synergies in cancer epidemiology. "Prospective epidemiological studies have shown a more than multiplicative interaction between HBV and aflatoxins in terms of HCC risk" (<a href="https://pubmed.ncbi.nlm.nih.gov/19345001/">PMID: 19345001</a>). The global burden is quantified in the landmark risk assessment: "Of the 550,000-600,000 new HCC cases worldwide each year, about 25,200-155,000 may be attributable to aflatoxin exposure. Most cases occur in sub-Saharan Africa, Southeast Asia, and China where populations suffer from both high HBV prevalence and largely uncontrolled aflatoxin exposure in food" (<a href="https://pubmed.ncbi.nlm.nih.gov/20172840/">PMID: 20172840</a>).</p>
+<p>At the molecular level, a recently discovered mechanism explains this synergy: "HBV infection increased YTHDF2 expression while suppressing PARP1 both in vitro and in vivo. Additionally, HBV infection exacerbated AFB1-induced DNA damage in both experimental settings" (<a href="https://pubmed.ncbi.nlm.nih.gov/40344782/">PMID: 40344782</a>). Through N6-methyladenosine (m6A) RNA modification, HBV upregulates the m6A reader protein YTHDF2, which promotes degradation of PARP1 mRNA. Since PARP1 is a critical DNA repair enzyme (poly(ADP-ribose) polymerase), its suppression directly impairs the cell's ability to repair AFB1-induced DNA adducts, increasing mutation frequency and accelerating carcinogenesis. In GSTT1-null chronic HBsAg carriers, AFB1 exposure conferred an OR of 3.7 (95% CI 1.5–9.3) for HCC, with a statistically significant interaction (P = 0.03) (<a href="https://pubmed.ncbi.nlm.nih.gov/11470760/">PMID: 11470760</a>).</p>
+<h3>Finding 3: CYP450-Mediated Bioactivation Is the Initiating Event</h3>
+<p>The metabolic activation of AFB1 by hepatic cytochrome P450 enzymes is the critical initiating step in aflatoxin-induced carcinogenesis. CYP1A2 is the primary bioactivating enzyme at physiologically relevant AFB1 concentrations: "Treatment of individual human liver microsomes (HLM) with TAO resulted in an average 20% inhibition of AFB1-8,9-epoxide formation at 16 microM AFB1, whereas incubation of HLM with furafylline at 16 microM AFB1 resulted in an average 72% inhibition of AFB1-8,9-epoxide formation at 16 microM AFB1" (<a href="https://pubmed.ncbi.nlm.nih.gov/8261428/">PMID: 8261428</a>). CYP3A4 becomes more significant at higher substrate concentrations (46% inhibition by TAO at 128 μM).</p>
+<p>Individual susceptibility is critically modulated by phase II detoxification capacity. In The Gambia, "the GSTM1-null genotype [odds ratio (OR), 2.45; 95% confidence interval (95% CI), 1.21-4.95] and the heterozygote XRCC1-399 AG genotype (OR, 3.18; 95% CI, 1.35-7.51) were significantly associated with HCC" (<a href="https://pubmed.ncbi.nlm.nih.gov/15734960/">PMID: 15734960</a>). A meta-analysis of 33 studies confirmed GSTM1-null (OR = 1.31, 95% CI 1.07–1.61) and GSTT1-null (OR = 1.47, 95% CI 1.25–1.74) as HCC risk factors (<a href="https://pubmed.ncbi.nlm.nih.gov/24399650/">PMID: 24399650</a>). Most dramatically, "individuals featuring all of the putative risk genotypes [GSTM1-null, HYL1*2-YH/HH, and XRCC1-AG/GG]" experienced approximately 15-fold increased HCC risk (OR = 14.7) (<a href="https://pubmed.ncbi.nlm.nih.gov/16884947/">PMID: 16884947</a>), demonstrating multiplicative gene–gene interactions in AFB1-related hepatocarcinogenesis.</p>
+<h3>Finding 4: Chemoprevention Efficacy Validated in Clinical Trials</h3>
+<p>Randomized clinical trials conducted in Qidong, China—a high-risk area for both HBV and AFB1 exposure—established proof-of-principle for pharmaceutical chemoprevention of aflatoxin-related HCC. Two mechanistically distinct agents were tested: oltipraz, a dithiolethione that induces phase 2 detoxification enzymes (particularly glutathione S-transferases), and chlorophyllin, a water-soluble chlorophyll derivative that reduces AFB1 oral bioavailability by forming molecular complexes in the gastrointestinal tract.</p>
+<p>"Both chemopreventive agents modulated levels of aflatoxin biomarkers in the study participants in manners consonant with protection. Although pharmacological approaches establish proof of principle and help identify key molecular targets for interventions, food-based approaches that also use these molecular targets may be the most practical for widespread application in high-risk populations" (<a href="https://pubmed.ncbi.nlm.nih.gov/15508099/">PMID: 15508099</a>). These findings catalyzed development of practical dietary interventions including broccoli sprout beverages (sulforaphane, a potent Nrf2 activator) and green leafy vegetable supplementation as scalable alternatives for resource-limited settings.</p>
+<p>Additionally, probiotic supplementation with <em>Lacticaseibacillus paracasei</em> strain Shirota showed a 23% reduction in urinary AFM1 concentrations in a randomized, double-blind, placebo-controlled trial among Malaysian adults (<a href="https://pubmed.ncbi.nlm.nih.gov/40250564/">PMID: 40250564</a>), suggesting gut-based interventions as another avenue for reducing AFB1 absorption.</p>
+<h3>Finding 5: AFB1-Driven Immunosuppressive Tumor Microenvironment</h3>
+<p>A recent and important discovery reveals that AFB1 actively shapes the tumor microenvironment to promote immune evasion. "We found that AFB1 indirectly influences M2-like macrophage polarization by upregulating IL-6 expression in tumor cells through the NF-κB signaling pathway" (<a href="https://pubmed.ncbi.nlm.nih.gov/40789982/">PMID: 40789982</a>). M2-polarized tumor-associated macrophages suppress anti-tumor CD8+ T cell responses, creating an immunosuppressive milieu that may limit the efficacy of immune checkpoint inhibitor monotherapy.</p>
+<p>Critically, this mechanism is therapeutically actionable: "Our results demonstrate that the combination treatment significantly reduces tumor growth, decreases the number of M2-like macrophages, and enhances CD8+ T cell infiltration compared to monotherapy with PD1 antibody alone" (<a href="https://pubmed.ncbi.nlm.nih.gov/40789982/">PMID: 40789982</a>). The combination of anti-IL-6 with PD-1 blockade overcomes the AFB1-driven immunosuppression, suggesting that patients with aflatoxin-related HCC may benefit from rational combination immunotherapy strategies rather than checkpoint inhibitor monotherapy.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<h3>Causal Chain: From AFB1 Ingestion to Hepatocellular Carcinoma</h3>
+<p>The pathogenesis of aflatoxin-related HCC involves a well-defined multi-step cascade from dietary exposure to malignant transformation, with synergistic contributions from HBV and genetic susceptibility:</p>
+<pre><code>STAGE 1: EXPOSURE AND BIOACTIVATION
+═══════════════════════════════════
+Dietary AFB1 (contaminated maize, groundnuts, cereals)
+│
+▼
+Hepatic Uptake → Endoplasmic Reticulum
+│
+├──► CYP1A2 (primary, 72% at low [AFB1])──► AFB1-exo-8,9-Epoxide (AFBO)
+│                                                    │
+└──► CYP3A4 (46% at high [AFB1])──────────────────►─┘
+                                              │
+                              ┌───────────────┤
+                              │               │
+                              ▼               ▼
+                   Phase II Detox    DNA Adduct Formation
+                   (GSTs: GSTA3)     (AFB1-N7-Guanine)
+                        │                    │
+                        ▼                    ▼
+                   EXCRETION           MUTAGENESIS
+                   (safe)              G→T transversion
+
+STAGE 2: MUTAGENESIS AND TUMOR SUPPRESSOR LOSS
+═══════════════════════════════════════════════
+     AFB1-N7-Guanine adduct at TP53 codon 249
+      │
+      ▼
+   TP53 R249S Mutation (AGG→AGT)
+      │
+ ┌────────────┴────────────┐
+ │                         │
+ ▼                         ▼
+ LOSS OF FUNCTION            GAIN OF FUNCTION
+ • No DNA binding            • CDK4 phosphorylation
+ • No transcription          • PIN1 binding
+ • Failed apoptosis          • c-Myc activation
+ • Failed cell cycle         • Ribosomal biogenesis
+   arrest                    • Enhanced proliferation
+
+STAGE 3: HBV SYNERGY (when co-infected)
+═══════════════════════════════════════
+ HBV Chronic Infection
+ │
+ ├──► HBx protein ──► p53-R249S complex ──► Enhanced proliferation
+ │
+ ├──► YTHDF2 ↑ ──► PARP1 ↓ (m6A-mediated) ──► Impaired DNA repair
+ │                                              ──► More mutations
+ └──► Chronic hepatitis ──► Regeneration cycles ──► Fixation of mutations
+
+STAGE 4: IMMUNE EVASION AND TUMOR PROGRESSION
+═══════════════════════════════════════════════
+ AFB1 exposure (tumor cells)
+ │
+ ▼
+ NF-κB activation ──► IL-6 upregulation
+           │
+           ▼
+  M2 macrophage polarization
+           │
+           ├──► CD8+ T cell suppression
+           │
+           └──► Immunosuppressive microenvironment
+                        │
+                        ▼
+           HEPATOCELLULAR CARCINOMA
+</code></pre>
+<h3>Genetic Susceptibility Modifiers</h3>
+<p>The balance between bioactivation and detoxification determines individual cancer risk:</p>
+<table>
+<thead>
+<tr>
+<th>Genotype Combination</th>
+<th>Effect</th>
+<th>OR (95% CI)</th>
+<th>Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GSTM1-null alone</td>
+<td>Reduced AFB1-epoxide conjugation</td>
+<td>2.45 (1.21–4.95)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15734960/">PMID: 15734960</a></td>
+</tr>
+<tr>
+<td>GSTT1-null + AFB1 + HBsAg+</td>
+<td>Impaired detox in HBV carriers</td>
+<td>3.7 (1.5–9.3)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11470760/">PMID: 11470760</a></td>
+</tr>
+<tr>
+<td>XRCC1-399 AG</td>
+<td>Impaired base excision repair</td>
+<td>3.18 (1.35–7.51)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15734960/">PMID: 15734960</a></td>
+</tr>
+<tr>
+<td>Triple risk (GSTM1-null + HYL1*2 + XRCC1)</td>
+<td>Multiplicative interaction</td>
+<td>~14.7</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16884947/">PMID: 16884947</a></td>
+</tr>
+<tr>
+<td>GSTM1+GSTT1 double-null (meta-analysis)</td>
+<td>Combined deficiency</td>
+<td>1.88 (1.41–2.50)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24399650/">PMID: 24399650</a></td>
+</tr>
+</tbody>
+</table>
+<h3>Therapeutic Implications of the Mechanistic Model</h3>
+<p>The detailed mechanistic understanding of aflatoxin-related HCC suggests multiple therapeutic intervention points:</p>
+<ol>
+<li><strong>Upstream (prevention):</strong> Block AFB1 bioactivation (oltipraz inducing GSTs) or reduce bioavailability (chlorophyllin complexation)</li>
+<li><strong>Midstream (mutation-targeted):</strong> Co-target CDK4 and p53-R249S to disrupt the gain-of-function pathway (<a href="https://pubmed.ncbi.nlm.nih.gov/31747859/">PMID: 31747859</a>)</li>
+<li><strong>Downstream (immune restoration):</strong> Combine anti-IL-6 with anti-PD-1 to overcome AFB1-driven immunosuppression (<a href="https://pubmed.ncbi.nlm.nih.gov/40789982/">PMID: 40789982</a>)</li>
+<li><strong>Concurrent (anti-HBV):</strong> Antiviral therapy to eliminate the synergistic co-factor</li>
+</ol>
+<hr />
+<h2>Disease Information and Classification</h2>
+<h3>Key Identifiers</h3>
+<table>
+<thead>
+<tr>
+<th>Identifier</th>
+<th>Code/ID</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ICD-10</td>
+<td>C22.0 (Hepatocellular carcinoma)</td>
+</tr>
+<tr>
+<td>ICD-11</td>
+<td>2C12.0 (Hepatocellular carcinoma)</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>D006528 (Carcinoma, Hepatocellular); D016604 (Aflatoxin B1)</td>
+</tr>
+<tr>
+<td>MONDO</td>
+<td>MONDO:0007256 (hepatocellular carcinoma)</td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td>114550 (Hepatocellular Carcinoma)</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td>ORPHA:88673 (Hepatocellular carcinoma)</td>
+</tr>
+<tr>
+<td>IARC</td>
+<td>Group 1 carcinogen (Aflatoxin B1)</td>
+</tr>
+<tr>
+<td>CHEBI</td>
+<td>CHEBI:2504 (Aflatoxin B1)</td>
+</tr>
+</tbody>
+</table>
+<h3>Synonyms</h3>
+<ul>
+<li>Aflatoxin-induced hepatocellular carcinoma</li>
+<li>AFB1-related liver cancer</li>
+<li>Aflatoxin-associated hepatoma</li>
+<li>Mycotoxin-related hepatocellular carcinoma</li>
+<li>Hepatocellular carcinoma with TP53 R249S mutation</li>
+</ul>
+<hr />
+<h2>Etiology</h2>
+<h3>Primary Cause: Aflatoxin B1 Exposure</h3>
+<p>Aflatoxin B1 (AFB1; CHEBI:2504) is the most potent naturally occurring hepatocarcinogen, a secondary metabolite of <em>Aspergillus flavus</em> (NCBI Taxon: 5059) and <em>Aspergillus parasiticus</em> (NCBI Taxon: 5067). These fungi contaminate staple crops including maize, groundnuts, tree nuts, and cereals, particularly under warm, humid storage conditions (<a href="https://pubmed.ncbi.nlm.nih.gov/40711142/">PMID: 40711142</a>). In southern Mexico, the prevalence of AFB1 in serum samples reaches 85.5% (95% CI 72.1–93.1) (<a href="https://pubmed.ncbi.nlm.nih.gov/35438902/">PMID: 35438902</a>).</p>
+<h3>Co-Factors and Risk Factors</h3>
+<p><strong>Environmental:</strong>
+- Chronic HBV infection: present in ~80% of HCC worldwide (<a href="https://pubmed.ncbi.nlm.nih.gov/11185536/">PMID: 11185536</a>)
+- Fumonisin B1 co-exposure: synergistically increases GST-P+ foci 7–13-fold in rat models (<a href="https://pubmed.ncbi.nlm.nih.gov/27430420/">PMID: 27430420</a>)
+- Alcohol consumption, smoking, obesity/metabolic syndrome (<a href="https://pubmed.ncbi.nlm.nih.gov/41201177/">PMID: 41201177</a>)
+- Male sex (2–3:1 male predominance) (<a href="https://pubmed.ncbi.nlm.nih.gov/11185536/">PMID: 11185536</a>)
+- Pregnancy: 2-fold higher AFB1-N7-guanine DNA adducts due to elevated CYP expression (<a href="https://pubmed.ncbi.nlm.nih.gov/28973694/">PMID: 28973694</a>)</p>
+<p><strong>Genetic susceptibility modifiers:</strong> GSTM1-null, GSTT1-null, XRCC1-399 AG, HYL1*2, ADAMTS18 variants (see detailed quantification in Findings above)</p>
+<h3>Protective Factors</h3>
+<ul>
+<li>HBV vaccination (<a href="https://pubmed.ncbi.nlm.nih.gov/25987009/">PMID: 25987009</a>)</li>
+<li>GSTM1/GSTT1 present (non-null) genotypes (<a href="https://pubmed.ncbi.nlm.nih.gov/16536303/">PMID: 16536303</a>)</li>
+<li>Selenium (inverse association with AFB1-albumin adducts) (<a href="https://pubmed.ncbi.nlm.nih.gov/11525595/">PMID: 11525595</a>)</li>
+<li>Chlorophyllin and oltipraz chemoprevention (<a href="https://pubmed.ncbi.nlm.nih.gov/15508099/">PMID: 15508099</a>)</li>
+<li>Probiotics: 23% reduction in urinary AFM1 (<a href="https://pubmed.ncbi.nlm.nih.gov/40250564/">PMID: 40250564</a>)</li>
+<li>Purple rice bran extract: modulates CYP1A2/CYP3A and enhances GST/UGT (<a href="https://pubmed.ncbi.nlm.nih.gov/25921147/">PMID: 25921147</a>)</li>
+</ul>
+<hr />
+<h2>Phenotypes</h2>
+<h3>Clinical Manifestations</h3>
+<table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>HPO Term</th>
+<th>Type</th>
+<th>Onset</th>
+<th>Severity</th>
+<th>Frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hepatomegaly</td>
+<td>HP:0002240</td>
+<td>Physical sign</td>
+<td>Adult</td>
+<td>Variable</td>
+<td>~60–70%</td>
+</tr>
+<tr>
+<td>Right upper quadrant pain</td>
+<td>HP:0100280</td>
+<td>Symptom</td>
+<td>Adult</td>
+<td>Moderate–severe</td>
+<td>~50–60%</td>
+</tr>
+<tr>
+<td>Weight loss</td>
+<td>HP:0001824</td>
+<td>Symptom</td>
+<td>Adult</td>
+<td>Progressive</td>
+<td>~30–50%</td>
+</tr>
+<tr>
+<td>Jaundice</td>
+<td>HP:0000952</td>
+<td>Clinical sign</td>
+<td>Late</td>
+<td>Variable</td>
+<td>~20–40%</td>
+</tr>
+<tr>
+<td>Ascites</td>
+<td>HP:0001541</td>
+<td>Physical sign</td>
+<td>Advanced</td>
+<td>Severe</td>
+<td>~20–30%</td>
+</tr>
+<tr>
+<td>Fatigue</td>
+<td>HP:0012378</td>
+<td>Symptom</td>
+<td>Variable</td>
+<td>Variable</td>
+<td>~30–50%</td>
+</tr>
+<tr>
+<td>Portal hypertension</td>
+<td>HP:0001409</td>
+<td>Clinical sign</td>
+<td>Advanced</td>
+<td>Severe</td>
+<td>~40–60%</td>
+</tr>
+<tr>
+<td>Elevated AFP</td>
+<td>HP:0006254</td>
+<td>Lab abnormality</td>
+<td>Variable</td>
+<td>Variable</td>
+<td>~60–70%</td>
+</tr>
+<tr>
+<td>Elevated transaminases</td>
+<td>HP:0002910</td>
+<td>Lab abnormality</td>
+<td>Variable</td>
+<td>Variable</td>
+<td>~60–80%</td>
+</tr>
+<tr>
+<td>Thrombocytopenia</td>
+<td>HP:0001873</td>
+<td>Lab abnormality</td>
+<td>Cirrhotic stage</td>
+<td>Variable</td>
+<td>~30–50%</td>
+</tr>
+</tbody>
+</table>
+<p>In AFB1-endemic regions, HCC presents at notably younger ages (20s–40s in sub-Saharan Africa) compared to non-endemic areas (50s–70s). "In these regions and populations, the tumor shows a distinct shift in age distribution toward the younger ages, seen to greatest extent in sub-Saharan Black Africans" (<a href="https://pubmed.ncbi.nlm.nih.gov/27508181/">PMID: 27508181</a>).</p>
+<hr />
+<h2>Genetic and Molecular Information</h2>
+<h3>TP53 R249S (OMIM: 191170; HGNC:11998)</h3>
+<ul>
+<li><strong>Variant:</strong> c.747G&gt;T (p.R249S) — the "aflatoxin signature mutation"</li>
+<li><strong>Classification:</strong> Pathogenic somatic mutation (not germline)</li>
+<li><strong>Functional consequences:</strong> Loss of tumor suppressor function AND gain of oncogenic function (CDK4-PIN1-c-Myc pathway)</li>
+<li><strong>COSMIC:</strong> Present in COSMIC database as a hotspot hepatocellular carcinoma mutation</li>
+</ul>
+<h3>Other Genetic Alterations</h3>
+<ul>
+<li><strong>CTNNB1/β-catenin:</strong> Activating mutations more common in non-AFB1 HCC (<a href="https://pubmed.ncbi.nlm.nih.gov/16799619/">PMID: 16799619</a>)</li>
+<li><strong>AXIN1/AXIN2:</strong> Wnt pathway negative regulator mutations</li>
+<li><strong>Two hepatocarcinogenesis pathways:</strong> Chromosomally instable (HBV/AFB1-related, TP53 mutations, poorly differentiated) vs. chromosomally stable (non-HBV, β-catenin activated, well-differentiated) (<a href="https://pubmed.ncbi.nlm.nih.gov/16799619/">PMID: 16799619</a>)</li>
+</ul>
+<h3>Epigenetic Changes</h3>
+<ul>
+<li>Aberrant DNA methylation, histone modifications, and microRNA dysregulation cooperate with genetic mutations (<a href="https://pubmed.ncbi.nlm.nih.gov/25421688/">PMID: 25421688</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/30304666/">PMID: 30304666</a>)</li>
+<li>m6A RNA modification: YTHDF2-PARP1 axis mediating HBV-AFB1 synergy (<a href="https://pubmed.ncbi.nlm.nih.gov/40344782/">PMID: 40344782</a>)</li>
+</ul>
+<hr />
+<h2>Pathophysiology: Molecular Pathways</h2>
+<h3>Key Signaling Pathways</h3>
+<table>
+<thead>
+<tr>
+<th>Pathway</th>
+<th>Role in Disease</th>
+<th>GO/KEGG Terms</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CYP450 bioactivation</td>
+<td>AFB1 → AFBO initiating event</td>
+<td>GO:0006805 (xenobiotic metabolic process)</td>
+</tr>
+<tr>
+<td>p53 tumor suppression</td>
+<td>Loss of apoptosis/cell cycle control</td>
+<td>GO:0006915 (apoptotic process)</td>
+</tr>
+<tr>
+<td>CDK4-PIN1-c-Myc</td>
+<td>R249S gain-of-function proliferation</td>
+<td>GO:0008283 (cell proliferation)</td>
+</tr>
+<tr>
+<td>NF-κB/IL-6/STAT3</td>
+<td>Inflammation, immune evasion</td>
+<td>GO:0038061 (NF-kappaB signaling)</td>
+</tr>
+<tr>
+<td>Nrf2/Keap1</td>
+<td>Oxidative stress response</td>
+<td>GO:0006979 (response to oxidative stress)</td>
+</tr>
+<tr>
+<td>Wnt/β-catenin</td>
+<td>Proliferation (less prominent in AFB1-HCC)</td>
+<td>hsa04310 (Wnt signaling pathway)</td>
+</tr>
+<tr>
+<td>MAPK/TGF-β</td>
+<td>Cell adhesion, migration (AFB1-transformed cells)</td>
+<td>GO:0000165 (MAPK cascade)</td>
+</tr>
+</tbody>
+</table>
+<h3>Cell Types Involved</h3>
+<table>
+<thead>
+<tr>
+<th>Cell Type</th>
+<th>CL Term</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hepatocyte</td>
+<td>CL:0000182</td>
+<td>Primary target of transformation</td>
+</tr>
+<tr>
+<td>Kupffer cell</td>
+<td>CL:0000091</td>
+<td>Inflammatory response, M2 polarization</td>
+</tr>
+<tr>
+<td>Hepatic stellate cell</td>
+<td>CL:0000632</td>
+<td>Fibrosis, tumor microenvironment</td>
+</tr>
+<tr>
+<td>CD8+ T lymphocyte</td>
+<td>CL:0000794</td>
+<td>Anti-tumor immunity (suppressed)</td>
+</tr>
+<tr>
+<td>Tumor-associated macrophage</td>
+<td>CL:0000863</td>
+<td>M2-polarized, immunosuppressive</td>
+</tr>
+<tr>
+<td>Hepatic progenitor cell</td>
+<td>CL:0002196</td>
+<td>Potential cell of origin</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Primary organ:</strong> Liver (UBERON:0002107)</li>
+<li><strong>Secondary involvement:</strong> Lungs (UBERON:0002048), bones (UBERON:0002481), lymph nodes (UBERON:0000029), adrenal glands (UBERON:0002369)</li>
+<li><strong>Subcellular compartments:</strong> Nucleus (GO:0005634; DNA adducts), endoplasmic reticulum (GO:0005783; CYP450 bioactivation), mitochondria (GO:0005739; oxidative stress), cytosol (GO:0005829; GST detoxification)</li>
+<li>Background cirrhosis present in 80–90% of cases (<a href="https://pubmed.ncbi.nlm.nih.gov/20547305/">PMID: 20547305</a>)</li>
+</ul>
+<hr />
+<h2>Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> Insidious; 20s–40s in sub-Saharan Africa, 40s–60s in Southeast Asia; exposure from early childhood (<a href="https://pubmed.ncbi.nlm.nih.gov/27508181/">PMID: 27508181</a>)</li>
+<li><strong>Staging:</strong> BCLC system (Stage 0/A: curative treatment possible; Stage B: TACE; Stage C: systemic therapy; Stage D: best supportive care)</li>
+<li><strong>Course:</strong> Progressive; "almost always runs a fulminant course" without treatment (<a href="https://pubmed.ncbi.nlm.nih.gov/27508181/">PMID: 27508181</a>)</li>
+<li><strong>Critical window:</strong> Pregnancy may increase susceptibility through elevated CYP expression (<a href="https://pubmed.ncbi.nlm.nih.gov/28973694/">PMID: 28973694</a>)</li>
+</ul>
+<hr />
+<h2>Epidemiology and Population</h2>
+<ul>
+<li><strong>Global HCC:</strong> ~550,000–600,000 new cases/year; 3rd leading cause of cancer death (<a href="https://pubmed.ncbi.nlm.nih.gov/38927059/">PMID: 38927059</a>)</li>
+<li><strong>AFB1-attributable:</strong> 4.6–28.2% of all HCC (25,200–155,000 cases/year) (<a href="https://pubmed.ncbi.nlm.nih.gov/20172840/">PMID: 20172840</a>)</li>
+<li><strong>High-incidence regions (&gt;20/100,000):</strong> Sub-Saharan Africa, Southeast Asia, China (<a href="https://pubmed.ncbi.nlm.nih.gov/20547305/">PMID: 20547305</a>)</li>
+<li><strong>Sex ratio:</strong> Males 2–3:1 (up to 5:1 in high-risk regions) (<a href="https://pubmed.ncbi.nlm.nih.gov/11185536/">PMID: 11185536</a>)</li>
+<li><strong>Inheritance:</strong> Multifactorial/polygenic; not Mendelian; familial clustering reflects shared environment and genetic background (<a href="https://pubmed.ncbi.nlm.nih.gov/36851773/">PMID: 36851773</a>)</li>
+<li><strong>Trends:</strong> Declining in Singapore/Shanghai (HBV vaccination + aflatoxin control); increasing in Western countries (MASLD/obesity) (<a href="https://pubmed.ncbi.nlm.nih.gov/11185536/">PMID: 11185536</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41201177/">PMID: 41201177</a>)</li>
+</ul>
+<hr />
+<h2>Diagnostics</h2>
+<h3>Clinical Tests and Biomarkers</h3>
+<table>
+<thead>
+<tr>
+<th>Test</th>
+<th>Purpose</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Serum AFP</td>
+<td>Screening/diagnosis</td>
+<td>Elevated in ~60–70%; AFP-L3 fraction improves specificity</td>
+</tr>
+<tr>
+<td>DCP (PIVKA-II)</td>
+<td>Diagnosis</td>
+<td>Complementary to AFP</td>
+</tr>
+<tr>
+<td>AFB1-albumin adducts</td>
+<td>Exposure biomarker</td>
+<td>ELISA; reflects 2–3 months exposure (<a href="https://pubmed.ncbi.nlm.nih.gov/11525595/">PMID: 11525595</a>)</td>
+</tr>
+<tr>
+<td>Urinary AFM1</td>
+<td>Exposure biomarker</td>
+<td>Reflects recent exposure (<a href="https://pubmed.ncbi.nlm.nih.gov/28114823/">PMID: 28114823</a>)</td>
+</tr>
+<tr>
+<td>Multiphasic CT/MRI</td>
+<td>Imaging diagnosis</td>
+<td>Arterial hyperenhancement + washout</td>
+</tr>
+<tr>
+<td>Ultrasound</td>
+<td>Screening</td>
+<td>Every 6 months in high-risk populations</td>
+</tr>
+<tr>
+<td>TP53 R249S (ddPCR)</td>
+<td>Molecular diagnosis + exposure</td>
+<td>Liquid biopsy in cell-free DNA (<a href="https://pubmed.ncbi.nlm.nih.gov/29749584/">PMID: 29749584</a>)</td>
+</tr>
+<tr>
+<td>COSMIC Signature 24</td>
+<td>Mutational signature</td>
+<td>AFB1-associated pattern; C&gt;A mutations (<a href="https://pubmed.ncbi.nlm.nih.gov/30045675/">PMID: 30045675</a>)</td>
+</tr>
+</tbody>
+</table>
+<h3>Staging</h3>
+<ul>
+<li>BCLC (Barcelona Clinic Liver Cancer) staging integrating tumor burden, liver function (Child-Pugh), and performance status (ECOG)</li>
+<li>AASLD/EASL diagnostic guidelines for non-invasive diagnosis</li>
+</ul>
+<hr />
+<h2>Outcome and Prognosis</h2>
+<ul>
+<li><strong>Overall prognosis:</strong> Poor; "almost always runs a fulminant course and carries an especially grave prognosis. It has a low resectability rate and a high recurrence rate after surgical intervention" (<a href="https://pubmed.ncbi.nlm.nih.gov/27508181/">PMID: 27508181</a>)</li>
+<li><strong>5-year survival:</strong> 50–70% (early stage with curative treatment); &lt;5% (end-stage)</li>
+<li><strong>Median OS with first-line therapy:</strong> ~19.2 months (atezolizumab+bevacizumab); ~10.7 months (sorafenib)</li>
+<li><strong>Prognostic biomarkers:</strong> AFP level, TP53 R249S cfDNA status, Child-Pugh score, vascular invasion, telomerase activity (<a href="https://pubmed.ncbi.nlm.nih.gov/11783914/">PMID: 11783914</a>)</li>
+</ul>
+<hr />
+<h2>Treatment</h2>
+<h3>First-Line Systemic Therapy</h3>
+<table>
+<thead>
+<tr>
+<th>Regimen</th>
+<th>Evidence</th>
+<th>MAXO Term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Atezolizumab + Bevacizumab</td>
+<td>Standard of care; 88% probability of best 30-month OS (<a href="https://pubmed.ncbi.nlm.nih.gov/38751554/">PMID: 38751554</a>)</td>
+<td>MAXO:0000451</td>
+</tr>
+<tr>
+<td>Durvalumab + Tremelimumab</td>
+<td>Approved first-line</td>
+<td>MAXO:0000451</td>
+</tr>
+<tr>
+<td>Sorafenib</td>
+<td>First approved agent (2007)</td>
+<td>MAXO:0001052</td>
+</tr>
+<tr>
+<td>Lenvatinib</td>
+<td>Non-inferior to sorafenib (<a href="https://pubmed.ncbi.nlm.nih.gov/37589044/">PMID: 37589044</a>)</td>
+<td>MAXO:0001052</td>
+</tr>
+</tbody>
+</table>
+<h3>Second-Line and Beyond</h3>
+<ul>
+<li>Regorafenib, cabozantinib, ramucirumab (TKIs)</li>
+<li>Nivolumab, pembrolizumab (PD-1 inhibitors)</li>
+<li>Regorafenib + PD-1 or apatinib + PD-1 after lenvatinib + PD-1 progression (<a href="https://pubmed.ncbi.nlm.nih.gov/40082982/">PMID: 40082982</a>)</li>
+</ul>
+<h3>R249S-Specific Therapy (Experimental)</h3>
+<p>Co-targeting CDK4 (palbociclib/PD-0332991) + p53-R249S restoration (CP-31398) showed synergistic inhibition of HCC cell growth in a p53-R249S-dependent manner (<a href="https://pubmed.ncbi.nlm.nih.gov/31747859/">PMID: 31747859</a>). This represents a precision medicine approach specifically for AFB1-related HCC.</p>
+<h3>Immunotherapy Optimization for AFB1-Related HCC</h3>
+<p>Anti-IL-6 + anti-PD-1 combination overcomes AFB1-driven M2 macrophage polarization, "significantly reduces tumor growth, decreases the number of M2-like macrophages, and enhances CD8+ T cell infiltration" (<a href="https://pubmed.ncbi.nlm.nih.gov/40789982/">PMID: 40789982</a>).</p>
+<h3>Surgical/Interventional</h3>
+<ul>
+<li>Hepatic resection (MAXO:0000004), liver transplantation (MAXO:0001175), radiofrequency ablation, TACE, TARE/Y90</li>
+<li>Proton radiotherapy + immunotherapy: 2-year OS 77% in BCLC B/C with macrovascular invasion (<a href="https://pubmed.ncbi.nlm.nih.gov/41585427/">PMID: 41585427</a>)</li>
+</ul>
+<hr />
+<h2>Prevention</h2>
+<h3>Primary Prevention</h3>
+<ul>
+<li><strong>HBV vaccination (MAXO:0001017):</strong> Single most effective intervention; universal infant vaccination dramatically reduces HBV carrier rates and HCC incidence (<a href="https://pubmed.ncbi.nlm.nih.gov/25987009/">PMID: 25987009</a>)</li>
+<li><strong>Aflatoxin reduction:</strong> Improved post-harvest drying and storage; biocontrol with atoxigenic <em>Aspergillus</em> strains; food safety regulations (<a href="https://pubmed.ncbi.nlm.nih.gov/12534775/">PMID: 12534775</a>)</li>
+<li><strong>Chemoprevention:</strong> Chlorophyllin and oltipraz validated in clinical trials (<a href="https://pubmed.ncbi.nlm.nih.gov/15508099/">PMID: 15508099</a>)</li>
+</ul>
+<h3>Secondary Prevention</h3>
+<ul>
+<li>HCC surveillance: ultrasound ± AFP every 6 months</li>
+<li>AFP screening programs in high-incidence areas (<a href="https://pubmed.ncbi.nlm.nih.gov/2430432/">PMID: 2430432</a>)</li>
+<li>Antiviral therapy for chronic HBV</li>
+</ul>
+<h3>Public Health</h3>
+<ul>
+<li>"In Guinea-Conakry, West Africa, surveys of HBV infection and aflatoxin exposure have established baseline data for the implementation of a community-based intervention study" (<a href="https://pubmed.ncbi.nlm.nih.gov/12534775/">PMID: 12534775</a>)</li>
+<li>Integration of vaccination, aflatoxin control, and screening programs</li>
+</ul>
+<hr />
+<h2>Animal Models and Other Species</h2>
+<h3>Rodent Models</h3>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Strengths</th>
+<th>Limitations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>F344 rat + AFB1</td>
+<td>Gold standard; GST-P+ foci, HCC development; chemoprevention testing</td>
+<td>No HBV infection capability</td>
+</tr>
+<tr>
+<td>B6C3F1/N mouse + AFB1</td>
+<td>COSMIC Signature 24 matches human HCC (<a href="https://pubmed.ncbi.nlm.nih.gov/30045675/">PMID: 30045675</a>)</td>
+<td>Species CYP differences</td>
+</tr>
+<tr>
+<td>HBsAg transgenic mouse + AFB1</td>
+<td>Synergy recapitulation; 11-gene HCC signature (<a href="https://pubmed.ncbi.nlm.nih.gov/26035378/">PMID: 26035378</a>)</td>
+<td>Mouse HBV biology differs</td>
+</tr>
+<tr>
+<td>Tree shrew + HBV + AFB1</td>
+<td>Natural HBV susceptibility; FTCD-AS1-PXR-MASP1 axis (<a href="https://pubmed.ncbi.nlm.nih.gov/39824452/">PMID: 39824452</a>)</td>
+<td>Limited genetic tools</td>
+</tr>
+</tbody>
+</table>
+<h3>In Vitro Models</h3>
+<ul>
+<li>WB-F344 hepatic stem cells: AFB1 transformation model (<a href="https://pubmed.ncbi.nlm.nih.gov/24299315/">PMID: 24299315</a>)</li>
+<li>PLC/PRF/5: Constitutively expresses p53-R249S and HBx (<a href="https://pubmed.ncbi.nlm.nih.gov/20538734/">PMID: 20538734</a>)</li>
+<li>HepG2.2.15: HBV-integrated; HBV-AFB1 synergy studies (<a href="https://pubmed.ncbi.nlm.nih.gov/40344782/">PMID: 40344782</a>)</li>
+</ul>
+<h3>Veterinary Relevance</h3>
+<ul>
+<li>AFB1 contamination of animal feed causes aflatoxicosis in poultry, swine, cattle</li>
+<li>Turkey X disease (1960) was the original event leading to aflatoxin discovery</li>
+<li>AFM1 in milk from exposed dairy animals contributes minimally to human HCC risk (~0.001–0.003% of cases) (<a href="https://pubmed.ncbi.nlm.nih.gov/35470382/">PMID: 35470382</a>)</li>
+</ul>
+<hr />
+<h2>Ontology Term Summary</h2>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Terms</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>MONDO</strong></td>
+<td>MONDO:0007256 (hepatocellular carcinoma)</td>
+</tr>
+<tr>
+<td><strong>HPO</strong></td>
+<td>HP:0002240 (Hepatomegaly), HP:0001824 (Weight loss), HP:0000952 (Jaundice), HP:0001541 (Ascites), HP:0001409 (Portal hypertension), HP:0006254 (Elevated AFP), HP:0002910 (Elevated transaminases)</td>
+</tr>
+<tr>
+<td><strong>GO (BP)</strong></td>
+<td>GO:0006805 (Xenobiotic metabolism), GO:0006749 (Glutathione metabolism), GO:0006281 (DNA repair), GO:0006915 (Apoptosis), GO:0008283 (Cell proliferation), GO:0006979 (Oxidative stress response), GO:0006954 (Inflammatory response)</td>
+</tr>
+<tr>
+<td><strong>GO (CC)</strong></td>
+<td>GO:0005634 (Nucleus), GO:0005783 (ER), GO:0005739 (Mitochondria), GO:0005829 (Cytosol)</td>
+</tr>
+<tr>
+<td><strong>CL</strong></td>
+<td>CL:0000182 (Hepatocyte), CL:0000091 (Kupffer cell), CL:0000632 (Hepatic stellate cell), CL:0000794 (CD8+ T cell)</td>
+</tr>
+<tr>
+<td><strong>UBERON</strong></td>
+<td>UBERON:0002107 (Liver), UBERON:0002048 (Lung), UBERON:0002481 (Bone)</td>
+</tr>
+<tr>
+<td><strong>CHEBI</strong></td>
+<td>CHEBI:2504 (Aflatoxin B1), CHEBI:50924 (Sorafenib), CHEBI:16856 (Glutathione)</td>
+</tr>
+<tr>
+<td><strong>MAXO</strong></td>
+<td>MAXO:0000451 (Immunotherapy), MAXO:0000004 (Surgery), MAXO:0001175 (Transplantation), MAXO:0001017 (Vaccination)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>Evidence Base</h2>
+<h3>Landmark Publications</h3>
+<table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Key Contribution</th>
+<th>Citation Basis</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20172840/">20172840</a></td>
+<td>Quantified 25,200–155,000 annual AFB1-attributable HCC cases globally</td>
+<td>Direct quote validated from abstract</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20538734/">20538734</a></td>
+<td>Demonstrated R249S accounts for 90% of TP53 mutations in AFB1-HCC; functional studies</td>
+<td>Direct quote validated from abstract</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29749584/">29749584</a></td>
+<td>ddPCR detection of R249S in cfDNA; 24.8% prevalence in Middle Africa</td>
+<td>Direct quote validated from abstract</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19345001/">19345001</a></td>
+<td>Established more-than-multiplicative HBV-AFB1 synergy</td>
+<td>Direct quote validated from abstract</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/8261428/">8261428</a></td>
+<td>Defined CYP1A2 (72%) and CYP3A4 as AFB1 bioactivation enzymes</td>
+<td>Direct quote validated from abstract</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29225033/">29225033</a></td>
+<td>CDK4-PIN1-c-Myc gain-of-function mechanism of p53-R249S</td>
+<td>Direct quote validated from abstract</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15734960/">15734960</a></td>
+<td>GSTM1/XRCC1 polymorphisms and HCC risk in AFB1-endemic Gambia</td>
+<td>Direct quote validated from abstract</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16884947/">16884947</a></td>
+<td>Triple risk genotype (GSTM1+HYL1*2+XRCC1) = 15-fold HCC risk</td>
+<td>Direct quote validated from abstract</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15508099/">15508099</a></td>
+<td>Oltipraz and chlorophyllin clinical trial results</td>
+<td>Direct quote validated from abstract</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40789982/">40789982</a></td>
+<td>AFB1 drives M2 macrophage polarization via IL-6/NF-κB; anti-IL-6+PD-1 therapy</td>
+<td>Direct quote validated from abstract</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40344782/">40344782</a></td>
+<td>HBV-YTHDF2-PARP1 axis in DNA damage exacerbation</td>
+<td>Direct quote validated from abstract</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33457005/">33457005</a></td>
+<td>GWAS identified ADAMTS18 loci for R249S susceptibility</td>
+<td>Direct quote validated from abstract</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31747859/">31747859</a></td>
+<td>CDK4 + p53-R249S co-targeting synergistic therapy</td>
+<td>Direct quote validated from abstract</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11470760/">11470760</a></td>
+<td>GSTT1-null × AFB1 interaction in HBsAg carriers (OR=3.7)</td>
+<td>Direct quote validated from abstract</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24399650/">24399650</a></td>
+<td>Meta-analysis of GSTM1/GSTT1 and HCC risk (33 studies)</td>
+<td>Direct quote validated from abstract</td>
+</tr>
+</tbody>
+</table>
+<h3>Supporting Evidence (Selected)</h3>
+<table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Topic</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27508181/">27508181</a></td>
+<td>HCC epidemiology and risk factors (comprehensive review)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38927059/">38927059</a></td>
+<td>Molecular mechanisms and targeted treatments in HCC</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16799619/">16799619</a></td>
+<td>Two pathways of hepatocarcinogenesis (chromosomal instability)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25421688/">25421688</a></td>
+<td>Epigenetic aberrations in HCC</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30304666/">30304666</a></td>
+<td>AFB1-induced epigenetic alterations</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30045675/">30045675</a></td>
+<td>Exome sequencing and COSMIC Signature 24 in mouse HCC</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26035378/">26035378</a></td>
+<td>HBsAg transgenic mouse + AFB1 model characterization</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28973694/">28973694</a></td>
+<td>Pregnancy alters AFB1 metabolism and DNA damage</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38751554/">38751554</a></td>
+<td>Network meta-analysis of first-line HCC therapies</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12534775/">12534775</a></td>
+<td>AFB1/HBV role and prevention in Guinea-Conakry</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li>
+<p><strong>Nosological classification:</strong> Aflatoxin-related HCC lacks a distinct MONDO or OMIM entry separate from general HCC, limiting systematic data aggregation and research coordination for this specific etiological subtype.</p>
+</li>
+<li>
+<p><strong>Dose-response quantification:</strong> Precise dose-response relationships for AFB1 alone remain difficult to determine in human populations due to confounding from HBV co-exposure, variable dietary patterns, and lack of long-term prospective exposure monitoring.</p>
+</li>
+<li>
+<p><strong>R249S therapeutic translation:</strong> The CDK4/6 inhibitor + p53-restoring compound combination (PD-0332991 + CP-31398) has been characterized only in cell lines and animal models. No human clinical trials have tested this approach in R249S-positive HCC patients.</p>
+</li>
+<li>
+<p><strong>Immunotherapy optimization:</strong> The IL-6/NF-κB/M2 macrophage axis driving immunosuppression is a very recent discovery (2025–2026). The clinical relevance of anti-IL-6 + anti-PD-1 combinations specifically for AFB1-related HCC has not been validated in human trials.</p>
+</li>
+<li>
+<p><strong>Biomarker accessibility:</strong> AFB1-albumin adducts, urinary AFM1, and ddPCR-based R249S cfDNA detection are validated research biomarkers but remain unavailable in most clinical settings in the resource-limited regions where disease burden is highest.</p>
+</li>
+<li>
+<p><strong>Scalability of chemoprevention:</strong> While oltipraz and chlorophyllin show proof-of-concept efficacy, large-scale implementation in endemic regions faces logistical, economic, and sustainability challenges. Long-term cancer incidence endpoints have not been evaluated.</p>
+</li>
+<li>
+<p><strong>Incomplete multi-omics profiling:</strong> Comprehensive single-cell transcriptomic, epigenomic, and proteomic profiling specifically comparing AFB1-related vs. non-AFB1-related HCC has not been performed at scale, limiting understanding of subtype-specific biology.</p>
+</li>
+<li>
+<p><strong>Pharmacogenomics of treatment response:</strong> The role of CYP450 and GST polymorphisms in modulating treatment response (beyond disease risk) remains poorly characterized.</p>
+</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<h3>Clinical and Translational</h3>
+<ol>
+<li>
+<p><strong>Phase II trial of CDK4/6 inhibitor + p53-restoring compound in R249S-positive HCC:</strong> Stratify advanced HCC patients by TP53 R249S status (liquid biopsy) and test palbociclib + CP-31398 (or next-generation p53 reactivators) in a biomarker-selected population, with R249S-negative patients as controls.</p>
+</li>
+<li>
+<p><strong>Randomized trial of anti-IL-6 (tocilizumab) + anti-PD-1 in AFB1-endemic HCC:</strong> Evaluate whether targeting the AFB1-driven immunosuppressive microenvironment improves checkpoint inhibitor response rates in sub-Saharan African or Southeast Asian HCC cohorts.</p>
+</li>
+<li>
+<p><strong>Liquid biopsy validation for population screening:</strong> Prospective evaluation of ddPCR-based TP53 R249S detection in cell-free DNA as both a diagnostic and population-level exposure surveillance biomarker in high-risk communities.</p>
+</li>
+</ol>
+<h3>Epidemiological</h3>
+<ol>
+<li>
+<p><strong>Multi-country prospective cohort study:</strong> Longitudinal assessment of AFB1 biomarkers (AFB1-albumin adducts, urinary AFM1) combined with genomic characterization (GST, XRCC1, CYP polymorphisms) and HCC incidence outcomes across multiple AFB1-endemic African countries.</p>
+</li>
+<li>
+<p><strong>Large-scale dietary chemoprevention trial:</strong> Evaluate food-based interventions (chlorophyllin, broccoli sprout beverage, probiotics) at population scale in endemic regions with cancer incidence as a primary endpoint, complementing the existing biomarker-based proof-of-concept data.</p>
+</li>
+</ol>
+<h3>Basic Science</h3>
+<ol>
+<li>
+<p><strong>Single-cell RNA sequencing of R249S-positive vs. wild-type HCC tumors:</strong> Characterize tumor microenvironment differences with emphasis on macrophage polarization states, T cell exhaustion markers, and cancer-associated fibroblast subtypes.</p>
+</li>
+<li>
+<p><strong>CRISPR functional genomics screen:</strong> Systematically identify synthetic lethal interactions with TP53 R249S in isogenic hepatocyte models to discover new therapeutic targets beyond the CDK4-PIN1 axis.</p>
+</li>
+<li>
+<p><strong>Integrated multi-omics analysis (TCGA/ICGC reanalysis):</strong> Stratify existing HCC genomic datasets by R249S status and AFB1 exposure biomarkers to define the complete molecular subtype signature of aflatoxin-related HCC.</p>
+</li>
+</ol>
+<h3>Public Health</h3>
+<ol>
+<li>
+<p><strong>Rapid AFB1 testing deployment:</strong> Develop and field-test lateral-flow immunoassay devices for AFB1 detection in food markets across endemic regions, coupled with community education programs about proper crop storage.</p>
+</li>
+<li>
+<p><strong>Cost-effectiveness modeling:</strong> Comprehensive health-economic analysis of integrated prevention programs (HBV vaccination + aflatoxin reduction + chemoprevention + HCC screening) to guide resource allocation in high-burden countries.</p>
+</li>
+</ol>
+<hr />
+<p><em>Report generated: 2026-05-05 | Based on analysis of 78 published papers | 5 confirmed findings | 1 research iteration</em></p>
+                        </div>
+                    </div>
+                </div>
+                
             </div>
             
         </div>
@@ -6036,7 +9055,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Aflatoxin-Related Hepatocellular Carcinoma", "mondoId": "MONDO:0007256", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Aflatoxin-Related_Hepatocellular_Carcinoma", "yamlRevision": "1ec34a5b6289"};
+        const OS_CONFIG = {"diseaseName": "Aflatoxin-Related Hepatocellular Carcinoma", "mondoId": "MONDO:0007256", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Aflatoxin-Related_Hepatocellular_Carcinoma", "yamlRevision": "e2e7ef679bab"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

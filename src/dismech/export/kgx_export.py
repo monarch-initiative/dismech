@@ -5,6 +5,7 @@ Transforms disorder YAML files into KGX-format edges for the knowledge graph.
 Each function extracts edges from a specific collection type within the disorder.
 """
 
+import re
 import uuid
 from typing import Any, Iterator
 
@@ -374,12 +375,48 @@ def gene_to_edge(disease_id: str, gene: dict[str, Any]) -> GeneToDiseaseAssociat
     )
 
 
+# Protective-effect patterns. Matched against environmental[].effect to flip the
+# predicate from contributes_to → associated_with_decreased_likelihood_of when the
+# curated text indicates the exposure reduces disease risk (see #2098).
+_PROTECTIVE_EFFECT_PATTERNS = (
+    re.compile(r"\breduces?\s+risk\b", re.IGNORECASE),
+    re.compile(r"\bdecreased?\s+(odds|risk|chance|incidence|likelihood)\b", re.IGNORECASE),
+    re.compile(r"\bprotect(s|ive|ion)?\s+against\b", re.IGNORECASE),
+    re.compile(r"\blower(s|ed)?\s+(odds|risk|chance|incidence|likelihood)\b", re.IGNORECASE),
+)
+
+
+def _exposure_predicate(effect: str | None) -> str:
+    """Map an environmental `effect` free-text field to a Biolink predicate.
+
+    Returns `biolink:associated_with_decreased_likelihood_of` when the curated
+    `effect` text matches one of the protective phrasings below (case-insensitive,
+    word-boundary matched):
+
+      - `reduces? risk`
+      - `decreased? (odds|risk|chance|incidence|likelihood)`
+      - `protect(s|ive|ion)? against`
+      - `lower(s|ed)? (odds|risk|chance|incidence|likelihood)`
+
+    Any other `effect` value (including `None`, causal phrasings such as
+    "TRIGGERS" / "Increases risk", or text that mentions reduction of a
+    non-risk noun like "reduced HDL") falls through to the default
+    `biolink:contributes_to`. Curators adding new protective environmental
+    entries should phrase the `effect` text to match one of the patterns
+    above; see #2098 for context."""
+    if effect and any(p.search(effect) for p in _PROTECTIVE_EFFECT_PATTERNS):
+        return "biolink:associated_with_decreased_likelihood_of"
+    return "biolink:contributes_to"
+
+
 def exposure_to_edge(disease_id: str, environmental: dict[str, Any]) -> ExposureEventToOutcomeAssociation | None:
     """
     Convert an environmental exposure entry to a KGX edge.
 
-    Exposure → Disease using contributes_to (risk factor relationship).
-    Uses ExposureEventToOutcomeAssociation since Disease is-a Outcome in Biolink.
+    Exposure → Disease. Predicate is `biolink:contributes_to` by default;
+    if `effect` indicates a protective relationship (e.g., "Reduces risk
+    of X"), use `biolink:associated_with_decreased_likelihood_of` instead.
+    See #2098.
 
     Args:
         disease_id: The disease term ID
@@ -395,7 +432,7 @@ def exposure_to_edge(disease_id: str, environmental: dict[str, Any]) -> Exposure
     # Format evidence (direct - attached to environmental entry)
     publications, supporting_text = _format_evidence(environmental.get("evidence"), indirect=False)
 
-    predicate = "biolink:contributes_to"
+    predicate = _exposure_predicate(environmental.get("effect"))
     return ExposureEventToOutcomeAssociation(
         id=_make_edge_id(),
         subject=exposure_id,
@@ -968,7 +1005,10 @@ def extract_nodes(record: dict[str, Any]) -> Iterator[NamedThing]:
     for treatment in record.get("treatments") or []:
         treatment_id = _get_term_id(treatment, ["treatment_term", "term", "id"])
         treatment_label = _get_term_id(treatment, ["treatment_term", "term", "label"])
-        node = _emit(treatment_id, treatment.get("name") or treatment_label, "biolink:Treatment")
+        # Use the canonical ontology label, not the free-text treatment.name —
+        # multiple disorders share one MAXO CURIE with different free-text names,
+        # and dedup would otherwise pick whichever name wins.
+        node = _emit(treatment_id, treatment_label or treatment.get("name"), "biolink:Treatment")
         if node:
             yield node
 

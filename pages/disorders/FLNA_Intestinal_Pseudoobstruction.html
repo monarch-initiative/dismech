@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2631,6 +2784,20 @@
             
             
             
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-value">10</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -3097,7 +3264,7 @@
                     <div class="item-name">
                         Intestinal Pseudo-obstruction
                         
-                        <span class="phenotype-freq">Very frequent</span>
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
                         
                     
                     <span class="phenotype-id">
@@ -3162,7 +3329,7 @@
                     <div class="item-name">
                         Bladder Dysfunction
                         
-                        <span class="phenotype-freq">Frequent</span>
+                        <span class="phenotype-freq">FREQUENT</span>
                         
                     
                     <span class="phenotype-id">
@@ -3227,7 +3394,7 @@
                     <div class="item-name">
                         Periventricular Nodular Heterotopia
                         
-                        <span class="phenotype-freq">Occasional</span>
+                        <span class="phenotype-freq">OCCASIONAL</span>
                         
                     
                     <span class="phenotype-id">
@@ -3583,7 +3750,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: FLNA Intestinal Pseudoobstruction
 creation_date: &#34;2026-04-04T00:00:00Z&#34;
-updated_date: &#34;2026-04-07T02:14:34Z&#34;
+updated_date: &#34;2026-05-09T00:41:13Z&#34;
 description: &gt;-
   X-linked chronic idiopathic intestinal pseudo-obstruction (CIIPX) caused by
   loss-of-function mutations in FLNA is a severe gastrointestinal motility
@@ -3721,7 +3888,7 @@ pathophysiology:
 phenotypes:
 - category: Gastrointestinal
   name: Intestinal Pseudo-obstruction
-  frequency: Very frequent
+  frequency: VERY_FREQUENT
   description: &gt;-
     Chronic intestinal pseudo-obstruction with episodes mimicking mechanical
     bowel obstruction. The primary defining feature of the disorder.
@@ -3741,7 +3908,7 @@ phenotypes:
       Identifies CIIPX as the primary phenotype.
 - category: Urological
   name: Bladder Dysfunction
-  frequency: Frequent
+  frequency: FREQUENT
   description: &gt;-
     Bladder distension and dysfunction co-occurring with intestinal
     pseudo-obstruction, reflecting shared enteric/autonomic innervation
@@ -3762,7 +3929,7 @@ phenotypes:
       Bladder distension occurs alongside intestinal pseudo-obstruction.
 - category: Neurological
   name: Periventricular Nodular Heterotopia
-  frequency: Occasional
+  frequency: OCCASIONAL
   description: &gt;-
     Central nervous system involvement with periventricular nodular
     heterotopia may occur, reflecting the shared FLNA loss-of-function
@@ -3846,11 +4013,1026 @@ treatments:
       id: MAXO:0000079
       label: genetic counseling
 datasets: []
+references:
+- reference: DOI:10.1002/humu.23355
+  title: Differential regulation of two&lt;i&gt;FLNA&lt;/i&gt;transcripts explains some of the phenotypic heterogeneity in the loss-of-function filaminopathies
+  found_in:
+  - FLNA_Intestinal_Pseudoobstruction-deep-research-falcon.md
+  findings:
+  - statement: Differential regulation of two&lt;i&gt;FLNA&lt;/i&gt;transcripts explains some of the phenotypic heterogeneity in the loss-of-function filaminopathies
+    supporting_text: Differential regulation of two&lt;i&gt;FLNA&lt;/i&gt;transcripts explains some of the phenotypic heterogeneity in the loss-of-function filaminopathies
+- reference: DOI:10.1002/jpn3.12400
+  title: &#39;Incidence, diagnostics, therapeutic management and outcomes of paediatric intestinal pseudo‐obstruction in the Netherlands: A 20‐year retrospective cohort study&#39;
+  found_in:
+  - FLNA_Intestinal_Pseudoobstruction-deep-research-falcon.md
+  findings:
+  - statement: &#39;Incidence, diagnostics, therapeutic management and outcomes of paediatric intestinal pseudo‐obstruction in the Netherlands: A 20‐year retrospective cohort study&#39;
+    supporting_text: To describe incidence, clinical course, diagnostic and therapeutic management and long‐term follow‐up of paediatric intestinal pseudo‐obstruction (PIPO) in the Netherlands between 2000 and 2020.MethodsMulticenter, national, retrospective, observational study including patients aged &lt;18 years diagnosed with PIPO and treated between 2000 and 2020 in Dutch academic medical centres.
+    evidence:
+    - reference: DOI:10.1002/jpn3.12400
+      reference_title: &#39;Incidence, diagnostics, therapeutic management and outcomes of paediatric intestinal pseudo‐obstruction in the Netherlands: A 20‐year retrospective cohort study&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: To describe incidence, clinical course, diagnostic and therapeutic management and long‐term follow‐up of paediatric intestinal pseudo‐obstruction (PIPO) in the Netherlands between 2000 and 2020.MethodsMulticenter, national, retrospective, observational study including patients aged &lt;18 years diagnosed with PIPO and treated between 2000 and 2020 in Dutch academic medical centres.
+      explanation: Deep research cited this publication as relevant literature for FLNA Intestinal Pseudoobstruction.
+- reference: DOI:10.1007/s11894-019-0737-y
+  title: Pediatric Intestinal Pseudo-obstruction in the Era of Genetic Sequencing
+  found_in:
+  - FLNA_Intestinal_Pseudoobstruction-deep-research-falcon.md
+  findings:
+  - statement: Pediatric Intestinal Pseudo-obstruction in the Era of Genetic Sequencing
+    supporting_text: Pediatric Intestinal Pseudo-obstruction in the Era of Genetic Sequencing
+- reference: DOI:10.1007/s44162-023-00012-z
+  title: Use of whole genome sequencing to determine the genetic basis of visceral myopathies including Prune Belly syndrome
+  found_in:
+  - FLNA_Intestinal_Pseudoobstruction-deep-research-falcon.md
+  findings:
+  - statement: The visceral myopathies (VM) are a group of disorders characterised by poorly contractile or acontractile smooth muscle.
+    supporting_text: The visceral myopathies (VM) are a group of disorders characterised by poorly contractile or acontractile smooth muscle.
+    evidence:
+    - reference: DOI:10.1007/s44162-023-00012-z
+      reference_title: Use of whole genome sequencing to determine the genetic basis of visceral myopathies including Prune Belly syndrome
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The visceral myopathies (VM) are a group of disorders characterised by poorly contractile or acontractile smooth muscle.
+      explanation: Deep research cited this publication as relevant literature for FLNA Intestinal Pseudoobstruction.
+- reference: DOI:10.1016/j.gtc.2011.09.005
+  title: &#39;Chronic Intestinal Pseudo-Obstruction: Clinical Features, Diagnosis, and Therapy&#39;
+  found_in:
+  - FLNA_Intestinal_Pseudoobstruction-deep-research-falcon.md
+  findings:
+  - statement: &#39;Chronic Intestinal Pseudo-Obstruction: Clinical Features, Diagnosis, and Therapy&#39;
+    supporting_text: &#39;Chronic Intestinal Pseudo-Obstruction: Clinical Features, Diagnosis, and Therapy&#39;
+- reference: DOI:10.1038/gim.2012.123
+  title: Congenital short bowel syndrome as the presenting symptom in male patients with FLNA mutations
+  found_in:
+  - FLNA_Intestinal_Pseudoobstruction-deep-research-falcon.md
+  findings:
+  - statement: Congenital short bowel syndrome as the presenting symptom in male patients with FLNA mutations
+    supporting_text: Congenital short bowel syndrome as the presenting symptom in male patients with FLNA mutations
+- reference: DOI:10.1086/513321
+  title: Filamin A Is Mutated in X-Linked Chronic Idiopathic Intestinal Pseudo-Obstruction with Central Nervous System Involvement
+  found_in:
+  - FLNA_Intestinal_Pseudoobstruction-deep-research-falcon.md
+  findings:
+  - statement: Filamin A Is Mutated in X-Linked Chronic Idiopathic Intestinal Pseudo-Obstruction with Central Nervous System Involvement
+    supporting_text: Filamin A Is Mutated in X-Linked Chronic Idiopathic Intestinal Pseudo-Obstruction with Central Nervous System Involvement
+- reference: DOI:10.1097/pas.0b013e3181f0ae47
+  title: Diffuse Abnormal Layering of Small Intestinal Smooth Muscle is Present in Patients With FLNA Mutations and X-linked Intestinal Pseudo-obstruction
+  found_in:
+  - FLNA_Intestinal_Pseudoobstruction-deep-research-falcon.md
+  findings:
+  - statement: Diffuse Abnormal Layering of Small Intestinal Smooth Muscle is Present in Patients With FLNA Mutations and X-linked Intestinal Pseudo-obstruction
+    supporting_text: Diffuse Abnormal Layering of Small Intestinal Smooth Muscle is Present in Patients With FLNA Mutations and X-linked Intestinal Pseudo-obstruction
+- reference: DOI:10.21203/rs.3.rs-4546691/v1
+  title: Counseling individuals with pathogenic loss-of-function variants in FLNA – learning points from a cross-sectional cohort study.
+  found_in:
+  - FLNA_Intestinal_Pseudoobstruction-deep-research-falcon.md
+  findings:
+  - statement: Filamin A (FLNA) is an actin-binding protein involved in cytoskeleton organization and cell migration.
+    supporting_text: Filamin A (FLNA) is an actin-binding protein involved in cytoskeleton organization and cell migration.
+    evidence:
+    - reference: DOI:10.21203/rs.3.rs-4546691/v1
+      reference_title: Counseling individuals with pathogenic loss-of-function variants in FLNA – learning points from a cross-sectional cohort study.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Filamin A (FLNA) is an actin-binding protein involved in cytoskeleton organization and cell migration.
+      explanation: Deep research cited this publication as relevant literature for FLNA Intestinal Pseudoobstruction.
+- reference: DOI:10.3389/fped.2022.837462
+  title: &#39;Pediatric Intestinal Pseudo-Obstruction: Progress and Challenges&#39;
+  found_in:
+  - FLNA_Intestinal_Pseudoobstruction-deep-research-falcon.md
+  findings:
+  - statement: Chronic intestinal pseudo-obstruction is a rare disorder and represents the most severe form of gastrointestinal dysmotility with significant morbidity and mortality.
+    supporting_text: Chronic intestinal pseudo-obstruction is a rare disorder and represents the most severe form of gastrointestinal dysmotility with significant morbidity and mortality.
+    evidence:
+    - reference: DOI:10.3389/fped.2022.837462
+      reference_title: &#39;Pediatric Intestinal Pseudo-Obstruction: Progress and Challenges&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Chronic intestinal pseudo-obstruction is a rare disorder and represents the most severe form of gastrointestinal dysmotility with significant morbidity and mortality.
+      explanation: Deep research cited this publication as relevant literature for FLNA Intestinal Pseudoobstruction.
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
+        
+        <div class="card reference-card" id="references-deep-research">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+            
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">10</span>
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1002/humu.23355" target="_blank">DOI:10.1002/humu.23355</a>
+                            </div>
+                            
+                            <div class="reference-title">Differential regulation of two&lt;i&gt;FLNA&lt;/i&gt;transcripts explains some of the phenotypic heterogeneity in the loss-of-function filaminopathies</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Differential regulation of two&lt;i&gt;FLNA&lt;/i&gt;transcripts explains some of the phenotypic heterogeneity in the loss-of-function filaminopathies</div>
+            
+            
+            <div class="reference-finding-supporting">"Differential regulation of two&lt;i&gt;FLNA&lt;/i&gt;transcripts explains some of the phenotypic heterogeneity in the loss-of-function filaminopathies"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1002/jpn3.12400" target="_blank">DOI:10.1002/jpn3.12400</a>
+                            </div>
+                            
+                            <div class="reference-title">Incidence, diagnostics, therapeutic management and outcomes of paediatric intestinal pseudo‐obstruction in the Netherlands: A 20‐year retrospective cohort study</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Incidence, diagnostics, therapeutic management and outcomes of paediatric intestinal pseudo‐obstruction in the Netherlands: A 20‐year retrospective cohort study</div>
+            
+            
+            <div class="reference-finding-supporting">"To describe incidence, clinical course, diagnostic and therapeutic management and long‐term follow‐up of paediatric intestinal pseudo‐obstruction (PIPO) in the Netherlands between 2000 and 2020.MethodsMulticenter, national, retrospective, observational study including patients aged &lt;18 years..."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1002/jpn3.12400" target="_blank">DOI:10.1002/jpn3.12400</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"To describe incidence, clinical course, diagnostic and therapeutic management and long‐term follow‐up of paediatric intestinal pseudo‐obstruction (PIPO) in the Netherlands between 2000 and 2020.MethodsMulticenter, national, retrospective, observational study including patients aged &lt;18 years..."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for FLNA Intestinal Pseudoobstruction.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s11894-019-0737-y" target="_blank">DOI:10.1007/s11894-019-0737-y</a>
+                            </div>
+                            
+                            <div class="reference-title">Pediatric Intestinal Pseudo-obstruction in the Era of Genetic Sequencing</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Pediatric Intestinal Pseudo-obstruction in the Era of Genetic Sequencing</div>
+            
+            
+            <div class="reference-finding-supporting">"Pediatric Intestinal Pseudo-obstruction in the Era of Genetic Sequencing"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s44162-023-00012-z" target="_blank">DOI:10.1007/s44162-023-00012-z</a>
+                            </div>
+                            
+                            <div class="reference-title">Use of whole genome sequencing to determine the genetic basis of visceral myopathies including Prune Belly syndrome</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The visceral myopathies (VM) are a group of disorders characterised by poorly contractile or acontractile smooth muscle.</div>
+            
+            
+            <div class="reference-finding-supporting">"The visceral myopathies (VM) are a group of disorders characterised by poorly contractile or acontractile smooth muscle."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s44162-023-00012-z" target="_blank">DOI:10.1007/s44162-023-00012-z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The visceral myopathies (VM) are a group of disorders characterised by poorly contractile or acontractile smooth muscle."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for FLNA Intestinal Pseudoobstruction.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1016/j.gtc.2011.09.005" target="_blank">DOI:10.1016/j.gtc.2011.09.005</a>
+                            </div>
+                            
+                            <div class="reference-title">Chronic Intestinal Pseudo-Obstruction: Clinical Features, Diagnosis, and Therapy</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Chronic Intestinal Pseudo-Obstruction: Clinical Features, Diagnosis, and Therapy</div>
+            
+            
+            <div class="reference-finding-supporting">"Chronic Intestinal Pseudo-Obstruction: Clinical Features, Diagnosis, and Therapy"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1038/gim.2012.123" target="_blank">DOI:10.1038/gim.2012.123</a>
+                            </div>
+                            
+                            <div class="reference-title">Congenital short bowel syndrome as the presenting symptom in male patients with FLNA mutations</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Congenital short bowel syndrome as the presenting symptom in male patients with FLNA mutations</div>
+            
+            
+            <div class="reference-finding-supporting">"Congenital short bowel syndrome as the presenting symptom in male patients with FLNA mutations"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1086/513321" target="_blank">DOI:10.1086/513321</a>
+                            </div>
+                            
+                            <div class="reference-title">Filamin A Is Mutated in X-Linked Chronic Idiopathic Intestinal Pseudo-Obstruction with Central Nervous System Involvement</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Filamin A Is Mutated in X-Linked Chronic Idiopathic Intestinal Pseudo-Obstruction with Central Nervous System Involvement</div>
+            
+            
+            <div class="reference-finding-supporting">"Filamin A Is Mutated in X-Linked Chronic Idiopathic Intestinal Pseudo-Obstruction with Central Nervous System Involvement"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1097/pas.0b013e3181f0ae47" target="_blank">DOI:10.1097/pas.0b013e3181f0ae47</a>
+                            </div>
+                            
+                            <div class="reference-title">Diffuse Abnormal Layering of Small Intestinal Smooth Muscle is Present in Patients With FLNA Mutations and X-linked Intestinal Pseudo-obstruction</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Diffuse Abnormal Layering of Small Intestinal Smooth Muscle is Present in Patients With FLNA Mutations and X-linked Intestinal Pseudo-obstruction</div>
+            
+            
+            <div class="reference-finding-supporting">"Diffuse Abnormal Layering of Small Intestinal Smooth Muscle is Present in Patients With FLNA Mutations and X-linked Intestinal Pseudo-obstruction"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.21203/rs.3.rs-4546691/v1" target="_blank">DOI:10.21203/rs.3.rs-4546691/v1</a>
+                            </div>
+                            
+                            <div class="reference-title">Counseling individuals with pathogenic loss-of-function variants in FLNA – learning points from a cross-sectional cohort study.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Filamin A (FLNA) is an actin-binding protein involved in cytoskeleton organization and cell migration.</div>
+            
+            
+            <div class="reference-finding-supporting">"Filamin A (FLNA) is an actin-binding protein involved in cytoskeleton organization and cell migration."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.21203/rs.3.rs-4546691/v1" target="_blank">DOI:10.21203/rs.3.rs-4546691/v1</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Filamin A (FLNA) is an actin-binding protein involved in cytoskeleton organization and cell migration."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for FLNA Intestinal Pseudoobstruction.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3389/fped.2022.837462" target="_blank">DOI:10.3389/fped.2022.837462</a>
+                            </div>
+                            
+                            <div class="reference-title">Pediatric Intestinal Pseudo-Obstruction: Progress and Challenges</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Chronic intestinal pseudo-obstruction is a rare disorder and represents the most severe form of gastrointestinal dysmotility with significant morbidity and mortality.</div>
+            
+            
+            <div class="reference-finding-supporting">"Chronic intestinal pseudo-obstruction is a rare disorder and represents the most severe form of gastrointestinal dysmotility with significant morbidity and mortality."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fped.2022.837462" target="_blank">DOI:10.3389/fped.2022.837462</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Chronic intestinal pseudo-obstruction is a rare disorder and represents the most severe form of gastrointestinal dysmotility with significant morbidity and mortality."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for FLNA Intestinal Pseudoobstruction.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">FLNA Intestinal Pseudo-obstruction (FLNA-related CIPO): Comprehensive Disease Characteristics Report</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">36 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-08T16:45:13.388266</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <h1>FLNA Intestinal Pseudo-obstruction (FLNA-related CIPO): Comprehensive Disease Characteristics Report</h1>
+<h2>Executive summary</h2>
+<p>FLNA intestinal pseudo-obstruction refers to a rare, genetic, typically X-linked form of severe gastrointestinal dysmotility that clinically mimics mechanical obstruction but lacks an occluding lesion, and is caused by pathogenic variants in <strong>FLNA</strong> (filamin A). It is often described as an <strong>X-linked chronic idiopathic intestinal pseudo-obstruction (CIIPX)</strong> / <strong>X-linked intestinal pseudo-obstruction</strong>, and is frequently associated with a characteristic <strong>visceral smooth muscle pathology (abnormal muscle layering)</strong> and variable multisystem features (e.g., CNS, cardiovascular). (gargiulo2007filaminais pages 1-2, kapur2010diffuseabnormallayering pages 13-14, jenkins2018differentialregulationof pages 1-7)</p>
+<hr />
+<h2>1. Disease information</h2>
+<h3>1.1 Definition / overview (current understanding)</h3>
+<p>A landmark description of the X-linked form defines chronic idiopathic intestinal pseudo-obstruction (CIIP) as a heterogeneous syndrome of severe GI dysmotility, diagnosed by objective evidence of intestinal obstruction <strong>without mechanical occlusion</strong> (radiologic/surgical/manometric evidence). (gargiulo2007filaminais pages 1-2)</p>
+<p>A core anatomic-pathologic correlate in FLNA-associated X-linked cases is <strong>“diffuse abnormal layering of small intestinal smooth muscle”</strong>, supporting classification within <strong>visceral myopathy / enteric neuromyopathy</strong> rather than purely neuropathic disease. (kapur2010diffuseabnormallayering pages 13-14, kapur2010diffuseabnormallayering pages 14-14)</p>
+<h3>1.2 Key identifiers</h3>
+<ul>
+<li><strong>MONDO:</strong> Open Targets maps chronic intestinal pseudo-obstruction to <strong>MONDO_0017574</strong> and lists FLNA as an associated target for “chronic intestinal pseudoobstruction” and “intestinal pseudo-obstruction.” URL: https://platform.opentargets.org/ (association evidence in tool context). (OpenTargets Search: intestinal pseudo-obstruction,chronic intestinal pseudo-obstruction-FLNA)</li>
+<li><strong>MeSH:</strong> ClinicalTrials.gov browse terms for pseudo-obstruction include <strong>“Intestinal Pseudo-Obstruction”</strong> (MeSH ID <strong>D007418</strong>). (NCT07448753 chunk 1)</li>
+<li><strong>OMIM / Orphanet / ICD-10/ICD-11:</strong> Not directly retrievable in the current evidence set; these identifiers should be confirmed via OMIM/Orphanet/WHO ICD browser during knowledge-base curation.</li>
+</ul>
+<h3>1.3 Synonyms / alternative names</h3>
+<p>Common labels used in the literature include:
+* <strong>X-linked chronic idiopathic intestinal pseudo-obstruction (CIIPX)</strong> (gargiulo2007filaminais pages 1-2)
+* <strong>X-linked intestinal pseudo-obstruction</strong> (kapur2010diffuseabnormallayering pages 13-14)
+* <strong>FLNA-related chronic intestinal pseudo-obstruction (CIPO)</strong> (jenkins2018differentialregulationof pages 1-7)
+* Overlapping presentation: <strong>congenital short bowel syndrome (CSBS) due to FLNA</strong> in male patients (werf2013congenitalshortbowel pages 1-2)</p>
+<h3>1.4 Evidence sources</h3>
+<p>The disease characterization is derived primarily from:
+* <strong>Family-based human genetics</strong> and case series (e.g., multigenerational kindreds, pathology cohorts). (gargiulo2007filaminais pages 1-2, kapur2010diffuseabnormallayering pages 13-14)
+* <strong>Aggregated cohort resources</strong> describing FLNA loss-of-function multisystem disease (including GI features) in tertiary-care cohorts. (rijckmans2024counselingindividualswith pages 1-3)</p>
+<table>
+<thead>
+<tr>
+<th>Concept</th>
+<th>Details</th>
+<th>Key citations (PMID/DOI/URL, year)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease label / scope</td>
+<td>FLNA-associated X-linked intestinal pseudo-obstruction is a rare hereditary enteric motility disorder within the broader category of FLNA-related chronic intestinal pseudo-obstruction (CIPO); it is commonly framed as a visceral myopathy / enteric neuromyopathy phenotype caused by pathogenic FLNA variants.</td>
+<td>Gargiulo et al., <em>Am J Hum Genet</em> (2007), DOI: https://doi.org/10.1086/513321; Jenkins et al., <em>Hum Mutat</em> (2018), DOI: https://doi.org/10.1002/humu.23355 (gargiulo2007filaminais pages 1-2, jenkins2018differentialregulationof pages 1-7)</td>
+</tr>
+<tr>
+<td>Disease identifier</td>
+<td>Open Targets lists FLNA as associated with <strong>MONDO:0017574 chronic intestinal pseudoobstruction</strong> and with intestinal pseudo-obstruction / familial visceral myopathy disease concepts.</td>
+<td>Open Targets disease-target association for FLNA ↔ MONDO:0017574, URL: https://platform.opentargets.org/ (accessed via tool context, 2024-2026) (OpenTargets Search: intestinal pseudo-obstruction,chronic intestinal pseudo-obstruction-FLNA)</td>
+</tr>
+<tr>
+<td>Common synonyms</td>
+<td>X-linked chronic idiopathic intestinal pseudo-obstruction (CIIPX); X-linked intestinal pseudo-obstruction; FLNA-related chronic intestinal pseudo-obstruction; FLNA-related congenital intestinal pseudo-obstruction; FLNA-related visceral myopathy; FLNA-related congenital short bowel syndrome when shortened bowel is the presenting feature.</td>
+<td>Gargiulo et al. (2007), DOI: https://doi.org/10.1086/513321; van der Werf et al. (2013), DOI: https://doi.org/10.1038/gim.2012.123; Jenkins et al. (2018), DOI: https://doi.org/10.1002/humu.23355 (gargiulo2007filaminais pages 1-2, werf2013congenitalshortbowel pages 1-2, jenkins2018differentialregulationof pages 1-7)</td>
+</tr>
+<tr>
+<td>Primary gene</td>
+<td><strong>FLNA</strong> (filamin A), Xq28; encodes an actin-binding cytoskeletal scaffold protein important for smooth-muscle architecture, mechanotransduction, and tissue-specific developmental programs, including intestinal smooth muscle and motility.</td>
+<td>Gargiulo et al. (2007), DOI: https://doi.org/10.1086/513321; Jenkins et al. (2018), DOI: https://doi.org/10.1002/humu.23355 (gargiulo2007filaminais pages 1-2, jenkins2018differentialregulationof pages 1-7)</td>
+</tr>
+<tr>
+<td>Inheritance pattern</td>
+<td>Predominantly <strong>X-linked</strong>. Classic intestinal pseudo-obstruction presentations are often described as X-linked recessive / male-limited severe disease in families, whereas FLNA loss-of-function more broadly behaves as X-linked dominant with marked male lethality and female multisystem manifestations.</td>
+<td>Gargiulo et al. (2007), DOI: https://doi.org/10.1086/513321; Rijckmans et al. preprint (2024), DOI: https://doi.org/10.21203/rs.3.rs-4546691/v1 (gargiulo2007filaminais pages 1-2, rijckmans2024counselingindividualswith pages 1-3)</td>
+</tr>
+<tr>
+<td>Sex effects</td>
+<td>Affected <strong>males</strong> often have the most severe neonatal/infantile intestinal phenotype and high early mortality; surviving <strong>females</strong> with FLNA loss-of-function more often show PVNH and multisystem findings, though gastrointestinal symptoms such as constipation/CIPO can occur. Survival in males may depend on residual FLNA function or isoform-specific expression.</td>
+<td>Gargiulo et al. (2007), DOI: https://doi.org/10.1086/513321; Jenkins et al. (2018), DOI: https://doi.org/10.1002/humu.23355; Rijckmans et al. preprint (2024), DOI: https://doi.org/10.21203/rs.3.rs-4546691/v1 (gargiulo2007filaminais pages 1-2, jenkins2018differentialregulationof pages 1-7, rijckmans2024counselingindividualswith pages 1-3)</td>
+</tr>
+<tr>
+<td>Hallmark clinical phenotype</td>
+<td>Functional intestinal obstruction without a lumen-occluding lesion, typically with recurrent or persistent abdominal distension, vomiting/feeding intolerance, severe dysmotility, failure to thrive, and inability to sustain enteral nutrition in severe cases.</td>
+<td>Gargiulo et al. (2007), DOI: https://doi.org/10.1086/513321; Jenkins et al. (2018), DOI: https://doi.org/10.1002/humu.23355 (gargiulo2007filaminais pages 1-2, jenkins2018differentialregulationof pages 1-7)</td>
+</tr>
+<tr>
+<td>Hallmark pathology</td>
+<td>Characteristic <strong>diffuse abnormal layering of small intestinal smooth muscle</strong>; evidence supports a primarily <strong>myopathic</strong> mechanism in many FLNA intestinal cases.</td>
+<td>Kapur et al., <em>Am J Surg Pathol</em> (2010), DOI: https://doi.org/10.1097/PAS.0b013e3181f0ae47 (kapur2010diffuseabnormallayering pages 11-12, kapur2010diffuseabnormallayering pages 13-14, kapur2010diffuseabnormallayering pages 14-14)</td>
+</tr>
+<tr>
+<td>Associated bowel-development features</td>
+<td><strong>Congenital short bowel syndrome</strong> and <strong>malrotation</strong> can be part of the FLNA intestinal spectrum, especially in surviving males with 5′ FLNA variants.</td>
+<td>van der Werf et al. (2013), DOI: https://doi.org/10.1038/gim.2012.123; Kapur et al. (2010), DOI: https://doi.org/10.1097/PAS.0b013e3181f0ae47 (werf2013congenitalshortbowel pages 1-2, kapur2010diffuseabnormallayering pages 14-14)</td>
+</tr>
+<tr>
+<td>Variant classes reported</td>
+<td>Small 5′ deletions/frameshifts in exon 2, splice-altering variants with exon skipping, intragenic duplications, and other hypomorphic loss-of-function alleles; several pathogenic mechanisms preserve some protein production and may permit male survival.</td>
+<td>Gargiulo et al. (2007), DOI: https://doi.org/10.1086/513321; van der Werf et al. (2013), DOI: https://doi.org/10.1038/gim.2012.123; Jenkins et al. (2018), DOI: https://doi.org/10.1002/humu.23355; Kapur et al. (2010), DOI: https://doi.org/10.1097/PAS.0b013e3181f0ae47 (gargiulo2007filaminais pages 1-2, werf2013congenitalshortbowel pages 1-2, jenkins2018differentialregulationof pages 1-7, kapur2010diffuseabnormallayering pages 14-14)</td>
+</tr>
+<tr>
+<td>Notable recurrent 5′ variants</td>
+<td>Reported examples include <strong>2-bp exon-2 deletions</strong> such as <strong>c.16_17delTC</strong> and <strong>c.65_66delAC</strong>, causing frameshift/premature truncation in the N-terminus and linked to CIIP/CSBS phenotypes.</td>
+<td>Gargiulo et al. (2007), DOI: https://doi.org/10.1086/513321; van der Werf et al. (2013), DOI: https://doi.org/10.1038/gim.2012.123 (gargiulo2007filaminais pages 1-2, werf2013congenitalshortbowel pages 1-2)</td>
+</tr>
+<tr>
+<td>Mechanistic interpretation</td>
+<td>Many intestinal disease alleles are best understood as <strong>loss-of-function or hypomorphic</strong> FLNA variants; tissue-specific expression of two FLNA transcripts/translation start sites likely helps explain why some variants preferentially produce intestinal phenotypes.</td>
+<td>Jenkins et al. (2018), DOI: https://doi.org/10.1002/humu.23355; Gargiulo et al. (2007), DOI: https://doi.org/10.1086/513321 (jenkins2018differentialregulationof pages 1-7, gargiulo2007filaminais pages 1-2)</td>
+</tr>
+<tr>
+<td>Extra-intestinal manifestations</td>
+<td>Central nervous system involvement (especially <strong>periventricular nodular heterotopia</strong>), seizures or developmental findings, cardiovascular defects (e.g., PDA/ASD/valvular disease), pulmonary/connective-tissue features, megacystis/bladder dysfunction, and constipation may accompany intestinal disease.</td>
+<td>Gargiulo et al. (2007), DOI: https://doi.org/10.1086/513321; Kapur et al. (2010), DOI: https://doi.org/10.1097/PAS.0b013e3181f0ae47; Rijckmans et al. preprint (2024), DOI: https://doi.org/10.21203/rs.3.rs-4546691/v1 (gargiulo2007filaminais pages 1-2, kapur2010diffuseabnormallayering pages 13-14, rijckmans2024counselingindividualswith pages 1-3)</td>
+</tr>
+<tr>
+<td>Diagnostic evidence base</td>
+<td>Diagnosis is supported by clinical pseudo-obstruction phenotype plus <strong>FLNA molecular testing</strong> and, when available, <strong>full-thickness intestinal histopathology</strong> showing smooth-muscle layering abnormalities.</td>
+<td>Gargiulo et al. (2007), DOI: https://doi.org/10.1086/513321; Kapur et al. (2010), DOI: https://doi.org/10.1097/PAS.0b013e3181f0ae47; van der Werf et al. (2013), DOI: https://doi.org/10.1038/gim.2012.123 (gargiulo2007filaminais pages 1-2, kapur2010diffuseabnormallayering pages 11-12, werf2013congenitalshortbowel pages 1-2)</td>
+</tr>
+<tr>
+<td>Cohort / family-level evidence</td>
+<td>Landmark reports include an Italian kindred with <strong>10 affected males across 4 generations</strong> (9/10 died in early infancy), pathology series of FLNA-mutant patients with characteristic smooth-muscle abnormalities, and subsequent reports extending the phenotype to congenital short bowel and multisystem FLNA deficiency cohorts.</td>
+<td>Gargiulo et al. (2007), DOI: https://doi.org/10.1086/513321; Kapur et al. (2010), DOI: https://doi.org/10.1097/PAS.0b013e3181f0ae47; Rijckmans et al. preprint (2024), DOI: https://doi.org/10.21203/rs.3.rs-4546691/v1 (gargiulo2007filaminais pages 1-2, kapur2010diffuseabnormallayering pages 13-14, rijckmans2024counselingindividualswith pages 1-3)</td>
+</tr>
+<tr>
+<td>Management implications from reports</td>
+<td>Severe cases may require <strong>total parenteral nutrition</strong>, repeated surgery/stoma procedures, and multidisciplinary surveillance for neurologic, cardiac, pulmonary, and gastrointestinal complications; the 2024 cohort emphasized lack of standardized follow-up guidelines.</td>
+<td>Gargiulo et al. (2007), DOI: https://doi.org/10.1086/513321; Kapur et al. (2010), DOI: https://doi.org/10.1097/PAS.0b013e3181f0ae47; Rijckmans et al. preprint (2024), DOI: https://doi.org/10.21203/rs.3.rs-4546691/v1 (gargiulo2007filaminais pages 1-2, kapur2010diffuseabnormallayering pages 13-14, rijckmans2024counselingindividualswith pages 1-3)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes core identifiers, inheritance, defining clinical-pathology features, and landmark supporting publications for FLNA-associated X-linked intestinal pseudo-obstruction / FLNA-related CIPO. It is useful as a compact reference scaffold for a disease knowledge base entry.</em></p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>2.1 Disease causal factors</h3>
+<p><strong>Primary cause: genetic</strong>—pathogenic variants in <strong>FLNA</strong> (Xq28) encoding filamin A, an actin-binding cytoskeletal scaffold.</p>
+<p>In the original CIIPX report, an X-linked recessive form mapped to Xq28 was shown to be caused by a <strong>2-bp deletion in FLNA exon 2</strong> producing a frameshift and predicted truncation near the N-terminus (with evidence for altered cytoskeletal actin organization in patient cells). (gargiulo2007filaminais pages 1-2)</p>
+<h3>2.2 Risk factors</h3>
+<p><strong>Genetic risk factor:</strong> carrying pathogenic/hypomorphic FLNA variants that reduce effective filamin A function in intestinal smooth muscle.
+* Example variant class: <strong>exon 2 2-bp deletions</strong> (frameshift/early stop), reported across CIIPX and CSBS presentations in males (e.g., c.16_17delTC; c.65_66delAC). (gargiulo2007filaminais pages 1-2, werf2013congenitalshortbowel pages 1-2)
+* Structural variants: <strong>intragenic duplications</strong> and larger duplications including FLNA have been described in X-linked pseudo-obstruction pathology cohorts. (kapur2010diffuseabnormallayering pages 14-14, kapur2010diffuseabnormallayering pages 13-14)</p>
+<p><strong>Non-genetic/environmental risk factors:</strong> No FLNA-specific environmental risk factors were identified in the retrieved evidence; most work supports a monogenic etiology.</p>
+<h3>2.3 Protective factors</h3>
+<p>Not established for FLNA-related intestinal pseudo-obstruction in the retrieved literature. A conceptual “protective” mechanism is <strong>residual FLNA function</strong> (hypomorphic alleles / alternative transcript usage) permitting survival in hemizygous males, but this is genetic mechanism rather than an identified protective exposure. (jenkins2018differentialregulationof pages 1-7, kapur2010diffuseabnormallayering pages 14-14)</p>
+<h3>2.4 Gene–environment interactions</h3>
+<p>No specific GxE interactions for FLNA intestinal pseudo-obstruction were found in the retrieved evidence.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>3.1 Core gastrointestinal phenotype (symptoms/signs)</h3>
+<p>Typical features are those of functional obstruction:
+* Abdominal distension, vomiting/feeding intolerance, constipation or altered bowel habits, failure to thrive, and recurrent “obstructive” episodes without a mechanical lesion. (gargiulo2007filaminais pages 1-2, jenkins2018differentialregulationof pages 1-7)</p>
+<p><strong>HPO suggestions (non-exhaustive):</strong>
+* Intestinal pseudo-obstruction (HP:0004396)
+* Vomiting (HP:0002013)
+* Abdominal distension (HP:0003270)
+* Constipation (HP:0002019)
+* Failure to thrive (HP:0001508)</p>
+<h3>3.2 Developmental/anatomic GI manifestations</h3>
+<ul>
+<li><strong>Congenital short bowel syndrome</strong> (markedly shortened small intestine often with malrotation) can be the presenting feature in males with FLNA variants; van der Werf et al. cite normal neonatal small-bowel length ~275 cm versus ~50 cm in CSBS. (werf2013congenitalshortbowel pages 1-2)</li>
+<li><strong>Malrotation</strong> is recurrently noted in the FLNA spectrum. (werf2013congenitalshortbowel pages 1-2, kapur2010diffuseabnormallayering pages 14-14)</li>
+</ul>
+<p><strong>HPO suggestions:</strong>
+* Abnormality of intestinal length (HP:0012098)
+* Intestinal malrotation (HP:0002566)</p>
+<h3>3.3 Extra-intestinal manifestations (multisystem)</h3>
+<p>Reported extracolonic features across FLNA loss-of-function cohorts and X-linked pseudo-obstruction pathology series include:
+* <strong>CNS involvement</strong> (e.g., PVNH spectrum; seizures/developmental findings in some). (gargiulo2007filaminais pages 1-2, kapur2010diffuseabnormallayering pages 13-14)
+* <strong>Cardiovascular findings</strong> (e.g., PDA/ASD in tabled cases; broader FLNA LOF cohorts report cardiovascular involvement). (kapur2010diffuseabnormallayering pages 13-14, rijckmans2024counselingindividualswith pages 1-3)
+* <strong>Urogenital/bladder</strong> involvement such as megacystis reported in X-linked pseudo-obstruction case tables. (kapur2010diffuseabnormallayering pages 11-12)</p>
+<p><strong>HPO suggestions:</strong>
+* Periventricular nodular heterotopia (HP:0002123)
+* Patent ductus arteriosus (HP:0001643)
+* Atrial septal defect (HP:0001631)
+* Megacystis (HP:0002021)</p>
+<h3>3.4 Frequencies and quantitative phenotype data</h3>
+<p>Disease-specific phenotype frequencies for “FLNA intestinal pseudo-obstruction” are limited because published evidence is often family- or case-series-based.</p>
+<p>However, in a recent <strong>FLNA loss-of-function cohort</strong> (monocentric, n=24 index patients), the authors reported <strong>epilepsy in 84%</strong> and <strong>cardiovascular involvement in 56%</strong> (not specific to CIPO, but relevant to systemic surveillance for FLNA deficiency). Publication date: Oct 2024 (preprint). URL: https://doi.org/10.21203/rs.3.rs-4546691/v1 (rijckmans2024counselingindividualswith pages 1-3)</p>
+<hr />
+<h2>4. Genetic / molecular information</h2>
+<h3>4.1 Causal gene</h3>
+<ul>
+<li><strong>FLNA</strong> (filamin A). (gargiulo2007filaminais pages 1-2, jenkins2018differentialregulationof pages 1-7)</li>
+</ul>
+<h3>4.2 Pathogenic variant spectrum (reported classes)</h3>
+<p>Reported FLNA variant classes in X-linked intestinal pseudo-obstruction / FLNA-CIPO include:
+* <strong>Frameshift deletions in exon 2</strong> (e.g., 2-bp deletions) causing early truncation/hypomorphic expression via alternative initiation. (gargiulo2007filaminais pages 1-2, werf2013congenitalshortbowel pages 1-2)
+* <strong>Splice-altering variants / exon skipping</strong> producing atypical/hypomorphic loss-of-function effects. (jenkins2018differentialregulationof pages 1-7)
+* <strong>Intragenic duplications</strong> and larger duplications including FLNA in pathology-defined X-linked pseudo-obstruction cohorts. (kapur2010diffuseabnormallayering pages 14-14, kapur2010diffuseabnormallayering pages 13-14)</p>
+<h3>4.3 Functional consequences (LOF vs GOF)</h3>
+<p>FLNA disorders are often framed as:
+* <strong>Loss-of-function (LOF)</strong> variants: reduced/absent expression, associated with PVNH and multisystem findings, and can include CIPO/intestinal pseudo-obstruction phenotypes. (jenkins2018differentialregulationof pages 1-7, rijckmans2024counselingindividualswith pages 1-3)</p>
+<p>A mechanistic clue to phenotype specificity is tissue-dependent regulation of <strong>two FLNA transcripts / translation start sites</strong>, with intestinal smooth muscle showing particular dependence on the long isoform; this provides a plausible explanation for why some 5′ variants produce prominent intestinal disease and male survivorship (hypomorphic alleles). (jenkins2018differentialregulationof pages 1-7)</p>
+<h3>4.4 Inheritance pattern</h3>
+<p>The original CIIPX kindred was described as <strong>X-linked recessive</strong> with 10 affected males across 4 generations. (gargiulo2007filaminais pages 1-2)</p>
+<p>More broadly, “FLNA deficiency” due to LOF variants is commonly counseled as <strong>X-linked dominant with male lethality</strong>, with variable female multisystem involvement; GI symptoms including constipation and CIPO are included in the phenotype spectrum. (rijckmans2024counselingindividualswith pages 1-3)</p>
+<h3>4.5 Population allele frequency</h3>
+<p>Population allele-frequency values (e.g., gnomAD) for specific CIPO-associated FLNA variants were not retrievable from the current evidence set.</p>
+<hr />
+<h2>5. Environmental information</h2>
+<p>No non-genetic environmental contributors were identified in the retrieved evidence; FLNA intestinal pseudo-obstruction is best supported as a monogenic disorder with secondary complications (e.g., infections related to parenteral nutrition) rather than environmentally initiated disease.</p>
+<hr />
+<h2>6. Mechanism / pathophysiology</h2>
+<h3>6.1 Causal chain (current model)</h3>
+<ol>
+<li><strong>Pathogenic FLNA variant</strong> → reduced/hypomorphic filamin A function in intestinal smooth muscle (gargiulo2007filaminais pages 1-2, jenkins2018differentialregulationof pages 1-7)</li>
+<li><strong>Cytoskeletal/contractile architecture disruption</strong> (patient cells show abnormal actin cytoskeletal organization) (gargiulo2007filaminais pages 1-2)</li>
+<li><strong>Visceral myopathy phenotype</strong> with <strong>abnormal smooth muscle layering</strong> in small intestine (microanatomic correlate) (kapur2010diffuseabnormallayering pages 13-14, kapur2010diffuseabnormallayering pages 14-14)</li>
+<li><strong>Impaired peristalsis</strong> → clinical pseudo-obstruction, intestinal failure, and need for parenteral nutrition/surgical interventions (kapur2010diffuseabnormallayering pages 13-14, jenkins2018differentialregulationof pages 1-7)</li>
+</ol>
+<h3>6.2 Key tissues/cell types</h3>
+<ul>
+<li><strong>Visceral smooth muscle cells</strong> (primary effector tissue in myopathic cases). (kapur2010diffuseabnormallayering pages 13-14, jenkins2018differentialregulationof pages 1-7)</li>
+<li><strong>CL suggestion:</strong> Smooth muscle cell (CL:0000192)</li>
+<li><strong>Enteric nervous system (ENS)</strong> may show abnormalities in some cases, but the hallmark pathology in FLNA-XIPO emphasizes smooth muscle layering/myopathy. (kapur2010diffuseabnormallayering pages 13-14, gargiulo2007filaminais pages 1-2)</li>
+<li><strong>CL suggestion:</strong> Enteric neuron (CL:0000700)</li>
+</ul>
+<h3>6.3 Pathways and ontology suggestions</h3>
+<p><strong>GO biological process (suggestions consistent with evidence):</strong>
+* Smooth muscle contraction (GO:0006939)
+* Actin filament organization (GO:0007015)
+* Regulation of cell migration (GO:0030334)</p>
+<p><strong>GO cellular component (suggestions):</strong>
+* Actin cytoskeleton (GO:0015629)</p>
+<hr />
+<h2>7. Anatomical structures affected</h2>
+<h3>7.1 Organ/system level</h3>
+<ul>
+<li>Primary: <strong>small intestine</strong> (shortened length is “nearly constant” in CIIPX pathology series; abnormal layering described in small intestine). (kapur2010diffuseabnormallayering pages 14-14)</li>
+<li>Often involved: colon and other GI segments in broader CIPO phenotypes. (giorgio2011chronicintestinalpseudoobstruction pages 10-12)</li>
+</ul>
+<p><strong>UBERON suggestions:</strong>
+* Small intestine (UBERON:0002108)
+* Colon (UBERON:0001155)</p>
+<h3>7.2 Subcellular localization</h3>
+<p>Mechanistically centered on <strong>actin cytoskeletal networks</strong> (filamin A is an actin-binding scaffold), supported by cytoskeletal abnormalities in patient cells. (gargiulo2007filaminais pages 1-2)</p>
+<hr />
+<h2>8. Temporal development</h2>
+<h3>8.1 Onset</h3>
+<p>In the CIIPX kindred, disease occurred in male infants with very early mortality (9/10 died in the first months of life). (gargiulo2007filaminais pages 1-2)</p>
+<p>In broader pediatric pseudo-obstruction populations, neonatal onset is common (e.g., 26/43 neonatal onset in a national Dutch PIPO cohort, though not FLNA-specific). (demirok2025incidencediagnosticstherapeutic pages 1-2)</p>
+<h3>8.2 Progression / course</h3>
+<p>CIPO generally has prolonged diagnostic delay and high care burden; an adult CIPO review reports a <strong>median 8-year delay to diagnosis</strong> and that <strong>~88% underwent ~3 unnecessary surgeries</strong>, with <strong>30–50% requiring long-term TPN/HPN</strong> and <strong>mortality ~10–34%</strong> (general CIPO data; not FLNA-specific). (giorgio2011chronicintestinalpseudoobstruction pages 10-12)</p>
+<hr />
+<h2>9. Inheritance and population</h2>
+<h3>9.1 Epidemiology</h3>
+<p>Disease-specific prevalence of FLNA intestinal pseudo-obstruction is not well quantified in the retrieved evidence.</p>
+<p>For pediatric intestinal pseudo-obstruction broadly, a 20-year Dutch national cohort study reported:
+* <strong>Mean incidence:</strong> <strong>0.008/100,000/year</strong> (Netherlands, 2000–2020; n=43) (demirok2025incidencediagnosticstherapeutic pages 1-2)
+* <strong>Mortality:</strong> <strong>6%</strong> (2/43) (demirok2025incidencediagnosticstherapeutic pages 1-2)
+* <strong>Healthcare utilization:</strong> median <strong>22.5 admissions</strong> (range 1–176) over long follow-up (demirok2025incidencediagnosticstherapeutic pages 1-2)</p>
+<h3>9.2 Sex ratio and penetrance</h3>
+<p>The CIIPX kindred and pathology series emphasize strong sex effects consistent with X-linked inheritance, with severe male involvement and survival depending on residual/hypomorphic expression in some variant classes. (gargiulo2007filaminais pages 1-2, jenkins2018differentialregulationof pages 1-7, kapur2010diffuseabnormallayering pages 14-14)</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>10.1 Clinical evaluation and test modalities</h3>
+<p><strong>Core principle:</strong> demonstrate obstruction-like phenotype while excluding mechanical obstruction.</p>
+<p><strong>Imaging</strong>
+* Pediatric review: plain abdominal X-ray for air-fluid levels and dilated bowel; contrast studies to exclude mechanical obstruction; <strong>CT/MRI enterography</strong> proposed as first line; <strong>cine-MRI</strong> as non-invasive motility assessment. (turcotte2022pediatricintestinalpseudoobstruction pages 5-6)</p>
+<p><strong>Manometry</strong>
+* Small-bowel / antroduodenal manometry helps classify neuropathic vs myopathic patterns (e.g., low amplitude patterns suggesting myopathy), but limitations include invasiveness and incomplete correlation with histology. (turcotte2022pediatricintestinalpseudoobstruction pages 5-6, giorgio2011chronicintestinalpseudoobstruction pages 10-12)</p>
+<p><strong>Histopathology</strong>
+* Full-thickness biopsy can identify smooth muscle, ENS, or ICC abnormalities; ESPGHAN recommends specialized centers and labeling panels in pediatric contexts. (turcotte2022pediatricintestinalpseudoobstruction pages 5-6)
+* In FLNA X-linked cases, hallmark smooth muscle abnormal layering supports diagnosis of a visceral myopathy subtype. (kapur2010diffuseabnormallayering pages 13-14, kapur2010diffuseabnormallayering pages 14-14)</p>
+<p><strong>Genetic testing</strong>
+* In suspected hereditary CIPO/PIPO, metabolic and genetic screening are part of diagnostic strategies in cohort studies. (demirok2025incidencediagnosticstherapeutic pages 1-2)
+* For FLNA disease, molecular diagnosis in a recent cohort relied on Sanger sequencing, MLPA, and NGS panels (for malformations of cortical development) rather than WES/WGS. (rijckmans2024counselingindividualswith pages 3-5)</p>
+<h3>10.2 Formal pediatric diagnostic criteria (PIPO)</h3>
+<p>A pediatric review reports that PIPO diagnostic criteria require <strong>two of four</strong> findings: (1) objective small-bowel neuromuscular involvement (manometry/histopath/transit); (2) recurrent/persistent small-bowel dilation with air-fluid levels; (3) known genetic/metabolic abnormality; (4) feeding intolerance requiring supplemental enteral or parenteral nutrition. (gamboa2019pediatricintestinalpseudoobstruction pages 1-2)</p>
+<h3>10.3 Differential diagnosis</h3>
+<p>Broader CIPO diagnostic workups explicitly screen for secondary causes including metabolic/endocrine and immune/paraneoplastic disorders and mitochondrial disease (e.g., MNGIE). (giorgio2011chronicintestinalpseudoobstruction pages 10-12)</p>
+<hr />
+<h2>11. Outcome / prognosis</h2>
+<h3>11.1 Mortality and severe outcomes</h3>
+<ul>
+<li>CIIPX kindred: <strong>9/10 affected males died in the first months of life</strong> (highly severe familial presentation). (gargiulo2007filaminais pages 1-2)</li>
+<li>General CIPO: adult review reports <strong>mortality ~10–34%</strong> and <strong>30–50% long-term TPN/HPN</strong> requirement (not FLNA-specific). (giorgio2011chronicintestinalpseudoobstruction pages 10-12)</li>
+<li>PIPO Netherlands cohort: <strong>6% mortality</strong> over long follow-up (not FLNA-specific). (demirok2025incidencediagnosticstherapeutic pages 1-2)</li>
+</ul>
+<h3>11.2 Morbidity / QoL</h3>
+<p>Parenteral nutrition is life-saving but has major risks (central line infection, thrombosis, liver disease) and contributes substantially to morbidity and quality-of-life burden in pediatric pseudo-obstruction. (turcotte2022pediatricintestinalpseudoobstruction pages 5-6)</p>
+<hr />
+<h2>12. Treatment</h2>
+<h3>12.1 Supportive care (cornerstones)</h3>
+<p>In pediatric pseudo-obstruction cohorts, treatment is commonly structured around:
+* <strong>Nutritional support</strong> (enteral when possible; PN in severe cases) and <strong>surgical interventions</strong> as “cornerstones” of care. (demirok2025incidencediagnosticstherapeutic pages 1-2)</p>
+<p><strong>MAXO suggestions:</strong>
+* Parenteral nutrition (MAXO:0000878)
+* Enteral nutrition (MAXO:0000879)</p>
+<h3>12.2 Pharmacotherapy</h3>
+<p>Evidence for CIPO (general, not FLNA-specific) includes use of prokinetics and other agents:
+* Adult review cites studies of <strong>cisapride</strong>, <strong>erythromycin</strong> (positive response in small case series), and <strong>octreotide</strong> effects on motility/bacterial overgrowth; antibiotic management of SIBO (e.g., rifaximin) is also referenced. (giorgio2011chronicintestinalpseudoobstruction pages 20-21)</p>
+<p>Pediatric review emphasizes that there is <strong>no universally recommended prokinetic regimen</strong> for most pediatric PIPO patients and highlights supportive goals. (turcotte2022pediatricintestinalpseudoobstruction pages 5-6)</p>
+<p><strong>MAXO suggestions:</strong>
+* Prokinetic therapy (MAXO:0001020)
+* Antibiotic therapy (MAXO:0000648)</p>
+<h3>12.3 Surgical and interventional options</h3>
+<p>Reported and referenced options in general CIPO/PIPO literature include:
+* Stomas/ileostomy and other diversion or decompressive surgeries in severe cases (also seen in FLNA-XIPO pathology cohorts). (kapur2010diffuseabnormallayering pages 13-14)
+* Intestinal transplantation / multivisceral transplantation in advanced intestinal failure (general CIPO references include a series of “100 multivisceral transplants at a single center”). (giorgio2011chronicintestinalpseudoobstruction pages 20-21)</p>
+<p><strong>MAXO suggestions:</strong>
+* Ileostomy (MAXO:0001060)
+* Intestinal transplantation (MAXO:0001109)</p>
+<h3>12.4 Real-world implementation / systems of care</h3>
+<p>A 2024 FLNA LOF cohort emphasizes that <strong>systematic multidisciplinary follow-up</strong> (notably cardiology screening) was often lacking and that less overt symptoms (e.g., constipation) may be underreported, arguing for standardized surveillance in FLNA deficiency. (rijckmans2024counselingindividualswith pages 1-3)</p>
+<h3>12.5 Clinical trials (FLNA-specific)</h3>
+<p>A prospective observational registry study (Italy) is assessing the <strong>diagnostic yield of Sanger sequencing of ACTG2 and FLNA</strong> in adult idiopathic CIPO with a myopathic phenotype suggested by reduced/absent distal esophageal contractility on HRM.
+* <strong>NCT ID:</strong> NCT07448753
+* <strong>First posted:</strong> 2026-03-04
+* <strong>Start date:</strong> 2025-09-17
+* ClinicalTrials.gov URL: https://clinicaltrials.gov/study/NCT07448753 (registry data captured in tool context). (NCT07448753 chunk 1)</p>
+<hr />
+<h2>13. Prevention</h2>
+<p>No primary prevention is currently established for monogenic FLNA intestinal pseudo-obstruction.</p>
+<p><strong>Key prevention strategy is genetic counseling and surveillance</strong> in families with pathogenic FLNA variants, given X-linked inheritance and multisystem risks; recent cohort evidence emphasizes the need for multidisciplinary follow-up and absence of uniform guidelines. (rijckmans2024counselingindividualswith pages 1-3)</p>
+<p><strong>MAXO suggestions:</strong>
+* Genetic counseling (MAXO:0000079)
+* Cascade genetic testing (MAXO:0000754)</p>
+<hr />
+<h2>14. Other species / natural disease</h2>
+<p>No evidence of FLNA-driven intestinal pseudo-obstruction in non-human species was retrieved.</p>
+<p>A naturally occurring visceral smooth muscle disorder presenting as chronic intestinal pseudo-obstruction has been reported in a Bengal cat, illustrating comparative “visceral myopathy” pathology but not implicating FLNA. (OpenTargets Search: intestinal pseudo-obstruction,chronic intestinal pseudo-obstruction-FLNA)</p>
+<hr />
+<h2>15. Model organisms</h2>
+<p>A 2023 multidisciplinary forum report on visceral myopathy notes that <strong>animal models are scarce</strong>, limiting mechanistic and therapeutic development in this general disease area (not FLNA-specific). (OpenTargets Search: intestinal pseudo-obstruction,chronic intestinal pseudo-obstruction-FLNA)</p>
+<p>No FLNA-specific intestinal pseudo-obstruction animal model evidence was retrievable in the current document set.</p>
+<hr />
+<h2>2023–2024 highlights (prioritized)</h2>
+<ol>
+<li><strong>2024 cohort-level expert perspective:</strong> A cross-sectional cohort of <strong>24 index patients with FLNA LOF</strong> variants reported high rates of epilepsy (84%) and cardiovascular involvement (56%), and highlighted gaps in systematic multidisciplinary follow-up; GI manifestations included constipation and chronic intestinal pseudo-obstruction within the phenotypic spectrum. Publication date Oct 2024 (preprint). URL: https://doi.org/10.21203/rs.3.rs-4546691/v1 (rijckmans2024counselingindividualswith pages 1-3)</li>
+<li><strong>2023 genomic medicine approach:</strong> A WGS analysis of visceral myopathy phenotypes in the 100,000 Genomes Project screened a virtual panel including FLNA (n=76 VM phenotypes), supporting WGS/panel strategies for related motility disorders (though FLNA-specific hit rates were not provided in the excerpt). Publication date Jun 2023. URL: https://doi.org/10.1007/s44162-023-00012-z (geraghty2023useofwhole pages 1-2)</li>
+</ol>
+<hr />
+<h2>Evidence limitations / gaps for knowledge-base completion</h2>
+<ul>
+<li><strong>OMIM/Orphanet/ICD codes</strong> for the specific “FLNA intestinal pseudo-obstruction” entity were not captured in the retrieved evidence and require database lookup.</li>
+<li><strong>Variant-level curation</strong> (ClinVar assertions, allele frequencies, variant-to-phenotype mapping) was not available in the current texts.</li>
+<li><strong>2023–2024 FLNA intestine-mechanism papers</strong> were referenced in the evidence stream but not retrievable in full text here (e.g., the 2023 Human Molecular Genetics paper on the long FLNA isoform and intestinal motility was flagged as unobtainable), limiting the ability to provide 2023–2024 primary mechanistic quotations.</li>
+</ul>
+<p>References</p>
+<ol>
+<li>
+<p>(gargiulo2007filaminais pages 1-2): Annagiusi Gargiulo, Renata Auricchio, Maria Vittoria Barone, Gabriella Cotugno, William Reardon, Peter J. Milla, Andrea Ballabio, Alfredo Ciccodicola, and Alberto Auricchio. Filamin a is mutated in x-linked chronic idiopathic intestinal pseudo-obstruction with central nervous system involvement. American journal of human genetics, 80 4:751-8, Apr 2007. URL: https://doi.org/10.1086/513321, doi:10.1086/513321. This article has 148 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(kapur2010diffuseabnormallayering pages 13-14): Raj P. Kapur, Stephen P. Robertson, Mark C. Hannibal, Laura S. Finn, Timothy Morgan, Margriet van Kogelenberg, and David J. Loren. Diffuse abnormal layering of small intestinal smooth muscle is present in patients with flna mutations and x-linked intestinal pseudo-obstruction. The American Journal of Surgical Pathology, 34:1528-1543, Oct 2010. URL: https://doi.org/10.1097/pas.0b013e3181f0ae47, doi:10.1097/pas.0b013e3181f0ae47. This article has 77 citations.</p>
+</li>
+<li>
+<p>(jenkins2018differentialregulationof pages 1-7): Zandra A Jenkins, Alison Macharg, Cheng-Yee Chang, Margriet van Kogelenberg, Tim Morgan, Sophia Frentz, Wenhua Wei, Jacek Pilch, Mark Hannibal, Nicola Foulds, George McGillivray, Richard J Leventer, Sixto García-Miñaúr, Stuart Sugito, Scott Nightingale, David M Markie, Tracy Dudding, Raj P Kapur, and Stephen P Robertson. Differential regulation of two flna transcripts explains some of the phenotypic heterogeneity in the loss‐of‐function filaminopathies. Human Mutation, 39:103-113, Jan 2018. URL: https://doi.org/10.1002/humu.23355, doi:10.1002/humu.23355. This article has 38 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(kapur2010diffuseabnormallayering pages 14-14): Raj P. Kapur, Stephen P. Robertson, Mark C. Hannibal, Laura S. Finn, Timothy Morgan, Margriet van Kogelenberg, and David J. Loren. Diffuse abnormal layering of small intestinal smooth muscle is present in patients with flna mutations and x-linked intestinal pseudo-obstruction. The American Journal of Surgical Pathology, 34:1528-1543, Oct 2010. URL: https://doi.org/10.1097/pas.0b013e3181f0ae47, doi:10.1097/pas.0b013e3181f0ae47. This article has 77 citations.</p>
+</li>
+<li>
+<p>(OpenTargets Search: intestinal pseudo-obstruction,chronic intestinal pseudo-obstruction-FLNA): Open Targets Query (intestinal pseudo-obstruction,chronic intestinal pseudo-obstruction-FLNA, 4 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.</p>
+</li>
+<li>
+<p>(NCT07448753 chunk 1): Marina Coletta. ACTG2/FLNA Testing Yield in Adult Idiopathic Chronic Intestinal Pseudo-Obstruction (CIPO) With Reduced/Absent Distal Esophageal Contractility. Marina Coletta. 2025. ClinicalTrials.gov Identifier: NCT07448753</p>
+</li>
+<li>
+<p>(werf2013congenitalshortbowel pages 1-2): Christine S. van der Werf, Yunia Sribudiani, Joke B.G.M. Verheij, Matthew Carroll, Edward O’Loughlin, Chien-Huan Chen, Alice S. Brooks, M. Kathryn Liszewski, John P. Atkinson, and Robert M.W. Hofstra. Congenital short bowel syndrome as the presenting symptom in male patients with flna mutations. Genetics in Medicine, 15:310-313, Apr 2013. URL: https://doi.org/10.1038/gim.2012.123, doi:10.1038/gim.2012.123. This article has 51 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(rijckmans2024counselingindividualswith pages 1-3): Ellen RIJCKMANS, Lars P. De Strooper, Kathelijn Keymolen, Jessica Rosenblum, Bart Loeys, Marije Meuwissen, Anna C. Jansen, and Katrien Stouffs. Counseling individuals with pathogenic loss-of-function variants in flna – learning points from a cross-sectional cohort study. Unknown journal, Oct 2024. URL: https://doi.org/10.21203/rs.3.rs-4546691/v1, doi:10.21203/rs.3.rs-4546691/v1.</p>
+</li>
+<li>
+<p>(kapur2010diffuseabnormallayering pages 11-12): Raj P. Kapur, Stephen P. Robertson, Mark C. Hannibal, Laura S. Finn, Timothy Morgan, Margriet van Kogelenberg, and David J. Loren. Diffuse abnormal layering of small intestinal smooth muscle is present in patients with flna mutations and x-linked intestinal pseudo-obstruction. The American Journal of Surgical Pathology, 34:1528-1543, Oct 2010. URL: https://doi.org/10.1097/pas.0b013e3181f0ae47, doi:10.1097/pas.0b013e3181f0ae47. This article has 77 citations.</p>
+</li>
+<li>
+<p>(giorgio2011chronicintestinalpseudoobstruction pages 10-12): Roberto De Giorgio, Rosanna F. Cogliandro, Giovanni Barbara, Roberto Corinaldesi, and Vincenzo Stanghellini. Chronic intestinal pseudo-obstruction: clinical features, diagnosis, and therapy. Gastroenterology clinics of North America, 40 4:787-807, Dec 2011. URL: https://doi.org/10.1016/j.gtc.2011.09.005, doi:10.1016/j.gtc.2011.09.005. This article has 185 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(demirok2025incidencediagnosticstherapeutic pages 1-2): Aysenur Demirok, Sjoerd C. J. Nagelkerke, Malou Veldt, Ramon Gorter, Justin R. de Jong, Gerard M. Damen, Barbara A. E. de Koning, Caroline Meijer, Patrick F. van Rheenen, Victorien M. Wolters, Marc A. Benninga, and Merit M. Tabbers. Incidence, diagnostics, therapeutic management and outcomes of paediatric intestinal pseudo‐obstruction in the netherlands: a 20‐year retrospective cohort study. Journal of Pediatric Gastroenterology and Nutrition, 80:34-45, Nov 2025. URL: https://doi.org/10.1002/jpn3.12400, doi:10.1002/jpn3.12400. This article has 6 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(turcotte2022pediatricintestinalpseudoobstruction pages 5-6): Marie-Catherine Turcotte and Christophe Faure. Pediatric intestinal pseudo-obstruction: progress and challenges. Frontiers in Pediatrics, Apr 2022. URL: https://doi.org/10.3389/fped.2022.837462, doi:10.3389/fped.2022.837462. This article has 31 citations.</p>
+</li>
+<li>
+<p>(rijckmans2024counselingindividualswith pages 3-5): Ellen RIJCKMANS, Lars P. De Strooper, Kathelijn Keymolen, Jessica Rosenblum, Bart Loeys, Marije Meuwissen, Anna C. Jansen, and Katrien Stouffs. Counseling individuals with pathogenic loss-of-function variants in flna – learning points from a cross-sectional cohort study. Unknown journal, Oct 2024. URL: https://doi.org/10.21203/rs.3.rs-4546691/v1, doi:10.21203/rs.3.rs-4546691/v1.</p>
+</li>
+<li>
+<p>(gamboa2019pediatricintestinalpseudoobstruction pages 1-2): Heidi E. Gamboa and Manu Sood. Pediatric intestinal pseudo-obstruction in the era of genetic sequencing. Current Gastroenterology Reports, Dec 2019. URL: https://doi.org/10.1007/s11894-019-0737-y, doi:10.1007/s11894-019-0737-y. This article has 43 citations.</p>
+</li>
+<li>
+<p>(giorgio2011chronicintestinalpseudoobstruction pages 20-21): Roberto De Giorgio, Rosanna F. Cogliandro, Giovanni Barbara, Roberto Corinaldesi, and Vincenzo Stanghellini. Chronic intestinal pseudo-obstruction: clinical features, diagnosis, and therapy. Gastroenterology clinics of North America, 40 4:787-807, Dec 2011. URL: https://doi.org/10.1016/j.gtc.2011.09.005, doi:10.1016/j.gtc.2011.09.005. This article has 185 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(geraghty2023useofwhole pages 1-2): Robert M. Geraghty, Sarah Orr, Eric Olinger, Ruxandra Neatu, Miguel Barroso-Gil, Holly Mabillard, Genomics England Research Consortium, Ian Wilson, and John A. Sayer. Use of whole genome sequencing to determine the genetic basis of visceral myopathies including prune belly syndrome. Journal of Rare Diseases (Berlin, Germany), Jun 2023. URL: https://doi.org/10.1007/s44162-023-00012-z, doi:10.1007/s44162-023-00012-z. This article has 9 citations.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </div>
         
 
         <footer class="page-footer">
@@ -3901,7 +5083,7 @@ datasets: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "FLNA Intestinal Pseudoobstruction", "mondoId": "MONDO:0010232", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "FLNA_Intestinal_Pseudoobstruction", "yamlRevision": "1da7646f9d01"};
+        const OS_CONFIG = {"diseaseName": "FLNA Intestinal Pseudoobstruction", "mondoId": "MONDO:0010232", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "FLNA_Intestinal_Pseudoobstruction", "yamlRevision": "75695677cecb"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

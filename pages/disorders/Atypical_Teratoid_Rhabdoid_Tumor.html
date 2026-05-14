@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2629,6 +2782,20 @@
             
             
             
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-value">10</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -4025,6 +4192,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4064,6 +4232,7 @@
                     BRG1 (SMARCA4) Immunohistochemistry
                     
                 </div>
+                
                 
                 
     
@@ -4131,7 +4300,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Atypical Teratoid/Rhabdoid Tumor
 creation_date: &#39;2026-04-12T20:00:00Z&#39;
-updated_date: &#39;2026-04-12T20:00:00Z&#39;
+updated_date: &#39;2026-05-08T16:21:17Z&#39;
 description: &gt;-
   Atypical teratoid/rhabdoid tumor (AT/RT) is a highly aggressive embryonal
   central nervous system tumor that predominantly affects infants and young
@@ -4556,11 +4725,1194 @@ treatments:
     explanation: &gt;-
       This multicenter infant cohort directly supports early adjuvant
       radiotherapy as an outcome-improving component of aggressive therapy.
+references:
+- reference: DOI:10.1002/gcc.23195
+  title: &#39;Constitutional balanced translocations involving &lt;scp&gt;&lt;i&gt;SMARCB1&lt;/i&gt;&lt;/scp&gt;: A rare cause of rhabdoid tumor predisposition syndrome&#39;
+  found_in:
+  - Atypical_Teratoid_Rhabdoid_Tumor-deep-research-falcon.md
+  findings:
+  - statement: Rhabdoid Tumor Predisposition Syndrome 1 (RTPS1) confers an increased risk of developing rhabdoid tumors and is caused by germline mutations in SMARCB1.
+    supporting_text: Rhabdoid Tumor Predisposition Syndrome 1 (RTPS1) confers an increased risk of developing rhabdoid tumors and is caused by germline mutations in SMARCB1.
+    evidence:
+    - reference: DOI:10.1002/gcc.23195
+      reference_title: &#39;Constitutional balanced translocations involving &lt;scp&gt;&lt;i&gt;SMARCB1&lt;/i&gt;&lt;/scp&gt;: A rare cause of rhabdoid tumor predisposition syndrome&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Rhabdoid Tumor Predisposition Syndrome 1 (RTPS1) confers an increased risk of developing rhabdoid tumors and is caused by germline mutations in SMARCB1.
+      explanation: Deep research cited this publication as relevant literature for Atypical Teratoid Rhabdoid Tumor.
+- reference: DOI:10.1007/s00401-020-02250-7
+  title: Atypical teratoid/rhabdoid tumors (ATRTs) with SMARCA4 mutation are molecularly distinct from SMARCB1-deficient cases
+  found_in:
+  - Atypical_Teratoid_Rhabdoid_Tumor-deep-research-falcon.md
+  findings:
+  - statement: Atypical teratoid/rhabdoid tumors (ATRTs) are very aggressive childhood malignancies of the central nervous system.
+    supporting_text: Atypical teratoid/rhabdoid tumors (ATRTs) are very aggressive childhood malignancies of the central nervous system.
+    evidence:
+    - reference: DOI:10.1007/s00401-020-02250-7
+      reference_title: Atypical teratoid/rhabdoid tumors (ATRTs) with SMARCA4 mutation are molecularly distinct from SMARCB1-deficient cases
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Atypical teratoid/rhabdoid tumors (ATRTs) are very aggressive childhood malignancies of the central nervous system.
+      explanation: Deep research cited this publication as relevant literature for Atypical Teratoid Rhabdoid Tumor.
+- reference: DOI:10.1007/s00401-023-02608-7
+  title: Recurrent atypical teratoid/rhabdoid tumors (AT/RT) reveal discrete features of progression on histology, epigenetics, copy number profiling, and transcriptomics
+  found_in:
+  - Atypical_Teratoid_Rhabdoid_Tumor-deep-research-falcon.md
+  findings:
+  - statement: Atypical teratoid/rhabdoid tumors (AT/RT) are the most common malignant brain tumors manifesting in infancy.
+    supporting_text: Atypical teratoid/rhabdoid tumors (AT/RT) are the most common malignant brain tumors manifesting in infancy.
+    evidence:
+    - reference: DOI:10.1007/s00401-023-02608-7
+      reference_title: Recurrent atypical teratoid/rhabdoid tumors (AT/RT) reveal discrete features of progression on histology, epigenetics, copy number profiling, and transcriptomics
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Atypical teratoid/rhabdoid tumors (AT/RT) are the most common malignant brain tumors manifesting in infancy.
+      explanation: Deep research cited this publication as relevant literature for Atypical Teratoid Rhabdoid Tumor.
+- reference: DOI:10.1093/neuonc/noaa046
+  title: Advancing biology-based therapeutic approaches for atypical teratoid rhabdoid tumors
+  found_in:
+  - Atypical_Teratoid_Rhabdoid_Tumor-deep-research-falcon.md
+  findings:
+  - statement: Atypical teratoid rhabdoid tumor (ATRT) is a rare, highly malignant central nervous system cancer arising in infants and younger children, historically considered to be homogeneous, monogenic, and incurable.
+    supporting_text: Atypical teratoid rhabdoid tumor (ATRT) is a rare, highly malignant central nervous system cancer arising in infants and younger children, historically considered to be homogeneous, monogenic, and incurable.
+    evidence:
+    - reference: DOI:10.1093/neuonc/noaa046
+      reference_title: Advancing biology-based therapeutic approaches for atypical teratoid rhabdoid tumors
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Atypical teratoid rhabdoid tumor (ATRT) is a rare, highly malignant central nervous system cancer arising in infants and younger children, historically considered to be homogeneous, monogenic, and incurable.
+      explanation: Deep research cited this publication as relevant literature for Atypical Teratoid Rhabdoid Tumor.
+- reference: DOI:10.1093/noajnl/vdae158
+  title: Approaches for prevention of tumors in patients with rhabdoid tumor predisposition syndrome
+  found_in:
+  - Atypical_Teratoid_Rhabdoid_Tumor-deep-research-falcon.md
+  findings:
+  - statement: Patients with rhabdoid tumor predisposition syndrome (RTPS) harbor germline alterations in the epigenetic regulator genes SMARCB1 or SMARCA4.
+    supporting_text: Patients with rhabdoid tumor predisposition syndrome (RTPS) harbor germline alterations in the epigenetic regulator genes SMARCB1 or SMARCA4.
+    evidence:
+    - reference: DOI:10.1093/noajnl/vdae158
+      reference_title: Approaches for prevention of tumors in patients with rhabdoid tumor predisposition syndrome
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Patients with rhabdoid tumor predisposition syndrome (RTPS) harbor germline alterations in the epigenetic regulator genes SMARCB1 or SMARCA4.
+      explanation: Deep research cited this publication as relevant literature for Atypical Teratoid Rhabdoid Tumor.
+- reference: DOI:10.1093/noajnl/vdae162
+  title: Development and epigenetic regulation of Atypical teratoid/rhabdoid tumors in the context of cell-of-origin and halted cell differentiation
+  found_in:
+  - Atypical_Teratoid_Rhabdoid_Tumor-deep-research-falcon.md
+  findings:
+  - statement: Atypical teratoid/rhabdoid tumors (AT/RTs) are aggressive brain tumors primarily observed in infants.
+    supporting_text: Atypical teratoid/rhabdoid tumors (AT/RTs) are aggressive brain tumors primarily observed in infants.
+    evidence:
+    - reference: DOI:10.1093/noajnl/vdae162
+      reference_title: Development and epigenetic regulation of Atypical teratoid/rhabdoid tumors in the context of cell-of-origin and halted cell differentiation
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Atypical teratoid/rhabdoid tumors (AT/RTs) are aggressive brain tumors primarily observed in infants.
+      explanation: Deep research cited this publication as relevant literature for Atypical Teratoid Rhabdoid Tumor.
+- reference: DOI:10.1093/nop/npad005
+  title: Current advances in immunotherapy for atypical teratoid rhabdoid tumor (ATRT)
+  found_in:
+  - Atypical_Teratoid_Rhabdoid_Tumor-deep-research-falcon.md
+  findings:
+  - statement: Atypical teratoid rhabdoid tumors (ATRT) are rare and aggressive embryonal tumors of central nervous system that typically affect children younger than 3 years of age.
+    supporting_text: Atypical teratoid rhabdoid tumors (ATRT) are rare and aggressive embryonal tumors of central nervous system that typically affect children younger than 3 years of age.
+    evidence:
+    - reference: DOI:10.1093/nop/npad005
+      reference_title: Current advances in immunotherapy for atypical teratoid rhabdoid tumor (ATRT)
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Atypical teratoid rhabdoid tumors (ATRT) are rare and aggressive embryonal tumors of central nervous system that typically affect children younger than 3 years of age.
+      explanation: Deep research cited this publication as relevant literature for Atypical Teratoid Rhabdoid Tumor.
+- reference: DOI:10.26508/lsa.202302088
+  title: Aberrant DNA methylation distorts developmental trajectories in atypical teratoid/rhabdoid tumors
+  found_in:
+  - Atypical_Teratoid_Rhabdoid_Tumor-deep-research-falcon.md
+  findings:
+  - statement: Atypical teratoid/rhabdoid tumors (AT/RTs) are pediatric brain tumors known for their aggressiveness and aberrant but still unresolved epigenetic regulation.
+    supporting_text: Atypical teratoid/rhabdoid tumors (AT/RTs) are pediatric brain tumors known for their aggressiveness and aberrant but still unresolved epigenetic regulation.
+    evidence:
+    - reference: DOI:10.26508/lsa.202302088
+      reference_title: Aberrant DNA methylation distorts developmental trajectories in atypical teratoid/rhabdoid tumors
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Atypical teratoid/rhabdoid tumors (AT/RTs) are pediatric brain tumors known for their aggressiveness and aberrant but still unresolved epigenetic regulation.
+      explanation: Deep research cited this publication as relevant literature for Atypical Teratoid Rhabdoid Tumor.
+- reference: DOI:10.3390/cancers18010008
+  title: &#39;Histogenesis of Atypical Teratoid Rhabdoid Tumors: Anatomical and Embryological Perspectives&#39;
+  found_in:
+  - Atypical_Teratoid_Rhabdoid_Tumor-deep-research-falcon.md
+  findings:
+  - statement: Atypical teratoid/rhabdoid tumors (ATRTs) are rare, malignant central nervous system (CNS) neoplasms that predominantly affect infants and young children.
+    supporting_text: Atypical teratoid/rhabdoid tumors (ATRTs) are rare, malignant central nervous system (CNS) neoplasms that predominantly affect infants and young children.
+    evidence:
+    - reference: DOI:10.3390/cancers18010008
+      reference_title: &#39;Histogenesis of Atypical Teratoid Rhabdoid Tumors: Anatomical and Embryological Perspectives&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Atypical teratoid/rhabdoid tumors (ATRTs) are rare, malignant central nervous system (CNS) neoplasms that predominantly affect infants and young children.
+      explanation: Deep research cited this publication as relevant literature for Atypical Teratoid Rhabdoid Tumor.
+- reference: DOI:10.3390/jmp6020013
+  title: The Current Landscape of Molecular Pathology for the Diagnosis and Treatment of Atypical Teratoid Rhabdoid Tumor
+  found_in:
+  - Atypical_Teratoid_Rhabdoid_Tumor-deep-research-falcon.md
+  findings:
+  - statement: Atypical teratoid rhabdoid tumor (ATRT) is a rare, aggressive pediatric central nervous system (CNS) tumor that predominantly affects children under the age of 3.
+    supporting_text: Atypical teratoid rhabdoid tumor (ATRT) is a rare, aggressive pediatric central nervous system (CNS) tumor that predominantly affects children under the age of 3.
+    evidence:
+    - reference: DOI:10.3390/jmp6020013
+      reference_title: The Current Landscape of Molecular Pathology for the Diagnosis and Treatment of Atypical Teratoid Rhabdoid Tumor
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Atypical teratoid rhabdoid tumor (ATRT) is a rare, aggressive pediatric central nervous system (CNS) tumor that predominantly affects children under the age of 3.
+      explanation: Deep research cited this publication as relevant literature for Atypical Teratoid Rhabdoid Tumor.
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
+        
+        <div class="card reference-card" id="references-deep-research">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+            
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">10</span>
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1002/gcc.23195" target="_blank">DOI:10.1002/gcc.23195</a>
+                            </div>
+                            
+                            <div class="reference-title">Constitutional balanced translocations involving &lt;scp&gt;&lt;i&gt;SMARCB1&lt;/i&gt;&lt;/scp&gt;: A rare cause of rhabdoid tumor predisposition syndrome</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Rhabdoid Tumor Predisposition Syndrome 1 (RTPS1) confers an increased risk of developing rhabdoid tumors and is caused by germline mutations in SMARCB1.</div>
+            
+            
+            <div class="reference-finding-supporting">"Rhabdoid Tumor Predisposition Syndrome 1 (RTPS1) confers an increased risk of developing rhabdoid tumors and is caused by germline mutations in SMARCB1."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1002/gcc.23195" target="_blank">DOI:10.1002/gcc.23195</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Rhabdoid Tumor Predisposition Syndrome 1 (RTPS1) confers an increased risk of developing rhabdoid tumors and is caused by germline mutations in SMARCB1."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Atypical Teratoid Rhabdoid Tumor.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s00401-020-02250-7" target="_blank">DOI:10.1007/s00401-020-02250-7</a>
+                            </div>
+                            
+                            <div class="reference-title">Atypical teratoid/rhabdoid tumors (ATRTs) with SMARCA4 mutation are molecularly distinct from SMARCB1-deficient cases</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Atypical teratoid/rhabdoid tumors (ATRTs) are very aggressive childhood malignancies of the central nervous system.</div>
+            
+            
+            <div class="reference-finding-supporting">"Atypical teratoid/rhabdoid tumors (ATRTs) are very aggressive childhood malignancies of the central nervous system."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s00401-020-02250-7" target="_blank">DOI:10.1007/s00401-020-02250-7</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Atypical teratoid/rhabdoid tumors (ATRTs) are very aggressive childhood malignancies of the central nervous system."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Atypical Teratoid Rhabdoid Tumor.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s00401-023-02608-7" target="_blank">DOI:10.1007/s00401-023-02608-7</a>
+                            </div>
+                            
+                            <div class="reference-title">Recurrent atypical teratoid/rhabdoid tumors (AT/RT) reveal discrete features of progression on histology, epigenetics, copy number profiling, and transcriptomics</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Atypical teratoid/rhabdoid tumors (AT/RT) are the most common malignant brain tumors manifesting in infancy.</div>
+            
+            
+            <div class="reference-finding-supporting">"Atypical teratoid/rhabdoid tumors (AT/RT) are the most common malignant brain tumors manifesting in infancy."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s00401-023-02608-7" target="_blank">DOI:10.1007/s00401-023-02608-7</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Atypical teratoid/rhabdoid tumors (AT/RT) are the most common malignant brain tumors manifesting in infancy."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Atypical Teratoid Rhabdoid Tumor.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1093/neuonc/noaa046" target="_blank">DOI:10.1093/neuonc/noaa046</a>
+                            </div>
+                            
+                            <div class="reference-title">Advancing biology-based therapeutic approaches for atypical teratoid rhabdoid tumors</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Atypical teratoid rhabdoid tumor (ATRT) is a rare, highly malignant central nervous system cancer arising in infants and younger children, historically considered to be homogeneous, monogenic, and incurable.</div>
+            
+            
+            <div class="reference-finding-supporting">"Atypical teratoid rhabdoid tumor (ATRT) is a rare, highly malignant central nervous system cancer arising in infants and younger children, historically considered to be homogeneous, monogenic, and incurable."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/neuonc/noaa046" target="_blank">DOI:10.1093/neuonc/noaa046</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Atypical teratoid rhabdoid tumor (ATRT) is a rare, highly malignant central nervous system cancer arising in infants and younger children, historically considered to be homogeneous, monogenic, and incurable."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Atypical Teratoid Rhabdoid Tumor.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1093/noajnl/vdae158" target="_blank">DOI:10.1093/noajnl/vdae158</a>
+                            </div>
+                            
+                            <div class="reference-title">Approaches for prevention of tumors in patients with rhabdoid tumor predisposition syndrome</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Patients with rhabdoid tumor predisposition syndrome (RTPS) harbor germline alterations in the epigenetic regulator genes SMARCB1 or SMARCA4.</div>
+            
+            
+            <div class="reference-finding-supporting">"Patients with rhabdoid tumor predisposition syndrome (RTPS) harbor germline alterations in the epigenetic regulator genes SMARCB1 or SMARCA4."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/noajnl/vdae158" target="_blank">DOI:10.1093/noajnl/vdae158</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Patients with rhabdoid tumor predisposition syndrome (RTPS) harbor germline alterations in the epigenetic regulator genes SMARCB1 or SMARCA4."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Atypical Teratoid Rhabdoid Tumor.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1093/noajnl/vdae162" target="_blank">DOI:10.1093/noajnl/vdae162</a>
+                            </div>
+                            
+                            <div class="reference-title">Development and epigenetic regulation of Atypical teratoid/rhabdoid tumors in the context of cell-of-origin and halted cell differentiation</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Atypical teratoid/rhabdoid tumors (AT/RTs) are aggressive brain tumors primarily observed in infants.</div>
+            
+            
+            <div class="reference-finding-supporting">"Atypical teratoid/rhabdoid tumors (AT/RTs) are aggressive brain tumors primarily observed in infants."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/noajnl/vdae162" target="_blank">DOI:10.1093/noajnl/vdae162</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Atypical teratoid/rhabdoid tumors (AT/RTs) are aggressive brain tumors primarily observed in infants."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Atypical Teratoid Rhabdoid Tumor.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1093/nop/npad005" target="_blank">DOI:10.1093/nop/npad005</a>
+                            </div>
+                            
+                            <div class="reference-title">Current advances in immunotherapy for atypical teratoid rhabdoid tumor (ATRT)</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Atypical teratoid rhabdoid tumors (ATRT) are rare and aggressive embryonal tumors of central nervous system that typically affect children younger than 3 years of age.</div>
+            
+            
+            <div class="reference-finding-supporting">"Atypical teratoid rhabdoid tumors (ATRT) are rare and aggressive embryonal tumors of central nervous system that typically affect children younger than 3 years of age."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/nop/npad005" target="_blank">DOI:10.1093/nop/npad005</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Atypical teratoid rhabdoid tumors (ATRT) are rare and aggressive embryonal tumors of central nervous system that typically affect children younger than 3 years of age."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Atypical Teratoid Rhabdoid Tumor.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.26508/lsa.202302088" target="_blank">DOI:10.26508/lsa.202302088</a>
+                            </div>
+                            
+                            <div class="reference-title">Aberrant DNA methylation distorts developmental trajectories in atypical teratoid/rhabdoid tumors</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Atypical teratoid/rhabdoid tumors (AT/RTs) are pediatric brain tumors known for their aggressiveness and aberrant but still unresolved epigenetic regulation.</div>
+            
+            
+            <div class="reference-finding-supporting">"Atypical teratoid/rhabdoid tumors (AT/RTs) are pediatric brain tumors known for their aggressiveness and aberrant but still unresolved epigenetic regulation."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.26508/lsa.202302088" target="_blank">DOI:10.26508/lsa.202302088</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Atypical teratoid/rhabdoid tumors (AT/RTs) are pediatric brain tumors known for their aggressiveness and aberrant but still unresolved epigenetic regulation."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Atypical Teratoid Rhabdoid Tumor.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/cancers18010008" target="_blank">DOI:10.3390/cancers18010008</a>
+                            </div>
+                            
+                            <div class="reference-title">Histogenesis of Atypical Teratoid Rhabdoid Tumors: Anatomical and Embryological Perspectives</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Atypical teratoid/rhabdoid tumors (ATRTs) are rare, malignant central nervous system (CNS) neoplasms that predominantly affect infants and young children.</div>
+            
+            
+            <div class="reference-finding-supporting">"Atypical teratoid/rhabdoid tumors (ATRTs) are rare, malignant central nervous system (CNS) neoplasms that predominantly affect infants and young children."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers18010008" target="_blank">DOI:10.3390/cancers18010008</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Atypical teratoid/rhabdoid tumors (ATRTs) are rare, malignant central nervous system (CNS) neoplasms that predominantly affect infants and young children."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Atypical Teratoid Rhabdoid Tumor.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/jmp6020013" target="_blank">DOI:10.3390/jmp6020013</a>
+                            </div>
+                            
+                            <div class="reference-title">The Current Landscape of Molecular Pathology for the Diagnosis and Treatment of Atypical Teratoid Rhabdoid Tumor</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Atypical teratoid rhabdoid tumor (ATRT) is a rare, aggressive pediatric central nervous system (CNS) tumor that predominantly affects children under the age of 3.</div>
+            
+            
+            <div class="reference-finding-supporting">"Atypical teratoid rhabdoid tumor (ATRT) is a rare, aggressive pediatric central nervous system (CNS) tumor that predominantly affects children under the age of 3."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/jmp6020013" target="_blank">DOI:10.3390/jmp6020013</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Atypical teratoid rhabdoid tumor (ATRT) is a rare, aggressive pediatric central nervous system (CNS) tumor that predominantly affects children under the age of 3."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Atypical Teratoid Rhabdoid Tumor.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">1. Disease Information</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">49 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-08T07:42:05.099940</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <h2>1. Disease Information</h2>
+<h3>Overview / current understanding</h3>
+<p>ATRT is a rare, highly aggressive embryonal tumor of the CNS that predominantly affects infants and very young children. A 2023 review summarizes: “Atypical teratoid rhabdoid tumors (ATRT) are rare and aggressive embryonal tumors of central nervous system that typically affect children younger than 3 years of age.” (Tran 2023-01, Neuro-Oncology Practice; https://doi.org/10.1093/nop/npad005) (tran2023currentadvancesin pages 1-2).</p>
+<p>ATRT is now understood as a molecularly defined, epigenetically driven tumor entity with marked subgroup heterogeneity despite relatively low recurrent mutational burden beyond SWI/SNF genes (SMARCB1/SMARCA4). The tumor is genetically “defined by alterations in the SWI/SNF chromatin remodeling complex members SMARCB1 or SMARCA4” (Paassen 2023-04, Oncogene; https://doi.org/10.1038/s41388-023-02681-y) (reddy2020efficacyofhighdose pages 1-2).</p>
+<h3>Synonyms / alternative names</h3>
+<ul>
+<li>Atypical teratoid/rhabdoid tumor; AT/RT; ATRT (tran2023currentadvancesin pages 1-2, reddy2020efficacyofhighdose pages 1-2)</li>
+<li>Extracranial counterpart: malignant rhabdoid tumor (MRT) (holdhof2021atypicalteratoidrhabdoidtumors pages 1-2)</li>
+<li>Predisposition context: rhabdoid tumor predisposition syndrome (RTPS) (childress2025thecurrentlandscape pages 7-8, tomita2025histogenesisofatypical pages 14-15)</li>
+</ul>
+<h3>Evidence type note</h3>
+<p>Most information here is aggregated from cooperative-group clinical trials, multicenter molecular cohorts, and contemporary reviews (reddy2020efficacyofhighdose pages 1-2, tran2023currentadvancesin pages 1-2, holdhof2021atypicalteratoidrhabdoidtumors pages 1-2). Case reports exist but are not the basis for the core disease definition in this report.</p>
+<h2>2. Etiology</h2>
+<h3>Primary causal factors (genetic/mechanistic)</h3>
+<p><strong>Core genetic cause:</strong> biallelic inactivation of SWI/SNF chromatin-remodeling genes.
+- SMARCB1 loss is the dominant lesion; SMARCA4 loss is rare. A 2021 Acta Neuropathologica study states: “The underlying genetic cause are inactivating bi-allelic mutations in SMARCB1 or (rarely) in SMARCA4.” (Holdhof 2021-12; https://doi.org/10.1007/s00401-020-02250-7) (holdhof2021atypicalteratoidrhabdoidtumors pages 1-2).
+- A 2024 review reiterates: “The only characteristic, recurrent genetic aberration of AT/RTs is biallelic inactivation of SMARCB1 (or SMARCA4).” (Huhtala 2024-09, Neuro-Oncology Advances; https://doi.org/10.1093/noajnl/vdae162) (huhtala2024developmentandepigenetic pages 1-2).</p>
+<p><strong>Epigenetic dysregulation as an etiologic driver:</strong> ATRT biology is dominated by epigenetic and chromatin consequences of SWI/SNF disruption. In ATRT, “aberrant DNA methylation–driven epigenetic regulation…maintains the malignant, low differentiation cell state” (Pekkarinen 2024-03, Life Science Alliance; https://doi.org/10.26508/lsa.202302088) (huhtala2024developmentandepigenetic pages 1-2).</p>
+<h3>Risk factors</h3>
+<ul>
+<li><strong>Age:</strong> infancy/early childhood is the main demographic risk factor. ATRT comprises ~1–2% of childhood CNS tumors but is enriched in children &lt;3 years (Tran 2023-01) (tran2023currentadvancesin pages 1-2).</li>
+<li><strong>Germline predisposition (RTPS):</strong> germline SMARCB1 or SMARCA4 alterations predispose to ATRT and other rhabdoid tumors (childress2025thecurrentlandscape pages 7-8, tomita2025histogenesisofatypical pages 14-15). A 2024 genetic-cancer paper notes: “RTPS1 confers an increased risk of developing rhabdoid tumors and is caused by germline mutations in SMARCB1… RTPS1 should be evaluated in all individuals with rhabdoid tumor…” (Blackburn 2024-08, Genes Chromosomes Cancer; https://doi.org/10.1002/gcc.23195) (childress2025thecurrentlandscape pages 7-8).</li>
+</ul>
+<h3>Protective factors / gene–environment interactions</h3>
+<p>No protective factors or gene–environment interactions were identified in the retrieved evidence set; ATRT is predominantly driven by genetic/epigenetic mechanisms (huhtala2024developmentandepigenetic pages 1-2, holdhof2021atypicalteratoidrhabdoidtumors pages 1-2).</p>
+<h2>3. Phenotypes (clinical presentation)</h2>
+<h3>Typical presenting features (symptoms/signs)</h3>
+<p>ATRT presentation reflects rapid tumor growth, mass effect, and location-dependent neurologic deficits. A 2020 cooperative-group trial paper describes ATRT as “an aggressive, early-childhood brain tumor” (Reddy 2020-04, J Clin Oncol; https://doi.org/10.1200/JCO.19.01776) (reddy2020efficacyofhighdose pages 1-2).</p>
+<p>The 2026 case series (not required by the user’s priority years but consistent with core phenotype) describes intracranial hypertension and seizures in lateral-ventricle ATRT (not cited here because not extracted as evidence in this run).</p>
+<h3>Phenotype frequency / metastatic dissemination</h3>
+<ul>
+<li>Metastatic disease at diagnosis is commonly reported at ~20–40% (review summary) (childress2025thecurrentlandscape pages 7-8).</li>
+<li>One review described M1 (tumor cells in CSF) at diagnosis around ~38% (smith2025atypicalteratoidrhabdoid pages 2-4).</li>
+</ul>
+<h3>Suggested HPO terms (examples; for curation)</h3>
+<p>The following HPO mappings are suggested based on typical CNS tumor presentation; precise frequency-by-term was not available in the retrieved evidence:
+- <strong>HP:0001298</strong> Encephalopathy / impaired consciousness (mass effect)
+- <strong>HP:0002315</strong> Headache
+- <strong>HP:0002013</strong> Vomiting
+- <strong>HP:0001250</strong> Seizures
+- <strong>HP:0001263</strong> Developmental regression (common in infant brain tumors)
+- <strong>HP:0001270</strong> Motor delay / weakness
+- <strong>HP:0000252</strong> Microcephaly (treatment-related; not extracted here)</p>
+<p>(These HPO codes are suggested for structuring and should be validated against clinical series for ATRT-specific frequencies; no citable evidence in this run provides per-HPO frequencies.)</p>
+<h2>4. Genetic / molecular information</h2>
+<h3>Causal genes</h3>
+<ul>
+<li><strong>SMARCB1</strong> (INI1/BAF47/SNF5): defining tumor suppressor gene; loss is a diagnostic hallmark (smith2025atypicalteratoidrhabdoid pages 4-7, holdhof2021atypicalteratoidrhabdoidtumors pages 1-2).</li>
+<li><strong>SMARCA4</strong> (BRG1): rare ATRT subset; molecularly distinct and often very early onset (holdhof2021atypicalteratoidrhabdoidtumors pages 1-2, tomita2025histogenesisofatypical pages 14-15).</li>
+</ul>
+<h3>Pathogenic variants (general classes)</h3>
+<p>Commonly involve loss-of-function events: deletions, truncating variants, copy-number loss, and structural events.
+- Structural-variant etiology in predisposition: constitutional balanced translocations disrupting SMARCB1 were reported as a rare RTPS1 cause (Blackburn 2024-08) (childress2025thecurrentlandscape pages 7-8).</p>
+<h3>Epigenetic subgrouping</h3>
+<p>A widely accepted methylation/transcriptomic stratification includes:
+- <strong>ATRT-TYR, ATRT-SHH, ATRT-MYC</strong> (SMARCB1-mutant majority) (tran2023currentadvancesin pages 1-2, holdhof2021atypicalteratoidrhabdoidtumors pages 1-2)
+- <strong>ATRT-SMARCA4</strong> as a distinct methylation-defined group (holdhof2021atypicalteratoidrhabdoidtumors pages 1-2, johann2023recurrentatypicalteratoidrhabdoid pages 1-2)</p>
+<p>Clinical correlates include distinct age and anatomic predilections (Tran 2023-01; Holdhof 2021-12) (tran2023currentadvancesin pages 1-2, holdhof2021atypicalteratoidrhabdoidtumors pages 1-2).</p>
+<h3>Suggested GO terms (mechanistically relevant)</h3>
+<p>Based on SWI/SNF and epigenetic-differentiation blockade (conceptual mapping; validate in GO):
+- <strong>GO:0016585</strong> chromatin remodeling
+- <strong>GO:0006355</strong> regulation of transcription, DNA-templated
+- <strong>GO:0045893</strong> positive regulation of transcription, DNA-templated (developmental programs suppressed)
+- <strong>GO:0045165</strong> cell fate commitment / differentiation processes (blocked) (huhtala2024developmentandepigenetic pages 1-2)</p>
+<h2>5. Environmental information</h2>
+<p>No environmental, lifestyle, or infectious causal factors were identified in the retrieved evidence set; ATRT is primarily a genetically and epigenetically driven pediatric cancer (huhtala2024developmentandepigenetic pages 1-2, holdhof2021atypicalteratoidrhabdoidtumors pages 1-2).</p>
+<h2>6. Mechanism / pathophysiology</h2>
+<h3>Core mechanism: SWI/SNF loss → epigenetic dysregulation → differentiation blockade → aggressive embryonal tumor</h3>
+<ul>
+<li>ATRT’s recurrent genetic lesion is SWI/SNF disruption: “biallelic inactivation of SMARCB1 (or SMARCA4)” (Huhtala 2024-09) (huhtala2024developmentandepigenetic pages 1-2).</li>
+<li>A 2024 study links ATRT malignancy to hypermethylation and PRC2-associated repression, concluding: “These results highlight and characterize the role of DNA hypermethylation in AT/RT malignancy and halted neural cell differentiation.” (Pekkarinen 2024-03) (huhtala2024developmentandepigenetic pages 1-2).</li>
+</ul>
+<h3>Recurrence biology (2023)</h3>
+<p>A matched primary–recurrence cohort found progression-associated but relatively subtle molecular changes. Key reported recurrence-associated copy-number alterations included chromosome 1q gains and chromosome 10 losses, enriched in recurrences compared with primaries (Johann 2023-07, Acta Neuropathologica; https://doi.org/10.1007/s00401-023-02608-7) (johann2023recurrentatypicalteratoidrhabdoid pages 1-2).</p>
+<h3>Preclinical models and subgroup-specific vulnerabilities (2023)</h3>
+<p>A 2023 organoid/tumoroid model paper reported subgroup-specific vulnerabilities: “High throughput drug screens…revealed distinct drug sensitivities… Whereas ATRT-MYC universally displayed high sensitivity to multi-targeted tyrosine kinase inhibitors, ATRT-SHH showed a more heterogeneous response with a subset showing high sensitivity to NOTCH inhibitors…” (Paassen 2023-04) (reddy2020efficacyofhighdose pages 1-2). This supports subgroup-aware treatment development.</p>
+<h3>Immune microenvironment (2023 review)</h3>
+<p>ATRT immune profiles differ by subgroup; ATRT-MYC is described as having higher CD8+ tumor-infiltrating lymphocytes and possible immunogenic potential (Tran 2023-01) (tran2023currentadvancesin pages 1-2).</p>
+<h3>Suggested Cell Ontology (CL) terms (conceptual)</h3>
+<p>No single-cell dataset was retrieved in this run; however, based on immune infiltration discussions:
+- <strong>CL:0000623</strong> CD8-positive, alpha-beta T cell (ATRT-MYC enriched) (tran2023currentadvancesin pages 1-2)
+- <strong>CL:0000540</strong> neuron / <strong>CL:0000127</strong> astrocyte lineage cells (developmental programs implicated) (huhtala2024developmentandepigenetic pages 1-2)</p>
+<h2>7. Anatomical structures affected</h2>
+<h3>Organ/tissue level</h3>
+<p>ATRT arises throughout the neuraxis, including supratentorial, infratentorial, pineal, and spinal compartments. A 50-patient cohort reported: 36% infratentorial, 30% supratentorial, 22% pineal region, and 12% spinal (Tomita 2025-12, Cancers; https://doi.org/10.3390/cancers18010008) (tomita2025histogenesisofatypical pages 1-2).</p>
+<h3>Suggested UBERON terms (examples)</h3>
+<ul>
+<li><strong>UBERON:0000955</strong> brain</li>
+<li><strong>UBERON:0002037</strong> cerebellum (posterior fossa/infratentorial)</li>
+<li><strong>UBERON:0001954</strong> spinal cord</li>
+<li><strong>UBERON:0002421</strong> pineal gland / pineal region</li>
+</ul>
+<p>(UBERON IDs are suggested for structuring; the retrieved evidence supports the anatomic compartments but does not provide ontology IDs.)</p>
+<h2>8. Temporal development (onset/progression)</h2>
+<h3>Onset</h3>
+<p>Typical onset is pediatric, commonly &lt;3 years; ATRT is described as most common malignant brain tumor manifesting in infancy (Johann 2023-07) (johann2023recurrentatypicalteratoidrhabdoid pages 1-2) and “typically affect[s] children younger than 3 years of age” (Tran 2023-01) (tran2023currentadvancesin pages 1-2).</p>
+<h3>Progression</h3>
+<p>ATRT is characterized by rapid progression and high recurrence risk. In ACNS0333, “91% of relapses occurred by 2 years from enrollment” (Reddy 2020-04) (reddy2020efficacyofhighdose pages 1-2).</p>
+<h2>9. Inheritance and population</h2>
+<h3>Epidemiology</h3>
+<ul>
+<li>Incidence estimate cited in Germany: 1.4 per million (Holdhof 2021-12) (holdhof2021atypicalteratoidrhabdoidtumors pages 1-2).</li>
+<li>Proportion of pediatric CNS tumors: ~1–2% overall, but much higher among very young children (Tran 2023-01) (tran2023currentadvancesin pages 1-2).</li>
+</ul>
+<h3>Inheritance (predisposition)</h3>
+<p>RTPS is inherited via germline pathogenic variants in SMARCB1 (RTPS1) or SMARCA4 (RTPS2) and confers risk for multiple rhabdoid tumors (Blackburn 2024-08; Geethadevi 2024-09) (childress2025thecurrentlandscape pages 7-8, reddy2020efficacyofhighdose media 822317c7). Structural variants such as constitutional balanced translocations can be an RTPS1 cause and may be missed without SV analysis (Blackburn 2024-08) (childress2025thecurrentlandscape pages 7-8).</p>
+<h2>10. Diagnostics</h2>
+<h3>Histopathology and immunohistochemistry</h3>
+<p>A key routine diagnostic principle is nuclear loss of INI1 and/or BRG1:
+- “INI-1 (SMARCB1) and BRG-1 (SMARCA4) are routine surrogates — ‘As all nucleated cells should express INI-1 and BRG-1,’ and loss of nuclear expression of either should prompt AT/RT diagnosis.” (Smith 2025-11, Cancers; https://doi.org/10.3390/cancers17233768) (smith2025atypicalteratoidrhabdoid pages 4-7).</p>
+<h3>Molecular diagnostics</h3>
+<ul>
+<li>DNA methylation profiling is central for classification/subgrouping and is used for methylation-based CNS tumor classification (Johann 2023-07; Holdhof 2021-12) (johann2023recurrentatypicalteratoidrhabdoid pages 1-2, holdhof2021atypicalteratoidrhabdoidtumors pages 1-2).</li>
+<li>NGS should detect SMARCB1/SMARCA4 variants; SMARCB1 copy-number loss (22q11.2) can be assessed by CN plots or FISH (Smith 2025-11) (smith2025atypicalteratoidrhabdoid pages 4-7).</li>
+</ul>
+<h3>Imaging</h3>
+<p>MRI features include restricted diffusion, cystic/necrotic change, and hemorrhage; CT lesions can be hyperdense with calcifications (Smith 2025-11) (smith2025atypicalteratoidrhabdoid pages 2-4).</p>
+<h3>Differential diagnosis</h3>
+<p>Not fully extracted in this run; however, diagnostic challenge is recognized and motivates multimodal diagnostic integration (smith2025atypicalteratoidrhabdoid pages 4-7).</p>
+<h2>11. Outcome / prognosis</h2>
+<h3>Survival statistics (key data)</h3>
+<p><strong>Children’s Oncology Group ACNS0333 (prospective cooperative-group trial):</strong>
+- “Four-year EFS and overall survival for the entire cohort were 37%… and 43%…” (Reddy 2020-04) (reddy2020efficacyofhighdose pages 1-2).
+- Regimen significantly reduced EFS events in patients &lt;36 months vs historical cohort (hazard rate 0.43; P&lt;.0005) (Reddy 2020-04) (reddy2020efficacyofhighdose pages 1-2).</p>
+<p><strong>Clinical prognostic factors</strong> (from reviews): metastatic disease at diagnosis is common (~20–40%) and often adverse; extent of resection and radiotherapy are variably associated with better outcomes (Childress 2025-06) (childress2025thecurrentlandscape pages 7-8).</p>
+<h2>12. Treatment</h2>
+<h3>Standard-of-care backbone (current real-world implementation)</h3>
+<p>ATRT is treated with intensive multimodal therapy including maximal safe surgical resection, multiagent chemotherapy, radiotherapy (often focal; CSI for select metastatic cases/age contexts), and high-dose chemotherapy with autologous stem cell rescue in many protocols.</p>
+<p><strong>ACNS0333 protocol (widely used backbone):</strong>
+- Induction chemotherapy, consolidation with high-dose chemotherapy and PBSC rescue, plus involved-field radiation; reported 4-year OS 43% (Reddy 2020-04) (reddy2020efficacyofhighdose pages 1-2).
+- Visual evidence from the ACNS0333 paper locates regimen schema (Figure 1) and survival curves/table with the 4-year EFS/OS (Figures/Table) (reddy2020efficacyofhighdose media 8fddb41f, reddy2020efficacyofhighdose media 822317c7, reddy2020efficacyofhighdose media 8125c790).</p>
+<p><strong>Suggested MAXO terms (examples; validate):</strong>
+- Surgical tumor resection (MAXO: surgical excision)
+- Antineoplastic chemotherapy (multiagent chemotherapy; high-dose chemotherapy)
+- Radiotherapy (involved-field radiotherapy; craniospinal irradiation)
+- Autologous hematopoietic stem cell transplantation / stem cell rescue</p>
+<h3>Targeted/epigenetic and immunotherapy developments (2023–2024 emphasis)</h3>
+<p><strong>Immunotherapy landscape:</strong> A 2023 review highlights immunotherapy as a response to poor outcomes and toxicity: “there is an urgent need for more novel approaches to treat ATRT, one such approach being immunotherapy.” (Tran 2023-01) (tran2023currentadvancesin pages 1-2).</p>
+<p><strong>EZH2 inhibition (tazemetostat) and combinations:</strong>
+- <strong>NCT02601937</strong> (Phase 1; COMPLETED; results first posted 2024-10-03): pediatric tazemetostat in relapsed/refractory INI1-negative tumors including ATRT; ATRT expansion cohort regimen reported as 1200 mg/m^2 BID continuous 28-day cycles (ClinicalTrials.gov; https://clinicaltrials.gov/study/NCT02601937) (NCT02601937 chunk 1, NCT02601937 chunk 2).
+- <strong>NCT05407441</strong> (Phase I/II; ACTIVE_NOT_RECRUITING; start 2023-08-10): tazemetostat + nivolumab + ipilimumab for INI1-negative/SMARCA4-deficient tumors including ATRT (ClinicalTrials.gov; https://clinicaltrials.gov/study/NCT05407441) (NCT05407441 chunk 1).
+- <strong>NCT03838042</strong> (Phase I/II; RECRUITING): nivolumab + entinostat in biomarker-defined cohorts including ATRT-MYC (ClinicalTrials.gov; https://clinicaltrials.gov/study/NCT03838042) (NCT03838042 chunk 1).</p>
+<p><strong>HDAC inhibition (panobinostat):</strong>
+- <strong>NCT04897880</strong> (Phase 2; TERMINATED due to drug supply): panobinostat in pediatric solid tumors including MRT/ATRT (ClinicalTrials.gov; https://clinicaltrials.gov/study/NCT04897880) (NCT04897880 chunk 1).</p>
+<h2>13. Prevention</h2>
+<h3>Primary prevention</h3>
+<p>No established primary prevention is known for sporadic ATRT, given its early-life onset and tumor-suppressor loss mechanism.</p>
+<h3>Genetic counseling / surveillance (secondary/tertiary prevention in RTPS)</h3>
+<p>RTPS is a key context where prevention-oriented strategies are discussed. A 2024 review states: “Patients with rhabdoid tumor predisposition syndrome (RTPS) harbor germline alterations in… SMARCB1 or SMARCA4.” and proposes “maintenance or secondary prevention” approaches to reduce recurrence or additional tumors (Geethadevi 2024-09, Neuro-Oncology Advances; https://doi.org/10.1093/noajnl/vdae158) (reddy2020efficacyofhighdose media 822317c7).</p>
+<h2>14. Other species / natural disease</h2>
+<p>No naturally occurring ATRT analogs in non-human species were identified in the retrieved evidence set.</p>
+<h2>15. Model organisms / model systems</h2>
+<h3>In vitro / organoid models (recent)</h3>
+<p>A 2023 study established ATRT “tumoroid models” from ATRT-MYC and ATRT-SHH that retained subgroup epigenetic/transcriptomic profiles and enabled high-throughput drug screening, revealing subgroup-specific sensitivities (Paassen 2023-04) (reddy2020efficacyofhighdose pages 1-2). This is a concrete real-world implementation of preclinical modeling for therapeutic discovery.</p>
+<h2>Expert synthesis (authoritative analysis)</h2>
+<ol>
+<li><strong>Definition has shifted from histology-first to molecularly anchored diagnosis.</strong> Contemporary ATRT practice relies on INI1/BRG1 immunohistochemistry and DNA methylation profiling to confirm SWI/SNF deficiency and assign molecular subgroup, as emphasized by diagnostic evolution reviews (smith2025atypicalteratoidrhabdoid pages 4-7, johann2023recurrentatypicalteratoidrhabdoid pages 1-2).</li>
+<li><strong>Outcomes improved with intensive multimodal regimens but remain poor, especially after relapse.</strong> ACNS0333 demonstrates improved survival compared with historical cohorts but still yields ~43% 4-year OS, with most relapses within 2 years (reddy2020efficacyofhighdose pages 1-2).</li>
+<li><strong>Subgroup heterogeneity is not academic; it is translational.</strong> Evidence of subgroup-specific immune features (ATRT-MYC CD8+ infiltration) and subgroup-specific drug vulnerabilities in tumoroids suggests rational stratified trials and combination approaches (tran2023currentadvancesin pages 1-2, reddy2020efficacyofhighdose pages 1-2).</li>
+<li><strong>RTPS is a critical clinical-management axis.</strong> Germline SMARCB1/SMARCA4 alterations, including rare structural variants, support systematic germline testing and consideration of surveillance/maintenance strategies (childress2025thecurrentlandscape pages 7-8, reddy2020efficacyofhighdose media 822317c7).</li>
+</ol>
+<h2>Summary table</h2>
+<p>The following table consolidates core definitions, subgroups, diagnostics, treatments, outcomes, and 2023–2024 developments:</p>
+<table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>Key details</th>
+<th>Evidence / source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Definition / classification</td>
+<td>Atypical teratoid/rhabdoid tumor (ATRT; also AT/RT) is a rare, highly aggressive embryonal CNS tumor, predominantly of infancy/early childhood; WHO-classified as an embryonal CNS neoplasm. It accounts for ~1–2% of pediatric CNS tumors overall, but ~20% of CNS tumors in children &lt;3 years; median age at diagnosis ~16–30 months. ATRT is now understood as a molecularly heterogeneous SWI/SNF-deficient tumor family rather than a single homogeneous entity.</td>
+<td>Tran 2023, <em>Neuro-Oncology Practice</em>, Jan 2023, https://doi.org/10.1093/nop/npad005; Tomita 2025, <em>Cancers</em>, Dec 2025, https://doi.org/10.3390/cancers18010008 (tran2023currentadvancesin pages 1-2, tomita2025histogenesisofatypical pages 2-4)</td>
+</tr>
+<tr>
+<td>Hallmark genes / protein surrogates</td>
+<td>Defining event: biallelic loss/inactivation of <strong>SMARCB1</strong> in ~95% of cases; rare <strong>SMARCA4</strong>-mutant cases (~0.5–2%, some series up to ~4%). Routine diagnostic protein surrogates are loss of nuclear <strong>INI1/BAF47</strong> for SMARCB1-deficient tumors and loss of <strong>BRG1</strong> for SMARCA4-deficient tumors; all nucleated cells should normally express both. Germline pathogenic variants underlie rhabdoid tumor predisposition syndrome (RTPS1: SMARCB1; RTPS2: SMARCA4).</td>
+<td>Holdhof 2021, <em>Acta Neuropathologica</em>, Dec 2021, https://doi.org/10.1007/s00401-020-02250-7; Smith 2025, <em>Cancers</em>, Nov 2025, https://doi.org/10.3390/cancers17233768; Blackburn 2024, <em>Genes Chromosomes Cancer</em>, Aug 2024, https://doi.org/10.1002/gcc.23195 (holdhof2021atypicalteratoidrhabdoidtumors pages 1-2, smith2025atypicalteratoidrhabdoid pages 4-7, childress2025thecurrentlandscape pages 7-8)</td>
+</tr>
+<tr>
+<td>Molecular subgroup: ATRT-TYR</td>
+<td>TYR subgroup: tends to occur in the youngest patients (often 0–1 year), commonly infratentorial, with overexpression of melanocytic / melanosomal genes (<strong>TYR, TYRP1, MITF, OTX2</strong>). Imaging/pathology correlations include more peripheral cysts and stronger contrast enhancement than SHH in some series.</td>
+<td>Tran 2023, https://doi.org/10.1093/nop/npad005; Smith 2025, https://doi.org/10.3390/cancers17233768 (tran2023currentadvancesin pages 1-2, smith2025atypicalteratoidrhabdoid pages 2-4)</td>
+</tr>
+<tr>
+<td>Molecular subgroup: ATRT-SHH</td>
+<td>SHH subgroup: mixed supra- and infratentorial distribution overall; enriched for SHH/NOTCH-related programs and genes such as <strong>GLI2, BOC, PTCHD2, MYCN</strong>. Some subclass analyses show SHH-1A/1B predominantly supratentorial, while SHH-2 is largely infratentorial/pineal and enriched for germline SMARCB1 variants. Dissemination may be relatively more frequent in SHH-associated disease in some cohorts.</td>
+<td>Tran 2023, https://doi.org/10.1093/nop/npad005; Tomita 2025, https://doi.org/10.3390/cancers18010008; Smith 2025, https://doi.org/10.3390/cancers17233768 (tran2023currentadvancesin pages 1-2, tomita2025histogenesisofatypical pages 14-15, smith2025atypicalteratoidrhabdoid pages 2-4)</td>
+</tr>
+<tr>
+<td>Molecular subgroup: ATRT-MYC</td>
+<td>MYC subgroup: often supratentorial; overexpresses <strong>MYC</strong> and HOX-related programs; a subset arises extra-axially, including along cranial nerves. Compared with other subgroups, ATRT-MYC has been reported to show higher <strong>CD8+ tumor-infiltrating lymphocytes</strong>, supporting relative immunogenicity.</td>
+<td>Tran 2023, https://doi.org/10.1093/nop/npad005; Smith 2025, https://doi.org/10.3390/cancers17233768 (tran2023currentadvancesin pages 1-2, smith2025atypicalteratoidrhabdoid pages 2-4)</td>
+</tr>
+<tr>
+<td>Molecular subgroup: ATRT-SMARCA4</td>
+<td>Rare, molecularly distinct subgroup defined by <strong>SMARCA4</strong> loss rather than SMARCB1 loss; retains INI1 expression but loses BRG1. Associated with very young age, frequent germline events, and inferior prognosis versus SMARCB1-deficient ATRT. DNA methylation and RNA-seq support separation from TYR/SHH/MYC and from other SMARCA4-deficient tumors.</td>
+<td>Holdhof 2021, https://doi.org/10.1007/s00401-020-02250-7; Tomita 2025, https://doi.org/10.3390/cancers18010008 (holdhof2021atypicalteratoidrhabdoidtumors pages 1-2, tomita2025histogenesisofatypical pages 14-15)</td>
+</tr>
+<tr>
+<td>Typical anatomy / presentation</td>
+<td>ATRT can arise anywhere along the neuraxis. In one 50-patient pediatric cohort: <strong>36% infratentorial, 30% supratentorial, 22% pineal region, 12% spinal</strong>. Posterior fossa is common, often off-midline. Presentation often reflects rapid growth and intracranial hypertension; MRI may show restricted diffusion, cystic/necrotic change, hemorrhage, and CSF dissemination. Metastatic disease is present in ~20–40% at diagnosis; one review cited M1 CSF positivity around <strong>38%</strong>.</td>
+<td>Tomita 2025, https://doi.org/10.3390/cancers18010008; Childress 2025, https://doi.org/10.3390/jmp6020013; Smith 2025, https://doi.org/10.3390/cancers17233768; Hoffman 2020, https://doi.org/10.1093/neuonc/noaa046 (tomita2025histogenesisofatypical pages 1-2, childress2025thecurrentlandscape pages 7-8, smith2025atypicalteratoidrhabdoid pages 2-4, hoffman2020advancingbiologybased pages 4-5)</td>
+</tr>
+<tr>
+<td>Diagnostic modalities</td>
+<td>Modern diagnosis integrates histology + IHC + molecular testing. Core methods: (1) histopathology showing rhabdoid morphology with variable epithelial/mesenchymal/neuroectodermal elements; (2) IHC for <strong>INI1/SMARCB1</strong> and <strong>BRG1/SMARCA4</strong> loss; (3) genome-wide <strong>DNA methylation profiling</strong>, now considered highly informative / WHO-essential in difficult cases for subgroup assignment; (4) sequencing / CNV analysis for <strong>SMARCB1</strong> or <strong>SMARCA4</strong> alterations; (5) FISH / copy-number methods for 22q11.2 SMARCB1 loss when needed.</td>
+<td>Smith 2025, https://doi.org/10.3390/cancers17233768; Holdhof 2021, https://doi.org/10.1007/s00401-020-02250-7; Childress 2025, https://doi.org/10.3390/jmp6020013 (smith2025atypicalteratoidrhabdoid pages 4-7, holdhof2021atypicalteratoidrhabdoidtumors pages 1-2, childress2025thecurrentlandscape pages 10-12)</td>
+</tr>
+<tr>
+<td>Standard therapy backbone (ACNS0333)</td>
+<td>Contemporary backbone is aggressive multimodal therapy: maximal safe resection, intensive induction chemotherapy, focal/involved-field radiotherapy, then high-dose chemotherapy with autologous stem-cell rescue. <strong>ACNS0333</strong> schema: 2 induction cycles including vincristine, methotrexate, etoposide, cyclophosphamide, cisplatin; then 3 consolidation cycles with <strong>thiotepa + carboplatin</strong> and PBSC rescue; focal RT timing adapted by age/disease status. Gross total resection is achieved in ~30–68% across series.</td>
+<td>Reddy 2020, <em>JCO</em>, Apr 2020, https://doi.org/10.1200/JCO.19.01776; figure/table locations summarized from ACNS0333 visual review (reddy2020efficacyofhighdose pages 1-2, reddy2020efficacyofhighdose media 8fddb41f, childress2025thecurrentlandscape pages 7-8)</td>
+</tr>
+<tr>
+<td>Key outcome statistics</td>
+<td><strong>ACNS0333</strong> (65 evaluable patients): 4-year <strong>EFS 37%</strong> (95% CI 25–49) and 4-year <strong>OS 43%</strong> (95% CI 31–55); for patients &lt;36 months, EFS hazard ratio vs historical cohort <strong>0.43</strong> (P&lt;.0005). <strong>91% of relapses occurred within 2 years</strong>; treatment-related deaths: 4. Other cited multimodal results: Dana-Farber regimen 2-year EFS/OS <strong>53%/70%</strong>; Head Start HDCT/ASCR 3-year EFS/OS <strong>21%/26%</strong>.</td>
+<td>Reddy 2020, https://doi.org/10.1200/JCO.19.01776; Childress 2025, https://doi.org/10.3390/jmp6020013 (reddy2020efficacyofhighdose pages 1-2, childress2025thecurrentlandscape pages 7-8)</td>
+</tr>
+<tr>
+<td>Representative mechanistic findings (2023–2024)</td>
+<td><strong>Recurrence biology:</strong> recurrent ATRTs show increased mitotic activity, occasional subgroup switching, and enrichment of <strong>chromosome 1q gain</strong> and <strong>chromosome 10 loss</strong>; primary and relapse usually remain close by methylation/transcriptome, implying relative epigenetic stability with selected progression-associated changes. <strong>Epigenetic differentiation blockade:</strong> AT/RT-specific DNA hypermethylation is linked to <strong>PRC2</strong>, suppression of neural differentiation genes, impaired NEUROG/NEUROD pioneer-factor activity, and maintenance of a low-differentiation malignant state. <strong>Model systems / vulnerabilities:</strong> 2023 tumoroid models retained subgroup-specific epigenetic states; ATRT-MYC showed broad sensitivity to multi-targeted tyrosine kinase inhibitors, while a subset of ATRT-SHH was sensitive to <strong>NOTCH inhibitors</strong>.</td>
+<td>Johann 2023, <em>Acta Neuropathologica</em>, Jul 2023, https://doi.org/10.1007/s00401-023-02608-7; Pekkarinen 2024, <em>Life Science Alliance</em>, Mar 2024, https://doi.org/10.26508/lsa.202302088; Paassen 2023, <em>Oncogene</em>, Apr 2023, https://doi.org/10.1038/s41388-023-02681-y; Huhtala 2024, <em>Neuro-Oncology Advances</em>, Sep 2024, https://doi.org/10.1093/noajnl/vdae162 (johann2023recurrentatypicalteratoidrhabdoid pages 1-2, huhtala2024developmentandepigenetic pages 1-2, reddy2020efficacyofhighdose pages 1-2)</td>
+</tr>
+<tr>
+<td>Immune microenvironment / translational rationale</td>
+<td>ATRT is epigenetically driven but immunologically nonuniform across subgroups; ATRT-MYC has relatively higher CD8+ infiltration, motivating immune-based strategies. Reviews emphasize combining immune profiling with subgrouping and epigenetic therapy to refine treatment selection.</td>
+<td>Tran 2023, https://doi.org/10.1093/nop/npad005; Childress 2025, https://doi.org/10.3390/jmp6020013 (tran2023currentadvancesin pages 1-2, childress2025thecurrentlandscape pages 10-12)</td>
+</tr>
+<tr>
+<td>Representative clinical trials</td>
+<td><strong>NCT02601937</strong> — tazemetostat (EZH2 inhibitor), Phase 1, completed, pediatric relapsed/refractory INI1-negative tumors including ATRT; results posted 2024-10-03; ATRT cohort used <strong>1200 mg/m² BID</strong> continuous 28-day cycles. <strong>NCT05407441</strong> — tazemetostat + nivolumab + ipilimumab, Phase I/II, Active not recruiting, ATRT / INI1-negative / SMARCA4-deficient tumors. <strong>NCT04416568</strong> — nivolumab + ipilimumab in INI1-negative cancers, Phase 2, Active not recruiting. <strong>NCT04897880</strong> — panobinostat in pediatric solid tumors including MRT/ATRT, Phase 2, Terminated (drug supply). <strong>NCT03838042</strong> — INFORM2 Nivolumab + entinostat, Phase I/II, Recruiting; includes biomarker-defined cohorts including <strong>ATRT-MYC</strong>.</td>
+<td>ClinicalTrials.gov records summarized from extracted trial evidence (NCT02601937, NCT05407441, NCT04416568, NCT04897880, NCT03838042) (NCT04897880 chunk 1, NCT02601937 chunk 2, NCT05407441 chunk 1, NCT02601937 chunk 1, NCT03838042 chunk 1)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table condenses the most clinically and biologically relevant facts about ATRT, including defining molecular features, subgroup correlates, diagnostics, standard therapy, outcomes, and representative recent research and trials. It is designed as a compact reference for knowledge-base curation or rapid expert review.</em></p>
+<h2>Key URLs (retrieved sources)</h2>
+<ul>
+<li>ACNS0333 trial publication (JCO; 2020-04): https://doi.org/10.1200/JCO.19.01776 (reddy2020efficacyofhighdose pages 1-2)</li>
+<li>Immunotherapy review (Neuro-Oncology Practice; 2023-01): https://doi.org/10.1093/nop/npad005 (tran2023currentadvancesin pages 1-2)</li>
+<li>Recurrence biology (Acta Neuropathologica; 2023-07): https://doi.org/10.1007/s00401-023-02608-7 (johann2023recurrentatypicalteratoidrhabdoid pages 1-2)</li>
+<li>ATRT tumoroids (Oncogene; 2023-04): https://doi.org/10.1038/s41388-023-02681-y (reddy2020efficacyofhighdose pages 1-2)</li>
+<li>DNA methylation differentiation blockade (Life Science Alliance; 2024-03): https://doi.org/10.26508/lsa.202302088 (huhtala2024developmentandepigenetic pages 1-2)</li>
+<li>RTPS balanced translocations (Genes Chromosomes Cancer; 2024-08): https://doi.org/10.1002/gcc.23195 (childress2025thecurrentlandscape pages 7-8)</li>
+<li>RTPS prevention/maintenance review (Neuro-Oncology Advances; 2024-09): https://doi.org/10.1093/noajnl/vdae158 (reddy2020efficacyofhighdose media 822317c7)</li>
+<li>ClinicalTrials.gov tazemetostat pediatric INI1-negative tumors (NCT02601937; results posted 2024-10-03): https://clinicaltrials.gov/study/NCT02601937 (NCT02601937 chunk 1)</li>
+<li>ClinicalTrials.gov tazemetostat + nivo/ipi (NCT05407441; started 2023-08-10): https://clinicaltrials.gov/study/NCT05407441 (NCT05407441 chunk 1)</li>
+<li>ClinicalTrials.gov nivolumab + entinostat INFORM2 (NCT03838042): https://clinicaltrials.gov/study/NCT03838042 (NCT03838042 chunk 1)</li>
+<li>ClinicalTrials.gov panobinostat (NCT04897880; terminated): https://clinicaltrials.gov/study/NCT04897880 (NCT04897880 chunk 1)</li>
+</ul>
+<p>References</p>
+<ol>
+<li>
+<p>(tran2023currentadvancesin pages 1-2): Son Tran, Ashley S Plant-Fox, Susan N Chi, and Aru Narendran. Current advances in immunotherapy for atypical teratoid rhabdoid tumor (atrt). Neuro-oncology practice, 10 4:322-334, Jan 2023. URL: https://doi.org/10.1093/nop/npad005, doi:10.1093/nop/npad005. This article has 21 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(reddy2020efficacyofhighdose pages 1-2): Alyssa T. Reddy, Douglas R. Strother, Alexander R. Judkins, Peter C. Burger, Ian F. Pollack, Mark D. Krailo, Allen B. Buxton, Chris Williams-Hughes, Maryam Fouladi, Anita Mahajan, Thomas E. Merchant, Ben Ho, Claire M. Mazewski, Victor A. Lewis, Amar Gajjar, Louis-Gilbert Vezina, Timothy N. Booth, Kerry W. Parsons, Vicky L. Poss, Tianni Zhou, Jaclyn A. Biegel, and Annie Huang. Efficacy of high-dose chemotherapy and three-dimensional conformal radiation for atypical teratoid/rhabdoid tumor: a report from the children’s oncology group trial acns0333. Journal of Clinical Oncology, 38:1175-1185, Apr 2020. URL: https://doi.org/10.1200/jco.19.01776, doi:10.1200/jco.19.01776. This article has 238 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(holdhof2021atypicalteratoidrhabdoidtumors pages 1-2): Dörthe Holdhof, Pascal D. Johann, Michael Spohn, Michael Bockmayr, Sepehr Safaei, Piyush Joshi, Julien Masliah-Planchon, Ben Ho, Mamy Andrianteranagna, Franck Bourdeaut, Annie Huang, Marcel Kool, Santhosh A. Upadhyaya, Anne E. Bendel, Daniela Indenbirken, William D. Foulkes, Jonathan W. Bush, David Creytens, Uwe Kordes, Michael C. Frühwald, Martin Hasselblatt, and Ulrich Schüller. Atypical teratoid/rhabdoid tumors (atrts) with smarca4 mutation are molecularly distinct from smarcb1-deficient cases. Acta Neuropathologica, 141:291-301, Dec 2021. URL: https://doi.org/10.1007/s00401-020-02250-7, doi:10.1007/s00401-020-02250-7. This article has 110 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(smith2025atypicalteratoidrhabdoid pages 4-7): Heather L. Smith, Pascale Aouad, and Nitin R. Wadhwani. Atypical teratoid rhabdoid tumor: how tumor diagnostic methods in the laboratory have evolved over the past 40 years. Cancers, 17:3768, Nov 2025. URL: https://doi.org/10.3390/cancers17233768, doi:10.3390/cancers17233768. This article has 1 citations.</p>
+</li>
+<li>
+<p>(childress2025thecurrentlandscape pages 7-8): Ashley Childress, Alayna Koch, Emma Vallee, Alyssa Steller, and Scott Raskin. The current landscape of molecular pathology for the diagnosis and treatment of atypical teratoid rhabdoid tumor. Journal of Molecular Pathology, 6:13, Jun 2025. URL: https://doi.org/10.3390/jmp6020013, doi:10.3390/jmp6020013. This article has 0 citations.</p>
+</li>
+<li>
+<p>(tomita2025histogenesisofatypical pages 14-15): Tadanori Tomita. Histogenesis of atypical teratoid rhabdoid tumors: anatomical and embryological perspectives. Cancers, 18:8, Dec 2025. URL: https://doi.org/10.3390/cancers18010008, doi:10.3390/cancers18010008. This article has 0 citations.</p>
+</li>
+<li>
+<p>(huhtala2024developmentandepigenetic pages 1-2): Laura Huhtala, Goktug Karabiyik, and Kirsi J Rautajoki. Development and epigenetic regulation of atypical teratoid/rhabdoid tumors in the context of cell-of-origin and halted cell differentiation. Neuro-Oncology Advances, Sep 2024. URL: https://doi.org/10.1093/noajnl/vdae162, doi:10.1093/noajnl/vdae162. This article has 9 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(smith2025atypicalteratoidrhabdoid pages 2-4): Heather L. Smith, Pascale Aouad, and Nitin R. Wadhwani. Atypical teratoid rhabdoid tumor: how tumor diagnostic methods in the laboratory have evolved over the past 40 years. Cancers, 17:3768, Nov 2025. URL: https://doi.org/10.3390/cancers17233768, doi:10.3390/cancers17233768. This article has 1 citations.</p>
+</li>
+<li>
+<p>(johann2023recurrentatypicalteratoidrhabdoid pages 1-2): Pascal D. Johann, Lea Altendorf, Emma-Maria Efremova, Till Holsten, Mona Steinbügl, Karolina Nemes, Alicia Eckhardt, Catena Kresbach, Michael Bockmayr, Arend Koch, Christine Haberler, Manila Antonelli, John DeSisto, Martin U. Schuhmann, Peter Hauser, Reiner Siebert, Susanne Bens, Marcel Kool, Adam L. Green, Martin Hasselblatt, Michael C. Frühwald, and Ulrich Schüller. Recurrent atypical teratoid/rhabdoid tumors (at/rt) reveal discrete features of progression on histology, epigenetics, copy number profiling, and transcriptomics. Acta Neuropathologica, 146:527-541, Jul 2023. URL: https://doi.org/10.1007/s00401-023-02608-7, doi:10.1007/s00401-023-02608-7. This article has 20 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(tomita2025histogenesisofatypical pages 1-2): Tadanori Tomita. Histogenesis of atypical teratoid rhabdoid tumors: anatomical and embryological perspectives. Cancers, 18:8, Dec 2025. URL: https://doi.org/10.3390/cancers18010008, doi:10.3390/cancers18010008. This article has 0 citations.</p>
+</li>
+<li>
+<p>(reddy2020efficacyofhighdose media 822317c7): Alyssa T. Reddy, Douglas R. Strother, Alexander R. Judkins, Peter C. Burger, Ian F. Pollack, Mark D. Krailo, Allen B. Buxton, Chris Williams-Hughes, Maryam Fouladi, Anita Mahajan, Thomas E. Merchant, Ben Ho, Claire M. Mazewski, Victor A. Lewis, Amar Gajjar, Louis-Gilbert Vezina, Timothy N. Booth, Kerry W. Parsons, Vicky L. Poss, Tianni Zhou, Jaclyn A. Biegel, and Annie Huang. Efficacy of high-dose chemotherapy and three-dimensional conformal radiation for atypical teratoid/rhabdoid tumor: a report from the children’s oncology group trial acns0333. Journal of Clinical Oncology, 38:1175-1185, Apr 2020. URL: https://doi.org/10.1200/jco.19.01776, doi:10.1200/jco.19.01776. This article has 238 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(reddy2020efficacyofhighdose media 8fddb41f): Alyssa T. Reddy, Douglas R. Strother, Alexander R. Judkins, Peter C. Burger, Ian F. Pollack, Mark D. Krailo, Allen B. Buxton, Chris Williams-Hughes, Maryam Fouladi, Anita Mahajan, Thomas E. Merchant, Ben Ho, Claire M. Mazewski, Victor A. Lewis, Amar Gajjar, Louis-Gilbert Vezina, Timothy N. Booth, Kerry W. Parsons, Vicky L. Poss, Tianni Zhou, Jaclyn A. Biegel, and Annie Huang. Efficacy of high-dose chemotherapy and three-dimensional conformal radiation for atypical teratoid/rhabdoid tumor: a report from the children’s oncology group trial acns0333. Journal of Clinical Oncology, 38:1175-1185, Apr 2020. URL: https://doi.org/10.1200/jco.19.01776, doi:10.1200/jco.19.01776. This article has 238 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(reddy2020efficacyofhighdose media 8125c790): Alyssa T. Reddy, Douglas R. Strother, Alexander R. Judkins, Peter C. Burger, Ian F. Pollack, Mark D. Krailo, Allen B. Buxton, Chris Williams-Hughes, Maryam Fouladi, Anita Mahajan, Thomas E. Merchant, Ben Ho, Claire M. Mazewski, Victor A. Lewis, Amar Gajjar, Louis-Gilbert Vezina, Timothy N. Booth, Kerry W. Parsons, Vicky L. Poss, Tianni Zhou, Jaclyn A. Biegel, and Annie Huang. Efficacy of high-dose chemotherapy and three-dimensional conformal radiation for atypical teratoid/rhabdoid tumor: a report from the children’s oncology group trial acns0333. Journal of Clinical Oncology, 38:1175-1185, Apr 2020. URL: https://doi.org/10.1200/jco.19.01776, doi:10.1200/jco.19.01776. This article has 238 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(NCT02601937 chunk 1):  EZH2 Inhibitor Tazemetostat in Pediatric Subjects With Relapsed or Refractory INI1-Negative Tumors or Synovial Sarcoma. Epizyme, Inc.. 2016. ClinicalTrials.gov Identifier: NCT02601937</p>
+</li>
+<li>
+<p>(NCT02601937 chunk 2):  EZH2 Inhibitor Tazemetostat in Pediatric Subjects With Relapsed or Refractory INI1-Negative Tumors or Synovial Sarcoma. Epizyme, Inc.. 2016. ClinicalTrials.gov Identifier: NCT02601937</p>
+</li>
+<li>
+<p>(NCT05407441 chunk 1): Susan Chi, MD. Tazemetostat+Nivo/Ipi in INI1-Neg/SMARCA4-Def Tumors. Susan Chi, MD. 2023. ClinicalTrials.gov Identifier: NCT05407441</p>
+</li>
+<li>
+<p>(NCT03838042 chunk 1): Olaf Witt, MD. INFORM2 Study Uses Nivolumab and Entinostat in Children and Adolescents With High-risk Refractory Malignancies. University Hospital Heidelberg. 2020. ClinicalTrials.gov Identifier: NCT03838042</p>
+</li>
+<li>
+<p>(NCT04897880 chunk 1):  A Study of Panobinostat in Pediatric Patients With Solid Tumors Including MRT/ATRT. Australian &amp; New Zealand Children's Haematology/Oncology Group. 2019. ClinicalTrials.gov Identifier: NCT04897880</p>
+</li>
+<li>
+<p>(tomita2025histogenesisofatypical pages 2-4): Tadanori Tomita. Histogenesis of atypical teratoid rhabdoid tumors: anatomical and embryological perspectives. Cancers, 18:8, Dec 2025. URL: https://doi.org/10.3390/cancers18010008, doi:10.3390/cancers18010008. This article has 0 citations.</p>
+</li>
+<li>
+<p>(hoffman2020advancingbiologybased pages 4-5): Lindsey M Hoffman, Elizabeth Anne Richardson, Ben Ho, Ashley Margol, Alyssa Reddy, Lucie Lafay-Cousin, Susan Chi, Irene Slavc, Alexander Judkins, Martin Hasselblatt, Franck Bourdeaut, Michael C Frühwald, Rajeev Vibhakar, Eric Bouffet, and Annie Huang. Advancing biology based therapeutic approaches for atypical teratoid rhabdoid tumors. Neuro-oncology, 22:944-954, Mar 2020. URL: https://doi.org/10.1093/neuonc/noaa046, doi:10.1093/neuonc/noaa046. This article has 39 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(childress2025thecurrentlandscape pages 10-12): Ashley Childress, Alayna Koch, Emma Vallee, Alyssa Steller, and Scott Raskin. The current landscape of molecular pathology for the diagnosis and treatment of atypical teratoid rhabdoid tumor. Journal of Molecular Pathology, 6:13, Jun 2025. URL: https://doi.org/10.3390/jmp6020013, doi:10.3390/jmp6020013. This article has 0 citations.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </div>
         
 
         <footer class="page-footer">
@@ -4611,7 +5963,7 @@ treatments:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Atypical Teratoid/Rhabdoid Tumor", "mondoId": "MONDO:0020560", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Atypical_Teratoid_Rhabdoid_Tumor", "yamlRevision": "05d759ad8700"};
+        const OS_CONFIG = {"diseaseName": "Atypical Teratoid/Rhabdoid Tumor", "mondoId": "MONDO:0020560", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Atypical_Teratoid_Rhabdoid_Tumor", "yamlRevision": "0d06e1c966c8"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

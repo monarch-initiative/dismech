@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2642,6 +2795,20 @@
             
             
             
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-value">9</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -3997,7 +4164,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antisense Oligonucleotide Therapy (Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antisense oligonucleotides targeting GFAP mRNA have shown efficacy in mouse and rat models, achieving near-complete elimination of GFAP protein with reversal of Rosenthal fibers, white matter deficits, and motor impairment.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Astrocyte Dysfunction and Non-Cell-Autonomous Neurodegeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutant GFAP-expressing astrocytes become dysfunctional, with activation of stress response pathways and white matter pathology. Elevated GFAP levels shift GFAP solubility and increase the stress response. Dysfunctional astrocytes fail to support neurons and oligodendrocytes, leading to secondary demyelination and neuronal loss.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Astrocyte\", \"Oligodendrocyte\"], \"biological_processes\": [\"Myelination\", \"Autophagy\"]}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar ataxia present in juvenile and adult forms of Alexander disease.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Type II\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Autonomic Dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autonomic nervous system dysfunction including abnormal sweating, cardiovascular instability, and gastrointestinal dysmotility. A defining feature of Type II Alexander disease, reflecting brainstem involvement.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Type II\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012332\"}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Impaired speech articulation due to bulbar involvement, common in juvenile and adult-onset forms.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Type II\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Difficulty swallowing, particularly prominent in Type II Alexander disease as part of the bulbar symptom complex.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Type II\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002015\"}}, {\"id\": \"Failure to Thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor weight gain and growth failure, particularly in infantile Alexander disease. Often accompanies feeding difficulties and progressive encephalopathy.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Type I\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Frontal-Predominant Leukoencephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Frontal-predominant white matter abnormality on MRI, a hallmark diagnostic imaging feature of Type I Alexander disease.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Type I\"], \"term_id\": \"HP:0002352\"}}, {\"id\": \"GFAP Aggregation and Rosenthal Fiber Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gain-of-function mutations in GFAP lead to accumulation of misfolded GFAP protein that forms Rosenthal fibers within astrocytes. These inclusions contain GFAP complexed with small heat shock proteins alphaB-crystallin and HSP27. The aggregation overwhelms the protein quality control machinery. Rosenthal fibers originate as small osmiophilic masses deposited on bundles of intermediate filaments and continue to form over time.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Astrocyte\"], \"biological_processes\": [\"Protein Aggregation\"], \"molecular_functions\": [\"structural constituent of cytoskeleton\"], \"genes\": [\"GFAP\"]}}, {\"id\": \"GFAP Gain-of-Function Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"GFAP\"], \"association\": \"Causative\", \"variant_count\": 3}}, {\"id\": \"GFAP Post-Translational Modifications and Aggregation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disease-associated GFAP mutations promote pathological post-translational modifications including aberrant disulfide cross-linking (particularly cysteine-generating mutations like R239C) and ubiquitination. These modifications yield high-molecular-weight insoluble GFAP species that contribute to Rosenthal fiber formation and resist proteolytic clearance.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Astrocyte\"], \"biological_processes\": [\"Protein Ubiquitination\"], \"molecular_functions\": [\"structural constituent of cytoskeleton\"], \"genes\": [\"GFAP\"]}}, {\"id\": \"GFAP R239 missense hotspot\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent heterozygous GFAP R239 substitutions, including R239C and R239H, are the most common hotspot group and predict a more aggressive clinical course. R239 variants follow the toxic GFAP path through aggregation, Rosenthal fibers, astrocyte dysfunction, and severe Type I-weighted neurologic phenotypes.\\n\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"GFAP\"], \"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"GFAP R79 missense hotspot\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent heterozygous GFAP R79 substitutions, especially R79H, are a common Alexander disease hotspot. They enter the canonical toxic gain-of-function path from mutant GFAP through Rosenthal fiber formation, astrocyte dysfunction, white matter injury, and subtype-specific neurologic phenotypes.\\n\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"GFAP\"], \"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"GFAP cysteine-generating aggregation-prone variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Cysteine-generating GFAP variants, represented in Alexander disease cohorts by R239C and R88C, provide a variant-specific path into abnormal GFAP oxidation and crosslinking before aggregate and Rosenthal fiber formation.\\n\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"GFAP\"], \"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Glutamate Excitotoxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysfunctional astrocytes in Alexander disease show impaired glutamate uptake via astrocytic transporters, leading to toxic accumulation of extracellular glutamate. This non-cell-autonomous mechanism causes neuronal apoptosis dependent on glial glutamate transport.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Astrocyte\", \"Neuron\"], \"biological_processes\": [\"Neurotransmitter Transport\"]}}, {\"id\": \"Macrocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive enlargement of the head, particularly prominent in Type I (infantile) Alexander disease. Often the presenting feature.\\n\", \"meta\": {\"evidence_count\": 3, \"subtypes\": [\"Type I\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000256\"}}, {\"id\": \"Nystagmus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Involuntary rhythmic eye movements reflecting cerebellar or brainstem involvement, observed particularly in adult-onset Alexander disease as part of ocular movement abnormalities.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Type II\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000639\"}}, {\"id\": \"Oxidative Stress and White Matter Pathology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GFAP mutations induce an antioxidant/oxidative stress response in white matter, with iron accumulation in corpus callosum. Knock-in mice with GFAP mutations show a distinct pattern of stress response gene induction particularly prominent in white matter regions.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Astrocyte\"], \"biological_processes\": [\"Oxidative Stress Response\"]}}, {\"id\": \"Psychomotor Regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of previously acquired developmental milestones, characteristic of infantile Alexander disease, leading to death usually within the first decade.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Type I\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002376\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are common in Type I Alexander disease, often presenting in the first year of life. GFAP mutant mice also show increased susceptibility to kainate-induced seizures.\\n\", \"meta\": {\"evidence_count\": 3, \"subtypes\": [\"Type I\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive spasticity affecting the limbs, present in both Type I and Type II Alexander disease. In juvenile and adult forms, spasticity is a prominent feature alongside bulbar signs.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Type I\", \"Type II\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001257\"}}], \"edges\": [{\"source\": \"GFAP Aggregation and Rosenthal Fiber Formation\", \"target\": \"Astrocyte Dysfunction and Non-Cell-Autonomous Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"GFAP Aggregation and Rosenthal Fiber Formation\", \"target\": \"Oxidative Stress and White Matter Pathology\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Astrocyte Dysfunction and Non-Cell-Autonomous Neurodegeneration\", \"target\": \"Glutamate Excitotoxicity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Astrocyte Dysfunction and Non-Cell-Autonomous Neurodegeneration\", \"target\": \"Frontal-Predominant Leukoencephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Astrocyte Dysfunction and Non-Cell-Autonomous Neurodegeneration\", \"target\": \"Macrocephaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Astrocyte Dysfunction and Non-Cell-Autonomous Neurodegeneration\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Astrocyte Dysfunction and Non-Cell-Autonomous Neurodegeneration\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Astrocyte Dysfunction and Non-Cell-Autonomous Neurodegeneration\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Astrocyte Dysfunction and Non-Cell-Autonomous Neurodegeneration\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Astrocyte Dysfunction and Non-Cell-Autonomous Neurodegeneration\", \"target\": \"Autonomic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Astrocyte Dysfunction and Non-Cell-Autonomous Neurodegeneration\", \"target\": \"Nystagmus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Astrocyte Dysfunction and Non-Cell-Autonomous Neurodegeneration\", \"target\": \"Failure to Thrive\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative Stress and White Matter Pathology\", \"target\": \"Frontal-Predominant Leukoencephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative Stress and White Matter Pathology\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Glutamate Excitotoxicity\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Glutamate Excitotoxicity\", \"target\": \"Psychomotor Regression\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"GFAP Post-Translational Modifications and Aggregation\", \"target\": \"GFAP Aggregation and Rosenthal Fiber Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Antisense Oligonucleotide Therapy (Investigational)\", \"target\": \"GFAP Aggregation and Rosenthal Fiber Formation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"GFAP Gain-of-Function Mutations\", \"target\": \"GFAP Aggregation and Rosenthal Fiber Formation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GFAP Gain-of-Function Mutations\", \"target\": \"GFAP Post-Translational Modifications and Aggregation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GFAP R79 missense hotspot\", \"target\": \"GFAP Gain-of-Function Mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"GFAP R239 missense hotspot\", \"target\": \"GFAP Gain-of-Function Mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"GFAP cysteine-generating aggregation-prone variants\", \"target\": \"GFAP Gain-of-Function Mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antisense Oligonucleotide Therapy (Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antisense oligonucleotides targeting GFAP mRNA have shown efficacy in mouse and rat models, achieving near-complete elimination of GFAP protein with reversal of Rosenthal fibers, white matter deficits, and motor impairment.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Astrocyte Dysfunction and Non-Cell-Autonomous Neurodegeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutant GFAP-expressing astrocytes become dysfunctional, with activation of stress response pathways and white matter pathology. Elevated GFAP levels shift GFAP solubility and increase the stress response. Dysfunctional astrocytes fail to support neurons and oligodendrocytes, leading to secondary demyelination and neuronal loss.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Astrocyte\", \"Oligodendrocyte\"], \"biological_processes\": [\"Myelination\", \"Autophagy\"]}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar ataxia present in juvenile and adult forms of Alexander disease.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Type II\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Autonomic Dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autonomic nervous system dysfunction including abnormal sweating, cardiovascular instability, and gastrointestinal dysmotility. A defining feature of Type II Alexander disease, reflecting brainstem involvement.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Type II\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012332\"}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Impaired speech articulation due to bulbar involvement, common in juvenile and adult-onset forms.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Type II\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Difficulty swallowing, particularly prominent in Type II Alexander disease as part of the bulbar symptom complex.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Type II\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002015\"}}, {\"id\": \"Failure to Thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor weight gain and growth failure, particularly in infantile Alexander disease. Often accompanies feeding difficulties and progressive encephalopathy.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Type I\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Frontal-Predominant Leukoencephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Frontal-predominant white matter abnormality on MRI, a hallmark diagnostic imaging feature of Type I Alexander disease.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Type I\"], \"term_id\": \"HP:0002352\"}}, {\"id\": \"GFAP Aggregation and Rosenthal Fiber Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gain-of-function mutations in GFAP lead to accumulation of misfolded GFAP protein that forms Rosenthal fibers within astrocytes. These inclusions contain GFAP complexed with small heat shock proteins alphaB-crystallin and HSP27. The aggregation overwhelms the protein quality control machinery. Rosenthal fibers originate as small osmiophilic masses deposited on bundles of intermediate filaments and continue to form over time.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Astrocyte\"], \"biological_processes\": [\"Protein Aggregation\"], \"molecular_functions\": [\"structural constituent of cytoskeleton\"], \"genes\": [\"GFAP\"]}}, {\"id\": \"GFAP Gain-of-Function Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"GFAP\"], \"association\": \"Causative\", \"variant_count\": 3}}, {\"id\": \"GFAP Post-Translational Modifications and Aggregation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disease-associated GFAP mutations promote pathological post-translational modifications including aberrant disulfide cross-linking (particularly cysteine-generating mutations like R239C) and ubiquitination. These modifications yield high-molecular-weight insoluble GFAP species that contribute to Rosenthal fiber formation and resist proteolytic clearance.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Astrocyte\"], \"biological_processes\": [\"Protein Ubiquitination\"], \"molecular_functions\": [\"structural constituent of cytoskeleton\"], \"genes\": [\"GFAP\"]}}, {\"id\": \"GFAP R239 missense hotspot\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent heterozygous GFAP R239 substitutions, including R239C and R239H, are the most common hotspot group and predict a more aggressive clinical course. R239 variants follow the toxic GFAP path through aggregation, Rosenthal fibers, astrocyte dysfunction, and severe Type I-weighted neurologic phenotypes.\\n\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"GFAP\"], \"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"GFAP R79 missense hotspot\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent heterozygous GFAP R79 substitutions, especially R79H, are a common Alexander disease hotspot. They enter the canonical toxic gain-of-function path from mutant GFAP through Rosenthal fiber formation, astrocyte dysfunction, white matter injury, and subtype-specific neurologic phenotypes.\\n\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"GFAP\"], \"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"GFAP cysteine-generating aggregation-prone variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Cysteine-generating GFAP variants, represented in Alexander disease cohorts by R239C and R88C, provide a variant-specific path into abnormal GFAP oxidation and crosslinking before aggregate and Rosenthal fiber formation.\\n\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"GFAP\"], \"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Glutamate Excitotoxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysfunctional astrocytes in Alexander disease show impaired glutamate uptake via astrocytic transporters, leading to toxic accumulation of extracellular glutamate. This non-cell-autonomous mechanism causes neuronal apoptosis dependent on glial glutamate transport.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Astrocyte\", \"Neuron\"], \"biological_processes\": [\"Neurotransmitter Transport\"]}}, {\"id\": \"Macrocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive enlargement of the head, particularly prominent in Type I (infantile) Alexander disease. Often the presenting feature.\\n\", \"meta\": {\"evidence_count\": 3, \"subtypes\": [\"Type I\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000256\"}}, {\"id\": \"Nystagmus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Involuntary rhythmic eye movements reflecting cerebellar or brainstem involvement, observed particularly in adult-onset Alexander disease as part of ocular movement abnormalities.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Type II\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000639\"}}, {\"id\": \"Oxidative Stress and White Matter Pathology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GFAP mutations induce an antioxidant/oxidative stress response in white matter, with iron accumulation in corpus callosum. Knock-in mice with GFAP mutations show a distinct pattern of stress response gene induction particularly prominent in white matter regions.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Astrocyte\"], \"biological_processes\": [\"Oxidative Stress Response\"]}}, {\"id\": \"Psychomotor Regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of previously acquired developmental milestones, characteristic of infantile Alexander disease, leading to death usually within the first decade.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Type I\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002376\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are common in Type I Alexander disease, often presenting in the first year of life. GFAP mutant mice also show increased susceptibility to kainate-induced seizures.\\n\", \"meta\": {\"evidence_count\": 3, \"subtypes\": [\"Type I\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive spasticity affecting the limbs, present in both Type I and Type II Alexander disease. In juvenile and adult forms, spasticity is a prominent feature alongside bulbar signs.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Type I\", \"Type II\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001257\"}}], \"edges\": [{\"source\": \"GFAP Aggregation and Rosenthal Fiber Formation\", \"target\": \"Astrocyte Dysfunction and Non-Cell-Autonomous Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"GFAP Aggregation and Rosenthal Fiber Formation\", \"target\": \"Oxidative Stress and White Matter Pathology\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Astrocyte Dysfunction and Non-Cell-Autonomous Neurodegeneration\", \"target\": \"Glutamate Excitotoxicity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Astrocyte Dysfunction and Non-Cell-Autonomous Neurodegeneration\", \"target\": \"Frontal-Predominant Leukoencephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Astrocyte Dysfunction and Non-Cell-Autonomous Neurodegeneration\", \"target\": \"Macrocephaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Astrocyte Dysfunction and Non-Cell-Autonomous Neurodegeneration\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Astrocyte Dysfunction and Non-Cell-Autonomous Neurodegeneration\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Astrocyte Dysfunction and Non-Cell-Autonomous Neurodegeneration\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Astrocyte Dysfunction and Non-Cell-Autonomous Neurodegeneration\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Astrocyte Dysfunction and Non-Cell-Autonomous Neurodegeneration\", \"target\": \"Autonomic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Astrocyte Dysfunction and Non-Cell-Autonomous Neurodegeneration\", \"target\": \"Nystagmus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Astrocyte Dysfunction and Non-Cell-Autonomous Neurodegeneration\", \"target\": \"Failure to Thrive\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative Stress and White Matter Pathology\", \"target\": \"Frontal-Predominant Leukoencephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative Stress and White Matter Pathology\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Glutamate Excitotoxicity\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Glutamate Excitotoxicity\", \"target\": \"Psychomotor Regression\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"GFAP Post-Translational Modifications and Aggregation\", \"target\": \"GFAP Aggregation and Rosenthal Fiber Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Antisense Oligonucleotide Therapy (Investigational)\", \"target\": \"GFAP Aggregation and Rosenthal Fiber Formation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"GFAP Gain-of-Function Mutations\", \"target\": \"GFAP Aggregation and Rosenthal Fiber Formation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GFAP Gain-of-Function Mutations\", \"target\": \"GFAP Post-Translational Modifications and Aggregation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GFAP R79 missense hotspot\", \"target\": \"GFAP Gain-of-Function Mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"GFAP R239 missense hotspot\", \"target\": \"GFAP Gain-of-Function Mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"GFAP cysteine-generating aggregation-prone variants\", \"target\": \"GFAP Gain-of-Function Mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5698,9 +5865,29 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_1da6d658-360e-4097-95a9-0b6838638e31-2024-01-10T170000.000Z" target="_blank">CGGV:assertion_1da6d658-360e-4097-95a9-0b6838638e31-2024-01-10T170000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"GFAP | HGNC:4235 | Alexander disease | MONDO:0008752 | AD | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the GFAP-Alexander disease gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+                
+            </div>
             
             <div class="evidence-item">
                 <div class="evidence-header">
@@ -5742,26 +5929,8 @@
                 
             </div>
             
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11567214" target="_blank">PMID:11567214</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"Missense, heterozygous, de novo GFAP mutations were found in exons 1 or 4 for 14 of the 15 patients analyzed"</div>
-                
-                
-                <div class="evidence-explanation">Confirms de novo missense mutations in GFAP rod domain as reliable molecular marker.</div>
-                
-            </div>
             
+            <div class="evidence-more">+ 1 more reference</div>
             
         </div>
     </details>
@@ -6034,7 +6203,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Alexander Disease
 creation_date: &#34;2026-03-14T00:00:00Z&#34;
-updated_date: &#34;2026-04-29T00:00:00Z&#34;
+updated_date: &#34;2026-05-08T20:54:22Z&#34;
 category: Mendelian
 description: &gt;
   Alexander disease is a rare, progressive neurodegenerative disorder caused by
@@ -6042,7 +6211,8 @@ description: &gt;
   the major intermediate filament of astrocytes. It is the only known primary
   genetic disorder of astrocytes. The hallmark pathological feature is the
   accumulation of Rosenthal fibers - cytoplasmic inclusions composed of GFAP
-  aggregates complexed with small heat shock proteins alphaB-crystallin and HSP27 -
+  aggregates complexed with small heat shock proteins alphaB-crystallin and HSP27
+  -
   within astrocytes. The disease presents along a clinical spectrum from a severe
   infantile form (Type I) with macrocephaly, seizures, and frontal leukodystrophy
   to milder adult-onset forms (Type II) with bulbar symptoms, autonomic dysfunction,
@@ -7159,6 +7329,12 @@ genetic:
       snippet: &#34;In vitro and cell-based studies demonstrate that cystine-generating mutations promote GFAP crosslinking by cysteine-dependent oxidation&#34;
       explanation: &#34;Functional evidence provides a variant-specific mechanism from cysteine-generating GFAP mutations to crosslinking and aggregation.&#34;
   evidence:
+  - reference: CGGV:assertion_1da6d658-360e-4097-95a9-0b6838638e31-2024-01-10T170000.000Z
+    reference_title: &#34;GFAP / Alexander disease (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;GFAP | HGNC:4235 | Alexander disease | MONDO:0008752 | AD | Definitive&#34;
+    explanation: ClinGen classifies the GFAP-Alexander disease gene-disease relationship as definitive with autosomal dominant inheritance.
   - reference: PMID:11138011
     reference_title: &#34;Mutations in GFAP, encoding glial fibrillary acidic protein, are associated with Alexander disease.&#34;
     supports: SUPPORT
@@ -7296,11 +7472,1161 @@ animal_models:
     snippet: &#34;Toxicity of mutant GFAP to glial cells induces a non-cell-autonomous stress response and subsequent apoptosis in neurons, which is dependent on glial glutamate transport&#34;
     explanation: &#34;Demonstrates non-cell-autonomous neurodegeneration mechanism via glutamate-dependent pathway.&#34;
 datasets: []
+references:
+- reference: DOI:10.1002/acn3.70305
+  title: Characterization of Clinical Phenotype to Glial Fibrillary Acidic Protein Concentrations in Alexander Disease
+  found_in:
+  - Alexander_Disease-deep-research-falcon.md
+  findings:
+  - statement: To determine the concentration of glial fibrillary acidic protein (GFAP) in cerebrospinal fluid (CSF) and plasma in Alexander disease (AxD) and whether GFAP levels are predictive of disease phenotypes.
+    supporting_text: To determine the concentration of glial fibrillary acidic protein (GFAP) in cerebrospinal fluid (CSF) and plasma in Alexander disease (AxD) and whether GFAP levels are predictive of disease phenotypes.
+    evidence:
+    - reference: DOI:10.1002/acn3.70305
+      reference_title: Characterization of Clinical Phenotype to Glial Fibrillary Acidic Protein Concentrations in Alexander Disease
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: To determine the concentration of glial fibrillary acidic protein (GFAP) in cerebrospinal fluid (CSF) and plasma in Alexander disease (AxD) and whether GFAP levels are predictive of disease phenotypes.
+      explanation: Deep research cited this publication as relevant literature for Alexander Disease.
+- reference: DOI:10.1007/s10072-024-07495-8
+  title: Plasma concentrations of glial fibrillary acidic protein, neurofilament light, and tau in Alexander disease
+  found_in:
+  - Alexander_Disease-deep-research-falcon.md
+  findings:
+  - statement: Alexander disease (AxD) is a rare leukodystrophy caused by dominant gain-of-function mutations in the gene encoding the astrocyte intermediate filament, glial fibrillary acidic protein (GFAP).
+    supporting_text: Alexander disease (AxD) is a rare leukodystrophy caused by dominant gain-of-function mutations in the gene encoding the astrocyte intermediate filament, glial fibrillary acidic protein (GFAP).
+    evidence:
+    - reference: DOI:10.1007/s10072-024-07495-8
+      reference_title: Plasma concentrations of glial fibrillary acidic protein, neurofilament light, and tau in Alexander disease
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Alexander disease (AxD) is a rare leukodystrophy caused by dominant gain-of-function mutations in the gene encoding the astrocyte intermediate filament, glial fibrillary acidic protein (GFAP).
+      explanation: Deep research cited this publication as relevant literature for Alexander Disease.
+- reference: DOI:10.1007/s12035-025-05083-1
+  title: &#39;Alexander’s Disease: Potential Drug Targets and Future Directions&#39;
+  found_in:
+  - Alexander_Disease-deep-research-falcon.md
+  findings:
+  - statement: Alexander’s disease is a rare neurodegenerative disorder primarily characterized by upregulation of the GFAP gene and the formation of Rosenthal fibers.
+    supporting_text: Alexander’s disease is a rare neurodegenerative disorder primarily characterized by upregulation of the GFAP gene and the formation of Rosenthal fibers.
+    evidence:
+    - reference: DOI:10.1007/s12035-025-05083-1
+      reference_title: &#39;Alexander’s Disease: Potential Drug Targets and Future Directions&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Alexander’s disease is a rare neurodegenerative disorder primarily characterized by upregulation of the GFAP gene and the formation of Rosenthal fibers.
+      explanation: Deep research cited this publication as relevant literature for Alexander Disease.
+- reference: DOI:10.1038/s41598-024-75383-4
+  title: A systematic review and meta-analysis of GFAP gene variants in Alexander disease
+  found_in:
+  - Alexander_Disease-deep-research-falcon.md
+  findings:
+  - statement: Alexander disease (ALXDRD) is a rare neurodegenerative disorder of astrocytes resulting from pathogenic variants in the
+    supporting_text: Alexander disease (ALXDRD) is a rare neurodegenerative disorder of astrocytes resulting from pathogenic variants in the
+    evidence:
+    - reference: DOI:10.1038/s41598-024-75383-4
+      reference_title: A systematic review and meta-analysis of GFAP gene variants in Alexander disease
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Alexander disease (ALXDRD) is a rare neurodegenerative disorder of astrocytes resulting from pathogenic variants in the
+      explanation: Deep research cited this publication as relevant literature for Alexander Disease.
+- reference: DOI:10.1093/brain/awad358
+  title: Microglia sense astrocyte dysfunction and prevent disease progression in an Alexander disease model
+  found_in:
+  - Alexander_Disease-deep-research-falcon.md
+  findings:
+  - statement: Alexander disease (AxD) is an intractable neurodegenerative disorder caused by GFAP mutations.
+    supporting_text: Alexander disease (AxD) is an intractable neurodegenerative disorder caused by GFAP mutations.
+    evidence:
+    - reference: DOI:10.1093/brain/awad358
+      reference_title: Microglia sense astrocyte dysfunction and prevent disease progression in an Alexander disease model
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: Alexander disease (AxD) is an intractable neurodegenerative disorder caused by GFAP mutations.
+      explanation: Deep research cited this publication as relevant literature for Alexander Disease.
+- reference: DOI:10.1136/pn-2024-004490
+  title: Diagnosing Alexander disease in adults
+  found_in:
+  - Alexander_Disease-deep-research-falcon.md
+  findings:
+  - statement: Its presenting symptoms often differ according to age at onset.
+    supporting_text: Its presenting symptoms often differ according to age at onset.
+    evidence:
+    - reference: DOI:10.1136/pn-2024-004490
+      reference_title: Diagnosing Alexander disease in adults
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Its presenting symptoms often differ according to age at onset.
+      explanation: Deep research cited this publication as relevant literature for Alexander Disease.
+- reference: DOI:10.1186/s40001-022-00799-5
+  title: Identification of a novel de novo pathogenic variant in GFAP in an Iranian family with Alexander disease by whole-exome sequencing
+  found_in:
+  - Alexander_Disease-deep-research-falcon.md
+  findings:
+  - statement: Alexander disease (AxD) is a rare leukodystrophy with an autosomal dominant inheritance mode.
+    supporting_text: Alexander disease (AxD) is a rare leukodystrophy with an autosomal dominant inheritance mode.
+    evidence:
+    - reference: DOI:10.1186/s40001-022-00799-5
+      reference_title: Identification of a novel de novo pathogenic variant in GFAP in an Iranian family with Alexander disease by whole-exome sequencing
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Alexander disease (AxD) is a rare leukodystrophy with an autosomal dominant inheritance mode.
+      explanation: Deep research cited this publication as relevant literature for Alexander Disease.
+- reference: DOI:10.3390/cells12070978
+  title: STAT3 Drives GFAP Accumulation and Astrocyte Pathology in a Mouse Model of Alexander Disease
+  found_in:
+  - Alexander_Disease-deep-research-falcon.md
+  findings:
+  - statement: Alexander disease (AxD) is caused by mutations in the gene for glial fibrillary acidic protein (GFAP), an intermediate filament expressed by astrocytes in the central nervous system.
+    supporting_text: Alexander disease (AxD) is caused by mutations in the gene for glial fibrillary acidic protein (GFAP), an intermediate filament expressed by astrocytes in the central nervous system.
+    evidence:
+    - reference: DOI:10.3390/cells12070978
+      reference_title: STAT3 Drives GFAP Accumulation and Astrocyte Pathology in a Mouse Model of Alexander Disease
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: Alexander disease (AxD) is caused by mutations in the gene for glial fibrillary acidic protein (GFAP), an intermediate filament expressed by astrocytes in the central nervous system.
+      explanation: Deep research cited this publication as relevant literature for Alexander Disease.
+- reference: DOI:10.3390/jcm14228232
+  title: &#39;Progressive Spastic Paraparesis as the Dominant Manifestation of Adolescent-Onset Alexander Disease: Case Report and Literature Review&#39;
+  found_in:
+  - Alexander_Disease-deep-research-falcon.md
+  findings:
+  - statement: Alexander disease (AxD) is a rare neurodegenerative disorder that represents a group of leukodystrophies with severe disability and premature death, mostly with an infancy/childhood onset.
+    supporting_text: Alexander disease (AxD) is a rare neurodegenerative disorder that represents a group of leukodystrophies with severe disability and premature death, mostly with an infancy/childhood onset.
+    evidence:
+    - reference: DOI:10.3390/jcm14228232
+      reference_title: &#39;Progressive Spastic Paraparesis as the Dominant Manifestation of Adolescent-Onset Alexander Disease: Case Report and Literature Review&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Alexander disease (AxD) is a rare neurodegenerative disorder that represents a group of leukodystrophies with severe disability and premature death, mostly with an infancy/childhood onset.
+      explanation: Deep research cited this publication as relevant literature for Alexander Disease.
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
+        
+        <div class="card reference-card" id="references-deep-research">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+            
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">9</span>
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1002/acn3.70305" target="_blank">DOI:10.1002/acn3.70305</a>
+                            </div>
+                            
+                            <div class="reference-title">Characterization of Clinical Phenotype to Glial Fibrillary Acidic Protein Concentrations in Alexander Disease</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">To determine the concentration of glial fibrillary acidic protein (GFAP) in cerebrospinal fluid (CSF) and plasma in Alexander disease (AxD) and whether GFAP levels are predictive of disease phenotypes.</div>
+            
+            
+            <div class="reference-finding-supporting">"To determine the concentration of glial fibrillary acidic protein (GFAP) in cerebrospinal fluid (CSF) and plasma in Alexander disease (AxD) and whether GFAP levels are predictive of disease phenotypes."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1002/acn3.70305" target="_blank">DOI:10.1002/acn3.70305</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"To determine the concentration of glial fibrillary acidic protein (GFAP) in cerebrospinal fluid (CSF) and plasma in Alexander disease (AxD) and whether GFAP levels are predictive of disease phenotypes."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Alexander Disease.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s10072-024-07495-8" target="_blank">DOI:10.1007/s10072-024-07495-8</a>
+                            </div>
+                            
+                            <div class="reference-title">Plasma concentrations of glial fibrillary acidic protein, neurofilament light, and tau in Alexander disease</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Alexander disease (AxD) is a rare leukodystrophy caused by dominant gain-of-function mutations in the gene encoding the astrocyte intermediate filament, glial fibrillary acidic protein (GFAP).</div>
+            
+            
+            <div class="reference-finding-supporting">"Alexander disease (AxD) is a rare leukodystrophy caused by dominant gain-of-function mutations in the gene encoding the astrocyte intermediate filament, glial fibrillary acidic protein (GFAP)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s10072-024-07495-8" target="_blank">DOI:10.1007/s10072-024-07495-8</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Alexander disease (AxD) is a rare leukodystrophy caused by dominant gain-of-function mutations in the gene encoding the astrocyte intermediate filament, glial fibrillary acidic protein (GFAP)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Alexander Disease.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s12035-025-05083-1" target="_blank">DOI:10.1007/s12035-025-05083-1</a>
+                            </div>
+                            
+                            <div class="reference-title">Alexander’s Disease: Potential Drug Targets and Future Directions</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Alexander’s disease is a rare neurodegenerative disorder primarily characterized by upregulation of the GFAP gene and the formation of Rosenthal fibers.</div>
+            
+            
+            <div class="reference-finding-supporting">"Alexander’s disease is a rare neurodegenerative disorder primarily characterized by upregulation of the GFAP gene and the formation of Rosenthal fibers."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s12035-025-05083-1" target="_blank">DOI:10.1007/s12035-025-05083-1</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Alexander’s disease is a rare neurodegenerative disorder primarily characterized by upregulation of the GFAP gene and the formation of Rosenthal fibers."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Alexander Disease.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1038/s41598-024-75383-4" target="_blank">DOI:10.1038/s41598-024-75383-4</a>
+                            </div>
+                            
+                            <div class="reference-title">A systematic review and meta-analysis of GFAP gene variants in Alexander disease</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Alexander disease (ALXDRD) is a rare neurodegenerative disorder of astrocytes resulting from pathogenic variants in the</div>
+            
+            
+            <div class="reference-finding-supporting">"Alexander disease (ALXDRD) is a rare neurodegenerative disorder of astrocytes resulting from pathogenic variants in the"</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41598-024-75383-4" target="_blank">DOI:10.1038/s41598-024-75383-4</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Alexander disease (ALXDRD) is a rare neurodegenerative disorder of astrocytes resulting from pathogenic variants in the"</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Alexander Disease.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1093/brain/awad358" target="_blank">DOI:10.1093/brain/awad358</a>
+                            </div>
+                            
+                            <div class="reference-title">Microglia sense astrocyte dysfunction and prevent disease progression in an Alexander disease model</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Alexander disease (AxD) is an intractable neurodegenerative disorder caused by GFAP mutations.</div>
+            
+            
+            <div class="reference-finding-supporting">"Alexander disease (AxD) is an intractable neurodegenerative disorder caused by GFAP mutations."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/brain/awad358" target="_blank">DOI:10.1093/brain/awad358</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Alexander disease (AxD) is an intractable neurodegenerative disorder caused by GFAP mutations."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Alexander Disease.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1136/pn-2024-004490" target="_blank">DOI:10.1136/pn-2024-004490</a>
+                            </div>
+                            
+                            <div class="reference-title">Diagnosing Alexander disease in adults</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Its presenting symptoms often differ according to age at onset.</div>
+            
+            
+            <div class="reference-finding-supporting">"Its presenting symptoms often differ according to age at onset."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1136/pn-2024-004490" target="_blank">DOI:10.1136/pn-2024-004490</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Its presenting symptoms often differ according to age at onset."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Alexander Disease.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1186/s40001-022-00799-5" target="_blank">DOI:10.1186/s40001-022-00799-5</a>
+                            </div>
+                            
+                            <div class="reference-title">Identification of a novel de novo pathogenic variant in GFAP in an Iranian family with Alexander disease by whole-exome sequencing</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Alexander disease (AxD) is a rare leukodystrophy with an autosomal dominant inheritance mode.</div>
+            
+            
+            <div class="reference-finding-supporting">"Alexander disease (AxD) is a rare leukodystrophy with an autosomal dominant inheritance mode."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s40001-022-00799-5" target="_blank">DOI:10.1186/s40001-022-00799-5</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Alexander disease (AxD) is a rare leukodystrophy with an autosomal dominant inheritance mode."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Alexander Disease.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/cells12070978" target="_blank">DOI:10.3390/cells12070978</a>
+                            </div>
+                            
+                            <div class="reference-title">STAT3 Drives GFAP Accumulation and Astrocyte Pathology in a Mouse Model of Alexander Disease</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Alexander disease (AxD) is caused by mutations in the gene for glial fibrillary acidic protein (GFAP), an intermediate filament expressed by astrocytes in the central nervous system.</div>
+            
+            
+            <div class="reference-finding-supporting">"Alexander disease (AxD) is caused by mutations in the gene for glial fibrillary acidic protein (GFAP), an intermediate filament expressed by astrocytes in the central nervous system."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cells12070978" target="_blank">DOI:10.3390/cells12070978</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Alexander disease (AxD) is caused by mutations in the gene for glial fibrillary acidic protein (GFAP), an intermediate filament expressed by astrocytes in the central nervous system."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Alexander Disease.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/jcm14228232" target="_blank">DOI:10.3390/jcm14228232</a>
+                            </div>
+                            
+                            <div class="reference-title">Progressive Spastic Paraparesis as the Dominant Manifestation of Adolescent-Onset Alexander Disease: Case Report and Literature Review</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Alexander disease (AxD) is a rare neurodegenerative disorder that represents a group of leukodystrophies with severe disability and premature death, mostly with an infancy/childhood onset.</div>
+            
+            
+            <div class="reference-finding-supporting">"Alexander disease (AxD) is a rare neurodegenerative disorder that represents a group of leukodystrophies with severe disability and premature death, mostly with an infancy/childhood onset."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/jcm14228232" target="_blank">DOI:10.3390/jcm14228232</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Alexander disease (AxD) is a rare neurodegenerative disorder that represents a group of leukodystrophies with severe disability and premature death, mostly with an infancy/childhood onset."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Alexander Disease.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">1. Disease Information</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">30 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-08T08:36:54.557255</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <h2>1. Disease Information</h2>
+<h3>1.1 What is the disease?</h3>
+<p>AxD is a primary astrocyte disorder and leukodystrophy caused by pathogenic variants in <strong>GFAP</strong>, characterized by progressive neurologic dysfunction and distinctive neuroimaging and neuropathology. Multiple sources define AxD as genetic, rare, progressive/ultimately fatal, and GFAP-driven. (lynch2025diagnosingalexanderdisease pages 1-1, hagemann2022alexanderdiseasemodels pages 1-2, grossi2024asystematicreview pages 1-2)</p>
+<p><strong>Direct abstract-quote evidence (overview):</strong>
+- “Alexander disease (AxD) is a rare leukodystrophy caused by dominant gain-of-function mutations in the gene encoding the astrocyte intermediate filament, glial fibrillary acidic protein (GFAP).” (Neurological Sciences; Apr 2024) (ashton2024plasmaconcentrationsof pages 1-2)
+- “Alexander disease (AxD) is caused by heterozygous missense mutations in GFAP…” (Cells; Mar 2023) (hagemann2023stat3drivesgfap pages 1-2)</p>
+<h3>1.2 Key identifiers and synonyms</h3>
+<p>A consolidated identifiers/synonyms table is provided below.</p>
+<table>
+<thead>
+<tr>
+<th>Disease name</th>
+<th>MONDO ID</th>
+<th>OMIM</th>
+<th>Orphanet / ORPHA</th>
+<th>ICD-10 / ICD-11</th>
+<th>MeSH</th>
+<th>Primary causal gene</th>
+<th>Inheritance</th>
+<th>Common synonyms / alternative names</th>
+<th>Evidence / source</th>
+<th>URL</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Alexander disease</td>
+<td>Not found in retrieved evidence</td>
+<td>OMIM #203450</td>
+<td>Not found in retrieved evidence</td>
+<td>Not found in retrieved evidence</td>
+<td>Not found in retrieved evidence</td>
+<td><strong>GFAP</strong></td>
+<td>Autosomal dominant; most reported pathogenic variants are heterozygous, many are de novo</td>
+<td>Alexander disease; GFAP-related leukodystrophy; GFAP-related astrocytopathy; ALXDRD</td>
+<td>Heshmatzad et al. 2022; Grossi et al. 2024; Lynch et al. 2025 (grossi2024asystematicreview pages 1-2, lynch2025diagnosingalexanderdisease pages 1-1)</td>
+<td>https://doi.org/10.1186/s40001-022-00799-5 ; https://doi.org/10.1038/s41598-024-75383-4 ; https://doi.org/10.1136/pn-2024-004490</td>
+</tr>
+<tr>
+<td>Alexander disease (clinical trial disease label)</td>
+<td>Not found in retrieved evidence</td>
+<td>OMIM #203450</td>
+<td>Not found in retrieved evidence</td>
+<td>Not found in retrieved evidence</td>
+<td>Not found in retrieved evidence</td>
+<td><strong>GFAP</strong> (targeted in trial by zilganersen/ION373)</td>
+<td>Autosomal dominant GFAP-related disorder</td>
+<td>Alexander disease (AxD)</td>
+<td>ClinicalTrials.gov NCT04849741, record updated 2026-05-07 (NCT04849741 chunk 1, NCT04849741 chunk 2)</td>
+<td>https://clinicaltrials.gov/study/NCT04849741</td>
+</tr>
+<tr>
+<td>Alexander disease (natural history study label)</td>
+<td>Not found in retrieved evidence</td>
+<td>OMIM #203450</td>
+<td>Not found in retrieved evidence</td>
+<td>Not found in retrieved evidence</td>
+<td>Not found in retrieved evidence</td>
+<td><strong>GFAP</strong></td>
+<td>Autosomal dominant GFAP-related disorder</td>
+<td>Alexander disease (AxD)</td>
+<td>ClinicalTrials.gov NCT02714764; natural history study began 2016 (NCT02714764 chunk 1, waldman2026characterizationofclinical pages 2-3)</td>
+<td>https://clinicaltrials.gov/study/NCT02714764</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes the core disease identifiers, naming conventions, causal gene, and inheritance pattern for Alexander disease from the retrieved evidence. It is useful as a compact normalization reference for a disease knowledge base entry.</em></p>
+<p><strong>Notes on evidence gaps:</strong> MONDO ID, Orphanet ORPHA code, ICD-10/ICD-11, and MeSH identifiers were not present in the retrieved full-text evidence corpus; thus they are not asserted here. (artifact-00)</p>
+<h3>1.3 Evidence provenance (patient-level vs aggregated)</h3>
+<p>The retrieved evidence includes:
+- Aggregated disease-level syntheses (systematic review/meta-analysis through 2023; mechanistic/clinical reviews). (grossi2024asystematicreview pages 1-2, hagemann2022alexanderdiseasemodels pages 1-2)
+- Patient-level clinical case material (e.g., adolescent/adult-onset diagnostic journey papers; neonatal case report). (smołka2025progressivespasticparaparesis pages 7-9, grossi2024asystematicreview pages 1-2)
+- Cohort studies/registries and natural history infrastructure via ClinicalTrials.gov. (NCT02714764 chunk 1, messing2025genotypephenotypeassociationfor pages 1-2)</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>2.1 Primary causal factors</h3>
+<p><strong>Genetic cause (core):</strong> Pathogenic variants in <strong>GFAP</strong> cause AxD/ALXDRD, typically as heterozygous dominant gain-of-function missense variants, with Rosenthal fibre formation and astrocyte stress responses. (grossi2024asystematicreview pages 1-2, hagemann2022alexanderdiseasemodels pages 1-2)</p>
+<p><strong>Variant spectrum (recent aggregate):</strong> A 2024 systematic review/meta-analysis collected <strong>~550 predominantly missense</strong> causative GFAP variants through the end of 2023 and emphasized variable expressivity and incomplete genotype–phenotype clarity. (Scientific Reports; Oct 2024) (grossi2024asystematicreview pages 1-2)</p>
+<h3>2.2 Risk factors</h3>
+<p>For a Mendelian disorder, the dominant “risk factor” is carrying a pathogenic GFAP variant.</p>
+<p><strong>De novo occurrence is common, especially in early-onset disease:</strong> The 2024 systematic review reports frequent arginine substitutions, “mostly de novo” and more prevalent in early-onset forms. (grossi2024asystematicreview pages 1-2)</p>
+<p><strong>Potential (non-causal) environmental/clinical modifiers:</strong> A 2025 review notes possible adult disease contributors/precipitants such as trauma/injury, infection, or alcohol exposure; this should be interpreted cautiously because such factors are not established primary causes. (zavala2025alexandersdiseasepotential pages 1-3)</p>
+<h3>2.3 Protective factors</h3>
+<p>No validated protective genetic variants or environmental protective factors were identified in the retrieved evidence.</p>
+<h3>2.4 Gene–environment interactions</h3>
+<p>No robust gene–environment interaction evidence was identified in the retrieved evidence.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>3.1 Clinical phenotypes by age-of-onset and type</h3>
+<p>A structured phenotype table (with suggested HPO terms) is provided below.</p>
+<table>
+<thead>
+<tr>
+<th>Subtype / classification</th>
+<th>Typical age at onset</th>
+<th>Core clinical features</th>
+<th>Key MRI features</th>
+<th>Suggested HPO terms (ID + name)</th>
+<th>Notes on progression / prognosis</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Neonatal AxD</strong> (severe early Type I / cerebral-predominant spectrum)</td>
+<td>Birth to &lt;30 days; may present in first weeks of life</td>
+<td>Macrocephaly or signs of raised intracranial pressure, refractory seizures/epileptic encephalopathy, developmental deterioration, progressive quadriparesis; severe neonatal presentations may require CSF diversion (waldman2026characterizationofclinical pages 2-3, hagemann2022alexanderdiseasemodels pages 1-2, grossi2024asystematicreview pages 1-2)</td>
+<td>White matter abnormalities; neonatal case report described contrast-enhancing lesions in basal ganglia, midbrain, and corticospinal tracts (grossi2024asystematicreview pages 1-2, hagemann2022alexanderdiseasemodels pages 1-2, smołka2025progressivespasticparaparesis pages 13-14)</td>
+<td>HP:0000256 Macrocephaly; HP:0001250 Seizure; HP:0002376 Developmental regression; HP:0002271 Focal-onset seizure; HP:0001290 Generalized hypotonia; HP:0002509 Spastic quadriplegia</td>
+<td>Typically rapidly progressive and among the most severe AxD presentations; often associated with major morbidity and early mortality in historical series (hagemann2022alexanderdiseasemodels pages 1-2, smołka2025progressivespasticparaparesis pages 13-14)</td>
+</tr>
+<tr>
+<td><strong>Infantile AxD</strong> (<strong>Type I / cerebral form</strong>)</td>
+<td>0–2 years</td>
+<td>Seizures, megalencephaly/macrocephaly, psychomotor delay or developmental delay, cognitive decline, failure to thrive; infantile AxD may also include systemic seizures and psychomotor retardation (grossi2024asystematicreview pages 1-2, hagemann2022alexanderdiseasemodels pages 1-2, saito2024microgliasenseastrocyte pages 1-2)</td>
+<td>Frontal-predominant white matter abnormalities; characteristic periventricular rim with T2 hypointensity / T1 hyperintensity; cerebral-predominant leukodystrophy pattern (grossi2024asystematicreview pages 1-2, hagemann2022alexanderdiseasemodels pages 1-2)</td>
+<td>HP:0000256 Macrocephaly; HP:0001250 Seizure; HP:0001263 Global developmental delay; HP:0001249 Intellectual disability; HP:0001508 Failure to thrive; HP:0001257 Spasticity</td>
+<td>Usually progressive; generally more severe than later-onset disease and often associated with substantial disability and reduced survival (hagemann2022alexanderdiseasemodels pages 1-2, saito2024microgliasenseastrocyte pages 1-2)</td>
+</tr>
+<tr>
+<td><strong>Juvenile AxD</strong> (intermediate spectrum; overlaps Type I and Type II)</td>
+<td>2–12 years</td>
+<td>Mixed phenotype: motor impairment, gait disorder, ataxia, pyramidal signs, speech/swallowing difficulties; some cases show enuresis, scoliosis, and cognitive decline (grossi2024asystematicreview pages 1-2, hagemann2022alexanderdiseasemodels pages 1-2, smołka2025progressivespasticparaparesis pages 7-9)</td>
+<td>May show mixed cerebral and brainstem/spinal findings; can include medullary and upper cervical cord signal change/atrophy, sometimes with more complex MRI patterns than classic infantile disease (grossi2024asystematicreview pages 1-2, smołka2025progressivespasticparaparesis pages 7-9)</td>
+<td>HP:0002066 Gait ataxia; HP:0001257 Spasticity; HP:0002459 Dysphagia; HP:0001260 Dysarthria; HP:0002650 Scoliosis; HP:0001310 Decline in IQ</td>
+<td>Progression is variable; some juvenile cases evolve slowly while others accumulate pyramidal, bulbar, and cognitive deficits over years (smołka2025progressivespasticparaparesis pages 7-9, grossi2024asystematicreview pages 1-2)</td>
+</tr>
+<tr>
+<td><strong>Adult / later-onset AxD</strong> (<strong>Type II / bulbospinal form</strong>)</td>
+<td>&gt;13 years; often adolescence to late adulthood</td>
+<td>Bulbar/pseudobulbar signs, dysarthria, dysphagia, palatal myoclonus, ataxia, spastic paraparesis, autonomic dysfunction (including bladder and upper-airway symptoms); cerebellar signs common (lynch2025diagnosingalexanderdisease pages 1-1, hagemann2022alexanderdiseasemodels pages 1-2, smołka2025progressivespasticparaparesis pages 7-9, saito2024microgliasenseastrocyte pages 1-2)</td>
+<td>Hallmark hindbrain pattern: medulla oblongata and upper cervical spinal cord atrophy with T2 hyperintensity; medulla diameter &lt;9 mm and medulla-to-pons ratio &lt;0.46 reported as typical in the literature; descriptive signs include “frog-face” / “strangulated medulla” (smołka2025progressivespasticparaparesis pages 7-9, smołka2025progressivespasticparaparesis media 13fab325)</td>
+<td>HP:0001260 Dysarthria; HP:0002015 Dysphagia; HP:0001257 Spasticity; HP:0002493 Spastic paraparesis; HP:0001251 Ataxia; HP:0000010 Bladder dysfunction; HP:0002817 Palatal myoclonus</td>
+<td>Usually more slowly progressive than infantile disease, but still chronic and disabling; diagnosis is frequently delayed because symptoms are heterogeneous and nonspecific (lynch2025diagnosingalexanderdisease pages 1-1, smołka2025progressivespasticparaparesis pages 7-9)</td>
+</tr>
+<tr>
+<td><strong>Type I AxD</strong> (Prust/Hagemann cerebral-predominant phenotype)</td>
+<td>Usually early childhood, especially infancy</td>
+<td>Seizures, macrocephaly, motor and cognitive delay, failure to thrive; forebrain-predominant clinical picture (hagemann2022alexanderdiseasemodels pages 1-2)</td>
+<td>Frontal white matter disturbance and periventricular rim; cerebral-predominant abnormalities (grossi2024asystematicreview pages 1-2, hagemann2022alexanderdiseasemodels pages 1-2)</td>
+<td>HP:0000256 Macrocephaly; HP:0001250 Seizure; HP:0001263 Global developmental delay; HP:0001249 Intellectual disability; HP:0001508 Failure to thrive</td>
+<td>More severe overall, with earlier onset and faster progression than typical Type II disease (hagemann2022alexanderdiseasemodels pages 1-2, grossi2024asystematicreview pages 1-2)</td>
+</tr>
+<tr>
+<td><strong>Type II AxD</strong> (Prust/Hagemann hindbrain-predominant phenotype)</td>
+<td>Can occur at any age, but classically juvenile/adult</td>
+<td>Ataxia, dysphagia, dysarthria, palatal myoclonus, autonomic dysfunction, spastic paraparesis; hindbrain and spinal involvement dominate (hagemann2022alexanderdiseasemodels pages 1-2, lynch2025diagnosingalexanderdisease pages 1-1, smołka2025progressivespasticparaparesis pages 7-9)</td>
+<td>Brainstem/cerebellar atrophy; especially medulla oblongata and cervical cord abnormalities with posterior/hindbrain predominance (grossi2024asystematicreview pages 1-2, smołka2025progressivespasticparaparesis pages 7-9, smołka2025progressivespasticparaparesis media 13fab325)</td>
+<td>HP:0001251 Ataxia; HP:0002015 Dysphagia; HP:0001260 Dysarthria; HP:0002817 Palatal myoclonus; HP:0002493 Spastic paraparesis; HP:0000010 Bladder dysfunction</td>
+<td>Often slower and more variable than Type I; may remain underrecognized for years because clinical signs overlap with other adult-onset leukoencephalopathies and spinocerebellar/pyramidal syndromes (lynch2025diagnosingalexanderdisease pages 1-1, smołka2025progressivespasticparaparesis pages 7-9)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes the clinical spectrum of Alexander disease by age-of-onset and by Type I/Type II classification, including hallmark symptoms, MRI patterns, suggested HPO mappings, and prognostic notes. It is useful for disease knowledge base curation and phenotype normalization.</em></p>
+<h3>3.2 Adult-onset diagnostic criteria and phenotype frequencies (from adult-onset literature)</h3>
+<p>An adult-onset case/literature synthesis notes that adult-onset AxD commonly presents with progressive spastic paraparesis and variable bulbar/cerebellar signs and cites Yoshida et al. criteria requiring onset after 12 years plus at least one neurological and one radiological medulla/cervical-spine feature. It also reports phenotype variability including asymmetry (~35%) and dementia/rigidity (~25–29%) in reviewed adult cohorts. (smołka2025progressivespasticparaparesis pages 7-9)</p>
+<h3>3.3 Quality of life impact</h3>
+<p>Direct disease-specific QoL utilities were not identified in the retrieved evidence corpus; however, the AxD natural history outcomes study explicitly collects multiple QoL instruments (e.g., EQ-5D-5L, PROMIS, PedsQL) longitudinally, enabling future quantification. (NCT02714764 chunk 1)</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<h3>4.1 Causal gene(s)</h3>
+<ul>
+<li><strong>GFAP</strong> (glial fibrillary acidic protein) is the causal gene, with pathogenic variants producing dominant toxic effects in astrocytes. (grossi2024asystematicreview pages 1-2, hagemann2022alexanderdiseasemodels pages 1-2)</li>
+</ul>
+<h3>4.2 Pathogenic variant types and consequences</h3>
+<ul>
+<li>Most reported disease-causing variants are <strong>heterozygous</strong> (autosomal dominant). (grossi2024asystematicreview pages 1-2)</li>
+<li>Variants are predominantly <strong>missense</strong> and act through <strong>toxic gain-of-function</strong>, with aggregation and astrocyte stress responses; both mutant and wild-type GFAP can be sequestered into aggregates (supporting a “sequestration hypothesis”). (grossi2024asystematicreview pages 1-2, hagemann2022alexanderdiseasemodels pages 1-2)</li>
+</ul>
+<h3>4.3 Modifier mechanisms and isoforms</h3>
+<ul>
+<li>A Type II AxD mechanism involving <strong>splicing errors and overexpression of an uncharacterized GFAP isoform</strong> has been described (important for test design/variant interpretation). (messing2025genotypephenotypeassociationfor pages 8-8)</li>
+<li>Defective splicing is postulated as a contributor to age-of-onset variability in meta-analysis. (grossi2024asystematicreview pages 1-2)</li>
+</ul>
+<h3>4.4 Epigenetics / chromosomal abnormalities</h3>
+<p>No established epigenetic disease mechanism or recurrent chromosomal abnormality was identified in the retrieved evidence.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>No confirmed environmental causes were identified in the retrieved evidence; AxD is primarily genetic. A 2025 review notes possible adult contributory factors (trauma/infection/alcohol), but these are not established causal exposures. (zavala2025alexandersdiseasepotential pages 1-3)</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>6.1 Core causal chain (current understanding)</h3>
+<p>1) <strong>GFAP pathogenic variant</strong> → 2) altered intermediate filament assembly/solubility and <strong>GFAP accumulation</strong> → 3) astrocyte stress programs and reactive astrogliosis (often further increasing GFAP) → 4) formation of <strong>Rosenthal fibres</strong> → 5) downstream effects on myelin/white matter integrity and neuronal network function → clinical neurologic decline and characteristic MRI patterns. (hagemann2022alexanderdiseasemodels pages 1-2, hagemann2021antisensetherapyina pages 1-3)</p>
+<h3>6.2 Rosenthal fibres: composition and localization</h3>
+<p>A 2022 mechanistic synthesis describes Rosenthal fibres as eosinophilic inclusions in astrocytes that contain GFAP along with stress-related proteins (e.g., αB-crystallin), vimentin, ubiquitin, plectin, cyclin D2, and stress-granule–related proteins, and notes they are prominent in subpial/perivascular/periventricular astrocytes—providing a mechanistic link to periventricular MRI signal patterns. (hagemann2022alexanderdiseasemodels pages 1-2)</p>
+<h3>6.3 2023–2024 mechanistic developments</h3>
+<p><strong>(A) STAT3 as an upstream driver of GFAP accumulation (2023):</strong>
+A 2023 study in a GFAP-mutant mouse model identified STAT3 as a key transcriptional driver of increased Gfap expression and GFAP accumulation. Importantly, astrocyte/conditional Stat3 reduction reversed GFAP accumulation and aggregation even in adult mice with established pathology, supporting the idea that upstream transcriptional control is therapeutically actionable. (Cells; 2023-03; https://doi.org/10.3390/cells12070978) (hagemann2023stat3drivesgfap pages 1-2)</p>
+<p><strong>Direct abstract-quote evidence (therapeutic implication):</strong> “These results suggest that pharmacological inhibition of STAT3 could potentially reduce GFAP toxicity…” (hagemann2023stat3drivesgfap pages 1-2)</p>
+<p><strong>(B) Microglial P2Y12 signaling as a protective disease modifier (2024):</strong>
+A 2024 Brain paper used an AxD mouse model (human GFAP R239H) and single-cell RNA-seq among other approaches to show that AxD astrocytes have reduced expression of <strong>Entpd2</strong> (encoding the ATP-degrading enzyme NTPDase2), increasing extracellular ATP persistence. Microglia respond via <strong>P2Y12 receptor–dependent Ca2+ signaling</strong>, and pharmacologic blockade (clopidogrel) exacerbated pathology, supporting a protective microglial modifier role that may contribute to clinical diversity. (Brain; 2024-11; https://doi.org/10.1093/brain/awad358) (saito2024microgliasenseastrocyte pages 1-2)</p>
+<h3>6.4 Suggested ontology mappings</h3>
+<p><strong>Cell types (Cell Ontology, CL):</strong>
+- Astrocyte: CL:0000127 (primary affected cell type implied throughout) (hagemann2022alexanderdiseasemodels pages 1-2, saito2024microgliasenseastrocyte pages 1-2)
+- Microglia: CL:0000129 (modifier/protective role in 2024 Brain study) (saito2024microgliasenseastrocyte pages 1-2)</p>
+<p><strong>Biological processes (GO suggestions; not asserted as curated annotations):</strong>
+- Intermediate filament organization (GO:0045109)
+- Protein aggregation (GO:0070848)
+- Astrocyte activation / gliosis (e.g., “reactive astrogliosis” concept) (hagemann2023stat3drivesgfap pages 1-2, hagemann2022alexanderdiseasemodels pages 1-2)
+- JAK-STAT cascade (GO:0007259) (STAT3-driven effects) (hagemann2023stat3drivesgfap pages 1-2)
+- Purinergic signaling / response to extracellular ATP (conceptual; P2Y12-mediated microglial sensing) (saito2024microgliasenseastrocyte pages 1-2)</p>
+<p><strong>Anatomy (UBERON suggestions):</strong>
+- Brainstem/medulla oblongata: UBERON:0001896
+- Cervical spinal cord: UBERON:0002726
+- Cerebral white matter: UBERON:0002302</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<h3>7.1 Organ/system level</h3>
+<p>The central nervous system is the primary affected system. Type I often shows cerebral/forebrain-predominant involvement, while Type II often shows medulla/upper cervical spinal cord and hindbrain predominance. (hagemann2022alexanderdiseasemodels pages 1-2, grossi2024asystematicreview pages 1-2)</p>
+<h3>7.2 Tissue/cell level</h3>
+<p>AxD is a primary disorder of astrocytes (GFAP-expressing glia), with secondary effects on white matter/myelin and broader neuroinflammation involving microglia. (hagemann2022alexanderdiseasemodels pages 1-2, saito2024microgliasenseastrocyte pages 1-2, hagemann2021antisensetherapyina pages 1-3)</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<h3>8.1 Onset</h3>
+<p>Age-of-onset categories used in aggregated and registry work include neonatal (&lt;30 days), infantile (31 days–&lt;2 years), juvenile (2–&lt;13 years), and adult (≥13 years). (waldman2026characterizationofclinical pages 2-3)</p>
+<h3>8.2 Progression patterns</h3>
+<ul>
+<li>Early-onset (Type I/cerebral) disease is generally more severe and rapidly progressive. (hagemann2022alexanderdiseasemodels pages 1-2)</li>
+<li>Adult-onset (Type II/bulbospinal) presentations can be slowly progressive and diagnostically challenging due to heterogeneous symptoms. (lynch2025diagnosingalexanderdisease pages 1-1, smołka2025progressivespasticparaparesis pages 7-9)</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>9.1 Inheritance</h3>
+<p>Most AxD cases arise from heterozygous GFAP pathogenic variants consistent with <strong>autosomal dominant</strong> inheritance, with many variants occurring de novo (particularly among recurrent arginine substitutions and early-onset phenotypes). (grossi2024asystematicreview pages 1-2)</p>
+<h3>9.2 Epidemiology (prevalence/incidence)</h3>
+<p>High-quality prevalence estimates were limited in the retrieved evidence. A 2025 review cites that “the only population-based prevalence was estimated at one in 2.7 million,” referencing prior work. (zavala2025alexandersdiseasepotential pages 1-3)</p>
+<p><strong>Important context from population genetics (beyond 2024 window):</strong> A 2025 UK Biobank analysis (not 2023–2024 but relevant for underdiagnosis) reported a pathogenic/likely pathogenic GFAP variant carrier frequency of ~1 in 4435 and modeled prevalence 6.8 per 100,000, interpreting this as possible underdiagnosis or reduced penetrance. (zavala2025alexandersdiseasepotential pages 1-3)</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>10.1 Clinical + neuroimaging diagnosis</h3>
+<p>Adult-onset AxD can be difficult to diagnose clinically because symptoms are heterogeneous and non-specific; diagnosis typically requires clinical evaluation, characteristic neuroimaging, and confirmatory genetic testing. (lynch2025diagnosingalexanderdisease pages 1-1)</p>
+<h3>10.2 Characteristic MRI patterns (adult-onset)</h3>
+<p>Adult-onset AxD is classically associated with medullary and upper cervical spinal cord abnormalities (T2 signal change and atrophy). A key measurement-based approach includes medulla-to-pons ratio and cervical cord diameter. (smołka2025progressivespasticparaparesis pages 7-9)</p>
+<p><strong>Visual evidence (MRI measurement example):</strong> the adult-onset case paper includes imaging demonstrating a medulla-to-pons ratio (0.51) and cervical spinal cord diameter at C2 (5.28 mm), illustrating the measurement approach used in the literature. (smołka2025progressivespasticparaparesis media 13fab325)</p>
+<h3>10.3 Neuropathology</h3>
+<p>Rosenthal fibres within astrocytes are a defining neuropathologic hallmark across AxD forms. (hagemann2022alexanderdiseasemodels pages 1-2, grossi2024asystematicreview pages 1-2)</p>
+<h3>10.4 Genetic testing strategy (real-world)</h3>
+<ul>
+<li>Because GFAP is the causal gene and clinical presentation can be non-specific—especially in adults—comprehensive gene testing approaches (e.g., exome sequencing) are used in practice to resolve unexplained progressive spastic paraparesis/ataxia/bulbar syndromes and confirm AxD via GFAP variant detection. (smołka2025progressivespasticparaparesis pages 7-9)</li>
+</ul>
+<h3>10.5 Differential diagnosis</h3>
+<p>Detailed differential diagnosis lists were not available in the retrieved evidence corpus; however, adult-onset AxD overlaps clinically with other adult-onset leukodystrophies and brainstem/spinal-predominant neurodegenerative syndromes, motivating reliance on MRI patterns and confirmatory genetics. (lynch2025diagnosingalexanderdisease pages 1-1, smołka2025progressivespasticparaparesis pages 7-9)</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<p>Quantitative survival estimates stratified by subtype were not captured in the retrieved evidence corpus. Early-onset forms are repeatedly characterized as more severe with premature death, while adult-onset forms may progress more slowly but remain disabling and ultimately serious. (hagemann2022alexanderdiseasemodels pages 1-2, lynch2025diagnosingalexanderdisease pages 1-1, smołka2025progressivespasticparaparesis pages 7-9)</p>
+<hr />
+<h2>12. Treatment</h2>
+<h3>12.1 Current standard of care (real-world)</h3>
+<p>No disease-modifying therapy is established; care is supportive/symptomatic (e.g., seizure management, mobility/rehabilitation, dysphagia management). This is explicitly noted in mechanistic and biomarker studies and in recent clinical reviews. (hagemann2021antisensetherapyina pages 1-3, saito2024microgliasenseastrocyte pages 1-2, lynch2025diagnosingalexanderdisease pages 1-1)</p>
+<h3>12.2 Emerging disease-modifying therapies</h3>
+<h4>(A) GFAP-lowering antisense oligonucleotides (ASOs)</h4>
+<p><strong>Preclinical (landmark translational study):</strong>
+A rat model study showed that a single intracerebroventricular dose of a Gfap-targeted ASO reduced GFAP transcript/protein to near-undetectable levels and could reverse GFAP pathology, white matter deficits, and motor impairment. Critically, the model exhibited mortality (“about 14% dying…between 6 and 12 weeks of age”), enabling functional rescue assessment. (Science Translational Medicine; 2021-11; https://doi.org/10.1126/scitranslmed.abg4711) (hagemann2021antisensetherapyina pages 1-3)</p>
+<p><strong>Direct abstract-quote evidence (preclinical efficacy):</strong> “a single treatment with Gfap-targeted ASO provides long-lasting suppression, reverses GFAP pathology…” (hagemann2021antisensetherapyina pages 1-3)</p>
+<p><strong>Clinical translation (zilganersen / ION373):</strong>
+A combined Phase 1–3 randomized, double-blind, placebo-controlled, multi-center trial is registered as <strong>NCT04849741</strong>.
+- Design: multiple-ascending dose; 2:1 randomization; 60-week double-blind + open-label and long-term extension. (NCT04849741 chunk 1)
+- Intervention: intrathecal bolus zilganersen (ION373) every 12 weeks through Week 49. (NCT04849741 chunk 1)
+- Enrollment: 54; Start date: 2021-06-01; Primary completion: 2025-08-22; Estimated completion: 2029-09; Status: active not recruiting (per retrieved record). (NCT04849741 chunk 1)
+- Primary endpoint: percent change from baseline in <strong>10-Meter Walk Test</strong> at Week 61. (NCT04849741 chunk 1)</p>
+<p>URL: https://clinicaltrials.gov/study/NCT04849741 (NCT04849741 chunk 1)</p>
+<h4>(B) STAT3/JAK-STAT pathway modulation (repurposing logic)</h4>
+<p>Mouse genetic data support STAT3 as a driver of GFAP accumulation and astrocyte pathology and argue that brain-penetrant JAK/STAT inhibitors could be explored as a strategy to lower GFAP toxicity. This is preclinical mechanistic evidence rather than clinical efficacy. (hagemann2023stat3drivesgfap pages 1-2)</p>
+<h4>(C) Microglia-targeted considerations</h4>
+<p>The 2024 Brain study suggests that inhibiting microglial P2Y12 signaling may worsen pathology in the model (clopidogrel exacerbation), raising caution about certain anti-platelet/microglial-modulating strategies and suggesting microglia may be protective modifiers. This is mechanistic animal-model evidence. (saito2024microgliasenseastrocyte pages 1-2)</p>
+<h3>12.3 Supportive interventions captured in trials infrastructure</h3>
+<p>The AxD natural history/outcome metrics study <strong>NCT02714764</strong> (Children’s Hospital of Philadelphia; observational; started 2016-01-26; estimated enrollment 200; recruiting) collects longitudinal motor, speech/swallowing, neurocognitive, and QoL outcomes and optional blood/CSF specimens (including GFAP levels), supporting real-world evaluation of supportive care and future trial readiness. (NCT02714764 chunk 1)</p>
+<p>URL: https://clinicaltrials.gov/study/NCT02714764 (NCT02714764 chunk 1)</p>
+<h3>12.4 Suggested MAXO terms (examples; not asserted as curated annotations)</h3>
+<ul>
+<li>Intrathecal drug administration (MAXO:0000431)</li>
+<li>Antisense oligonucleotide therapy (MAXO concept; specific ID not in retrieved evidence)</li>
+<li>Physical therapy/rehabilitation (MAXO concept)</li>
+<li>Seizure management with antiseizure medication (MAXO concept)</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<p>Primary prevention is not currently feasible because AxD is genetic; prevention strategies focus on genetic counseling and early diagnosis. Early recognition is increasingly emphasized because clinical trials of potential disease-modifying therapy are underway. (lynch2025diagnosingalexanderdisease pages 1-1, NCT04849741 chunk 1)</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p>A naturally occurring “Rosenthal fiber encephalopathy in a dog resembling Alexander disease in humans” appears in search results but was not obtainable as full text within the retrieved evidence set; therefore, no claims are made here. (unobtainable listing in tool output; not citable)</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<h3>15.1 Rodent genetic models</h3>
+<ul>
+<li><strong>Rat model (GFAP mutant):</strong> Developed to better recapitulate human leukodystrophy features (white matter deficits, motor impairment). Demonstrated ASO reversibility and measurable mortality (~14% between 6–12 weeks), enabling functional studies. (hagemann2021antisensetherapyina pages 1-3)</li>
+<li><strong>Mouse models (GFAP mutant):</strong> Widely used; 2023 work demonstrates manipulation of STAT3 in GFAP-expressing cells to reverse GFAP aggregation and reactive signatures. (hagemann2023stat3drivesgfap pages 1-2)</li>
+<li><strong>Mouse model for immune modifier work:</strong> human GFAP R239H (60TM) used for microglial Ca2+ signaling and scRNA-seq, showing P2Y12-dependent protective microglia. (saito2024microgliasenseastrocyte pages 1-2)</li>
+</ul>
+<h3>15.2 Model utility and limitations (as supported by retrieved evidence)</h3>
+<p>Mouse models have been described as having Rosenthal fibres and astrogliosis but often “mild phenotype” without apparent leukodystrophy/overt clinical features, motivating the rat model for translational endpoints. (hagemann2021antisensetherapyina pages 1-3)</p>
+<hr />
+<h2>Recent developments (prioritizing 2023–2024) and key statistics/data</h2>
+<p>1) <strong>STAT3 mechanistic driver (2023):</strong> Conditional Stat3 reduction prevented or reversed GFAP accumulation/aggregation and lowered reactive astrocyte and microglial activation markers in AxD mouse models, highlighting upstream regulatory control of GFAP. (Hagemann et al., Cells; 2023-03-xx; https://doi.org/10.3390/cells12070978) (hagemann2023stat3drivesgfap pages 1-2)</p>
+<p>2) <strong>Microglial P2Y12 protective modifier (2024):</strong> Single-cell RNA-seq and functional imaging in AxD model mice support a protective microglial response driven by extracellular ATP and P2Y12 signaling; clopidogrel exacerbated pathology in the model. (Saito et al., Brain; 2024-11; https://doi.org/10.1093/brain/awad358) (saito2024microgliasenseastrocyte pages 1-2)</p>
+<p>3) <strong>Variant aggregation (2024):</strong> Systematic review/meta-analysis compiled <strong>550</strong> causative GFAP variants (mostly missense) and reported higher-than-expected adult cases; arginine substitutions were frequently de novo and enriched in early-onset phenotypes. (Grossi et al., Scientific Reports; 2024-10; https://doi.org/10.1038/s41598-024-75383-4) (grossi2024asystematicreview pages 1-2)</p>
+<p>4) <strong>Fluid biomarkers cohort (2024):</strong> Plasma biomarker study: AxD <strong>n=49</strong> vs controls <strong>n=31</strong>; neonatal n=3, infantile n=21, juvenile n=12, adult n=13; “GFAP is elevated in plasma of all age groups afflicted by AxD.” (Ashton et al., Neurological Sciences; 2024-04; https://doi.org/10.1007/s10072-024-07495-8) (ashton2024plasmaconcentrationsof pages 1-2)</p>
+<p>5) <strong>Clinical trial readiness and implementation:</strong> Interventional ASO trial <strong>NCT04849741</strong> (zilganersen/ION373) includes double-blind placebo control and objective functional endpoints (10MWT) with enrollment 54. Observational natural history trial <strong>NCT02714764</strong> is recruiting with estimated enrollment 200 and captures standardized functional and QoL outcomes plus optional blood/CSF biomarkers over up to 10 years. (NCT04849741 chunk 1, NCT02714764 chunk 1)</p>
+<hr />
+<h2>Limitations of this report (evidence constraints)</h2>
+<ul>
+<li>Curated ontology identifiers (MONDO/Orphanet/MeSH/ICD) were not present in the retrieved full text; they are therefore not asserted.</li>
+<li>Several key older “foundational” clinical genetics papers (e.g., Li et al. 2005 Ann Neurol initial GFAP discovery) were not retrieved in full text, so foundational PMIDs could not be provided from the evidence set.</li>
+<li>Detailed differential diagnosis lists and survival curves by subtype were not available in the retrieved evidence corpus.</li>
+</ul>
+<hr />
+<h2>Key URLs (from retrieved evidence)</h2>
+<ul>
+<li>Grossi et al. 2024 (systematic review/meta-analysis): https://doi.org/10.1038/s41598-024-75383-4 (grossi2024asystematicreview pages 1-2)</li>
+<li>Hagemann et al. 2023 (STAT3 mechanism): https://doi.org/10.3390/cells12070978 (hagemann2023stat3drivesgfap pages 1-2)</li>
+<li>Saito et al. 2024 (microglia/P2Y12): https://doi.org/10.1093/brain/awad358 (saito2024microgliasenseastrocyte pages 1-2)</li>
+<li>Ashton et al. 2024 (plasma biomarkers): https://doi.org/10.1007/s10072-024-07495-8 (ashton2024plasmaconcentrationsof pages 1-2)</li>
+<li>NCT04849741 (zilganersen/ION373): https://clinicaltrials.gov/study/NCT04849741 (NCT04849741 chunk 1)</li>
+<li>NCT02714764 (natural history/outcome metrics): https://clinicaltrials.gov/study/NCT02714764 (NCT02714764 chunk 1)</li>
+</ul>
+<p>References</p>
+<ol>
+<li>
+<p>(hagemann2023stat3drivesgfap pages 1-2): Tracy L. Hagemann, Sierra Coyne, Alder Levin, Liqun Wang, Mel B. Feany, and Albee Messing. Stat3 drives gfap accumulation and astrocyte pathology in a mouse model of alexander disease. Cells, 12:978, Mar 2023. URL: https://doi.org/10.3390/cells12070978, doi:10.3390/cells12070978. This article has 20 citations.</p>
+</li>
+<li>
+<p>(saito2024microgliasenseastrocyte pages 1-2): Kozo Saito, Eiji Shigetomi, Youichi Shinozaki, Kenji Kobayashi, Bijay Parajuli, Yuto Kubota, Kent Sakai, Miho Miyakawa, Hiroshi Horiuchi, Junichi Nabekura, and Schuichi Koizumi. Microglia sense astrocyte dysfunction and prevent disease progression in an alexander disease model. Brain, 147:698-716, Nov 2024. URL: https://doi.org/10.1093/brain/awad358, doi:10.1093/brain/awad358. This article has 23 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(hagemann2021antisensetherapyina pages 1-3): Tracy L. Hagemann, Berit Powers, Ni-Hsuan Lin, Ahmed F. Mohamed, Katerina L. Dague, Seth C. Hannah, Gemma Bachmann, Curt Mazur, Frank Rigo, Abby L. Olsen, Mel B. Feany, Ming-Der Perng, Robert F. Berman, and Albee Messing. Antisense therapy in a rat model of alexander disease reverses gfap pathology, white matter deficits, and motor impairment. Science Translational Medicine, Nov 2021. URL: https://doi.org/10.1126/scitranslmed.abg4711, doi:10.1126/scitranslmed.abg4711. This article has 62 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(ashton2024plasmaconcentrationsof pages 1-2): Nicholas J. Ashton, Guglielmo Di Molfetta, Kübra Tan, Kaj Blennow, Henrik Zetterberg, and Albee Messing. Plasma concentrations of glial fibrillary acidic protein, neurofilament light, and tau in alexander disease. Neurological Sciences, 45:4513-4518, Apr 2024. URL: https://doi.org/10.1007/s10072-024-07495-8, doi:10.1007/s10072-024-07495-8. This article has 7 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(lynch2025diagnosingalexanderdisease pages 1-1): David S Lynch, Charles Wade, Alise K. Carlson, Frederik Barkhof, Tomokatsu Yoshida, Abigail Collins, Michael R Edwards, and A. T. Waldman. Diagnosing alexander disease in adults. Practical Neurology, pages pn-2024-004490, May 2025. URL: https://doi.org/10.1136/pn-2024-004490, doi:10.1136/pn-2024-004490. This article has 2 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(hagemann2022alexanderdiseasemodels pages 1-2): Tracy L. Hagemann. Alexander disease: models, mechanisms, and medicine. Current Opinion in Neurobiology, 72:140-147, Feb 2022. URL: https://doi.org/10.1016/j.conb.2021.10.002, doi:10.1016/j.conb.2021.10.002. This article has 60 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(grossi2024asystematicreview pages 1-2): Alice Grossi, Francesca Rosamilia, Silvia Carestiato, Ettore Salsano, Isabella Ceccherini, and Tiziana Bachetti. A systematic review and meta-analysis of gfap gene variants in alexander disease. Scientific Reports, Oct 2024. URL: https://doi.org/10.1038/s41598-024-75383-4, doi:10.1038/s41598-024-75383-4. This article has 14 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(NCT04849741 chunk 1):  A Study to Evaluate the Safety and Efficacy of Zilganersen (ION373) in Patients With Alexander Disease (AxD). Ionis Pharmaceuticals, Inc.. 2021. ClinicalTrials.gov Identifier: NCT04849741</p>
+</li>
+<li>
+<p>(NCT04849741 chunk 2):  A Study to Evaluate the Safety and Efficacy of Zilganersen (ION373) in Patients With Alexander Disease (AxD). Ionis Pharmaceuticals, Inc.. 2021. ClinicalTrials.gov Identifier: NCT04849741</p>
+</li>
+<li>
+<p>(NCT02714764 chunk 1):  Evaluation of Outcome Metrics in Alexander Disease. Children's Hospital of Philadelphia. 2016. ClinicalTrials.gov Identifier: NCT02714764</p>
+</li>
+<li>
+<p>(waldman2026characterizationofclinical pages 2-3): Amy T. Waldman, Asako Takanohashi, Joshua Y. Joung, Geraldine W. Liu, Kaley Arnold, Amy Pizzino, Walter Faig, Sarah Woidill, Sona Narula, and Adeline L. Vanderver. Characterization of clinical phenotype to glial fibrillary acidic protein concentrations in alexander disease. Annals of Clinical and Translational Neurology, Jan 2026. URL: https://doi.org/10.1002/acn3.70305, doi:10.1002/acn3.70305. This article has 0 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(smołka2025progressivespasticparaparesis pages 7-9): Katarzyna Anna Smółka, Leon Smółka, Wiesław Guz, Emilia Chaber, and Lidia Perenc. Progressive spastic paraparesis as the dominant manifestation of adolescent-onset alexander disease: case report and literature review. Journal of Clinical Medicine, 14:8232, Nov 2025. URL: https://doi.org/10.3390/jcm14228232, doi:10.3390/jcm14228232. This article has 0 citations.</p>
+</li>
+<li>
+<p>(messing2025genotypephenotypeassociationfor pages 1-2): Albee Messing, Amy Tara Waldman, and Daniel M. Bolt. Genotype-phenotype association for 14 gfap variants in alexander disease. Neurology: Genetics, Jun 2025. URL: https://doi.org/10.1212/nxg.0000000000200270, doi:10.1212/nxg.0000000000200270. This article has 6 citations.</p>
+</li>
+<li>
+<p>(zavala2025alexandersdiseasepotential pages 1-3): Emily Zavala and Tahl Zimmerman. Alexander's disease: potential drug targets and future directions. Molecular neurobiology, May 2025. URL: https://doi.org/10.1007/s12035-025-05083-1, doi:10.1007/s12035-025-05083-1. This article has 0 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(smołka2025progressivespasticparaparesis pages 13-14): Katarzyna Anna Smółka, Leon Smółka, Wiesław Guz, Emilia Chaber, and Lidia Perenc. Progressive spastic paraparesis as the dominant manifestation of adolescent-onset alexander disease: case report and literature review. Journal of Clinical Medicine, 14:8232, Nov 2025. URL: https://doi.org/10.3390/jcm14228232, doi:10.3390/jcm14228232. This article has 0 citations.</p>
+</li>
+<li>
+<p>(smołka2025progressivespasticparaparesis media 13fab325): Katarzyna Anna Smółka, Leon Smółka, Wiesław Guz, Emilia Chaber, and Lidia Perenc. Progressive spastic paraparesis as the dominant manifestation of adolescent-onset alexander disease: case report and literature review. Journal of Clinical Medicine, 14:8232, Nov 2025. URL: https://doi.org/10.3390/jcm14228232, doi:10.3390/jcm14228232. This article has 0 citations.</p>
+</li>
+<li>
+<p>(messing2025genotypephenotypeassociationfor pages 8-8): Albee Messing, Amy Tara Waldman, and Daniel M. Bolt. Genotype-phenotype association for 14 gfap variants in alexander disease. Neurology: Genetics, Jun 2025. URL: https://doi.org/10.1212/nxg.0000000000200270, doi:10.1212/nxg.0000000000200270. This article has 6 citations.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </div>
         
 
         <footer class="page-footer">
@@ -7351,7 +8677,7 @@ datasets: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Alexander Disease", "mondoId": "MONDO:0008752", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Alexander_Disease", "yamlRevision": "3dfce425c2b8"};
+        const OS_CONFIG = {"diseaseName": "Alexander Disease", "mondoId": "MONDO:0008752", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Alexander_Disease", "yamlRevision": "7791e4c9a598"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

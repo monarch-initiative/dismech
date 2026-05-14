@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,7 +2570,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 15</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Metabolic Disease</span>
@@ -2578,7 +2731,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">7</div>
+                <div class="stat-value">15</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -2709,7 +2862,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -2975,7 +3128,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3068,6 +3221,20 @@
 	                    <div class="crosslink-list">
 	                        
 	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Urinary 5-aminolevulinic acid</span>
+	                            
+	                            <span class="crosslink-desc">Hepatic overproduction and systemic spillover of ALA produces increased urinary ALA during acute attacks.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Urinary porphobilinogen</span>
+	                            
+	                            <span class="crosslink-desc">Hepatic overproduction and systemic spillover of PBG produces increased urinary PBG during acute attacks.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Neurovisceral attack susceptibility</span>
 	                            
 	                            <span class="crosslink-desc">Excess precursor burden is linked to acute autonomic, peripheral, and central neurologic dysfunction.</span>
@@ -3094,7 +3261,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3114,7 +3281,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3146,6 +3313,55 @@
                 
                 
 	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Abdominal pain</span>
+	                            
+	                            <span class="crosslink-desc">Abdominal pain is the most common clinical expression of acute neurovisceral crises.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Nausea and vomiting</span>
+	                            
+	                            <span class="crosslink-desc">Gastrointestinal neurovisceral attacks commonly include nausea and vomiting alongside abdominal pain.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Tachycardia</span>
+	                            
+	                            <span class="crosslink-desc">Autonomic overactivity during attacks produces tachycardia and other dysautonomic manifestations.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Peripheral neuropathy</span>
+	                            
+	                            <span class="crosslink-desc">Acute hepatic porphyria attacks can progress to motor-predominant porphyric neuropathy.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Muscle weakness</span>
+	                            
+	                            <span class="crosslink-desc">Motor-predominant porphyric neuropathy can cause quadriparesis and respiratory weakness in severe attacks.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hyponatremia</span>
+	                            
+	                            <span class="crosslink-desc">Acute AIP presentations can include SIADH-associated hyponatremia as part of the neurovisceral attack spectrum.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
 	                
 	                
     
@@ -3184,7 +3400,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3227,7 +3443,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Givosiran\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Liver-directed siRNA prophylaxis that lowers ALAS1, reduces ALA and PBG, and markedly decreases recurrent attack burden.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"givosiran\"]}}, {\"id\": \"HMBS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"HMBS\"], \"association\": \"Causative\"}}, {\"id\": \"HMBS deficiency in hepatocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic HMBS variants reduce hepatic hydroxymethylbilane synthase activity, creating a partial block at the third enzymatic step of heme biosynthesis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"heme biosynthetic process\"], \"genes\": [\"HMBS\"], \"locations\": [\"liver\"]}}, {\"id\": \"Hepatic ALA and PBG accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Increased upstream pathway flux in the setting of partial HMBS deficiency causes excess production and systemic spillover of 5-aminolevulinic acid and porphobilinogen.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"locations\": [\"liver\"]}}, {\"id\": \"Intravenous hemin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard treatment for severe acute attacks; exogenous hemin represses hepatic ALAS1 and is more effective than glucose alone in serious attacks.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"hemin\"]}}, {\"id\": \"Neurovisceral attack susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acute attacks manifest as abdominal pain and neurologic dysfunction, including motor-predominant neuropathy and severe weakness.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Triggered hepatic ALAS1 induction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Porphyrogenic triggers increase hepatic ALAS1 expression, pushing pathway flux into the segment upstream of the HMBS block.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"genes\": [\"ALAS1\"], \"locations\": [\"liver\"]}}], \"edges\": [{\"source\": \"HMBS deficiency in hepatocytes\", \"target\": \"Triggered hepatic ALAS1 induction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Triggered hepatic ALAS1 induction\", \"target\": \"Hepatic ALA and PBG accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatic ALA and PBG accumulation\", \"target\": \"Neurovisceral attack susceptibility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Intravenous hemin\", \"target\": \"Triggered hepatic ALAS1 induction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intravenous hemin\", \"target\": \"Hepatic ALA and PBG accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Givosiran\", \"target\": \"Triggered hepatic ALAS1 induction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Givosiran\", \"target\": \"Hepatic ALA and PBG accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"HMBS\", \"target\": \"HMBS deficiency in hepatocytes\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abdominal pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe abdominal pain is the most common presenting symptom during acute attacks.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002027\"}}, {\"id\": \"Givosiran\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Liver-directed siRNA prophylaxis that lowers ALAS1, reduces ALA and PBG, and markedly decreases recurrent attack burden.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"givosiran\"]}}, {\"id\": \"HMBS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"HMBS\"], \"association\": \"Causative\"}}, {\"id\": \"HMBS deficiency in hepatocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic HMBS variants reduce hepatic hydroxymethylbilane synthase activity, creating a partial block at the third enzymatic step of heme biosynthesis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"heme biosynthetic process\"], \"genes\": [\"HMBS\"], \"locations\": [\"liver\"]}}, {\"id\": \"Hepatic ALA and PBG accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Increased upstream pathway flux in the setting of partial HMBS deficiency causes excess production and systemic spillover of 5-aminolevulinic acid and porphobilinogen.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"locations\": [\"liver\"]}}, {\"id\": \"Hyponatremia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute attacks can be complicated by hyponatremia, often in the setting of syndrome of inappropriate antidiuretic hormone secretion.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002902\"}}, {\"id\": \"Intravenous hemin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard treatment for severe acute attacks; exogenous hemin represses hepatic ALAS1 and is more effective than glucose alone in serious attacks.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"hemin\"]}}, {\"id\": \"Muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor-predominant porphyric neuropathy can progress to marked generalized weakness during severe attacks.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001324\"}}, {\"id\": \"Nausea and vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gastrointestinal symptoms during acute attacks commonly extend beyond pain to include nausea and vomiting.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002017\"}}, {\"id\": \"Neurovisceral attack susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acute attacks manifest as abdominal pain and neurologic dysfunction, including motor-predominant neuropathy and severe weakness.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Peripheral neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute attacks can include a predominantly motor polyneuropathy that may progress to quadriparesis and respiratory weakness if not recognized early.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009830\"}}, {\"id\": \"Tachycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute neurovisceral attacks often feature autonomic overactivity with sinus tachycardia and accompanying hypertension.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001649\"}}, {\"id\": \"Triggered hepatic ALAS1 induction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Porphyrogenic triggers increase hepatic ALAS1 expression, pushing pathway flux into the segment upstream of the HMBS block.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"genes\": [\"ALAS1\"], \"locations\": [\"liver\"]}}, {\"id\": \"Urinary 5-aminolevulinic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Urinary porphobilinogen\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}], \"edges\": [{\"source\": \"HMBS deficiency in hepatocytes\", \"target\": \"Triggered hepatic ALAS1 induction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Triggered hepatic ALAS1 induction\", \"target\": \"Hepatic ALA and PBG accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatic ALA and PBG accumulation\", \"target\": \"Urinary 5-aminolevulinic acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatic ALA and PBG accumulation\", \"target\": \"Urinary porphobilinogen\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatic ALA and PBG accumulation\", \"target\": \"Neurovisceral attack susceptibility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Abdominal pain\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Nausea and vomiting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Tachycardia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Peripheral neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Hyponatremia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Intravenous hemin\", \"target\": \"Triggered hepatic ALAS1 induction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intravenous hemin\", \"target\": \"Hepatic ALA and PBG accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Givosiran\", \"target\": \"Triggered hepatic ALAS1 induction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Givosiran\", \"target\": \"Hepatic ALA and PBG accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"HMBS\", \"target\": \"HMBS deficiency in hepatocytes\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3365,7 +3581,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3491,7 +3707,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3554,7 +3770,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3689,7 +3905,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -3710,6 +3926,26 @@
                 
                 
                 <div class="evidence-explanation">Patient-based molecular data directly support HMBS as the causative gene in AIP.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_eab4b1f6-2902-4ed3-9002-37c578aeaaba-2022-05-27T160000.000Z" target="_blank">CGGV:assertion_eab4b1f6-2902-4ed3-9002-37c578aeaaba-2022-05-27T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"HMBS | HGNC:4982 | acute intermittent porphyria | MONDO:0008294 | SD | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the HMBS-acute intermittent porphyria gene-disease relationship as definitive with semidominant inheritance.</div>
                 
             </div>
             
@@ -3914,7 +4150,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -4012,7 +4248,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -4245,7 +4481,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -4284,6 +4520,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Urinary ALA rises during acute attacks and is part of the biochemical signature used to confirm and monitor active disease.</div>
+                
                 
                 
     
@@ -4329,6 +4566,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Urinary PBG increases substantially during acute attacks and serves as a key biochemical disease marker.</div>
+                
                 
                 
     
@@ -4454,7 +4692,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Acute Intermittent Porphyria
 creation_date: &#39;2026-04-21T04:42:02Z&#39;
-updated_date: &#39;2026-04-22T21:54:51Z&#39;
+updated_date: &#39;2026-05-07T15:50:32Z&#39;
 category: Mendelian
 synonyms:
 - AIP
@@ -4492,7 +4730,7 @@ inheritance:
   - reference: PMID:9516674
     reference_title: &#34;Acute intermittent porphyria.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       Acute intermittent porphyria (AIP) is transmitted as an autosomal
       dominant disorder with incomplete penetrance.
@@ -4509,7 +4747,7 @@ prevalence:
   - reference: PMID:9516674
     reference_title: &#34;Acute intermittent porphyria.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       Recent population studies suggest that the prevalence of asymptomatic
       heterozygotes for a mutant AIP gene may be in the range of 1 in 2,000.
@@ -4527,7 +4765,7 @@ mechanistic_hypotheses:
   - reference: PMID:9516674
     reference_title: &#34;Acute intermittent porphyria.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       Biochemical abnormalities are thought to result from primary defects of
       porphobilinogen deaminase (PBGD; also called hydroxymethyl bilane
@@ -4547,7 +4785,7 @@ mechanistic_hypotheses:
   - reference: PMID:35067977
     reference_title: &#34;RNAi therapy with givosiran significantly reduces attack rates in acute intermittent porphyria.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       The clinical manifestations of AHP are attributed to the accumulation of
       the heme precursor 5-aminolevulinic acid (ALA) and porphobilinogen (PBG).
@@ -4599,9 +4837,23 @@ pathophysiology:
       places it at the third step of heme biosynthesis.
   downstream:
   - target: Triggered hepatic ALAS1 induction
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
     description: &gt;-
       The partial HMBS block creates attack susceptibility when hepatic ALAS1 is
       induced by physiologic or environmental stressors.
+    evidence:
+    - reference: PMID:29498764
+      reference_title: &#34;Recurrent attacks of acute hepatic porphyria: major role of the chronic inflammatory response in the liver.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Acute intermittent porphyria (AIP) is an inherited disorder of haem
+        metabolism characterized by life-threatening acute neurovisceral attacks
+        due to the induction of hepatic δ-aminolevulinic acid synthase 1 (ALAS1)
+        associated with hydroxymethylbilane synthase (HMBS) deficiency.
+      explanation: &gt;-
+        Human recurrent-AIP study background directly ties acute attack biology
+        to hepatic ALAS1 induction in the setting of HMBS deficiency.
 - name: Triggered hepatic ALAS1 induction
   description: &gt;-
     Porphyrogenic triggers increase hepatic ALAS1 expression, pushing pathway
@@ -4626,7 +4878,7 @@ pathophysiology:
   - reference: PMID:9516674
     reference_title: &#34;Acute intermittent porphyria.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       Biochemical abnormalities are thought to result from primary defects of
       porphobilinogen deaminase (PBGD; also called hydroxymethyl bilane
@@ -4650,9 +4902,28 @@ pathophysiology:
       setting of HMBS deficiency.
   downstream:
   - target: Hepatic ALA and PBG accumulation
+    causal_link_type: DIRECT
     description: &gt;-
       Increased ALAS1-driven upstream flux leads to overproduction of ALA and
       PBG across the partial HMBS block.
+    evidence:
+    - reference: PMID:9516674
+      reference_title: &#34;Acute intermittent porphyria.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        Biochemical abnormalities are thought to result from primary defects of
+        porphobilinogen deaminase (PBGD; also called hydroxymethyl bilane
+        synthase), the third enzyme of the heme synthesis pathway, and
+        consecutive hepatic overexpression of the first enzyme of the pathway,
+        5-aminolevulinate synthase. As a result of these enzymatic disturbances,
+        heme precursors are synthesized in excess in the liver, and massive
+        amounts of compounds upstream of the enzymatic block are excreted in
+        urine.
+      explanation: &gt;-
+        Review evidence supports the mechanistic link between the HMBS/PBGD
+        block, hepatic ALAS1 overexpression, excess hepatic heme precursors, and
+        urinary excretion of upstream compounds.
 - name: Hepatic ALA and PBG accumulation
   description: &gt;-
     Increased upstream pathway flux in the setting of partial HMBS deficiency
@@ -4683,7 +4954,7 @@ pathophysiology:
   - reference: PMID:9516674
     reference_title: &#34;Acute intermittent porphyria.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       As a result of these enzymatic disturbances, heme precursors are
       synthesized in excess in the liver, and massive amounts of compounds
@@ -4694,7 +4965,7 @@ pathophysiology:
   - reference: PMID:35067977
     reference_title: &#34;RNAi therapy with givosiran significantly reduces attack rates in acute intermittent porphyria.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       The clinical manifestations of AHP are attributed to the accumulation of
       the heme precursor 5-aminolevulinic acid (ALA) and porphobilinogen (PBG).
@@ -4702,10 +4973,60 @@ pathophysiology:
       This review identifies ALA and PBG accumulation as the proximate toxic
       biochemical lesion driving clinical disease.
   downstream:
+  - target: Urinary 5-aminolevulinic acid
+    causal_link_type: DIRECT
+    description: &gt;-
+      Hepatic overproduction and systemic spillover of ALA produces increased
+      urinary ALA during acute attacks.
+    evidence:
+    - reference: PMID:19327613
+      reference_title: &gt;-
+        Plasma porphobilinogen as a sensitive biomarker to monitor the clinical
+        and therapeutic course of acute intermittent porphyria attacks.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        During an acute attack the heme precursors porphobilinogen (PBG) and
+        5-aminolevulinic acid (ALA) are produced in high amounts by the liver and
+        are found in high concentrations in plasma and urine.
+      explanation: &gt;-
+        Patient attack monitoring directly supports hepatic ALA production with
+        increased urinary ALA.
+  - target: Urinary porphobilinogen
+    causal_link_type: DIRECT
+    description: &gt;-
+      Hepatic overproduction and systemic spillover of PBG produces increased
+      urinary PBG during acute attacks.
+    evidence:
+    - reference: PMID:19327613
+      reference_title: &gt;-
+        Plasma porphobilinogen as a sensitive biomarker to monitor the clinical
+        and therapeutic course of acute intermittent porphyria attacks.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        During an acute attack the heme precursors porphobilinogen (PBG) and
+        5-aminolevulinic acid (ALA) are produced in high amounts by the liver and
+        are found in high concentrations in plasma and urine.
+      explanation: &gt;-
+        Patient attack monitoring directly supports hepatic PBG production with
+        increased urinary PBG.
   - target: Neurovisceral attack susceptibility
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
     description: &gt;-
       Excess precursor burden is linked to acute autonomic, peripheral, and
       central neurologic dysfunction.
+    evidence:
+    - reference: PMID:35067977
+      reference_title: &#34;RNAi therapy with givosiran significantly reduces attack rates in acute intermittent porphyria.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        The clinical manifestations of AHP are attributed to the accumulation of
+        the heme precursor 5-aminolevulinic acid (ALA) and porphobilinogen (PBG).
+      explanation: &gt;-
+        Review evidence supports accumulated ALA and PBG as the upstream driver
+        of acute hepatic porphyria manifestations.
 - name: Neurovisceral attack susceptibility
   description: &gt;-
     Acute attacks manifest as abdominal pain and neurologic dysfunction,
@@ -4725,7 +5046,7 @@ pathophysiology:
   - reference: PMID:33786855
     reference_title: &#34;Porphyric neuropathy.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       Acute hepatic porphyrias are inherited metabolic disorders that may
       present with polyneuropathy, which if not diagnosed early can lead to
@@ -4733,6 +5054,139 @@ pathophysiology:
     explanation: &gt;-
       This review supports severe neuropathic weakness as a clinically relevant
       downstream consequence of acute hepatic porphyria attacks.
+  downstream:
+  - target: Abdominal pain
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - autonomic and visceral pain pathways during acute neurovisceral crises
+    description: &gt;-
+      Abdominal pain is the most common clinical expression of acute
+      neurovisceral crises.
+    evidence:
+    - reference: PMID:19292878
+      reference_title: &#34;Acute intermittent porphyria--impact of mutations found in the hydroxymethylbilane synthase gene on biochemical and enzymatic protein properties.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Clinical features include autonomous, central, motor or sensory symptoms,
+        but the most common clinical presentation is abdominal pain caused by
+        neurovisceral crises.
+      explanation: &gt;-
+        This patient-based molecular study&#39;s clinical summary directly connects
+        neurovisceral crises to abdominal pain.
+  - target: Nausea and vomiting
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - gastrointestinal involvement during acute AIP episodes
+    description: &gt;-
+      Gastrointestinal neurovisceral attacks commonly include nausea and
+      vomiting alongside abdominal pain.
+    evidence:
+    - reference: PMID:33139977
+      reference_title: &gt;-
+        Acute intermittent porphyria: focus on possible mechanisms of acute and
+        chronic manifestations.
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        Acute AIP episodes may present with abdominal pain, nausea, and vomiting,
+        and repeated episodes may result in a series of chronic injuries.
+      explanation: &gt;-
+        Review evidence supports nausea and vomiting as components of acute AIP
+        episodes.
+  - target: Tachycardia
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - autonomic overactivity during acute attacks
+    description: &gt;-
+      Autonomic overactivity during attacks produces tachycardia and other
+      dysautonomic manifestations.
+    evidence:
+    - reference: PMID:4723462
+      reference_title: &gt;-
+        Acute intermittent porphyria: response of tachycardia and hypertension to
+        propranolol.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        In four young adult patients with acute attacks of acute intermittent
+        porphyria tachycardia and hypertension were prominent features of the
+        illness.
+      explanation: &gt;-
+        Case-series evidence directly supports tachycardia during acute AIP
+        attacks.
+  - target: Peripheral neuropathy
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - acute to subacute motor-predominant axonal porphyric neuropathy
+    description: &gt;-
+      Acute hepatic porphyria attacks can progress to motor-predominant
+      porphyric neuropathy.
+    evidence:
+    - reference: PMID:33786855
+      reference_title: &#34;Porphyric neuropathy.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        Acute hepatic porphyrias are inherited metabolic disorders that may
+        present with polyneuropathy, which if not diagnosed early can lead to
+        quadriparesis, respiratory weakness, and death.
+      explanation: &gt;-
+        Review evidence supports polyneuropathy as a neurologic manifestation of
+        acute hepatic porphyrias.
+  - target: Muscle weakness
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - motor-predominant porphyric neuropathy causing quadriparesis or respiratory weakness
+    description: &gt;-
+      Motor-predominant porphyric neuropathy can cause quadriparesis and
+      respiratory weakness in severe attacks.
+    evidence:
+    - reference: PMID:33786855
+      reference_title: &#34;Porphyric neuropathy.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        Acute hepatic porphyrias are inherited metabolic disorders that may
+        present with polyneuropathy, which if not diagnosed early can lead to
+        quadriparesis, respiratory weakness, and death.
+      explanation: &gt;-
+        Review evidence supports severe weakness as a downstream consequence of
+        porphyric neuropathy.
+  - target: Hyponatremia
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - autonomic and hypothalamic-pituitary dysregulation with inappropriate antidiuretic hormone secretion
+    description: &gt;-
+      Acute AIP presentations can include SIADH-associated hyponatremia as part
+      of the neurovisceral attack spectrum.
+    evidence:
+    - reference: PMID:26366103
+      reference_title: &#34;An update of clinical management of acute intermittent porphyria.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        The clinical criteria of an acute attack include the paroxysmal nature
+        and various combinations of symptoms, such as abdominal pain, autonomic
+        dysfunction, hyponatremia, muscle weakness, or mental symptoms, in the
+        absence of other obvious causes.
+      explanation: &gt;-
+        Clinical management review evidence explicitly includes hyponatremia
+        among acute attack criteria.
+    - reference: PMID:25796467
+      reference_title: &gt;-
+        Abdominal pain and syndrome of inappropriate antidiuretic hormone
+        secretion as clinical presentation of acute intermittent porphyria.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Acute intermittent porphyria (AIP) is a rare condition characterized by
+        abdominal pain and a wide range of nonspecific symptoms. We report the
+        case of a woman with abdominal pain and syndrome of inappropriate
+        antidiuretic hormone secretion (SIADH) as clinical presentation of AIP.
+      explanation: &gt;-
+        Case-report evidence supports SIADH as an acute AIP presentation,
+        matching the intermediate mechanism for hyponatremia.
 phenotypes:
 - name: Abdominal pain
   description: &gt;-
@@ -4768,7 +5222,7 @@ phenotypes:
   - reference: PMID:33786855
     reference_title: &#34;Porphyric neuropathy.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       Acute hepatic porphyrias are inherited metabolic disorders that may
       present with polyneuropathy, which if not diagnosed early can lead to
@@ -4789,7 +5243,7 @@ phenotypes:
   - reference: PMID:33786855
     reference_title: &#34;Porphyric neuropathy.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       Acute hepatic porphyrias are inherited metabolic disorders that may
       present with polyneuropathy, which if not diagnosed early can lead to
@@ -4835,7 +5289,7 @@ phenotypes:
       Acute intermittent porphyria: focus on possible mechanisms of acute and
       chronic manifestations.
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       Acute AIP episodes may present with abdominal pain, nausea, and vomiting,
       and repeated episodes may result in a series of chronic injuries.
@@ -4930,6 +5384,12 @@ genetic:
     explanation: &gt;-
       Patient-based molecular data directly support HMBS as the causative gene
       in AIP.
+  - reference: CGGV:assertion_eab4b1f6-2902-4ed3-9002-37c578aeaaba-2022-05-27T160000.000Z
+    reference_title: &#34;HMBS / acute intermittent porphyria (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;HMBS | HGNC:4982 | acute intermittent porphyria | MONDO:0008294 | SD | Definitive&#34;
+    explanation: ClinGen classifies the HMBS-acute intermittent porphyria gene-disease relationship as definitive with semidominant inheritance.
 environmental:
 - name: Porphyrogenic attack triggers
   notes: &gt;-
@@ -4939,7 +5399,7 @@ environmental:
   - reference: PMID:9516674
     reference_title: &#34;Acute intermittent porphyria.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       These symptoms occur during acute attacks, which are often precipitated
       by drugs, alcohol, low caloric intake, or infections.
@@ -5007,7 +5467,7 @@ treatments:
   - reference: PMID:33786855
     reference_title: &#34;Porphyric neuropathy.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       Timely treatment with intravenous heme, carbohydrate loading, and
       avoidance of porphyrinogenic medications can prevent further neurological
@@ -5039,7 +5499,7 @@ treatments:
     - reference: PMID:35067977
       reference_title: &#34;RNAi therapy with givosiran significantly reduces attack rates in acute intermittent porphyria.&#34;
       supports: SUPPORT
-      evidence_source: HUMAN_CLINICAL
+      evidence_source: OTHER
       snippet: &gt;-
         The results of clinical trials have shown that givosiran treatment
         leads to a rapid and sustained reduction of ALAS1 mRNA, decreased heme
@@ -5618,7 +6078,7 @@ clinical_trials:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Acute Intermittent Porphyria", "mondoId": "MONDO:0008294", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acute_Intermittent_Porphyria", "yamlRevision": "1785f099902a"};
+        const OS_CONFIG = {"diseaseName": "Acute Intermittent Porphyria", "mondoId": "MONDO:0008294", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acute_Intermittent_Porphyria", "yamlRevision": "ae624ba694a3"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

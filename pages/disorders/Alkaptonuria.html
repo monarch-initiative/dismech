@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,7 +2570,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 6</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 14</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Disorder of Tyrosine Metabolism</span>
@@ -2587,7 +2740,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">6</div>
+                <div class="stat-value">14</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -2865,7 +3018,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -2989,6 +3142,13 @@
 	                    <div class="crosslink-list">
 	                        
 	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Reduced homogentisate 1,2-dioxygenase activity</span>
+	                            
+	                            <span class="crosslink-desc">HGD loss of function reduces homogentisate 1,2-dioxygenase activity.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Homogentisic acid accumulation and oxidation</span>
 	                            
 	                            <span class="crosslink-desc">Loss of HGD activity prevents normal homogentisic acid catabolism.</span>
@@ -3035,7 +3195,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3122,6 +3282,27 @@
 	                    <div class="crosslink-list">
 	                        
 	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Elevated urinary homogentisic acid</span>
+	                            
+	                            <span class="crosslink-desc">Excess HGA is excreted in urine and forms the defining urinary phenotype.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Increased urinary homogentisic acid</span>
+	                            
+	                            <span class="crosslink-desc">Urinary HGA measurement is the biochemical diagnostic correlate of systemic HGA accumulation.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Dark urine</span>
+	                            
+	                            <span class="crosslink-desc">Urinary HGA oxidizes on standing or air exposure, darkening urine.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Ochronotic connective tissue degeneration</span>
 	                            
 	                            <span class="crosslink-desc">Oxidized HGA-derived polymers deposit in collagen-rich tissues and cartilage.</span>
@@ -3168,7 +3349,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3188,14 +3369,14 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
                 <div class="evidence-snippet">"AKU is caused by deficiency of homogentisic acid oxidase (HGD, EC 1.13.11.5), which leads to the accumulation of homogentisic acid (HGA)"</div>
                 
                 
-                <div class="evidence-explanation">The mutation-spectrum study links HGD deficiency to HGA accumulation.</div>
+                <div class="evidence-explanation">The article background links HGD deficiency to HGA accumulation.</div>
                 
             </div>
             
@@ -3209,7 +3390,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ochronotic-connective-tissue-degeneration">
                 <div class="item-name">Ochronotic connective tissue degeneration</div>
                 
-                <div class="item-desc">Oxidized HGA-derived pigment deposits in collagen-rich connective tissues, especially cartilage. This ochronotic pigmentation drives cartilage calcification, intervertebral disk disease, and painful spine and large-joint osteoarthropathy.
+                <div class="item-desc">Oxidized HGA-derived pigment deposits in collagen-rich connective tissues, especially cartilage. This ochronotic pigmentation is associated with visible tissue discoloration and painful axial and large-joint osteoarthropathy.
 </div>
                 
                 
@@ -3239,6 +3420,41 @@
                 
                 
 	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Ochronosis</span>
+	                            
+	                            <span class="crosslink-desc">HGA-derived pigment deposition in connective tissue manifests as ochronosis.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Pigmentation of the sclera</span>
+	                            
+	                            <span class="crosslink-desc">Ochronotic pigment can be visible as scleral pigmentation.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Ochronotic osteoarthritis</span>
+	                            
+	                            <span class="crosslink-desc">Ochronotic connective-tissue degeneration produces disabling axial and peripheral joint disease.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Arthralgia</span>
+	                            
+	                            <span class="crosslink-desc">Pain arises as part of severe ochronotic osteoarthropathy.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
 	                
 	                
     
@@ -3277,7 +3493,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3297,7 +3513,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3340,7 +3556,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic HGD pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Reported pathogenic variants include missense, splice-site, frameshift, nonsense, no-stop, and larger deletion alleles. Residual HGD activity may influence urinary HGA adjusted for protein intake, but genotype does not robustly predict clinical symptoms.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"HGD molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic HGD pathogenic variants reduce homogentisate 1,2-dioxygenase activity, blocking the homogentisate step of the tyrosine degradation pathway.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"L-tyrosine catabolic process\"], \"molecular_functions\": [\"homogentisate 1,2-dioxygenase activity\"], \"genes\": [\"HGD\"]}}, {\"id\": \"HGD variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"HGD\"], \"variant_count\": 1}}, {\"id\": \"Homogentisic acid accumulation and oxidation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The HGD block causes homogentisic acid to accumulate in urine and tissues. Homogentisic acid undergoes oxidation to benzoquinone products that form melanin-like polymers capable of binding connective tissue components.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"L-tyrosine catabolic process\"]}}, {\"id\": \"Nitisinone therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Nitisinone inhibits an upstream tyrosine-degradation step to reduce HGA production. In SONIA 2, daily nitisinone markedly reduced urinary HGA and slowed clinical progression as measured by cAKUSSI.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"nitisinone\"]}}, {\"id\": \"Ochronotic connective tissue degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Oxidized HGA-derived pigment deposits in collagen-rich connective tissues, especially cartilage. This ochronotic pigmentation drives cartilage calcification, intervertebral disk disease, and painful spine and large-joint osteoarthropathy.\\n\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"cartilage tissue\", \"connective tissue\"]}}], \"edges\": [{\"source\": \"HGD molecular function deficiency\", \"target\": \"Homogentisic acid accumulation and oxidation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Homogentisic acid accumulation and oxidation\", \"target\": \"Ochronotic connective tissue degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Nitisinone therapy\", \"target\": \"Homogentisic acid accumulation and oxidation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"HGD variants\", \"target\": \"HGD molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic HGD pathogenic variants\", \"target\": \"HGD variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arthralgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint pain is a major manifestation of ochronotic osteoarthropathy.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002829\"}}, {\"id\": \"Biallelic HGD pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Reported pathogenic variants include missense, splice-site, frameshift, nonsense, no-stop, and larger deletion alleles. Residual HGD activity may influence urinary HGA adjusted for protein intake, but genotype does not robustly predict clinical symptoms.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Dark urine\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Urine darkens on standing or exposure to air because HGA oxidizes.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0040319\"}}, {\"id\": \"Elevated urinary homogentisic acid\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Large urinary HGA excretion is the defining biochemical phenotype.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0033704\"}}, {\"id\": \"HGD molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic HGD pathogenic variants reduce homogentisate 1,2-dioxygenase activity, blocking the homogentisate step of the tyrosine degradation pathway.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"L-tyrosine catabolic process\"], \"molecular_functions\": [\"homogentisate 1,2-dioxygenase activity\"], \"genes\": [\"HGD\"]}}, {\"id\": \"HGD variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"HGD\"], \"variant_count\": 1}}, {\"id\": \"Homogentisic acid accumulation and oxidation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The HGD block causes homogentisic acid to accumulate in urine and tissues. Homogentisic acid undergoes oxidation to benzoquinone products that form melanin-like polymers capable of binding connective tissue components.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"L-tyrosine catabolic process\"]}}, {\"id\": \"Increased urinary homogentisic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"Nitisinone therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Nitisinone inhibits an upstream tyrosine-degradation step to reduce HGA production. In SONIA 2, daily nitisinone markedly reduced urinary HGA and slowed clinical progression as measured by cAKUSSI.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"nitisinone\"]}}, {\"id\": \"Ochronosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bluish-black pigmentation of connective tissues is caused by HGA-derived pigment deposition.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0030764\"}}, {\"id\": \"Ochronotic connective tissue degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Oxidized HGA-derived pigment deposits in collagen-rich connective tissues, especially cartilage. This ochronotic pigmentation is associated with visible tissue discoloration and painful axial and large-joint osteoarthropathy.\\n\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"cartilage tissue\", \"connective tissue\"]}}, {\"id\": \"Ochronotic osteoarthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive ochronotic arthropathy affects the spine and large joints.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002758\"}}, {\"id\": \"Pigmentation of the sclera\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ochronotic pigment can be visible in the sclera.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007832\"}}, {\"id\": \"Reduced homogentisate 1,2-dioxygenase activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"DECREASED\"}}], \"edges\": [{\"source\": \"HGD molecular function deficiency\", \"target\": \"Reduced homogentisate 1,2-dioxygenase activity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"HGD molecular function deficiency\", \"target\": \"Homogentisic acid accumulation and oxidation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Homogentisic acid accumulation and oxidation\", \"target\": \"Elevated urinary homogentisic acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Homogentisic acid accumulation and oxidation\", \"target\": \"Increased urinary homogentisic acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Homogentisic acid accumulation and oxidation\", \"target\": \"Dark urine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Homogentisic acid accumulation and oxidation\", \"target\": \"Ochronotic connective tissue degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Ochronosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Pigmentation of the sclera\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Ochronotic osteoarthritis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Arthralgia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Nitisinone therapy\", \"target\": \"Homogentisic acid accumulation and oxidation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nitisinone therapy\", \"target\": \"Elevated urinary homogentisic acid\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Nitisinone therapy\", \"target\": \"Ochronosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"HGD variants\", \"target\": \"HGD molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic HGD pathogenic variants\", \"target\": \"HGD variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3435,7 +3651,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3511,7 +3727,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3661,7 +3877,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3858,7 +4074,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3999,7 +4215,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -4075,7 +4291,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -4319,7 +4535,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -4451,11 +4667,12 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"valve calcification or regurgitation and occasionally aortic dilatation; renal"</div>
+                <div class="evidence-snippet">"pigment in the sclera, ear cartilage, and skin of the hands; aortic or mitral
+valve calcification or regurgitation and occasionally aortic dilatation; renal"</div>
                 
                 
                 <div class="evidence-explanation">GeneReviews supports cardiac valve calcification as a manifestation.</div>
@@ -4527,7 +4744,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -4603,11 +4820,12 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"aortic or mitral valve"</div>
+                <div class="evidence-snippet">"pigment in the sclera, ear cartilage, and skin of the hands; aortic or mitral
+valve calcification or regurgitation and occasionally aortic dilatation; renal"</div>
                 
                 
                 <div class="evidence-explanation">GeneReviews lists aortic or mitral valve calcification among manifestations.</div>
@@ -4791,7 +5009,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -4923,7 +5141,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -4944,6 +5162,26 @@
                 
                 
                 <div class="evidence-explanation">Confirms HGD variants as the genetic cause and connects them to the biochemical block.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_5186836d-d9c6-4829-a0c9-59548460d6f2-2020-06-29T174125.541Z" target="_blank">CGGV:assertion_5186836d-d9c6-4829-a0c9-59548460d6f2-2020-06-29T174125.541Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"HGD | HGNC:4892 | alkaptonuria | MONDO:0008753 | AR | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the HGD-alkaptonuria gene-disease relationship as definitive with autosomal recessive inheritance.</div>
                 
             </div>
             
@@ -5068,6 +5306,25 @@
                 </div>
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Elevated urinary homogentisic acid
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0033704" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Ochronosis
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0030764" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
     
@@ -5151,6 +5408,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5167,7 +5425,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -5217,6 +5475,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5233,7 +5492,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -5303,7 +5562,7 @@
                 <pre class="yaml-preview">name: Alkaptonuria
 category: Mendelian
 creation_date: &#39;2026-05-03T00:00:00Z&#39;
-updated_date: &#39;2026-05-03T00:00:00Z&#39;
+updated_date: &#39;2026-05-08T00:00:00Z&#39;
 synonyms:
 - Hereditary ochronosis
 - Homogentisic acid oxidase deficiency
@@ -5390,7 +5649,7 @@ inheritance:
   - reference: PMID:20301627
     reference_title: &#34;Alkaptonuria.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;Alkaptonuria is inherited in an autosomal recessive manner.&#34;
     explanation: GeneReviews confirms autosomal recessive inheritance.
 prevalence:
@@ -5434,7 +5693,7 @@ progression:
   - reference: PMID:20301627
     reference_title: &#34;Alkaptonuria.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;Ochronosis generally occurs after age 30 years;&#34;
     explanation: GeneReviews supports delayed adult emergence of ochronosis and arthritis.
 pathophysiology:
@@ -5470,7 +5729,7 @@ pathophysiology:
   - reference: PMID:20301627
     reference_title: &#34;Alkaptonuria.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;Alkaptonuria is caused by deficiency of homogentisate&#34;
     explanation: GeneReviews supports the initiating enzymatic block.
   - reference: PMID:30737480
@@ -5480,8 +5739,26 @@ pathophysiology:
     snippet: &#34;Alkaptonuria (AKU) is a rare metabolic disorder caused by a deficient enzyme in&#34;
     explanation: Large genotype cohort independently supports HGD enzyme deficiency as causal.
   downstream:
+  - target: Reduced homogentisate 1,2-dioxygenase activity
+    description: HGD loss of function reduces homogentisate 1,2-dioxygenase activity.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: ORPHA:56
+      reference_title: &#34;Alkaptonuria (Orphanet structured-database record)&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;HGD | homogentisate 1,2-dioxygenase | hgnc:4892 | Disease-causing germline mutation(s) (loss of function) in&#34;
+      explanation: Orphanet links HGD loss of function to the enzyme activity defect.
   - target: Homogentisic acid accumulation and oxidation
     description: Loss of HGD activity prevents normal homogentisic acid catabolism.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:19862842
+      reference_title: &#34;Mutation spectrum of homogentisic acid oxidase (HGD) in alkaptonuria.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;AKU is caused by deficiency of homogentisic acid oxidase (HGD, EC 1.13.11.5), which leads to the accumulation of homogentisic acid (HGA)&#34;
+      explanation: The cached article text links HGD deficiency to HGA accumulation.
 - name: Homogentisic acid accumulation and oxidation
   description: &gt;
     The HGD block causes homogentisic acid to accumulate in urine and tissues.
@@ -5509,23 +5786,61 @@ pathophysiology:
   - reference: PMID:38453957
     reference_title: &#34;Alkaptonuria.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;accumulation in body fluids and tissues leads to a multisystemic and highly&#34;
     explanation: Recent disease primer supports systemic HGA accumulation as the central biochemical mechanism.
   - reference: PMID:19862842
     reference_title: &#34;Mutation spectrum of homogentisic acid oxidase (HGD) in alkaptonuria.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;AKU is caused by deficiency of homogentisic acid oxidase (HGD, EC 1.13.11.5), which leads to the accumulation of homogentisic acid (HGA)&#34;
-    explanation: The mutation-spectrum study links HGD deficiency to HGA accumulation.
+    explanation: The article background links HGD deficiency to HGA accumulation.
   downstream:
+  - target: Elevated urinary homogentisic acid
+    description: Excess HGA is excreted in urine and forms the defining urinary phenotype.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: ORPHA:56
+      reference_title: &#34;Alkaptonuria (Orphanet structured-database record)&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;HP:0033704 | Elevated urinary homogentisic acid | Very frequent (99-80%)&#34;
+      explanation: Orphanet reports elevated urinary HGA as a very frequent alkaptonuria phenotype.
+  - target: Increased urinary homogentisic acid
+    description: Urinary HGA measurement is the biochemical diagnostic correlate of systemic HGA accumulation.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:20301627
+      reference_title: &#34;Alkaptonuria.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;based on the detection of a significant amount of HGA in the urine (usually 1 to&#34;
+      explanation: GeneReviews identifies urinary HGA detection as the biochemical diagnostic marker.
+  - target: Dark urine
+    description: Urinary HGA oxidizes on standing or air exposure, darkening urine.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: ORPHA:56
+      reference_title: &#34;Alkaptonuria (Orphanet structured-database record)&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;causing urine to darken when exposed to air&#34;
+      explanation: Orphanet directly links HGA/BQA accumulation in urine to darkening on air exposure.
   - target: Ochronotic connective tissue degeneration
     description: Oxidized HGA-derived polymers deposit in collagen-rich tissues and cartilage.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:19862842
+      reference_title: &#34;Mutation spectrum of homogentisic acid oxidase (HGD) in alkaptonuria.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;The clinical findings of AKU result from the reaction of homogentisic acid and its homopolymeric oxidation products, i.e., benzoquinones, with connective tissue components.&#34;
+      explanation: This supports the connective-tissue deposition mechanism downstream of oxidized HGA.
 - name: Ochronotic connective tissue degeneration
   description: &gt;
     Oxidized HGA-derived pigment deposits in collagen-rich connective tissues,
-    especially cartilage. This ochronotic pigmentation drives cartilage
-    calcification, intervertebral disk disease, and painful spine and large-joint
+    especially cartilage. This ochronotic pigmentation is associated with
+    visible tissue discoloration and painful axial and large-joint
     osteoarthropathy.
   locations:
   - preferred_term: cartilage tissue
@@ -5546,15 +5861,64 @@ pathophysiology:
   - reference: PMID:38453957
     reference_title: &#34;Alkaptonuria.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;pigment in collagen-rich connective tissues), and a painful and severe form of&#34;
     explanation: Disease primer supports HGA-derived pigment deposition in connective tissue causing osteoarthropathy.
   - reference: PMID:19862842
     reference_title: &#34;Mutation spectrum of homogentisic acid oxidase (HGD) in alkaptonuria.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;The clinical findings of AKU result from the reaction of homogentisic acid and its homopolymeric oxidation products, i.e., benzoquinones, with connective tissue components.&#34;
     explanation: Mechanistic statement links oxidized HGA products to connective-tissue clinical findings.
+  downstream:
+  - target: Ochronosis
+    description: HGA-derived pigment deposition in connective tissue manifests as ochronosis.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:38453957
+      reference_title: &#34;Alkaptonuria.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;ochronosis (HGA-derived&#34;
+      explanation: Disease primer directly defines ochronosis as HGA-derived pigment in collagen-rich connective tissue.
+  - target: Pigmentation of the sclera
+    description: Ochronotic pigment can be visible as scleral pigmentation.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: ORPHA:56
+      reference_title: &#34;Alkaptonuria (Orphanet structured-database record)&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;grey-blue coloration of the sclera and ear helix (ochronosis)&#34;
+      explanation: Orphanet links ochronosis to scleral and ear-helix discoloration.
+  - target: Ochronotic osteoarthritis
+    description: Ochronotic connective-tissue degeneration produces disabling axial and peripheral joint disease.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: ORPHA:56
+      reference_title: &#34;Alkaptonuria (Orphanet structured-database record)&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;a disabling joint disease involving both the axial and peripheral joints (ochronotic arthropathy)&#34;
+      explanation: Orphanet directly links ochronotic tissue disease to axial and peripheral arthropathy.
+    - reference: PMID:19862842
+      reference_title: &#34;Mutation spectrum of homogentisic acid oxidase (HGD) in alkaptonuria.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;patients later develop joint and spine arthritis in their thirties&#34;
+      explanation: This background passage links ochronotic tissue involvement to later joint and spine arthritis.
+  - target: Arthralgia
+    description: Pain arises as part of severe ochronotic osteoarthropathy.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - ochronotic osteoarthropathy
+    evidence:
+    - reference: PMID:38453957
+      reference_title: &#34;Alkaptonuria.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;painful and severe form of&#34;
+      explanation: Disease primer links HGA-derived ochronosis to painful osteoarthropathy.
 phenotypes:
 - name: Elevated urinary homogentisic acid
   frequency: VERY_FREQUENT
@@ -5574,7 +5938,7 @@ phenotypes:
   - reference: PMID:20301627
     reference_title: &#34;Alkaptonuria.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;DIAGNOSIS/TESTING: The biochemical diagnosis of alkaptonuria in a proband is&#34;
     explanation: GeneReviews identifies urinary HGA as the biochemical diagnostic marker.
 - name: Dark urine
@@ -5595,7 +5959,7 @@ phenotypes:
   - reference: PMID:20301627
     reference_title: &#34;Alkaptonuria.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;features of alkaptonuria are dark urine or urine that turns dark on standing,&#34;
     explanation: GeneReviews lists dark urine as a major feature.
 - name: Ochronosis
@@ -5616,7 +5980,7 @@ phenotypes:
   - reference: PMID:38453957
     reference_title: &#34;Alkaptonuria.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;debilitating disease whose main features are dark urine, ochronosis (HGA-derived&#34;
     explanation: Disease primer identifies ochronosis as a main feature.
 - name: Ochronotic osteoarthritis
@@ -5637,7 +6001,7 @@ phenotypes:
   - reference: PMID:20301627
     reference_title: &#34;Alkaptonuria.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;the spine and larger joints.&#34;
     explanation: GeneReviews lists spine and large-joint arthritis as a major feature.
 - name: Arthralgia
@@ -5658,12 +6022,12 @@ phenotypes:
   - reference: PMID:38453957
     reference_title: &#34;Alkaptonuria.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;painful and severe form of&#34;
     explanation: Disease primer describes painful osteoarthropathy as a main feature.
 - name: Joint stiffness
   frequency: VERY_FREQUENT
-  description: Progressive ochronotic arthropathy commonly causes joint stiffness.
+  description: Joint stiffness is reported as a very frequent musculoskeletal manifestation in alkaptonuria.
   phenotype_term:
     preferred_term: Joint stiffness
     term:
@@ -5678,7 +6042,7 @@ phenotypes:
     explanation: Orphanet reports joint stiffness as very frequent.
 - name: Joint swelling
   frequency: VERY_FREQUENT
-  description: Joint swelling is a common manifestation of ochronotic joint disease.
+  description: Joint swelling is reported as a very frequent musculoskeletal manifestation in alkaptonuria.
   phenotype_term:
     preferred_term: Joint swelling
     term:
@@ -5693,7 +6057,7 @@ phenotypes:
     explanation: Orphanet reports joint swelling as very frequent.
 - name: Joint dislocation
   frequency: VERY_FREQUENT
-  description: Joint dislocation reflects advanced ochronotic cartilage and connective-tissue disease.
+  description: Joint dislocation is reported among very frequent musculoskeletal manifestations in alkaptonuria.
   phenotype_term:
     preferred_term: Joint dislocation
     term:
@@ -5708,7 +6072,7 @@ phenotypes:
     explanation: Orphanet reports joint dislocation as very frequent.
 - name: Back pain
   frequency: FREQUENT
-  description: Spine involvement in ochronotic arthropathy frequently causes back pain.
+  description: Back pain is reported as a frequent axial musculoskeletal manifestation in alkaptonuria.
   phenotype_term:
     preferred_term: Back pain
     term:
@@ -5723,7 +6087,7 @@ phenotypes:
     explanation: Orphanet reports back pain as frequent.
 - name: Intervertebral disk calcification
   frequency: VERY_FREQUENT
-  description: Ochronotic spine disease commonly includes calcified intervertebral disks.
+  description: Intervertebral disk calcification is reported as a very frequent spinal finding in alkaptonuria.
   phenotype_term:
     preferred_term: Intervertebral disk calcification
     term:
@@ -5738,7 +6102,7 @@ phenotypes:
     explanation: Orphanet reports intervertebral disk calcification as very frequent.
 - name: Cartilage calcification
   frequency: VERY_FREQUENT
-  description: Calcium deposition in cartilage is part of the ochronotic connective-tissue phenotype.
+  description: Cartilage calcification is reported as a very frequent structural manifestation in alkaptonuria.
   phenotype_term:
     preferred_term: Calcification of cartilage
     term:
@@ -5753,7 +6117,7 @@ phenotypes:
     explanation: Orphanet reports cartilage calcification as very frequent.
 - name: Cartilage destruction
   frequency: FREQUENT
-  description: Destruction of cartilage is a structural consequence of ochronotic connective-tissue disease.
+  description: Cartilage destruction is reported as a frequent structural manifestation in alkaptonuria.
   phenotype_term:
     preferred_term: Cartilage destruction
     term:
@@ -5768,7 +6132,7 @@ phenotypes:
     explanation: Orphanet reports cartilage destruction as frequent.
 - name: Tendon rupture
   frequency: FREQUENT
-  description: Tendon rupture is a frequent connective-tissue complication in alkaptonuria.
+  description: Tendon rupture is reported as a frequent manifestation in alkaptonuria.
   phenotype_term:
     preferred_term: Tendon rupture
     term:
@@ -5784,12 +6148,12 @@ phenotypes:
   - reference: PMID:38453957
     reference_title: &#34;Alkaptonuria.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;include kidney and prostate stones, aortic stenosis, bone fractures, and tendon,&#34;
     explanation: Disease primer lists tendon, ligament, and muscle ruptures among variable manifestations.
 - name: Thickened Achilles tendon
   frequency: FREQUENT
-  description: Achilles tendon thickening is a frequent tendon manifestation of ochronotic connective-tissue disease.
+  description: Achilles tendon thickening is reported as a frequent tendon manifestation in alkaptonuria.
   phenotype_term:
     preferred_term: Thickened Achilles tendon
     term:
@@ -5820,8 +6184,10 @@ phenotypes:
   - reference: PMID:20301627
     reference_title: &#34;Alkaptonuria.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;valve calcification or regurgitation and occasionally aortic dilatation; renal&#34;
+    evidence_source: OTHER
+    snippet: |-
+      pigment in the sclera, ear cartilage, and skin of the hands; aortic or mitral
+      valve calcification or regurgitation and occasionally aortic dilatation; renal
     explanation: GeneReviews supports cardiac valve calcification as a manifestation.
 - name: Coronary artery calcification
   frequency: VERY_FREQUENT
@@ -5841,7 +6207,7 @@ phenotypes:
   - reference: PMID:20301627
     reference_title: &#34;Alkaptonuria.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;CT imaging to detect coronary artery calcification.&#34;
     explanation: GeneReviews surveillance guidance supports coronary artery calcification as a recognized manifestation.
 - name: Mitral valve calcification
@@ -5862,8 +6228,10 @@ phenotypes:
   - reference: PMID:20301627
     reference_title: &#34;Alkaptonuria.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;aortic or mitral valve&#34;
+    evidence_source: OTHER
+    snippet: |-
+      pigment in the sclera, ear cartilage, and skin of the hands; aortic or mitral
+      valve calcification or regurgitation and occasionally aortic dilatation; renal
     explanation: GeneReviews lists aortic or mitral valve calcification among manifestations.
 - name: Nephrolithiasis
   frequency: FREQUENT
@@ -5883,7 +6251,7 @@ phenotypes:
   - reference: PMID:20301627
     reference_title: &#34;Alkaptonuria.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;surgical intervention for prostate stones and renal&#34;
     explanation: GeneReviews lists renal stones among other manifestations.
 - name: Hearing abnormality
@@ -5934,7 +6302,7 @@ phenotypes:
   - reference: PMID:20301627
     reference_title: &#34;Alkaptonuria.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;pigment in the sclera, ear cartilage, and skin of the hands;&#34;
     explanation: GeneReviews supports scleral pigmentation as a manifestation.
 - name: Aminoaciduria
@@ -5962,7 +6330,7 @@ biochemical:
   - reference: PMID:20301627
     reference_title: &#34;Alkaptonuria.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;based on the detection of a significant amount of HGA in the urine (usually 1 to&#34;
     explanation: GeneReviews provides the typical magnitude of urinary HGA excretion.
   - reference: ORPHA:56
@@ -5980,7 +6348,7 @@ biochemical:
   - reference: PMID:20301627
     reference_title: &#34;Alkaptonuria.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;Alkaptonuria is caused by deficiency of homogentisate&#34;
     explanation: GeneReviews identifies reduced HGD activity as the causal enzyme deficiency.
   - reference: ORPHA:56
@@ -6008,7 +6376,7 @@ genetic:
     - reference: PMID:20301627
       reference_title: &#34;Alkaptonuria.&#34;
       supports: SUPPORT
-      evidence_source: HUMAN_CLINICAL
+      evidence_source: OTHER
       snippet: &#34;to family members) is based on identification of biallelic pathogenic variants&#34;
       explanation: GeneReviews supports biallelic HGD variants as the molecular diagnostic basis.
   variants:
@@ -6047,6 +6415,12 @@ genetic:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;AKU is due to mutations in the homogentisate&#34;
     explanation: Confirms HGD variants as the genetic cause and connects them to the biochemical block.
+  - reference: CGGV:assertion_5186836d-d9c6-4829-a0c9-59548460d6f2-2020-06-29T174125.541Z
+    reference_title: &#34;HGD / alkaptonuria (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;HGD | HGNC:4892 | alkaptonuria | MONDO:0008753 | AR | Definitive&#34;
+    explanation: ClinGen classifies the HGD-alkaptonuria gene-disease relationship as definitive with autosomal recessive inheritance.
 treatments:
 - name: Nitisinone therapy
   description: &gt;
@@ -6074,6 +6448,15 @@ treatments:
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;the study. u-HGA24 at 12 months was significantly decreased by 99·7% in the&#34;
       explanation: SONIA 2 directly supports HGA-lowering as the treatment mechanism.
+  target_phenotypes:
+  - preferred_term: Elevated urinary homogentisic acid
+    term:
+      id: HP:0033704
+      label: Elevated urinary homogentisic acid
+  - preferred_term: Ochronosis
+    term:
+      id: HP:0030764
+      label: Ochronosis
   evidence:
   - reference: PMID:32822600
     reference_title: &#34;Efficacy and safety of once-daily nitisinone for patients with alkaptonuria (SONIA 2): an international, multicentre, open-label, randomised controlled trial.&#34;
@@ -6414,7 +6797,7 @@ on local review of the deterministic evidence caches listed below.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Alkaptonuria", "mondoId": "MONDO:0008753", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Alkaptonuria", "yamlRevision": "6e4beb824dea"};
+        const OS_CONFIG = {"diseaseName": "Alkaptonuria", "mondoId": "MONDO:0008753", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Alkaptonuria", "yamlRevision": "247d2f341e3a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

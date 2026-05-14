@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,7 +2570,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 2</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 18</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Fatty acid oxidation disorder</span>
@@ -2438,7 +2591,7 @@
             </div>
             
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; opacity: 0.95; position: relative;">
-                Medium-chain acyl-CoA dehydrogenase (MCAD) deficiency is the most common inherited disorder of fatty acid beta-oxidation. It is caused by biallelic pathogenic variants in ACADM, which encodes the mitochondrial enzyme responsible for the initial step of medium-chain fatty acid oxidation. Affected individuals cannot metabolize medium-chain fatty acids (C6-C12) during periods of fasting or metabolic stress, leading to hypoketotic hypoglycemia, hepatomegaly, and risk of sudden death. Since inclusion in newborn screening programs, early diagnosis and preventive management have dramatically reduced morbidity and mortality.
+                Medium-chain acyl-CoA dehydrogenase (MCAD) deficiency is the most common inherited disorder of fatty acid beta-oxidation. It is caused by biallelic pathogenic variants in ACADM, which encodes the mitochondrial enzyme responsible for the initial step of medium-chain fatty acid oxidation. Affected individuals cannot metabolize medium-chain fatty acids (C6-C12) during periods of fasting or metabolic stress, leading to impaired hepatic ketogenesis, hypoketotic hypoglycemia, accumulation of medium-chain fatty acid intermediates and acylcarnitines, hepatomegaly, encephalopathy, and risk of sudden death. Since inclusion in newborn screening programs, early diagnosis and preventive management have dramatically reduced morbidity and mortality.
 
             </p>
             
@@ -2555,7 +2708,7 @@
             
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
-                <div class="stat-value">3</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Pathophysiology</div>
             </div>
             </a>
@@ -2569,7 +2722,7 @@
             
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
-                <div class="stat-value">6</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -2577,7 +2730,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">2</div>
+                <div class="stat-value">18</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -2671,42 +2824,29 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">5</span>
             </div>
             
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-medium-chain-fatty-acid-beta-oxidation">
-                <div class="item-name">Impaired medium-chain fatty acid beta-oxidation</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-acadm-molecular-function-deficiency">
+                <div class="item-name">ACADM molecular function deficiency</div>
                 
-                <div class="item-desc">MCAD catalyzes the first step of mitochondrial beta-oxidation for medium-chain fatty acyl-CoAs (C6-C12). Deficiency leads to accumulation of medium-chain acylcarnitines and failure to generate acetyl-CoA and ketone bodies during fasting.
+                <div class="item-desc">Biallelic pathogenic variants in ACADM reduce medium-chain acyl-CoA dehydrogenase activity in the mitochondrial matrix. Many disease-associated missense variants destabilize the MCAD protein, causing misfolding and loss of catalytic function.
 </div>
-                
-                
                 
                 
                 
                 <div class="item-meta">
                     
-                    <span class="tag tag-bio">
-                        fatty acid beta-oxidation
+                    <span class="tag tag-gene">
+                        ACADM
                         
-                        <a href="http://purl.obolibrary.org/obo/GO_0006635" target="_blank" class="linkout">link</a>
+                        <a href="https://bioregistry.io/hgnc:89" target="_blank" class="linkout">link</a>
                         
                     </span>
                     
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
                 </div>
+                
+                
                 
                 
                 <div class="item-meta">
@@ -2720,6 +2860,10 @@
                     
     
     
+    
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
     
     
     
@@ -2749,11 +2893,25 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Impaired medium-chain fatty acid beta-oxidation</span>
+	                            
+	                            <span class="crosslink-desc">Reduced MCAD activity blocks dehydrogenation of C4-C12 acyl-CoA substrates.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -2773,7 +2931,138 @@
                 <div class="evidence-snippet">"Medium chain acyl-CoA dehydrogenase (MCAD) is a tetrameric flavoprotein essential for the beta-oxidation of medium chain fatty acids. MCAD deficiency (MCADD) is an inherited error of fatty acid metabolism."</div>
                 
                 
-                <div class="evidence-explanation">This epidemiological review confirms MCAD is essential for medium-chain fatty acid beta-oxidation and its deficiency causes a metabolic disorder.</div>
+                <div class="evidence-explanation">Human epidemiology review identifies MCAD as the essential enzyme affected in MCAD deficiency.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19224950" target="_blank">PMID:19224950</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Taken together, our results substantiate the hypothesis of protein misfolding with loss-of-function being the common molecular basis in MCADD."</div>
+                
+                
+                <div class="evidence-explanation">Recombinant variant studies support loss of MCAD function through protein misfolding.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+	            </div>
+	            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-medium-chain-fatty-acid-beta-oxidation">
+                <div class="item-name">Impaired medium-chain fatty acid beta-oxidation</div>
+                
+                <div class="item-desc">Impaired mitochondrial oxidation of medium-chain fatty acyl-CoA substrates prevents normal fasting energy production. Reduced fatty acid oxidation limits acetyl-CoA supply for hepatic ketogenesis and diverts medium-chain substrates into alternative conjugated metabolites.
+</div>
+                
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        fatty acid beta-oxidation
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0006635" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-location">
+                        mitochondrial matrix
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0005759" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hypoketotic hypoglycemia mechanism</span>
+	                            
+	                            <span class="crosslink-desc">Impaired fatty acid oxidation prevents compensatory ketogenesis during fasting.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Toxic metabolite accumulation</span>
+	                            
+	                            <span class="crosslink-desc">Blocked MCAD-dependent oxidation causes medium-chain fatty acid and conjugate accumulation.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
+	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29317722" target="_blank">PMID:29317722</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"FAO is the primary biochemical pathway for fueling hepatic ketogenesis, a major source of energy once local glycogen stores have been depleted during times of fasting or high energy requirements."</div>
+                
+                
+                <div class="evidence-explanation">Supports the dependence of fasting hepatic ketogenesis on fatty acid oxidation.</div>
                 
             </div>
             
@@ -2787,15 +3076,54 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypoketotic-hypoglycemia-mechanism">
                 <div class="item-name">Hypoketotic hypoglycemia mechanism</div>
                 
-                <div class="item-desc">During fasting, the body normally switches to fatty acid oxidation for energy. In MCAD deficiency, this pathway is blocked, leading to rapid depletion of glucose stores without compensatory ketogenesis. The resulting hypoketotic hypoglycemia causes encephalopathy and can be fatal.
+                <div class="item-desc">During fasting or intercurrent illness, hepatic glycogen stores become depleted and the liver normally relies on fatty acid oxidation to fuel ketone body production. MCAD deficiency blocks that compensatory response, producing low glucose with inappropriately low ketones and acute neurologic decompensation.
 </div>
                 
                 
                 
                 
                 
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        generation of precursor metabolites and energy
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0006091" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
                 
                 
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-location">
+                        liver
+                        
+                        <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+                </div>
                 
                 
 	                
@@ -2805,9 +3133,65 @@
 	                    <div class="crosslink-list">
 	                        
 	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Blood glucose</span>
+	                            
+	                            <span class="crosslink-desc">Fasting energy failure lowers circulating glucose.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Ketone bodies</span>
+	                            
+	                            <span class="crosslink-desc">Impaired hepatic fatty acid oxidation leaves ketone production inappropriately low.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Hypoketotic hypoglycemia</span>
 	                            
-	                            <span class="crosslink-desc">Blocked fatty acid oxidation prevents ketone body production during fasting.</span>
+	                            <span class="crosslink-desc">Low glucose and low ketone production are the defining acute metabolic phenotype.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Vomiting</span>
+	                            
+	                            <span class="crosslink-desc">Acute metabolic decompensation commonly includes vomiting.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Lethargy</span>
+	                            
+	                            <span class="crosslink-desc">Acute energy failure manifests as lethargy during metabolic decompensation.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hypoglycemic seizures</span>
+	                            
+	                            <span class="crosslink-desc">Severe hypoglycemia can progress to symptomatic seizures.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Encephalopathy</span>
+	                            
+	                            <span class="crosslink-desc">Acute hypoketotic hypoglycemia and energy failure can produce encephalopathy.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Coma</span>
+	                            
+	                            <span class="crosslink-desc">Severe acute decompensation can progress to coma.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Sudden unexpected death</span>
+	                            
+	                            <span class="crosslink-desc">Untreated acute metabolic crises can be fatal.</span>
 	                            
 	                        </div>
 	                        
@@ -2816,13 +3200,43 @@
 	                
 	                
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29317722" target="_blank">PMID:29317722</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Presentation is usually in childhood between the ages of three to 24 months, with patients asymptomatic until a period of prolonged fasting or a common illness triggers symptoms of hypoketotic hypoglycemia, vomiting and lethargy."</div>
+                
+                
+                <div class="evidence-explanation">Published disease background connects fasting or illness to hypoketotic hypoglycemia in MCAD deficiency.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
 	            </div>
 	            
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-toxic-metabolite-accumulation">
                 <div class="item-name">Toxic metabolite accumulation</div>
                 
-                <div class="item-desc">Accumulation of medium-chain fatty acids and their conjugates (octanoate, octanoylcarnitine) may have direct toxic effects on brain and liver tissue. Accumulated acyl-CoA intermediates deplete free coenzyme A and may cause mitochondrial dysfunction.
+                <div class="item-desc">Blocked medium-chain beta-oxidation causes accumulation and urinary excretion of medium-chain dicarboxylic acids, acylglycines, and acylcarnitines. Octanoic and decanoic acid intermediates may impair mitochondrial oxygen consumption and promote oxidative stress.
 </div>
                 
                 
@@ -2870,7 +3284,226 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Urinary dicarboxylic acids</span>
+	                            
+	                            <span class="crosslink-desc">Alternative oxidation produces nonketotic dicarboxylic aciduria.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Urinary octanoylcarnitine</span>
+	                            
+	                            <span class="crosslink-desc">Accumulated medium-chain acyl groups are excreted as octanoylcarnitine.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Urinary acylglycines</span>
+	                            
+	                            <span class="crosslink-desc">Medium-chain acyl-CoA accumulation drives glycine conjugate excretion.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Secondary mitochondrial oxidative phosphorylation dysfunction</span>
+	                            
+	                            <span class="crosslink-desc">Accumulated medium-chain intermediates impair mitochondrial respiration.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
 	                
+	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2380628" target="_blank">PMID:2380628</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Acute episodes are usually characterized biochemically by the appearance of nonketotic dicarboxylic aciduria. In addition, other abnormal metabolites, such as suberylglycine, n-hexanoylglycine, 3-phenylpropionylglycine, and octanoylcarnitine, are excreted in the urine."</div>
+                
+                
+                <div class="evidence-explanation">Human biochemical data document abnormal dicarboxylic acid, acylglycine, and octanoylcarnitine excretion in MCAD deficiency.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29317722" target="_blank">PMID:29317722</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"MCAD deficiency not only disrupts this process, but also results in the accumulation of fatty acid intermediates such as octanoic and decanoic acids."</div>
+                
+                
+                <div class="evidence-explanation">Identifies octanoic and decanoic acids as accumulating intermediates downstream of MCAD deficiency.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+	            </div>
+	            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-mitochondrial-oxidative-phosphorylation-dysfunction">
+                <div class="item-name">Secondary mitochondrial oxidative phosphorylation dysfunction</div>
+                
+                <div class="item-desc">Loss of MCAD in patient fibroblasts and ACADM-targeted cells destabilizes OXPHOS complexes and supercomplexes, reduces mitochondrial oxygen consumption, and increases oxidative stress under respiratory stress. This secondary respiratory-chain dysfunction may contribute to disease pathology beyond the primary beta-oxidation block.
+</div>
+                
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        oxidative phosphorylation
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    <span class="tag tag-bio">
+                        aerobic respiration
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0009060" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-location">
+                        mitochondrial inner membrane
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0005743" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+	                
+	                
+	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29317722" target="_blank">PMID:29317722</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"We found that mitochondrial oxygen consumption in MCAD-deficient patient fibroblasts and gene-targeted MCAD ‘knockout’ (KO) cells was reduced compared to controls."</div>
+                
+                
+                <div class="evidence-explanation">Direct in vitro evidence that MCAD-deficient human fibroblasts and knockout cells have reduced mitochondrial oxygen consumption.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29317722" target="_blank">PMID:29317722</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"We also found a reduction of the steady-state levels of OXPHOS complexes I, III and IV, as well as the OXPHOS supercomplex."</div>
+                
+                
+                <div class="evidence-explanation">Supports destabilization of respiratory-chain complexes and supercomplexes downstream of MCAD loss.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
 	            </div>
@@ -2900,7 +3533,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Hypoketotic hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low blood glucose with inappropriately low or absent ketones during fasting or illness. Classic presenting feature.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001985\"}}, {\"id\": \"Hypoketotic hypoglycemia mechanism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"During fasting, the body normally switches to fatty acid oxidation for energy. In MCAD deficiency, this pathway is blocked, leading to rapid depletion of glucose stores without compensatory ketogenesis. The resulting hypoketotic hypoglycemia causes encephalopathy and can be fatal.\\n\"}], \"edges\": [{\"source\": \"Hypoketotic hypoglycemia mechanism\", \"target\": \"Hypoketotic hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACADM molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in ACADM reduce medium-chain acyl-CoA dehydrogenase activity in the mitochondrial matrix. Many disease-associated missense variants destabilize the MCAD protein, causing misfolding and loss of catalytic function.\\n\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"medium-chain fatty acyl-CoA dehydrogenase activity\"], \"genes\": [\"ACADM\"], \"locations\": [\"mitochondrial matrix\"]}}, {\"id\": \"ACADM variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"ACADM\"]}}, {\"id\": \"Blood glucose\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\"}}, {\"id\": \"Coma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe untreated metabolic decompensation can progress to coma.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001259\"}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute metabolic crises can cause altered mental status and encephalopathy, particularly when severe hypoketotic hypoglycemia is untreated.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001298\"}}, {\"id\": \"Hypoglycemic seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures may occur secondary to severe hypoglycemia.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002173\"}}, {\"id\": \"Hypoketotic hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low blood glucose with inappropriately low or absent ketones during fasting or illness. Classic presenting feature.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001985\"}}, {\"id\": \"Hypoketotic hypoglycemia mechanism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"During fasting or intercurrent illness, hepatic glycogen stores become depleted and the liver normally relies on fatty acid oxidation to fuel ketone body production. MCAD deficiency blocks that compensatory response, producing low glucose with inappropriately low ketones and acute neurologic decompensation.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"generation of precursor metabolites and energy\"], \"locations\": [\"liver\"]}}, {\"id\": \"Impaired medium-chain fatty acid beta-oxidation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired mitochondrial oxidation of medium-chain fatty acyl-CoA substrates prevents normal fasting energy production. Reduced fatty acid oxidation limits acetyl-CoA supply for hepatic ketogenesis and diverts medium-chain substrates into alternative conjugated metabolites.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"fatty acid beta-oxidation\"], \"locations\": [\"mitochondrial matrix\"]}}, {\"id\": \"Ketone bodies\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\"}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive lethargy during metabolic decompensation, may progress to coma.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001254\"}}, {\"id\": \"Secondary mitochondrial oxidative phosphorylation dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of MCAD in patient fibroblasts and ACADM-targeted cells destabilizes OXPHOS complexes and supercomplexes, reduces mitochondrial oxygen consumption, and increases oxidative stress under respiratory stress. This secondary respiratory-chain dysfunction may contribute to disease pathology beyond the primary beta-oxidation block.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"oxidative phosphorylation\", \"aerobic respiration\"], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"Sudden unexpected death\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prior to newborn screening, MCAD deficiency was a significant cause of sudden infant death, often triggered by intercurrent illness.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001699\"}}, {\"id\": \"Toxic metabolite accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Blocked medium-chain beta-oxidation causes accumulation and urinary excretion of medium-chain dicarboxylic acids, acylglycines, and acylcarnitines. Octanoic and decanoic acid intermediates may impair mitochondrial oxygen consumption and promote oxidative stress.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"locations\": [\"liver\"]}}, {\"id\": \"Urinary acylglycines\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Urinary dicarboxylic acids\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Urinary octanoylcarnitine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vomiting is a common symptom during acute metabolic decompensation and can worsen catabolic stress.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002013\"}}], \"edges\": [{\"source\": \"ACADM molecular function deficiency\", \"target\": \"Impaired medium-chain fatty acid beta-oxidation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired medium-chain fatty acid beta-oxidation\", \"target\": \"Hypoketotic hypoglycemia mechanism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired medium-chain fatty acid beta-oxidation\", \"target\": \"Toxic metabolite accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypoketotic hypoglycemia mechanism\", \"target\": \"Blood glucose\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypoketotic hypoglycemia mechanism\", \"target\": \"Ketone bodies\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypoketotic hypoglycemia mechanism\", \"target\": \"Hypoketotic hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypoketotic hypoglycemia mechanism\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypoketotic hypoglycemia mechanism\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypoketotic hypoglycemia mechanism\", \"target\": \"Hypoglycemic seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypoketotic hypoglycemia mechanism\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypoketotic hypoglycemia mechanism\", \"target\": \"Coma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypoketotic hypoglycemia mechanism\", \"target\": \"Sudden unexpected death\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite accumulation\", \"target\": \"Urinary dicarboxylic acids\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite accumulation\", \"target\": \"Urinary octanoylcarnitine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite accumulation\", \"target\": \"Urinary acylglycines\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite accumulation\", \"target\": \"Secondary mitochondrial oxidative phosphorylation dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ACADM variants\", \"target\": \"ACADM molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -2913,19 +3546,21 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">9</span>
             </div>
             
             
             <div class="pheno-toc">
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(2)</span></button>
                 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(2)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(3)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Constitutional<span class="pill-count">(1)</span></button>
+                
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(1)</span></button>
                 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -2935,7 +3570,7 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
                 
                 <div class="item-box phenotype-box">
@@ -2957,6 +3592,90 @@
                     
                     
                     
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11263545" target="_blank">PMID:11263545</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Clinical data on the probability of clinical disease indicates that MCADD patients are at risk for the following outcomes: hypoglycemia, vomiting, lethargy, encephalopathy, respiratory arrest, hepatomegaly, seizures, apnea, cardiac arrest, coma, and sudden and unexpected death."</div>
+                
+                
+                <div class="evidence-explanation">Human clinical data list hepatomegaly as an MCAD deficiency outcome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Vomiting
+                        
+                    
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank">
+                            Vomiting
+                        </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002013)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11263545" target="_blank">PMID:11263545</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Clinical data on the probability of clinical disease indicates that MCADD patients are at risk for the following outcomes: hypoglycemia, vomiting, lethargy, encephalopathy, respiratory arrest, hepatomegaly, seizures, apnea, cardiac arrest, coma, and sudden and unexpected death."</div>
+                
+                
+                <div class="evidence-explanation">Human clinical data list vomiting as an MCAD deficiency outcome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
                     
@@ -2995,7 +3714,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -3016,6 +3735,26 @@
                 
                 
                 <div class="evidence-explanation">This HuGE review of clinical data confirms hypoglycemia as a key clinical outcome in MCAD deficiency patients.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29317722" target="_blank">PMID:29317722</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Presentation is usually in childhood between the ages of three to 24 months, with patients asymptomatic until a period of prolonged fasting or a common illness triggers symptoms of hypoketotic hypoglycemia, vomiting and lethargy."</div>
+                
+                
+                <div class="evidence-explanation">Published disease background explicitly names hypoketotic hypoglycemia.</div>
                 
             </div>
             
@@ -3049,6 +3788,36 @@
                     
                     
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11263545" target="_blank">PMID:11263545</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Clinical data on the probability of clinical disease indicates that MCADD patients are at risk for the following outcomes: hypoglycemia, vomiting, lethargy, encephalopathy, respiratory arrest, hepatomegaly, seizures, apnea, cardiac arrest, coma, and sudden and unexpected death."</div>
+                
+                
+                <div class="evidence-explanation">Human clinical data list seizures among MCAD deficiency outcomes.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
                     
     
@@ -3061,7 +3830,7 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">3</span>
                 </summary>
                 
                 <div class="item-box phenotype-box">
@@ -3084,6 +3853,144 @@
                     
                     
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11263545" target="_blank">PMID:11263545</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Clinical data on the probability of clinical disease indicates that MCADD patients are at risk for the following outcomes: hypoglycemia, vomiting, lethargy, encephalopathy, respiratory arrest, hepatomegaly, seizures, apnea, cardiac arrest, coma, and sudden and unexpected death."</div>
+                
+                
+                <div class="evidence-explanation">Human clinical data list lethargy as an MCAD deficiency outcome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Encephalopathy
+                        
+                    
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0001298" target="_blank">
+                            Encephalopathy
+                        </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001298)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11263545" target="_blank">PMID:11263545</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Clinical data on the probability of clinical disease indicates that MCADD patients are at risk for the following outcomes: hypoglycemia, vomiting, lethargy, encephalopathy, respiratory arrest, hepatomegaly, seizures, apnea, cardiac arrest, coma, and sudden and unexpected death."</div>
+                
+                
+                <div class="evidence-explanation">Human clinical data list encephalopathy as an MCAD deficiency outcome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Coma
+                        
+                    
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0001259" target="_blank">
+                            Coma
+                        </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001259)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11263545" target="_blank">PMID:11263545</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Clinical data on the probability of clinical disease indicates that MCADD patients are at risk for the following outcomes: hypoglycemia, vomiting, lethargy, encephalopathy, respiratory arrest, hepatomegaly, seizures, apnea, cardiac arrest, coma, and sudden and unexpected death."</div>
+                
+                
+                <div class="evidence-explanation">Human clinical data list coma as an MCAD deficiency outcome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
                     
     
@@ -3095,8 +4002,8 @@
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
+                    Constitutional
+                    <span class="cat-count">1</span>
                 </summary>
                 
                 <div class="item-box phenotype-box">
@@ -3106,6 +4013,13 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
                         
                     
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0001699" target="_blank">
+                            Sudden death
+                        </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001699)</span>
+                        </span>
+                        
                     </div>
                     
                     
@@ -3148,6 +4062,15 @@
     
                 </div>
                 
+            </details>
+            
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+                
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Reye-like syndrome
@@ -3160,6 +4083,36 @@
                     
                     
                     
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/3054550" target="_blank">PMID:3054550</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Medium-chain acyl-CoA dehydrogenase (MCAD) deficiency, one of the most common inherited metabolic disorders, is often mistaken for the sudden infant death syndrome or Reye&#39;s syndrome."</div>
+                
+                
+                <div class="evidence-explanation">This clinical diagnostic paper documents Reye syndrome as a common historical misdiagnosis of MCAD deficiency.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
                     
@@ -3222,7 +4175,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (4 references)
+            Show evidence (5 references)
         </summary>
         <div class="evidence-list">
             
@@ -3287,7 +4240,7 @@
             </div>
             
             
-            <div class="evidence-more">+ 1 more reference</div>
+            <div class="evidence-more">+ 2 more references</div>
             
         </div>
     </details>
@@ -3617,6 +4570,297 @@
 
         <!-- Biochemical Markers -->
         
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
+                <h2 class="card-title">Biochemical Markers</h2>
+                <span class="card-count">6</span>
+            </div>
+            
+            <div class="item-box biochemical-box">
+                <div class="item-name">
+                    Blood glucose
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(DECREASED)</span>
+                    
+                </div>
+                
+                <div class="item-desc">Context: Hypoglycemia during fasting or illness is a core biochemical manifestation of MCAD deficiency and reflects depleted glucose stores without adequate fatty-acid-derived ketone support.
+</div>
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11263545" target="_blank">PMID:11263545</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Clinical data on the probability of clinical disease indicates that MCADD patients are at risk for the following outcomes: hypoglycemia, vomiting, lethargy, encephalopathy, respiratory arrest, hepatomegaly, seizures, apnea, cardiac arrest, coma, and sudden and unexpected death."</div>
+                
+                
+                <div class="evidence-explanation">Human clinical data identify hypoglycemia in MCAD deficiency.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box biochemical-box">
+                <div class="item-name">
+                    Ketone bodies
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(DECREASED)</span>
+                    
+                </div>
+                
+                <div class="item-desc">Context: Ketone production is inappropriately low during fasting crises because medium-chain fatty acid beta-oxidation cannot adequately fuel hepatic ketogenesis.
+</div>
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29317722" target="_blank">PMID:29317722</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Presentation is usually in childhood between the ages of three to 24 months, with patients asymptomatic until a period of prolonged fasting or a common illness triggers symptoms of hypoketotic hypoglycemia, vomiting and lethargy."</div>
+                
+                
+                <div class="evidence-explanation">Hypoketotic hypoglycemia supports reduced ketone production during crises.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box biochemical-box">
+                <div class="item-name">
+                    C8 acylcarnitine
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(INCREASED)</span>
+                    
+                </div>
+                
+                <div class="item-desc">Context: Elevated C8 acylcarnitine is the characteristic newborn-screening marker for MCAD deficiency and is interpreted with the C8/C10 acylcarnitine ratio.
+</div>
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29317722" target="_blank">PMID:29317722</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Analysis of her dried blood spot at 5 days of age revealed C8-acylcarnitine levels of 0.44 nmol/mL (normal range &lt; 0.3) and a C8/C10 acylcarnitine ratio of 1.81 (normal range &lt; 1.4)."</div>
+                
+                
+                <div class="evidence-explanation">Patient newborn-screening data document elevated C8 acylcarnitine.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box biochemical-box">
+                <div class="item-name">
+                    Urinary dicarboxylic acids
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(INCREASED)</span>
+                    
+                </div>
+                
+                <div class="item-desc">Context: Acute MCAD deficiency episodes produce nonketotic dicarboxylic aciduria, including disproportionate excretion of unsaturated dicarboxylic acids.
+</div>
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2380628" target="_blank">PMID:2380628</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Acute episodes are usually characterized biochemically by the appearance of nonketotic dicarboxylic aciduria."</div>
+                
+                
+                <div class="evidence-explanation">Directly supports increased urinary dicarboxylic acids.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box biochemical-box">
+                <div class="item-name">
+                    Urinary octanoylcarnitine
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(INCREASED)</span>
+                    
+                </div>
+                
+                <div class="item-desc">Context: Octanoylcarnitine is among the abnormal urinary metabolites excreted when medium-chain fatty acid oxidation is impaired.
+</div>
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2380628" target="_blank">PMID:2380628</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"In addition, other abnormal metabolites, such as suberylglycine, n-hexanoylglycine, 3-phenylpropionylglycine, and octanoylcarnitine, are excreted in the urine."</div>
+                
+                
+                <div class="evidence-explanation">Directly supports urinary octanoylcarnitine excretion.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box biochemical-box">
+                <div class="item-name">
+                    Urinary acylglycines
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(INCREASED)</span>
+                    
+                </div>
+                
+                <div class="item-desc">Context: Increased urinary hexanoylglycine and phenylpropionylglycine are diagnostically specific acylglycine markers of MCAD deficiency.
+</div>
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/3054550" target="_blank">PMID:3054550</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The levels of urinary hexanoylglycine and phenylpropionylglycine were significantly increased in all samples from the patients with MCAD deficiency, clearly distinguishing them from both groups of controls."</div>
+                
+                
+                <div class="evidence-explanation">Directly supports increased urinary acylglycines in MCAD deficiency.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+        </div>
+        
 
         <!-- Differential Diagnoses -->
         
@@ -3646,7 +4890,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Medium Chain Acyl-CoA Dehydrogenase Deficiency
 creation_date: &#39;2026-02-06T03:39:54Z&#39;
-updated_date: &#39;2026-04-03T00:00:00Z&#39;
+updated_date: &#39;2026-05-05T02:27:34Z&#39;
 category: Genetic
 synonyms:
 - MCAD deficiency
@@ -3658,10 +4902,12 @@ description: &gt;
   pathogenic variants in ACADM, which encodes the mitochondrial enzyme
   responsible for the initial step of medium-chain fatty acid oxidation.
   Affected individuals cannot metabolize medium-chain fatty acids (C6-C12)
-  during periods of fasting or metabolic stress, leading to hypoketotic
-  hypoglycemia, hepatomegaly, and risk of sudden death. Since inclusion in
-  newborn screening programs, early diagnosis and preventive management have
-  dramatically reduced morbidity and mortality.
+  during periods of fasting or metabolic stress, leading to impaired hepatic
+  ketogenesis, hypoketotic hypoglycemia, accumulation of medium-chain fatty
+  acid intermediates and acylcarnitines, hepatomegaly, encephalopathy, and
+  risk of sudden death. Since inclusion in newborn screening programs, early
+  diagnosis and preventive management have dramatically reduced morbidity and
+  mortality.
 disease_term:
   preferred_term: medium chain acyl-CoA dehydrogenase deficiency
   term:
@@ -3701,27 +4947,28 @@ prevalence:
       The paper&#39;s conclusion restates the screening-derived prevalence in a
       clinically intuitive form.
 pathophysiology:
-- name: Impaired medium-chain fatty acid beta-oxidation
+- name: ACADM molecular function deficiency
   description: &gt;
-    MCAD catalyzes the first step of mitochondrial beta-oxidation for
-    medium-chain fatty acyl-CoAs (C6-C12). Deficiency leads to accumulation
-    of medium-chain acylcarnitines and failure to generate acetyl-CoA and
-    ketone bodies during fasting.
+    Biallelic pathogenic variants in ACADM reduce medium-chain acyl-CoA
+    dehydrogenase activity in the mitochondrial matrix. Many disease-associated
+    missense variants destabilize the MCAD protein, causing misfolding and
+    loss of catalytic function.
+  genes:
+  - preferred_term: ACADM
+    term:
+      id: hgnc:89
+      label: ACADM
   locations:
   - preferred_term: mitochondrial matrix
     term:
       id: GO:0005759
       label: mitochondrial matrix
-  biological_processes:
-  - preferred_term: fatty acid beta-oxidation
-    term:
-      id: GO:0006635
-      label: fatty acid beta-oxidation
   molecular_functions:
   - preferred_term: medium-chain fatty acyl-CoA dehydrogenase activity
     term:
       id: GO:0070991
       label: medium-chain fatty acyl-CoA dehydrogenase activity
+    modifier: DECREASED
   evidence:
   - reference: PMID:11263545
     reference_title: &#34;Medium chain acyl-CoA dehydrogenase deficiency human genome epidemiology review.&#34;
@@ -3732,24 +4979,296 @@ pathophysiology:
       essential for the beta-oxidation of medium chain fatty acids. MCAD
       deficiency (MCADD) is an inherited error of fatty acid metabolism.
     explanation: &gt;-
-      This epidemiological review confirms MCAD is essential for medium-chain
-      fatty acid beta-oxidation and its deficiency causes a metabolic disorder.
+      Human epidemiology review identifies MCAD as the essential enzyme
+      affected in MCAD deficiency.
+  - reference: PMID:19224950
+    reference_title: &#34;Protein misfolding is the molecular mechanism underlying MCADD identified in newborn screening.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Taken together, our results substantiate the hypothesis of protein
+      misfolding with loss-of-function being the common molecular basis in
+      MCADD.
+    explanation: &gt;-
+      Recombinant variant studies support loss of MCAD function through protein
+      misfolding.
+  downstream:
+  - target: Impaired medium-chain fatty acid beta-oxidation
+    description: Reduced MCAD activity blocks dehydrogenation of C4-C12 acyl-CoA substrates.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:29317722
+      reference_title: &#34;Loss of the Mitochondrial Fatty Acid β-Oxidation Protein Medium-Chain Acyl-Coenzyme A Dehydrogenase Disrupts Oxidative Phosphorylation Protein Complex Stability and Function.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        Medium-chain acyl-CoA dehydrogenase (MCAD, EC 1.3.8.7) is involved in
+        the first reaction of mitochondrial fatty acid β-oxidation (FAO),
+        catalyzing C4 to C12 straight-chain acyl-CoAs1.
+      explanation: &gt;-
+        Defines the direct biochemical reaction lost when ACADM function is
+        deficient.
+- name: Impaired medium-chain fatty acid beta-oxidation
+  description: &gt;
+    Impaired mitochondrial oxidation of medium-chain fatty acyl-CoA substrates
+    prevents normal fasting energy production. Reduced fatty acid oxidation
+    limits acetyl-CoA supply for hepatic ketogenesis and diverts medium-chain
+    substrates into alternative conjugated metabolites.
+  locations:
+  - preferred_term: mitochondrial matrix
+    term:
+      id: GO:0005759
+      label: mitochondrial matrix
+  biological_processes:
+  - preferred_term: fatty acid beta-oxidation
+    term:
+      id: GO:0006635
+      label: fatty acid beta-oxidation
+    modifier: DECREASED
+  chemical_entities:
+  - preferred_term: acetyl-CoA
+    term:
+      id: CHEBI:15351
+      label: acetyl-CoA
+    modifier: DECREASED
+  - preferred_term: ketone body
+    term:
+      id: CHEBI:73693
+      label: ketone body
+    modifier: DECREASED
+  evidence:
+  - reference: PMID:29317722
+    reference_title: &#34;Loss of the Mitochondrial Fatty Acid β-Oxidation Protein Medium-Chain Acyl-Coenzyme A Dehydrogenase Disrupts Oxidative Phosphorylation Protein Complex Stability and Function.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      FAO is the primary biochemical pathway for fueling hepatic ketogenesis,
+      a major source of energy once local glycogen stores have been depleted
+      during times of fasting or high energy requirements.
+    explanation: &gt;-
+      Supports the dependence of fasting hepatic ketogenesis on fatty acid
+      oxidation.
+  downstream:
+  - target: Hypoketotic hypoglycemia mechanism
+    description: Impaired fatty acid oxidation prevents compensatory ketogenesis during fasting.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:29317722
+      reference_title: &#34;Loss of the Mitochondrial Fatty Acid β-Oxidation Protein Medium-Chain Acyl-Coenzyme A Dehydrogenase Disrupts Oxidative Phosphorylation Protein Complex Stability and Function.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        Presentation is usually in childhood between the ages of three to 24
+        months, with patients asymptomatic until a period of prolonged fasting
+        or a common illness triggers symptoms of hypoketotic hypoglycemia,
+        vomiting and lethargy.
+      explanation: &gt;-
+        Links fasting or illness in MCAD deficiency to hypoketotic
+        hypoglycemia.
+  - target: Toxic metabolite accumulation
+    description: Blocked MCAD-dependent oxidation causes medium-chain fatty acid and conjugate accumulation.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:29317722
+      reference_title: &#34;Loss of the Mitochondrial Fatty Acid β-Oxidation Protein Medium-Chain Acyl-Coenzyme A Dehydrogenase Disrupts Oxidative Phosphorylation Protein Complex Stability and Function.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        MCAD deficiency not only disrupts this process, but also results in
+        the accumulation of fatty acid intermediates such as octanoic and
+        decanoic acids.
+      explanation: &gt;-
+        Directly supports medium-chain fatty acid intermediate accumulation
+        downstream of MCAD deficiency.
 - name: Hypoketotic hypoglycemia mechanism
   description: &gt;
-    During fasting, the body normally switches to fatty acid oxidation for
-    energy. In MCAD deficiency, this pathway is blocked, leading to rapid
-    depletion of glucose stores without compensatory ketogenesis. The
-    resulting hypoketotic hypoglycemia causes encephalopathy and can be fatal.
+    During fasting or intercurrent illness, hepatic glycogen stores become
+    depleted and the liver normally relies on fatty acid oxidation to fuel
+    ketone body production. MCAD deficiency blocks that compensatory response,
+    producing low glucose with inappropriately low ketones and acute neurologic
+    decompensation.
+  biological_processes:
+  - preferred_term: generation of precursor metabolites and energy
+    term:
+      id: GO:0006091
+      label: generation of precursor metabolites and energy
+    modifier: DECREASED
+  chemical_entities:
+  - preferred_term: glucose
+    term:
+      id: CHEBI:17234
+      label: glucose
+    modifier: DECREASED
+  - preferred_term: ketone body
+    term:
+      id: CHEBI:73693
+      label: ketone body
+    modifier: DECREASED
+  locations:
+  - preferred_term: liver
+    term:
+      id: UBERON:0002107
+      label: liver
+  evidence:
+  - reference: PMID:29317722
+    reference_title: &#34;Loss of the Mitochondrial Fatty Acid β-Oxidation Protein Medium-Chain Acyl-Coenzyme A Dehydrogenase Disrupts Oxidative Phosphorylation Protein Complex Stability and Function.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Presentation is usually in childhood between the ages of three to 24
+      months, with patients asymptomatic until a period of prolonged fasting
+      or a common illness triggers symptoms of hypoketotic hypoglycemia,
+      vomiting and lethargy.
+    explanation: &gt;-
+      Published disease background connects fasting or illness to hypoketotic
+      hypoglycemia in MCAD deficiency.
   downstream:
+  - target: Blood glucose
+    description: Fasting energy failure lowers circulating glucose.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:11263545
+      reference_title: &#34;Medium chain acyl-CoA dehydrogenase deficiency human genome epidemiology review.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Clinical data on the probability of clinical disease indicates that
+        MCADD patients are at risk for the following outcomes: hypoglycemia,
+        vomiting, lethargy, encephalopathy, respiratory arrest, hepatomegaly,
+        seizures, apnea, cardiac arrest, coma, and sudden and unexpected death.
+      explanation: &gt;-
+        Identifies hypoglycemia as a clinical outcome of MCAD deficiency.
+  - target: Ketone bodies
+    description: Impaired hepatic fatty acid oxidation leaves ketone production inappropriately low.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:29317722
+      reference_title: &#34;Loss of the Mitochondrial Fatty Acid β-Oxidation Protein Medium-Chain Acyl-Coenzyme A Dehydrogenase Disrupts Oxidative Phosphorylation Protein Complex Stability and Function.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        Presentation is usually in childhood between the ages of three to 24
+        months, with patients asymptomatic until a period of prolonged fasting
+        or a common illness triggers symptoms of hypoketotic hypoglycemia,
+        vomiting and lethargy.
+      explanation: &gt;-
+        Hypoketotic hypoglycemia supports inappropriately low ketone
+        production during fasting illness.
   - target: Hypoketotic hypoglycemia
-    description: Blocked fatty acid oxidation prevents ketone body production
-      during fasting.
+    description: Low glucose and low ketone production are the defining acute metabolic phenotype.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:29317722
+      reference_title: &#34;Loss of the Mitochondrial Fatty Acid β-Oxidation Protein Medium-Chain Acyl-Coenzyme A Dehydrogenase Disrupts Oxidative Phosphorylation Protein Complex Stability and Function.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        Presentation is usually in childhood between the ages of three to 24
+        months, with patients asymptomatic until a period of prolonged fasting
+        or a common illness triggers symptoms of hypoketotic hypoglycemia,
+        vomiting and lethargy.
+      explanation: &gt;-
+        Published disease background supports hypoketotic hypoglycemia during
+        fasting or illness.
+  - target: Vomiting
+    description: Acute metabolic decompensation commonly includes vomiting.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:11263545
+      reference_title: &#34;Medium chain acyl-CoA dehydrogenase deficiency human genome epidemiology review.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Clinical data on the probability of clinical disease indicates that
+        MCADD patients are at risk for the following outcomes: hypoglycemia,
+        vomiting, lethargy, encephalopathy, respiratory arrest, hepatomegaly,
+        seizures, apnea, cardiac arrest, coma, and sudden and unexpected death.
+      explanation: &gt;-
+        Human clinical data list vomiting among MCAD deficiency outcomes.
+  - target: Lethargy
+    description: Acute energy failure manifests as lethargy during metabolic decompensation.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:11263545
+      reference_title: &#34;Medium chain acyl-CoA dehydrogenase deficiency human genome epidemiology review.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Clinical data on the probability of clinical disease indicates that
+        MCADD patients are at risk for the following outcomes: hypoglycemia,
+        vomiting, lethargy, encephalopathy, respiratory arrest, hepatomegaly,
+        seizures, apnea, cardiac arrest, coma, and sudden and unexpected death.
+      explanation: &gt;-
+        Human clinical data list lethargy among MCAD deficiency outcomes.
+  - target: Hypoglycemic seizures
+    description: Severe hypoglycemia can progress to symptomatic seizures.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:11263545
+      reference_title: &#34;Medium chain acyl-CoA dehydrogenase deficiency human genome epidemiology review.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Clinical data on the probability of clinical disease indicates that
+        MCADD patients are at risk for the following outcomes: hypoglycemia,
+        vomiting, lethargy, encephalopathy, respiratory arrest, hepatomegaly,
+        seizures, apnea, cardiac arrest, coma, and sudden and unexpected death.
+      explanation: &gt;-
+        Human clinical data list seizures alongside hypoglycemia in MCAD
+        deficiency.
+  - target: Encephalopathy
+    description: Acute hypoketotic hypoglycemia and energy failure can produce encephalopathy.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:11263545
+      reference_title: &#34;Medium chain acyl-CoA dehydrogenase deficiency human genome epidemiology review.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Clinical data on the probability of clinical disease indicates that
+        MCADD patients are at risk for the following outcomes: hypoglycemia,
+        vomiting, lethargy, encephalopathy, respiratory arrest, hepatomegaly,
+        seizures, apnea, cardiac arrest, coma, and sudden and unexpected death.
+      explanation: &gt;-
+        Human clinical data identify encephalopathy as an MCAD deficiency
+        outcome.
+  - target: Coma
+    description: Severe acute decompensation can progress to coma.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:11263545
+      reference_title: &#34;Medium chain acyl-CoA dehydrogenase deficiency human genome epidemiology review.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Clinical data on the probability of clinical disease indicates that
+        MCADD patients are at risk for the following outcomes: hypoglycemia,
+        vomiting, lethargy, encephalopathy, respiratory arrest, hepatomegaly,
+        seizures, apnea, cardiac arrest, coma, and sudden and unexpected death.
+      explanation: &gt;-
+        Human clinical data identify coma as an MCAD deficiency outcome.
+  - target: Sudden unexpected death
+    description: Untreated acute metabolic crises can be fatal.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:11263545
+      reference_title: &#34;Medium chain acyl-CoA dehydrogenase deficiency human genome epidemiology review.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Clinical data on the probability of clinical disease indicates that
+        MCADD patients are at risk for the following outcomes: hypoglycemia,
+        vomiting, lethargy, encephalopathy, respiratory arrest, hepatomegaly,
+        seizures, apnea, cardiac arrest, coma, and sudden and unexpected death.
+      explanation: &gt;-
+        Human clinical data list sudden and unexpected death as an MCAD
+        deficiency outcome.
 - name: Toxic metabolite accumulation
   description: &gt;
-    Accumulation of medium-chain fatty acids and their conjugates (octanoate,
-    octanoylcarnitine) may have direct toxic effects on brain and liver tissue.
-    Accumulated acyl-CoA intermediates deplete free coenzyme A and may cause
-    mitochondrial dysfunction.
+    Blocked medium-chain beta-oxidation causes accumulation and urinary
+    excretion of medium-chain dicarboxylic acids, acylglycines, and
+    acylcarnitines. Octanoic and decanoic acid intermediates may impair
+    mitochondrial oxygen consumption and promote oxidative stress.
   locations:
   - preferred_term: liver
     term:
@@ -3760,6 +5279,150 @@ pathophysiology:
     term:
       id: CL:0000182
       label: hepatocyte
+  chemical_entities:
+  - preferred_term: octanoic acid
+    term:
+      id: CHEBI:28837
+      label: octanoic acid
+    modifier: INCREASED
+  - preferred_term: decanoic acid
+    term:
+      id: CHEBI:30813
+      label: decanoic acid
+    modifier: INCREASED
+  - preferred_term: O-octanoylcarnitine
+    term:
+      id: CHEBI:73039
+      label: O-octanoylcarnitine
+    modifier: INCREASED
+  evidence:
+  - reference: PMID:2380628
+    reference_title: &#34;Abnormal urinary excretion of unsaturated dicarboxylic acids in patients with medium-chain acyl-CoA dehydrogenase deficiency.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Acute episodes are usually characterized biochemically by the appearance
+      of nonketotic dicarboxylic aciduria. In addition, other abnormal
+      metabolites, such as suberylglycine, n-hexanoylglycine,
+      3-phenylpropionylglycine, and octanoylcarnitine, are excreted in the
+      urine.
+    explanation: &gt;-
+      Human biochemical data document abnormal dicarboxylic acid, acylglycine,
+      and octanoylcarnitine excretion in MCAD deficiency.
+  - reference: PMID:29317722
+    reference_title: &#34;Loss of the Mitochondrial Fatty Acid β-Oxidation Protein Medium-Chain Acyl-Coenzyme A Dehydrogenase Disrupts Oxidative Phosphorylation Protein Complex Stability and Function.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      MCAD deficiency not only disrupts this process, but also results in the
+      accumulation of fatty acid intermediates such as octanoic and decanoic
+      acids.
+    explanation: &gt;-
+      Identifies octanoic and decanoic acids as accumulating intermediates
+      downstream of MCAD deficiency.
+  downstream:
+  - target: Urinary dicarboxylic acids
+    description: Alternative oxidation produces nonketotic dicarboxylic aciduria.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:2380628
+      reference_title: &#34;Abnormal urinary excretion of unsaturated dicarboxylic acids in patients with medium-chain acyl-CoA dehydrogenase deficiency.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Acute episodes are usually characterized biochemically by the
+        appearance of nonketotic dicarboxylic aciduria.
+      explanation: &gt;-
+        Directly supports dicarboxylic aciduria during MCAD deficiency acute
+        episodes.
+  - target: Urinary octanoylcarnitine
+    description: Accumulated medium-chain acyl groups are excreted as octanoylcarnitine.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:2380628
+      reference_title: &#34;Abnormal urinary excretion of unsaturated dicarboxylic acids in patients with medium-chain acyl-CoA dehydrogenase deficiency.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        In addition, other abnormal metabolites, such as suberylglycine,
+        n-hexanoylglycine, 3-phenylpropionylglycine, and octanoylcarnitine, are
+        excreted in the urine.
+      explanation: &gt;-
+        Directly supports urinary octanoylcarnitine excretion.
+  - target: Urinary acylglycines
+    description: Medium-chain acyl-CoA accumulation drives glycine conjugate excretion.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:3054550
+      reference_title: &#34;Medium-chain acyl-CoA dehydrogenase deficiency. Diagnosis by stable-isotope dilution measurement of urinary n-hexanoylglycine and 3-phenylpropionylglycine.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        The levels of urinary hexanoylglycine and phenylpropionylglycine were
+        significantly increased in all samples from the patients with MCAD
+        deficiency, clearly distinguishing them from both groups of controls.
+      explanation: &gt;-
+        Directly supports increased urinary acylglycines in MCAD deficiency.
+  - target: Secondary mitochondrial oxidative phosphorylation dysfunction
+    description: Accumulated medium-chain intermediates impair mitochondrial respiration.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:29317722
+      reference_title: &#34;Loss of the Mitochondrial Fatty Acid β-Oxidation Protein Medium-Chain Acyl-Coenzyme A Dehydrogenase Disrupts Oxidative Phosphorylation Protein Complex Stability and Function.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        These intermediates can inhibit mitochondrial oxygen consumption and
+        induce oxidative stress, thereby contributing to the pathogenesis of
+        MCAD deficiency6–8.
+      explanation: &gt;-
+        Supports a mechanistic link from accumulated fatty acid intermediates
+        to mitochondrial respiratory dysfunction and oxidative stress.
+- name: Secondary mitochondrial oxidative phosphorylation dysfunction
+  description: &gt;
+    Loss of MCAD in patient fibroblasts and ACADM-targeted cells destabilizes
+    OXPHOS complexes and supercomplexes, reduces mitochondrial oxygen
+    consumption, and increases oxidative stress under respiratory stress. This
+    secondary respiratory-chain dysfunction may contribute to disease pathology
+    beyond the primary beta-oxidation block.
+  locations:
+  - preferred_term: mitochondrial inner membrane
+    term:
+      id: GO:0005743
+      label: mitochondrial inner membrane
+  biological_processes:
+  - preferred_term: oxidative phosphorylation
+    term:
+      id: GO:0006119
+      label: oxidative phosphorylation
+    modifier: DECREASED
+  - preferred_term: aerobic respiration
+    term:
+      id: GO:0009060
+      label: aerobic respiration
+    modifier: DECREASED
+  evidence:
+  - reference: PMID:29317722
+    reference_title: &#34;Loss of the Mitochondrial Fatty Acid β-Oxidation Protein Medium-Chain Acyl-Coenzyme A Dehydrogenase Disrupts Oxidative Phosphorylation Protein Complex Stability and Function.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      We found that mitochondrial oxygen consumption in MCAD-deficient patient
+      fibroblasts and gene-targeted MCAD ‘knockout’ (KO) cells was reduced
+      compared to controls.
+    explanation: &gt;-
+      Direct in vitro evidence that MCAD-deficient human fibroblasts and
+      knockout cells have reduced mitochondrial oxygen consumption.
+  - reference: PMID:29317722
+    reference_title: &#34;Loss of the Mitochondrial Fatty Acid β-Oxidation Protein Medium-Chain Acyl-Coenzyme A Dehydrogenase Disrupts Oxidative Phosphorylation Protein Complex Stability and Function.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      We also found a reduction of the steady-state levels of OXPHOS complexes
+      I, III and IV, as well as the OXPHOS supercomplex.
+    explanation: &gt;-
+      Supports destabilization of respiratory-chain complexes and
+      supercomplexes downstream of MCAD loss.
 phenotypes:
 - name: Hypoketotic hypoglycemia
   frequency: FREQUENT
@@ -3784,6 +5447,16 @@ phenotypes:
     explanation: &gt;-
       This HuGE review of clinical data confirms hypoglycemia as a key
       clinical outcome in MCAD deficiency patients.
+  - reference: PMID:29317722
+    reference_title: &#34;Loss of the Mitochondrial Fatty Acid β-Oxidation Protein Medium-Chain Acyl-Coenzyme A Dehydrogenase Disrupts Oxidative Phosphorylation Protein Complex Stability and Function.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Presentation is usually in childhood between the ages of three to 24
+      months, with patients asymptomatic until a period of prolonged fasting
+      or a common illness triggers symptoms of hypoketotic hypoglycemia,
+      vomiting and lethargy.
+    explanation: Published disease background explicitly names hypoketotic hypoglycemia.
 - name: Hepatomegaly
   frequency: FREQUENT
   description: &gt;
@@ -3793,6 +5466,17 @@ phenotypes:
     term:
       id: HP:0002240
       label: Hepatomegaly
+  evidence:
+  - reference: PMID:11263545
+    reference_title: &#34;Medium chain acyl-CoA dehydrogenase deficiency human genome epidemiology review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Clinical data on the probability of clinical disease indicates that
+      MCADD patients are at risk for the following outcomes: hypoglycemia,
+      vomiting, lethargy, encephalopathy, respiratory arrest, hepatomegaly,
+      seizures, apnea, cardiac arrest, coma, and sudden and unexpected death.
+    explanation: Human clinical data list hepatomegaly as an MCAD deficiency outcome.
 - name: Lethargy
   frequency: FREQUENT
   description: &gt;
@@ -3802,6 +5486,37 @@ phenotypes:
     term:
       id: HP:0001254
       label: Lethargy
+  evidence:
+  - reference: PMID:11263545
+    reference_title: &#34;Medium chain acyl-CoA dehydrogenase deficiency human genome epidemiology review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Clinical data on the probability of clinical disease indicates that
+      MCADD patients are at risk for the following outcomes: hypoglycemia,
+      vomiting, lethargy, encephalopathy, respiratory arrest, hepatomegaly,
+      seizures, apnea, cardiac arrest, coma, and sudden and unexpected death.
+    explanation: Human clinical data list lethargy as an MCAD deficiency outcome.
+- name: Vomiting
+  description: &gt;
+    Vomiting is a common symptom during acute metabolic decompensation and can
+    worsen catabolic stress.
+  phenotype_term:
+    preferred_term: Vomiting
+    term:
+      id: HP:0002013
+      label: Vomiting
+  evidence:
+  - reference: PMID:11263545
+    reference_title: &#34;Medium chain acyl-CoA dehydrogenase deficiency human genome epidemiology review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Clinical data on the probability of clinical disease indicates that
+      MCADD patients are at risk for the following outcomes: hypoglycemia,
+      vomiting, lethargy, encephalopathy, respiratory arrest, hepatomegaly,
+      seizures, apnea, cardiac arrest, coma, and sudden and unexpected death.
+    explanation: Human clinical data list vomiting as an MCAD deficiency outcome.
 - name: Hypoglycemic seizures
   frequency: OCCASIONAL
   description: &gt;
@@ -3811,11 +5526,66 @@ phenotypes:
     term:
       id: HP:0002173
       label: Hypoglycemic seizures
+  evidence:
+  - reference: PMID:11263545
+    reference_title: &#34;Medium chain acyl-CoA dehydrogenase deficiency human genome epidemiology review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Clinical data on the probability of clinical disease indicates that
+      MCADD patients are at risk for the following outcomes: hypoglycemia,
+      vomiting, lethargy, encephalopathy, respiratory arrest, hepatomegaly,
+      seizures, apnea, cardiac arrest, coma, and sudden and unexpected death.
+    explanation: Human clinical data list seizures among MCAD deficiency outcomes.
+- name: Encephalopathy
+  description: &gt;
+    Acute metabolic crises can cause altered mental status and encephalopathy,
+    particularly when severe hypoketotic hypoglycemia is untreated.
+  phenotype_term:
+    preferred_term: Encephalopathy
+    term:
+      id: HP:0001298
+      label: Encephalopathy
+  evidence:
+  - reference: PMID:11263545
+    reference_title: &#34;Medium chain acyl-CoA dehydrogenase deficiency human genome epidemiology review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Clinical data on the probability of clinical disease indicates that
+      MCADD patients are at risk for the following outcomes: hypoglycemia,
+      vomiting, lethargy, encephalopathy, respiratory arrest, hepatomegaly,
+      seizures, apnea, cardiac arrest, coma, and sudden and unexpected death.
+    explanation: Human clinical data list encephalopathy as an MCAD deficiency outcome.
+- name: Coma
+  description: &gt;
+    Severe untreated metabolic decompensation can progress to coma.
+  phenotype_term:
+    preferred_term: Coma
+    term:
+      id: HP:0001259
+      label: Coma
+  evidence:
+  - reference: PMID:11263545
+    reference_title: &#34;Medium chain acyl-CoA dehydrogenase deficiency human genome epidemiology review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Clinical data on the probability of clinical disease indicates that
+      MCADD patients are at risk for the following outcomes: hypoglycemia,
+      vomiting, lethargy, encephalopathy, respiratory arrest, hepatomegaly,
+      seizures, apnea, cardiac arrest, coma, and sudden and unexpected death.
+    explanation: Human clinical data list coma as an MCAD deficiency outcome.
 - name: Sudden unexpected death
   frequency: OCCASIONAL
   description: &gt;
     Prior to newborn screening, MCAD deficiency was a significant cause of
     sudden infant death, often triggered by intercurrent illness.
+  phenotype_term:
+    preferred_term: Sudden death
+    term:
+      id: HP:0001699
+      label: Sudden death
   evidence:
   - reference: PMID:3054550
     reference_title: &#34;Medium-chain acyl-CoA dehydrogenase deficiency. Diagnosis by stable-isotope dilution measurement of urinary n-hexanoylglycine and 3-phenylpropionylglycine.&#34;
@@ -3834,8 +5604,119 @@ phenotypes:
   description: &gt;
     Acute encephalopathy with fatty liver resembling Reye syndrome may occur
     during metabolic crises.
+  evidence:
+  - reference: PMID:3054550
+    reference_title: &#34;Medium-chain acyl-CoA dehydrogenase deficiency. Diagnosis by stable-isotope dilution measurement of urinary n-hexanoylglycine and 3-phenylpropionylglycine.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Medium-chain acyl-CoA dehydrogenase (MCAD) deficiency, one of the most
+      common inherited metabolic disorders, is often mistaken for the sudden
+      infant death syndrome or Reye&#39;s syndrome.
+    explanation: &gt;-
+      This clinical diagnostic paper documents Reye syndrome as a common
+      historical misdiagnosis of MCAD deficiency.
+biochemical:
+- name: Blood glucose
+  presence: DECREASED
+  context: &gt;
+    Hypoglycemia during fasting or illness is a core biochemical manifestation
+    of MCAD deficiency and reflects depleted glucose stores without adequate
+    fatty-acid-derived ketone support.
+  evidence:
+  - reference: PMID:11263545
+    reference_title: &#34;Medium chain acyl-CoA dehydrogenase deficiency human genome epidemiology review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Clinical data on the probability of clinical disease indicates that
+      MCADD patients are at risk for the following outcomes: hypoglycemia,
+      vomiting, lethargy, encephalopathy, respiratory arrest, hepatomegaly,
+      seizures, apnea, cardiac arrest, coma, and sudden and unexpected death.
+    explanation: Human clinical data identify hypoglycemia in MCAD deficiency.
+- name: Ketone bodies
+  presence: DECREASED
+  context: &gt;
+    Ketone production is inappropriately low during fasting crises because
+    medium-chain fatty acid beta-oxidation cannot adequately fuel hepatic
+    ketogenesis.
+  evidence:
+  - reference: PMID:29317722
+    reference_title: &#34;Loss of the Mitochondrial Fatty Acid β-Oxidation Protein Medium-Chain Acyl-Coenzyme A Dehydrogenase Disrupts Oxidative Phosphorylation Protein Complex Stability and Function.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Presentation is usually in childhood between the ages of three to 24
+      months, with patients asymptomatic until a period of prolonged fasting
+      or a common illness triggers symptoms of hypoketotic hypoglycemia,
+      vomiting and lethargy.
+    explanation: Hypoketotic hypoglycemia supports reduced ketone production during crises.
+- name: C8 acylcarnitine
+  presence: INCREASED
+  context: &gt;
+    Elevated C8 acylcarnitine is the characteristic newborn-screening marker
+    for MCAD deficiency and is interpreted with the C8/C10 acylcarnitine ratio.
+  evidence:
+  - reference: PMID:29317722
+    reference_title: &#34;Loss of the Mitochondrial Fatty Acid β-Oxidation Protein Medium-Chain Acyl-Coenzyme A Dehydrogenase Disrupts Oxidative Phosphorylation Protein Complex Stability and Function.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Analysis of her dried blood spot at 5 days of age revealed
+      C8-acylcarnitine levels of 0.44 nmol/mL (normal range &lt; 0.3) and a
+      C8/C10 acylcarnitine ratio of 1.81 (normal range &lt; 1.4).
+    explanation: Patient newborn-screening data document elevated C8 acylcarnitine.
+- name: Urinary dicarboxylic acids
+  presence: INCREASED
+  context: &gt;
+    Acute MCAD deficiency episodes produce nonketotic dicarboxylic aciduria,
+    including disproportionate excretion of unsaturated dicarboxylic acids.
+  evidence:
+  - reference: PMID:2380628
+    reference_title: &#34;Abnormal urinary excretion of unsaturated dicarboxylic acids in patients with medium-chain acyl-CoA dehydrogenase deficiency.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Acute episodes are usually characterized biochemically by the appearance
+      of nonketotic dicarboxylic aciduria.
+    explanation: Directly supports increased urinary dicarboxylic acids.
+- name: Urinary octanoylcarnitine
+  presence: INCREASED
+  context: &gt;
+    Octanoylcarnitine is among the abnormal urinary metabolites excreted when
+    medium-chain fatty acid oxidation is impaired.
+  evidence:
+  - reference: PMID:2380628
+    reference_title: &#34;Abnormal urinary excretion of unsaturated dicarboxylic acids in patients with medium-chain acyl-CoA dehydrogenase deficiency.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      In addition, other abnormal metabolites, such as suberylglycine,
+      n-hexanoylglycine, 3-phenylpropionylglycine, and octanoylcarnitine, are
+      excreted in the urine.
+    explanation: Directly supports urinary octanoylcarnitine excretion.
+- name: Urinary acylglycines
+  presence: INCREASED
+  context: &gt;
+    Increased urinary hexanoylglycine and phenylpropionylglycine are
+    diagnostically specific acylglycine markers of MCAD deficiency.
+  evidence:
+  - reference: PMID:3054550
+    reference_title: &#34;Medium-chain acyl-CoA dehydrogenase deficiency. Diagnosis by stable-isotope dilution measurement of urinary n-hexanoylglycine and 3-phenylpropionylglycine.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The levels of urinary hexanoylglycine and phenylpropionylglycine were
+      significantly increased in all samples from the patients with MCAD
+      deficiency, clearly distinguishing them from both groups of controls.
+    explanation: Directly supports increased urinary acylglycines in MCAD deficiency.
 genetic:
 - name: ACADM variants
+  gene_term:
+    preferred_term: ACADM
+    term:
+      id: hgnc:89
+      label: ACADM
   inheritance:
   - name: Autosomal recessive
   features: &gt;
@@ -3891,6 +5772,12 @@ genetic:
     explanation: &gt;-
       Meta-analysis of 43 studies quantifies regional variation in c.985A&gt;G
       frequency, supporting the northwestern European founder effect.
+  - reference: CGGV:assertion_fb987774-0e5b-4466-924f-6f19fccc6599-2018-01-23T170000.000Z
+    reference_title: &#34;ACADM / medium chain acyl-CoA dehydrogenase deficiency (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;ACADM | HGNC:89 | medium chain acyl-CoA dehydrogenase deficiency | MONDO:0008721 | AR | Definitive&#34;
+    explanation: ClinGen classifies the ACADM-medium chain acyl-CoA dehydrogenase deficiency gene-disease relationship as definitive with autosomal recessive inheritance.
 treatments:
 - name: Avoidance of fasting
   description: &gt;
@@ -3977,44 +5864,34 @@ treatments:
       label: dietary intervention
 references:
 - reference: DOI:10.1002/edm2.385
-  title: &#39;Medium‐chain Acyl‐COA dehydrogenase deficiency: Pathogenesis, diagnosis,
-    and treatment&#39;
+  title: &#39;Medium‐chain Acyl‐COA dehydrogenase deficiency: Pathogenesis, diagnosis, and treatment&#39;
   findings: []
 - reference: DOI:10.1073/pnas.93.25.14355
-  title: Three-dimensional structure of human electron transfer flavoprotein to
-    2.1-Å resolution
+  title: Three-dimensional structure of human electron transfer flavoprotein to 2.1-Å resolution
   findings: []
 - reference: DOI:10.1111/j.1399-0004.2007.00809.x
-  title: Assessment of the prevalence of the 985A&amp;gt;G MCAD mutation in the
-    French‐Canadian population using allele‐specific PCR
+  title: Assessment of the prevalence of the 985A&amp;gt;G MCAD mutation in the French‐Canadian population using allele‐specific PCR
   findings: []
 - reference: DOI:10.1126/science.6857268
-  title: &#39;Dicarboxylic Aciduria: Deficient [1- &lt;sup&gt;14&lt;/sup&gt; C]Octanoate Oxidation
-    and Medium-Chain Acyl-CoA Dehydrogenase in Fibroblasts&#39;
+  title: &#39;Dicarboxylic Aciduria: Deficient [1- &lt;sup&gt;14&lt;/sup&gt; C]Octanoate Oxidation and Medium-Chain Acyl-CoA Dehydrogenase in Fibroblasts&#39;
   findings: []
 - reference: DOI:10.3389/fmed.2021.809118
   title: &#39;Gene Therapy Advances: A Meta-Analysis of AAV Usage in Clinical Settings&#39;
   findings: []
 - reference: PMID:19224950
-  title: Protein misfolding is the molecular mechanism underlying MCADD
-    identified in newborn screening.
+  title: Protein misfolding is the molecular mechanism underlying MCADD identified in newborn screening.
   findings: []
 - reference: PMID:2380628
-  title: Abnormal urinary excretion of unsaturated dicarboxylic acids in
-    patients with medium-chain acyl-CoA dehydrogenase deficiency.
+  title: Abnormal urinary excretion of unsaturated dicarboxylic acids in patients with medium-chain acyl-CoA dehydrogenase deficiency.
   findings: []
 - reference: PMID:29317722
-  title: Loss of the Mitochondrial Fatty Acid β-Oxidation Protein Medium-Chain
-    Acyl-Coenzyme A Dehydrogenase Disrupts Oxidative Phosphorylation Protein
-    Complex Stability and Function.
+  title: Loss of the Mitochondrial Fatty Acid β-Oxidation Protein Medium-Chain Acyl-Coenzyme A Dehydrogenase Disrupts Oxidative Phosphorylation Protein Complex Stability and Function.
   findings: []
 - reference: PMID:33975883
-  title: Suppression of ACADM-Mediated Fatty Acid Oxidation Promotes
-    Hepatocellular Carcinoma via Aberrant CAV1/SREBP1 Signaling.
+  title: Suppression of ACADM-Mediated Fatty Acid Oxidation Promotes Hepatocellular Carcinoma via Aberrant CAV1/SREBP1 Signaling.
   findings: []
 - reference: PMID:7904584
-  title: &#39;Medium-chain acyl-CoA dehydrogenase (MCAD) deficiency: the prevalent mutation
-    G985 (K304E) is subject to a strong founder effect from northwestern Europe.&#39;
+  title: &#39;Medium-chain acyl-CoA dehydrogenase (MCAD) deficiency: the prevalent mutation G985 (K304E) is subject to a strong founder effect from northwestern Europe.&#39;
   findings: []
 </pre>
             </div>
@@ -4437,7 +6314,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Medium Chain Acyl-CoA Dehydrogenase Deficiency", "mondoId": "MONDO:0008721", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Medium_Chain_Acyl-CoA_Dehydrogenase_Deficiency", "yamlRevision": "389718d12239"};
+        const OS_CONFIG = {"diseaseName": "Medium Chain Acyl-CoA Dehydrogenase Deficiency", "mondoId": "MONDO:0008721", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Medium_Chain_Acyl-CoA_Dehydrogenase_Deficiency", "yamlRevision": "0cae08c16fdd"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

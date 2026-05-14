@@ -67,9 +67,24 @@ def test_disorder_has_required_fields(filepath):
 
 @pytest.mark.parametrize("filepath", DISORDER_FILES)
 def test_evidence_items_have_references(filepath):
-    """Test that evidence items have PMID or DOI references."""
+    """Test that evidence items use supported reference prefixes."""
     with open(filepath) as f:
         data = yaml.safe_load(f)
+
+    allowed_reference_prefixes = (
+        "PMID:",
+        "DOI:",
+        "clinicaltrials:",
+        "file:",
+        "url:",
+        "GEO:",
+        "ORPHA:",
+        "CGGV:",
+        "CGDS:",
+        "CIVIC_ASSERTION:",
+        "CIVIC_EID:",
+    )
+    allowed_prefix_message = ", ".join(allowed_reference_prefixes)
 
     def check_evidence(evidence_list, path):
         """Recursively check evidence items for references."""
@@ -81,18 +96,10 @@ def test_evidence_items_have_references(filepath):
                 errors.append(f"{path}[{i}]: missing reference")
             elif not any(
                 item["reference"].startswith(prefix)
-                for prefix in (
-                    "PMID:",
-                    "DOI:",
-                    "clinicaltrials:",
-                    "file:",
-                    "url:",
-                    "GEO:",
-                    "ORPHA:",
-                )
+                for prefix in allowed_reference_prefixes
             ):
                 errors.append(
-                    f"{path}[{i}]: reference should start with PMID:, DOI:, clinicaltrials:, file:, url:, GEO:, or ORPHA: got {item['reference']}"
+                    f"{path}[{i}]: reference should start with {allowed_prefix_message}: got {item['reference']}"
                 )
         return errors
 

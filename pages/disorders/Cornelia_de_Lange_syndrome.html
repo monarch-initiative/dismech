@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,7 +2570,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 18</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 21</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">cohesinopathy</span>
@@ -2589,7 +2742,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">18</div>
+                <div class="stat-value">21</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -2597,7 +2750,7 @@
             
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
-                <div class="stat-value">4</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
@@ -3945,7 +4098,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cohesin pathway gene disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CdLS is caused by pathogenic variants in genes encoding cohesin structural proteins or regulators, including NIPBL, SMC1A, SMC3, RAD21, HDAC8, and BRD4. NIPBL encodes the delangin/cohesin-loading factor, and many cases are driven by reduced dosage or impaired function of this pathway.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"sister chromatid cohesion\", \"chromatin organization\"], \"genes\": [\"NIPBL\", \"SMC1A\", \"SMC3\", \"RAD21\", \"HDAC8\", \"BRD4\"]}}, {\"id\": \"Craniofacial and limb morphogenesis abnormalities\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CdLS shows a recognizable craniofacial gestalt and upper-limb/hand-foot malformations, including synophrys, thick eyebrows, long eyelashes, micrognathia, small hands, micromelia, and oligodactyly.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"embryo development\"]}}, {\"id\": \"De novo NIPBL pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"NIPBL\"]}}, {\"id\": \"Developmental transcriptional dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Human CdLS cell lines and Nipbl-deficient model systems show widespread modest transcriptional changes whose aggregate effects perturb embryonic development. Cohesin can affect RNA polymerase II initiation and elongation, providing a mechanistic link from cohesin gene variants to multisystem developmental phenotypes.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"regulation of transcription by RNA polymerase II\", \"epigenetic regulation of gene expression\", \"embryo development\"]}}, {\"id\": \"Feeding and visceral malformations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CdLS commonly includes feeding difficulties and gastroesophageal reflux, and can include renal, genital, cardiac, diaphragmatic, intestinal, and other visceral malformations.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Feeding difficulties in infancy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulty is frequent in infancy and is part of the core care burden.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0008872\"}}, {\"id\": \"Gastroesophageal reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gastroesophageal reflux is a very frequent GI manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002020\"}}, {\"id\": \"Growth and neurodevelopmental impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disrupted cohesin-regulated developmental transcription contributes to antenatal and postnatal growth restriction, microcephaly, intellectual disability, speech impairment, tone abnormalities, autism, anxiety, and other neurobehavioral manifestations.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"embryo development\"]}}, {\"id\": \"Impaired cohesin loading and chromatin organization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NIPBL facilitates cohesin loading and cohesin binding to regulatory regions. CdLS-associated NIPBL or cohesin subunit dysfunction perturbs cohesin binding, chromatin regulatory architecture, and enhancer/promoter control.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"chromatin organization\"], \"molecular_functions\": [\"chromatin binding\", \"transcription cis-regulatory region binding\"], \"genes\": [\"NIPBL\", \"SMC1A\", \"SMC3\"]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability ranges from mild to profound in CdLS.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Intrauterine growth retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Antenatal growth restriction is frequent and can be apparent before birth.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001511\"}}, {\"id\": \"Micromelia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Limb shortening is part of the severe end of the CdLS limb-reduction spectrum.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002983\"}}, {\"id\": \"NIPBL germline pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"NIPBL\"]}}, {\"id\": \"NIPBL somatic mosaicism\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"NIPBL\"]}}, {\"id\": \"Oligodactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reductional limb defects can include missing digits.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012165\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postnatal growth restriction and short stature are very frequent in CdLS.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Synophrys\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Synophrys is a very frequent component of the CdLS facial gestalt.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000664\"}}, {\"id\": \"Ventricular septal defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital heart defects can include ventricular septal defect.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001629\"}}], \"edges\": [{\"source\": \"Cohesin pathway gene disruption\", \"target\": \"Impaired cohesin loading and chromatin organization\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired cohesin loading and chromatin organization\", \"target\": \"Developmental transcriptional dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Developmental transcriptional dysregulation\", \"target\": \"Craniofacial and limb morphogenesis abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Developmental transcriptional dysregulation\", \"target\": \"Growth and neurodevelopmental impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Developmental transcriptional dysregulation\", \"target\": \"Feeding and visceral malformations\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial and limb morphogenesis abnormalities\", \"target\": \"Synophrys\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial and limb morphogenesis abnormalities\", \"target\": \"Micromelia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial and limb morphogenesis abnormalities\", \"target\": \"Oligodactyly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Growth and neurodevelopmental impairment\", \"target\": \"Intrauterine growth retardation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Growth and neurodevelopmental impairment\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Growth and neurodevelopmental impairment\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Feeding and visceral malformations\", \"target\": \"Feeding difficulties in infancy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Feeding and visceral malformations\", \"target\": \"Gastroesophageal reflux\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Feeding and visceral malformations\", \"target\": \"Ventricular septal defect\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"NIPBL germline pathogenic variants\", \"target\": \"Cohesin pathway gene disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NIPBL germline pathogenic variants\", \"target\": \"Impaired cohesin loading and chromatin organization\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"De novo NIPBL pathogenic variants\", \"target\": \"Cohesin pathway gene disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"De novo NIPBL pathogenic variants\", \"target\": \"Impaired cohesin loading and chromatin organization\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NIPBL somatic mosaicism\", \"target\": \"Cohesin pathway gene disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NIPBL somatic mosaicism\", \"target\": \"Impaired cohesin loading and chromatin organization\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cohesin pathway gene disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CdLS is caused by pathogenic variants in genes encoding cohesin structural proteins or regulators, including NIPBL, SMC1A, SMC3, RAD21, HDAC8, and BRD4. NIPBL encodes the delangin/cohesin-loading factor, and many cases are driven by reduced dosage or impaired function of this pathway.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"sister chromatid cohesion\", \"chromatin organization\"], \"genes\": [\"NIPBL\", \"SMC1A\", \"SMC3\", \"RAD21\", \"HDAC8\", \"BRD4\"]}}, {\"id\": \"Craniofacial and limb morphogenesis abnormalities\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CdLS shows a recognizable craniofacial gestalt and upper-limb/hand-foot malformations, including synophrys, thick eyebrows, long eyelashes, micrognathia, small hands, micromelia, and oligodactyly.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"embryo development\"]}}, {\"id\": \"De novo NIPBL pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"NIPBL\"]}}, {\"id\": \"Developmental transcriptional dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Human CdLS cell lines and Nipbl-deficient model systems show widespread modest transcriptional changes whose aggregate effects perturb embryonic development. Cohesin can affect RNA polymerase II initiation and elongation, providing a mechanistic link from cohesin gene variants to multisystem developmental phenotypes.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"regulation of transcription by RNA polymerase II\", \"epigenetic regulation of gene expression\", \"embryo development\"]}}, {\"id\": \"Feeding and visceral malformations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CdLS commonly includes feeding difficulties and gastroesophageal reflux, and can include renal, genital, cardiac, diaphragmatic, intestinal, and other visceral malformations.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Feeding difficulties in infancy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulty is frequent in infancy and is part of the core care burden.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0008872\"}}, {\"id\": \"Gastroesophageal reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gastroesophageal reflux is a very frequent GI manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002020\"}}, {\"id\": \"Growth and neurodevelopmental impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disrupted cohesin-regulated developmental transcription contributes to antenatal and postnatal growth restriction, microcephaly, intellectual disability, speech impairment, tone abnormalities, autism, anxiety, and other neurobehavioral manifestations.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"embryo development\"]}}, {\"id\": \"HDAC8\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"HDAC8\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Impaired cohesin loading and chromatin organization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NIPBL facilitates cohesin loading and cohesin binding to regulatory regions. CdLS-associated NIPBL or cohesin subunit dysfunction perturbs cohesin binding, chromatin regulatory architecture, and enhancer/promoter control.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"chromatin organization\"], \"molecular_functions\": [\"chromatin binding\", \"transcription cis-regulatory region binding\"], \"genes\": [\"NIPBL\", \"SMC1A\", \"SMC3\"]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability ranges from mild to profound in CdLS.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Intrauterine growth retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Antenatal growth restriction is frequent and can be apparent before birth.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001511\"}}, {\"id\": \"Micromelia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Limb shortening is part of the severe end of the CdLS limb-reduction spectrum.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002983\"}}, {\"id\": \"NIPBL germline pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"NIPBL\"]}}, {\"id\": \"NIPBL somatic mosaicism\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"NIPBL\"]}}, {\"id\": \"Oligodactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reductional limb defects can include missing digits.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012165\"}}, {\"id\": \"RAD21\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"RAD21\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"SMC3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SMC3\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postnatal growth restriction and short stature are very frequent in CdLS.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Synophrys\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Synophrys is a very frequent component of the CdLS facial gestalt.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000664\"}}, {\"id\": \"Ventricular septal defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital heart defects can include ventricular septal defect.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001629\"}}], \"edges\": [{\"source\": \"Cohesin pathway gene disruption\", \"target\": \"Impaired cohesin loading and chromatin organization\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired cohesin loading and chromatin organization\", \"target\": \"Developmental transcriptional dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Developmental transcriptional dysregulation\", \"target\": \"Craniofacial and limb morphogenesis abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Developmental transcriptional dysregulation\", \"target\": \"Growth and neurodevelopmental impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Developmental transcriptional dysregulation\", \"target\": \"Feeding and visceral malformations\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial and limb morphogenesis abnormalities\", \"target\": \"Synophrys\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial and limb morphogenesis abnormalities\", \"target\": \"Micromelia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial and limb morphogenesis abnormalities\", \"target\": \"Oligodactyly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Growth and neurodevelopmental impairment\", \"target\": \"Intrauterine growth retardation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Growth and neurodevelopmental impairment\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Growth and neurodevelopmental impairment\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Feeding and visceral malformations\", \"target\": \"Feeding difficulties in infancy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Feeding and visceral malformations\", \"target\": \"Gastroesophageal reflux\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Feeding and visceral malformations\", \"target\": \"Ventricular septal defect\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"NIPBL germline pathogenic variants\", \"target\": \"Cohesin pathway gene disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NIPBL germline pathogenic variants\", \"target\": \"Impaired cohesin loading and chromatin organization\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"De novo NIPBL pathogenic variants\", \"target\": \"Cohesin pathway gene disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"De novo NIPBL pathogenic variants\", \"target\": \"Impaired cohesin loading and chromatin organization\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NIPBL somatic mosaicism\", \"target\": \"Cohesin pathway gene disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NIPBL somatic mosaicism\", \"target\": \"Impaired cohesin loading and chromatin organization\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HDAC8\", \"target\": \"Cohesin pathway gene disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RAD21\", \"target\": \"Cohesin pathway gene disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SMC3\", \"target\": \"Cohesin pathway gene disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SMC3\", \"target\": \"Impaired cohesin loading and chromatin organization\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6045,7 +6198,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">4</span>
+                <span class="card-count">7</span>
             </div>
             
             <div class="item-box genetic-box">
@@ -6058,7 +6211,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
             
@@ -6122,6 +6275,8 @@
                 
             </div>
             
+            
+            <div class="evidence-more">+ 1 more reference</div>
             
         </div>
     </details>
@@ -6327,6 +6482,135 @@
             
             
             <div class="evidence-more">+ 1 more reference</div>
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    HDAC8
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_a7d29159-4c90-488e-a4e1-b006d70ae762-2018-09-10T220000.000Z" target="_blank">CGGV:assertion_a7d29159-4c90-488e-a4e1-b006d70ae762-2018-09-10T220000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"HDAC8 | HGNC:13315 | Cornelia de Lange syndrome | MONDO:0016033 | XL | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the HDAC8-Cornelia de Lange syndrome gene-disease relationship as definitive with X-linked inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    RAD21
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_30ad5023-6c68-42ab-b8ea-a601a134eaf6-2020-01-08T170000.000Z" target="_blank">CGGV:assertion_30ad5023-6c68-42ab-b8ea-a601a134eaf6-2020-01-08T170000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"RAD21 | HGNC:9811 | Cornelia de Lange syndrome | MONDO:0016033 | AD | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the RAD21-Cornelia de Lange syndrome gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    SMC3
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_9467eaad-a86a-4b24-8cd4-98ebb57121c1-2020-04-07T160000.000Z" target="_blank">CGGV:assertion_9467eaad-a86a-4b24-8cd4-98ebb57121c1-2020-04-07T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"SMC3 | HGNC:2468 | Cornelia de Lange syndrome | MONDO:0016033 | AD | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the SMC3-Cornelia de Lange syndrome gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+                
+            </div>
+            
             
         </div>
     </details>
@@ -7686,6 +7970,12 @@ genetic:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;About 70% of CdLS patients have heterozygous mutations in NIPBL, the majority being truncating (haploinsufficient), and these types of mutations are often associated with severe phenotypes&#34;
     explanation: This supports NIPBL as the major molecular cause and links truncating NIPBL variants with severe CdLS phenotypes.
+  - reference: CGGV:assertion_d4ecc430-6562-4d58-9118-c5253dc95ae9-2025-08-11T100000.000Z
+    reference_title: &#34;NIPBL / Cornelia de Lange syndrome (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;NIPBL | HGNC:28862 | Cornelia de Lange syndrome | MONDO:0016033 | AD | Definitive&#34;
+    explanation: ClinGen classifies the NIPBL-Cornelia de Lange syndrome gene-disease relationship as definitive with autosomal dominant inheritance.
 - name: De novo NIPBL pathogenic variants
   gene_term:
     preferred_term: NIPBL
@@ -7767,6 +8057,48 @@ genetic:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Mutations in SMC1A have been found in about 5% of CdLS cases and the clinical picture of SMC1A-mutated probands is characterized by a mild-to-moderate phenotype&#34;
     explanation: This supports SMC1A as a non-NIPBL molecular subtype with a milder severity profile.
+- name: HDAC8
+  gene_term:
+    preferred_term: HDAC8
+    term:
+      id: hgnc:13315
+      label: HDAC8
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_a7d29159-4c90-488e-a4e1-b006d70ae762-2018-09-10T220000.000Z
+    reference_title: &#34;HDAC8 / Cornelia de Lange syndrome (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;HDAC8 | HGNC:13315 | Cornelia de Lange syndrome | MONDO:0016033 | XL | Definitive&#34;
+    explanation: ClinGen classifies the HDAC8-Cornelia de Lange syndrome gene-disease relationship as definitive with X-linked inheritance.
+- name: RAD21
+  gene_term:
+    preferred_term: RAD21
+    term:
+      id: hgnc:9811
+      label: RAD21
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_30ad5023-6c68-42ab-b8ea-a601a134eaf6-2020-01-08T170000.000Z
+    reference_title: &#34;RAD21 / Cornelia de Lange syndrome (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;RAD21 | HGNC:9811 | Cornelia de Lange syndrome | MONDO:0016033 | AD | Definitive&#34;
+    explanation: ClinGen classifies the RAD21-Cornelia de Lange syndrome gene-disease relationship as definitive with autosomal dominant inheritance.
+- name: SMC3
+  gene_term:
+    preferred_term: SMC3
+    term:
+      id: hgnc:2468
+      label: SMC3
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_9467eaad-a86a-4b24-8cd4-98ebb57121c1-2020-04-07T160000.000Z
+    reference_title: &#34;SMC3 / Cornelia de Lange syndrome (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;SMC3 | HGNC:2468 | Cornelia de Lange syndrome | MONDO:0016033 | AD | Definitive&#34;
+    explanation: ClinGen classifies the SMC3-Cornelia de Lange syndrome gene-disease relationship as definitive with autosomal dominant inheritance.
 treatments:
 - name: Multidisciplinary supportive care
   description: &gt;
@@ -8110,7 +8442,7 @@ as the auditable evidence base.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Cornelia de Lange syndrome", "mondoId": "MONDO:0016033", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cornelia_de_Lange_syndrome", "yamlRevision": "84630357ffb5"};
+        const OS_CONFIG = {"diseaseName": "Cornelia de Lange syndrome", "mondoId": "MONDO:0016033", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cornelia_de_Lange_syndrome", "yamlRevision": "0151939fd99c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2588,10 +2741,12 @@
             </a>
             
             
+            <a class="stat-link" href="#treatments">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">1</div>
                 <div class="stat-label">Treatments</div>
             </div>
+            </a>
             
             
             <div class="stat-item">
@@ -2625,6 +2780,20 @@
             
             
             
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-value">23</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -3098,7 +3267,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
@@ -3608,6 +3777,113 @@
 
         <!-- Treatments -->
         
+        <div class="card" id="treatments">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
+                <h2 class="card-title">Treatments</h2>
+                <span class="card-count">1</span>
+            </div>
+            
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    Atezolizumab Plus Bevacizumab First-Line Immunotherapy
+                </div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">immunotherapy</span>
+                    
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
+                    
+                    
+                    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15262</a>
+                    
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                </div>
+                
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        atezolizumab
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C106250" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-treatment">
+                        bevacizumab
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C2039" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+                
+                <div class="item-desc">Atezolizumab plus bevacizumab is a first-line systemic regimen for unresectable or metastatic hepatocellular carcinoma, combining PD-L1 blockade with anti-VEGF therapy and displacing sorafenib for eligible patients.</div>
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1159/000539897" target="_blank">DOI:10.1159/000539897</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Atezolizumab plus bevacizumab significantly improved overall survival (OS) and progression-free survival (PFS) versus sorafenib in patients with unresectable hepatocellular carcinoma (HCC) in IMbrave150."</div>
+                
+                
+                <div class="evidence-explanation">IMbrave150 supports atezolizumab plus bevacizumab as an efficacy-improving systemic treatment relative to sorafenib in unresectable HCC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+        </div>
+        
 
         <!-- Environmental Factors -->
         
@@ -3778,12 +4054,14 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Metastatic Hepatocellular Carcinoma
 creation_date: &#39;2026-03-28T21:45:00Z&#39;
-updated_date: &#39;2026-04-10T22:27:38Z&#39;
+updated_date: &#39;2026-05-10T10:59:02Z&#39;
 description: &gt;-
   Metastatic hepatocellular carcinoma (HCC) is advanced HCC with vascular invasion,
   portal vein tumor thrombus, or extrahepatic spread most often to lung, bone, adrenal
-  gland, or lymph node. The metastatic phenotype develops on a background of chronic liver
-  disease, viral hepatitis, cirrhosis, and frequent activation of Wnt/beta-catenin and
+  gland, or lymph node. The metastatic phenotype develops on a background of chronic
+  liver
+  disease, viral hepatitis, cirrhosis, and frequent activation of Wnt/beta-catenin
+  and
   angiogenic signaling pathways.
 categories:
 - Hepatobiliary Cancer
@@ -3811,14 +4089,16 @@ prevalence:
   evidence:
   - reference: PMID:18710423
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: The incidence rate of extrahepatic metastasis, as detected during the lifetime after medical treatment of HCC, was approximately 13% at 5 years.
     explanation: This provides an evidence-backed estimate of extrahepatic metastatic spread in HCC.
 pathophysiology:
 - name: Chronic Liver Disease Substrate
   description: &gt;-
-    Metastatic HCC usually arises on the background of cirrhosis, viral hepatitis, or other
-    chronic liver injury states that create regenerative pressure, inflammation, and genomic
+    Metastatic HCC usually arises on the background of cirrhosis, viral hepatitis,
+    or other
+    chronic liver injury states that create regenerative pressure, inflammation, and
+    genomic
     instability.
   evidence:
   - reference: PMID:41567639
@@ -3834,8 +4114,10 @@ pathophysiology:
       label: response to hypoxia
 - name: Wnt/Beta-Catenin Activation
   description: &gt;-
-    Wnt/beta-catenin activation promotes hepatocyte proliferation, migration, and survival
-    and can contribute to vascular invasion and metastatic progression in a subset of HCCs.
+    Wnt/beta-catenin activation promotes hepatocyte proliferation, migration, and
+    survival
+    and can contribute to vascular invasion and metastatic progression in a subset
+    of HCCs.
   evidence:
   - reference: PMID:29984212
     supports: SUPPORT
@@ -3850,8 +4132,10 @@ pathophysiology:
       label: Wnt signaling pathway
 - name: Portal Vein Invasion and Tumor Thrombus
   description: &gt;-
-    Vascular invasion is a defining step in metastatic HCC. Tumor cells leave the cancer
-    nest, traverse extracellular matrix and vascular barriers, and colonize the portal vein,
+    Vascular invasion is a defining step in metastatic HCC. Tumor cells leave the
+    cancer
+    nest, traverse extracellular matrix and vascular barriers, and colonize the portal
+    vein,
     creating portal vein tumor thrombus and enabling dissemination.
   evidence:
   - reference: PMID:36318440
@@ -3872,7 +4156,8 @@ pathophysiology:
       label: positive regulation of cell migration
 - name: VEGF-Dependent Angiogenesis
   description: &gt;-
-    HCC is a highly vascular malignancy, and angiogenesis supports both intrahepatic progression
+    HCC is a highly vascular malignancy, and angiogenesis supports both intrahepatic
+    progression
     and distant metastatic outgrowth.
   evidence:
   - reference: PMID:19637355
@@ -3888,12 +4173,13 @@ pathophysiology:
       label: angiogenesis
 - name: Immune Evasion and Viral-Inflammatory Selection
   description: &gt;-
-    Chronic viral inflammation and tumor-driven immune suppression select metastatic clones
+    Chronic viral inflammation and tumor-driven immune suppression select metastatic
+    clones
     able to persist in cirrhotic and extrahepatic niches despite immune surveillance.
   evidence:
   - reference: PMID:41794264
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: The liver tumor microenvironment plays a pivotal role in hepatocellular carcinoma (HCC) progression by fostering immune suppression, which impairs anti-tumor responses and enables tumor growth, invasion, and metastasis.
     explanation: This supports the central role of immunosuppressive microenvironment in HCC progression and metastasis.
   biological_processes:
@@ -4029,14 +4315,2911 @@ environmental:
     snippet: The interaction of aflatoxin B1 (a contaminant found in food) with HBV infection is believed to increase the prevalence of HCC.
     explanation: This supports aflatoxin exposure as a contributor to HCC risk, particularly in the context of HBV co-infection.
 notes: &gt;-
-  Alpha-fetoprotein (AFP) is an important biomarker in advanced HCC, especially when interpreted
-  alongside imaging and underlying liver function. Portal vein invasion and extrahepatic spread
+  Alpha-fetoprotein (AFP) is an important biomarker in advanced HCC, especially when
+  interpreted
+  alongside imaging and underlying liver function. Portal vein invasion and extrahepatic
+  spread
   define the transition from locally advanced to metastatic biology.
+treatments:
+- name: Atezolizumab Plus Bevacizumab First-Line Immunotherapy
+  description: Atezolizumab plus bevacizumab is a first-line systemic regimen for unresectable or metastatic hepatocellular carcinoma, combining PD-L1 blockade with anti-VEGF therapy and displacing sorafenib for eligible patients.
+  treatment_term:
+    preferred_term: immunotherapy
+    term:
+      id: NCIT:C15262
+      label: Immunotherapy
+    therapeutic_agent:
+    - preferred_term: atezolizumab
+      term:
+        id: NCIT:C106250
+        label: Atezolizumab
+    - preferred_term: bevacizumab
+      term:
+        id: NCIT:C2039
+        label: Bevacizumab
+  evidence:
+  - reference: DOI:10.1159/000539897
+    reference_title: Efficacy and Safety of Atezolizumab plus Bevacizumab versus Sorafenib in Hepatocellular Carcinoma with Main Trunk and/or Contralateral Portal Vein Invasion in IMbrave150
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Atezolizumab plus bevacizumab significantly improved overall survival (OS) and progression-free survival (PFS) versus sorafenib in patients with unresectable hepatocellular carcinoma (HCC) in IMbrave150.
+    explanation: IMbrave150 supports atezolizumab plus bevacizumab as an efficacy-improving systemic treatment relative to sorafenib in unresectable HCC.
+references:
+- reference: DOI:10.1001/jamanetworkopen.2024.45525
+  title: Trends in Hepatocellular Carcinoma Mortality Rates in the US and Projections Through 2040
+  found_in:
+  - Metastatic_HCC-deep-research-falcon.md
+  findings:
+  - statement: ImportanceThe burden of liver cancer varies worldwide.
+    supporting_text: ImportanceThe burden of liver cancer varies worldwide.
+    evidence:
+    - reference: DOI:10.1001/jamanetworkopen.2024.45525
+      reference_title: Trends in Hepatocellular Carcinoma Mortality Rates in the US and Projections Through 2040
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: ImportanceThe burden of liver cancer varies worldwide.
+      explanation: Deep research cited this publication as relevant literature for Metastatic HCC.
+- reference: DOI:10.1001/jamaoncol.2023.2677
+  title: Critical Appraisal of Guideline Recommendations on Systemic Therapies for Advanced Hepatocellular Carcinoma
+  found_in:
+  - Metastatic_HCC-deep-research-falcon.md
+  findings:
+  - statement: ImportanceThe combination of immune checkpoint inhibitors with antiangiogenic agents has revolutionized the treatment landscape of advanced hepatocellular carcinoma (HCC).
+    supporting_text: ImportanceThe combination of immune checkpoint inhibitors with antiangiogenic agents has revolutionized the treatment landscape of advanced hepatocellular carcinoma (HCC).
+    evidence:
+    - reference: DOI:10.1001/jamaoncol.2023.2677
+      reference_title: Critical Appraisal of Guideline Recommendations on Systemic Therapies for Advanced Hepatocellular Carcinoma
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: ImportanceThe combination of immune checkpoint inhibitors with antiangiogenic agents has revolutionized the treatment landscape of advanced hepatocellular carcinoma (HCC).
+      explanation: Deep research cited this publication as relevant literature for Metastatic HCC.
+- reference: DOI:10.1007/s00330-024-10606-w
+  title: &#39;ESR Essentials: diagnosis of hepatocellular carcinoma—practice recommendations by ESGAR&#39;
+  found_in:
+  - Metastatic_HCC-deep-research-falcon.md
+  findings:
+  - statement: Hepatocellular carcinoma (HCC) is the most common primary hepatic malignancy and a leading cause of cancer related death worldwide.
+    supporting_text: Hepatocellular carcinoma (HCC) is the most common primary hepatic malignancy and a leading cause of cancer related death worldwide.
+    evidence:
+    - reference: DOI:10.1007/s00330-024-10606-w
+      reference_title: &#39;ESR Essentials: diagnosis of hepatocellular carcinoma—practice recommendations by ESGAR&#39;
+      supports: SUPPORT
+      evidence_source: COMPUTATIONAL
+      snippet: Hepatocellular carcinoma (HCC) is the most common primary hepatic malignancy and a leading cause of cancer related death worldwide.
+      explanation: Deep research cited this publication as relevant literature for Metastatic HCC.
+- reference: DOI:10.1055/s-0044-1779713
+  title: &#39;Hepatocellular Carcinoma: Advances in Systemic Therapy&#39;
+  found_in:
+  - Metastatic_HCC-deep-research-falcon.md
+  findings:
+  - statement: Hepatocellular carcinoma (HCC) is a prevalent primary liver cancer, representing over 90% of cases globally and ranking as the third leading cause of cancer-related death.
+    supporting_text: Hepatocellular carcinoma (HCC) is a prevalent primary liver cancer, representing over 90% of cases globally and ranking as the third leading cause of cancer-related death.
+    evidence:
+    - reference: DOI:10.1055/s-0044-1779713
+      reference_title: &#39;Hepatocellular Carcinoma: Advances in Systemic Therapy&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Hepatocellular carcinoma (HCC) is a prevalent primary liver cancer, representing over 90% of cases globally and ranking as the third leading cause of cancer-related death.
+      explanation: Deep research cited this publication as relevant literature for Metastatic HCC.
+- reference: DOI:10.1097/cm9.0000000000003264
+  title: &#39;Global epidemiology of liver cancer 2022: An emphasis on geographic disparities&#39;
+  found_in:
+  - Metastatic_HCC-deep-research-falcon.md
+  findings:
+  - statement: Liver cancer remains the sixth most commonly diagnosed cancer and the third leading cause of cancer-related deaths worldwide, causing a heavy burden globally.
+    supporting_text: Liver cancer remains the sixth most commonly diagnosed cancer and the third leading cause of cancer-related deaths worldwide, causing a heavy burden globally.
+    evidence:
+    - reference: DOI:10.1097/cm9.0000000000003264
+      reference_title: &#39;Global epidemiology of liver cancer 2022: An emphasis on geographic disparities&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Liver cancer remains the sixth most commonly diagnosed cancer and the third leading cause of cancer-related deaths worldwide, causing a heavy burden globally.
+      explanation: Deep research cited this publication as relevant literature for Metastatic HCC.
+- reference: DOI:10.1111/apt.17506
+  title: &#39;Review article: Available modalities for screening and imaging diagnosis of hepatocellular carcinoma—Current gaps and challenges&#39;
+  found_in:
+  - Metastatic_HCC-deep-research-falcon.md
+  findings:
+  - statement: Hepatocellular carcinoma (HCC) incidence and mortality continue to rise worldwide.
+    supporting_text: Hepatocellular carcinoma (HCC) incidence and mortality continue to rise worldwide.
+    evidence:
+    - reference: DOI:10.1111/apt.17506
+      reference_title: &#39;Review article: Available modalities for screening and imaging diagnosis of hepatocellular carcinoma—Current gaps and challenges&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Hepatocellular carcinoma (HCC) incidence and mortality continue to rise worldwide.
+      explanation: Deep research cited this publication as relevant literature for Metastatic HCC.
+- reference: DOI:10.1159/000539371
+  title: EASL-EASD-EASO Clinical Practice Guidelines on the Management of Metabolic Dysfunction-Associated Steatotic Liver Disease (MASLD)
+  found_in:
+  - Metastatic_HCC-deep-research-falcon.md
+  findings:
+  - statement: EASL-EASD-EASO Clinical Practice Guidelines on the Management of Metabolic Dysfunction-Associated Steatotic Liver Disease (MASLD)
+    supporting_text: Metabolic dysfunction-associated steatotic liver disease (MASLD), previously termed non-alcoholic fatty liver disease (NAFLD), is defined as steatotic liver disease (SLD) in the presence of one or more cardiometabolic risk factor(s) and the absence of harmful alcohol intake.
+    evidence:
+    - reference: DOI:10.1159/000539371
+      reference_title: EASL-EASD-EASO Clinical Practice Guidelines on the Management of Metabolic Dysfunction-Associated Steatotic Liver Disease (MASLD)
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Metabolic dysfunction-associated steatotic liver disease (MASLD), previously termed non-alcoholic fatty liver disease (NAFLD), is defined as steatotic liver disease (SLD) in the presence of one or more cardiometabolic risk factor(s) and the absence of harmful alcohol intake.
+      explanation: Deep research cited this publication as relevant literature for Metastatic HCC.
+- reference: DOI:10.1159/000539897
+  title: Efficacy and Safety of Atezolizumab plus Bevacizumab versus Sorafenib in Hepatocellular Carcinoma with Main Trunk and/or Contralateral Portal Vein Invasion in IMbrave150
+  found_in:
+  - Metastatic_HCC-deep-research-falcon.md
+  findings:
+  - statement: Atezolizumab plus bevacizumab significantly improved overall survival (OS) and progression-free survival (PFS) versus sorafenib in patients with unresectable hepatocellular carcinoma (HCC) in IMbrave150.
+    supporting_text: Atezolizumab plus bevacizumab significantly improved overall survival (OS) and progression-free survival (PFS) versus sorafenib in patients with unresectable hepatocellular carcinoma (HCC) in IMbrave150.
+    evidence:
+    - reference: DOI:10.1159/000539897
+      reference_title: Efficacy and Safety of Atezolizumab plus Bevacizumab versus Sorafenib in Hepatocellular Carcinoma with Main Trunk and/or Contralateral Portal Vein Invasion in IMbrave150
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Atezolizumab plus bevacizumab significantly improved overall survival (OS) and progression-free survival (PFS) versus sorafenib in patients with unresectable hepatocellular carcinoma (HCC) in IMbrave150.
+      explanation: Deep research cited this publication as relevant literature for Metastatic HCC.
+- reference: DOI:10.1177/10732748241310573
+  title: &#39;Burden of Hepatocellular Carcinoma and Its Underlying Etiologies in China, 1990-2021: Findings From the Global Burden of Disease Study 2021&#39;
+  found_in:
+  - Metastatic_HCC-deep-research-falcon.md
+  findings:
+  - statement: The incidence and mortality of hepatocellular carcinoma (HCC) and its underlying etiologies in China are still unclear.
+    supporting_text: The incidence and mortality of hepatocellular carcinoma (HCC) and its underlying etiologies in China are still unclear.
+    evidence:
+    - reference: DOI:10.1177/10732748241310573
+      reference_title: &#39;Burden of Hepatocellular Carcinoma and Its Underlying Etiologies in China, 1990-2021: Findings From the Global Burden of Disease Study 2021&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The incidence and mortality of hepatocellular carcinoma (HCC) and its underlying etiologies in China are still unclear.
+      explanation: Deep research cited this publication as relevant literature for Metastatic HCC.
+- reference: DOI:10.1200/jco.23.02745
+  title: &#39;Systemic Therapy for Advanced Hepatocellular Carcinoma: ASCO Guideline Update&#39;
+  found_in:
+  - Metastatic_HCC-deep-research-falcon.md
+  findings:
+  - statement: To update an evidence-based guideline to assist in clinical decision-making for patients with advanced hepatocellular carcinoma (HCC).
+    supporting_text: To update an evidence-based guideline to assist in clinical decision-making for patients with advanced hepatocellular carcinoma (HCC).
+    evidence:
+    - reference: DOI:10.1200/jco.23.02745
+      reference_title: &#39;Systemic Therapy for Advanced Hepatocellular Carcinoma: ASCO Guideline Update&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: To update an evidence-based guideline to assist in clinical decision-making for patients with advanced hepatocellular carcinoma (HCC).
+      explanation: Deep research cited this publication as relevant literature for Metastatic HCC.
+- reference: DOI:10.12771/emj.2024.e53
+  title: &#39;Current perspectives on the pharmacological treatment of advanced hepatocellular carcinoma: a narrative review&#39;
+  found_in:
+  - Metastatic_HCC-deep-research-falcon.md
+  findings:
+  - statement: Hepatocellular carcinoma (HCC) remains a critical health concern in Korea, ranking as the second leading cause of cancer mortality and imposing substantial economic burdens, particularly among the working-age population.
+    supporting_text: Hepatocellular carcinoma (HCC) remains a critical health concern in Korea, ranking as the second leading cause of cancer mortality and imposing substantial economic burdens, particularly among the working-age population.
+    evidence:
+    - reference: DOI:10.12771/emj.2024.e53
+      reference_title: &#39;Current perspectives on the pharmacological treatment of advanced hepatocellular carcinoma: a narrative review&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Hepatocellular carcinoma (HCC) remains a critical health concern in Korea, ranking as the second leading cause of cancer mortality and imposing substantial economic burdens, particularly among the working-age population.
+      explanation: Deep research cited this publication as relevant literature for Metastatic HCC.
+- reference: DOI:10.2147/jhc.s478604
+  title: &#39;Efficacy of Atezolizumab Plus Bevacizumab Combined with Transarterial Chemoembolization for Unresectable Hepatocellular Carcinoma: A Real-World Study&#39;
+  found_in:
+  - Metastatic_HCC-deep-research-falcon.md
+  findings:
+  - statement: &#39;Efficacy of Atezolizumab Plus Bevacizumab Combined with Transarterial Chemoembolization for Unresectable Hepatocellular Carcinoma: A Real-World Study&#39;
+    supporting_text: &#39;Efficacy of Atezolizumab Plus Bevacizumab Combined with Transarterial Chemoembolization for Unresectable Hepatocellular Carcinoma: A Real-World Study&#39;
+- reference: DOI:10.2147/jhc.s480958
+  title: &#39;Efficacy and Safety of Transcatheter Arterial Chemoembolization Combined with Lenvatinib Plus Anti-PD-1 Inhibitors for Hepatocellular Carcinoma Patients with Extrahepatic Metastases: A Multicenter Retrospective Study&#39;
+  found_in:
+  - Metastatic_HCC-deep-research-falcon.md
+  findings:
+  - statement: &#39;Efficacy and Safety of Transcatheter Arterial Chemoembolization Combined with Lenvatinib Plus Anti-PD-1 Inhibitors for Hepatocellular Carcinoma Patients with Extrahepatic Metastases: A Multicenter Retrospective Study&#39;
+    supporting_text: &#39;Efficacy and Safety of Transcatheter Arterial Chemoembolization Combined with Lenvatinib Plus Anti-PD-1 Inhibitors for Hepatocellular Carcinoma Patients with Extrahepatic Metastases: A Multicenter Retrospective Study&#39;
+- reference: DOI:10.3389/fimmu.2024.1480520
+  title: The load of hepatitis B virus reduces the immune checkpoint inhibitors efficiency in hepatocellular carcinoma patients
+  found_in:
+  - Metastatic_HCC-deep-research-falcon.md
+  findings:
+  - statement: The load of hepatitis B virus reduces the immune checkpoint inhibitors efficiency in hepatocellular carcinoma patients
+    supporting_text: Chronic viral infection may lead to an immunosuppressive microenvironment, whereas the association between virus-related indicators and treatment response in hepatocellular carcinoma(HCC) patients undergoing immune checkpoint inhibitors(ICIs) therapy remains a topic of debate.
+    evidence:
+    - reference: DOI:10.3389/fimmu.2024.1480520
+      reference_title: The load of hepatitis B virus reduces the immune checkpoint inhibitors efficiency in hepatocellular carcinoma patients
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Chronic viral infection may lead to an immunosuppressive microenvironment, whereas the association between virus-related indicators and treatment response in hepatocellular carcinoma(HCC) patients undergoing immune checkpoint inhibitors(ICIs) therapy remains a topic of debate.
+      explanation: Deep research cited this publication as relevant literature for Metastatic HCC.
+- reference: DOI:10.3390/biom14060656
+  title: Molecular Mechanisms in Tumorigenesis of Hepatocellular Carcinoma and in Target Treatments—An Overview
+  found_in:
+  - Metastatic_HCC-deep-research-falcon.md
+  findings:
+  - statement: Hepatocellular carcinoma is the most common primary malignancy of the liver, with hepatocellular differentiation.
+    supporting_text: Hepatocellular carcinoma is the most common primary malignancy of the liver, with hepatocellular differentiation.
+    evidence:
+    - reference: DOI:10.3390/biom14060656
+      reference_title: Molecular Mechanisms in Tumorigenesis of Hepatocellular Carcinoma and in Target Treatments—An Overview
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Hepatocellular carcinoma is the most common primary malignancy of the liver, with hepatocellular differentiation.
+      explanation: Deep research cited this publication as relevant literature for Metastatic HCC.
+- reference: DOI:10.3390/cancers15030817
+  title: &#39;Genetics of Hepatocellular Carcinoma: From Tumor to Circulating DNA&#39;
+  found_in:
+  - Metastatic_HCC-deep-research-falcon.md
+  findings:
+  - statement: Hepatocellular carcinoma (HCC) accounts for 90% of primary hepatic malignancies and is one of the major causes of cancer-related death.
+    supporting_text: Hepatocellular carcinoma (HCC) accounts for 90% of primary hepatic malignancies and is one of the major causes of cancer-related death.
+    evidence:
+    - reference: DOI:10.3390/cancers15030817
+      reference_title: &#39;Genetics of Hepatocellular Carcinoma: From Tumor to Circulating DNA&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Hepatocellular carcinoma (HCC) accounts for 90% of primary hepatic malignancies and is one of the major causes of cancer-related death.
+      explanation: Deep research cited this publication as relevant literature for Metastatic HCC.
+- reference: DOI:10.3390/cancers15153880
+  title: Advances in the Early Detection of Hepatobiliary Cancers
+  found_in:
+  - Metastatic_HCC-deep-research-falcon.md
+  findings:
+  - statement: Hepatocellular cancer (HCC) and biliary tract cancers (BTCs) have poor survival rates and a low likelihood of a cure, especially in advanced-stage disease.
+    supporting_text: Hepatocellular cancer (HCC) and biliary tract cancers (BTCs) have poor survival rates and a low likelihood of a cure, especially in advanced-stage disease.
+    evidence:
+    - reference: DOI:10.3390/cancers15153880
+      reference_title: Advances in the Early Detection of Hepatobiliary Cancers
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Hepatocellular cancer (HCC) and biliary tract cancers (BTCs) have poor survival rates and a low likelihood of a cure, especially in advanced-stage disease.
+      explanation: Deep research cited this publication as relevant literature for Metastatic HCC.
+- reference: DOI:10.3390/cancers16132387
+  title: &#39;Evolution of Systemic Treatment for Hepatocellular Carcinoma: Changing Treatment Strategies and Concepts&#39;
+  found_in:
+  - Metastatic_HCC-deep-research-falcon.md
+  findings:
+  - statement: Systemic therapy for hepatocellular carcinoma (HCC) has undergone substantial advancements.
+    supporting_text: Systemic therapy for hepatocellular carcinoma (HCC) has undergone substantial advancements.
+    evidence:
+    - reference: DOI:10.3390/cancers16132387
+      reference_title: &#39;Evolution of Systemic Treatment for Hepatocellular Carcinoma: Changing Treatment Strategies and Concepts&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Systemic therapy for hepatocellular carcinoma (HCC) has undergone substantial advancements.
+      explanation: Deep research cited this publication as relevant literature for Metastatic HCC.
+- reference: DOI:10.3390/cancers16193400
+  title: Role of Imaging in Screening for Hepatocellular Carcinoma
+  found_in:
+  - Metastatic_HCC-deep-research-falcon.md
+  findings:
+  - statement: Primary liver cancer is among the most common cancers globally.
+    supporting_text: Primary liver cancer is among the most common cancers globally.
+    evidence:
+    - reference: DOI:10.3390/cancers16193400
+      reference_title: Role of Imaging in Screening for Hepatocellular Carcinoma
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Primary liver cancer is among the most common cancers globally.
+      explanation: Deep research cited this publication as relevant literature for Metastatic HCC.
+- reference: DOI:10.3390/cancers16233933
+  title: &#39;Hepatocellular Carcinoma Surveillance Strategies: Major Guidelines and Screening Advances&#39;
+  found_in:
+  - Metastatic_HCC-deep-research-falcon.md
+  findings:
+  - statement: Hepatocellular carcinoma (HCC) is a leading cause of cancer-related deaths globally, with prognosis and treatment outcomes that are significantly influenced by the stage at diagnosis.
+    supporting_text: Hepatocellular carcinoma (HCC) is a leading cause of cancer-related deaths globally, with prognosis and treatment outcomes that are significantly influenced by the stage at diagnosis.
+    evidence:
+    - reference: DOI:10.3390/cancers16233933
+      reference_title: &#39;Hepatocellular Carcinoma Surveillance Strategies: Major Guidelines and Screening Advances&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Hepatocellular carcinoma (HCC) is a leading cause of cancer-related deaths globally, with prognosis and treatment outcomes that are significantly influenced by the stage at diagnosis.
+      explanation: Deep research cited this publication as relevant literature for Metastatic HCC.
+- reference: DOI:10.3390/jcm13226770
+  title: &#39;Beyond the Liver: A Comprehensive Review of Strategies to Prevent Hepatocellular Carcinoma&#39;
+  found_in:
+  - Metastatic_HCC-deep-research-falcon.md
+  findings:
+  - statement: Hepatocellular carcinoma (HCC) is a leading cause of cancer-related mortality worldwide, primarily developing in the context of chronic liver disease.
+    supporting_text: Hepatocellular carcinoma (HCC) is a leading cause of cancer-related mortality worldwide, primarily developing in the context of chronic liver disease.
+    evidence:
+    - reference: DOI:10.3390/jcm13226770
+      reference_title: &#39;Beyond the Liver: A Comprehensive Review of Strategies to Prevent Hepatocellular Carcinoma&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Hepatocellular carcinoma (HCC) is a leading cause of cancer-related mortality worldwide, primarily developing in the context of chronic liver disease.
+      explanation: Deep research cited this publication as relevant literature for Metastatic HCC.
+- reference: DOI:10.3390/vaccines12111254
+  title: &#39;Hepatitis B Virus-Related Cirrhosis and Hepatocellular Carcinoma Hospital Discharge Rates from 2005 to 2021 in Spain: Impact of Universal Vaccination&#39;
+  found_in:
+  - Metastatic_HCC-deep-research-falcon.md
+  findings:
+  - statement: The main consequences of chronic hepatitis B virus (HBV) infections are cirrhosis and hepatocellular carcinoma (HCC), both associated with frequent hospitalization.
+    supporting_text: The main consequences of chronic hepatitis B virus (HBV) infections are cirrhosis and hepatocellular carcinoma (HCC), both associated with frequent hospitalization.
+    evidence:
+    - reference: DOI:10.3390/vaccines12111254
+      reference_title: &#39;Hepatitis B Virus-Related Cirrhosis and Hepatocellular Carcinoma Hospital Discharge Rates from 2005 to 2021 in Spain: Impact of Universal Vaccination&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The main consequences of chronic hepatitis B virus (HBV) infections are cirrhosis and hepatocellular carcinoma (HCC), both associated with frequent hospitalization.
+      explanation: Deep research cited this publication as relevant literature for Metastatic HCC.
+- reference: DOI:10.5114/ceji.2024.142418
+  title: Progression patterns in patients with advanced hepatocellular carcinoma treated with local therapy, targeted drugs, and PD-1/PD-L1 inhibitors
+  found_in:
+  - Metastatic_HCC-deep-research-falcon.md
+  findings:
+  - statement: To explore the progression patterns of advanced hepatocellular carcinoma (HCC) in patients treated with a combination of local therapies, targeted drugs, and PD-1/PD-L1 inhibitors.
+    supporting_text: To explore the progression patterns of advanced hepatocellular carcinoma (HCC) in patients treated with a combination of local therapies, targeted drugs, and PD-1/PD-L1 inhibitors.
+    evidence:
+    - reference: DOI:10.5114/ceji.2024.142418
+      reference_title: Progression patterns in patients with advanced hepatocellular carcinoma treated with local therapy, targeted drugs, and PD-1/PD-L1 inhibitors
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: To explore the progression patterns of advanced hepatocellular carcinoma (HCC) in patients treated with a combination of local therapies, targeted drugs, and PD-1/PD-L1 inhibitors.
+      explanation: Deep research cited this publication as relevant literature for Metastatic HCC.
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
+        
+        <div class="card reference-card" id="references-deep-research">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+            
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">23</span>
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1001/jamanetworkopen.2024.45525" target="_blank">DOI:10.1001/jamanetworkopen.2024.45525</a>
+                            </div>
+                            
+                            <div class="reference-title">Trends in Hepatocellular Carcinoma Mortality Rates in the US and Projections Through 2040</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">ImportanceThe burden of liver cancer varies worldwide.</div>
+            
+            
+            <div class="reference-finding-supporting">"ImportanceThe burden of liver cancer varies worldwide."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1001/jamanetworkopen.2024.45525" target="_blank">DOI:10.1001/jamanetworkopen.2024.45525</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"ImportanceThe burden of liver cancer varies worldwide."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic HCC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1001/jamaoncol.2023.2677" target="_blank">DOI:10.1001/jamaoncol.2023.2677</a>
+                            </div>
+                            
+                            <div class="reference-title">Critical Appraisal of Guideline Recommendations on Systemic Therapies for Advanced Hepatocellular Carcinoma</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">ImportanceThe combination of immune checkpoint inhibitors with antiangiogenic agents has revolutionized the treatment landscape of advanced hepatocellular carcinoma (HCC).</div>
+            
+            
+            <div class="reference-finding-supporting">"ImportanceThe combination of immune checkpoint inhibitors with antiangiogenic agents has revolutionized the treatment landscape of advanced hepatocellular carcinoma (HCC)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1001/jamaoncol.2023.2677" target="_blank">DOI:10.1001/jamaoncol.2023.2677</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"ImportanceThe combination of immune checkpoint inhibitors with antiangiogenic agents has revolutionized the treatment landscape of advanced hepatocellular carcinoma (HCC)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic HCC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s00330-024-10606-w" target="_blank">DOI:10.1007/s00330-024-10606-w</a>
+                            </div>
+                            
+                            <div class="reference-title">ESR Essentials: diagnosis of hepatocellular carcinoma—practice recommendations by ESGAR</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Hepatocellular carcinoma (HCC) is the most common primary hepatic malignancy and a leading cause of cancer related death worldwide.</div>
+            
+            
+            <div class="reference-finding-supporting">"Hepatocellular carcinoma (HCC) is the most common primary hepatic malignancy and a leading cause of cancer related death worldwide."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s00330-024-10606-w" target="_blank">DOI:10.1007/s00330-024-10606-w</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Hepatocellular carcinoma (HCC) is the most common primary hepatic malignancy and a leading cause of cancer related death worldwide."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic HCC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1055/s-0044-1779713" target="_blank">DOI:10.1055/s-0044-1779713</a>
+                            </div>
+                            
+                            <div class="reference-title">Hepatocellular Carcinoma: Advances in Systemic Therapy</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Hepatocellular carcinoma (HCC) is a prevalent primary liver cancer, representing over 90% of cases globally and ranking as the third leading cause of cancer-related death.</div>
+            
+            
+            <div class="reference-finding-supporting">"Hepatocellular carcinoma (HCC) is a prevalent primary liver cancer, representing over 90% of cases globally and ranking as the third leading cause of cancer-related death."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1055/s-0044-1779713" target="_blank">DOI:10.1055/s-0044-1779713</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Hepatocellular carcinoma (HCC) is a prevalent primary liver cancer, representing over 90% of cases globally and ranking as the third leading cause of cancer-related death."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic HCC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1097/cm9.0000000000003264" target="_blank">DOI:10.1097/cm9.0000000000003264</a>
+                            </div>
+                            
+                            <div class="reference-title">Global epidemiology of liver cancer 2022: An emphasis on geographic disparities</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Liver cancer remains the sixth most commonly diagnosed cancer and the third leading cause of cancer-related deaths worldwide, causing a heavy burden globally.</div>
+            
+            
+            <div class="reference-finding-supporting">"Liver cancer remains the sixth most commonly diagnosed cancer and the third leading cause of cancer-related deaths worldwide, causing a heavy burden globally."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1097/cm9.0000000000003264" target="_blank">DOI:10.1097/cm9.0000000000003264</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Liver cancer remains the sixth most commonly diagnosed cancer and the third leading cause of cancer-related deaths worldwide, causing a heavy burden globally."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic HCC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1111/apt.17506" target="_blank">DOI:10.1111/apt.17506</a>
+                            </div>
+                            
+                            <div class="reference-title">Review article: Available modalities for screening and imaging diagnosis of hepatocellular carcinoma—Current gaps and challenges</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Hepatocellular carcinoma (HCC) incidence and mortality continue to rise worldwide.</div>
+            
+            
+            <div class="reference-finding-supporting">"Hepatocellular carcinoma (HCC) incidence and mortality continue to rise worldwide."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1111/apt.17506" target="_blank">DOI:10.1111/apt.17506</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Hepatocellular carcinoma (HCC) incidence and mortality continue to rise worldwide."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic HCC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1159/000539371" target="_blank">DOI:10.1159/000539371</a>
+                            </div>
+                            
+                            <div class="reference-title">EASL-EASD-EASO Clinical Practice Guidelines on the Management of Metabolic Dysfunction-Associated Steatotic Liver Disease (MASLD)</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">EASL-EASD-EASO Clinical Practice Guidelines on the Management of Metabolic Dysfunction-Associated Steatotic Liver Disease (MASLD)</div>
+            
+            
+            <div class="reference-finding-supporting">"Metabolic dysfunction-associated steatotic liver disease (MASLD), previously termed non-alcoholic fatty liver disease (NAFLD), is defined as steatotic liver disease (SLD) in the presence of one or more cardiometabolic risk factor(s) and the absence of harmful alcohol intake."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1159/000539371" target="_blank">DOI:10.1159/000539371</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Metabolic dysfunction-associated steatotic liver disease (MASLD), previously termed non-alcoholic fatty liver disease (NAFLD), is defined as steatotic liver disease (SLD) in the presence of one or more cardiometabolic risk factor(s) and the absence of harmful alcohol intake."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic HCC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1159/000539897" target="_blank">DOI:10.1159/000539897</a>
+                            </div>
+                            
+                            <div class="reference-title">Efficacy and Safety of Atezolizumab plus Bevacizumab versus Sorafenib in Hepatocellular Carcinoma with Main Trunk and/or Contralateral Portal Vein Invasion in IMbrave150</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Atezolizumab plus bevacizumab significantly improved overall survival (OS) and progression-free survival (PFS) versus sorafenib in patients with unresectable hepatocellular carcinoma (HCC) in IMbrave150.</div>
+            
+            
+            <div class="reference-finding-supporting">"Atezolizumab plus bevacizumab significantly improved overall survival (OS) and progression-free survival (PFS) versus sorafenib in patients with unresectable hepatocellular carcinoma (HCC) in IMbrave150."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1159/000539897" target="_blank">DOI:10.1159/000539897</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Atezolizumab plus bevacizumab significantly improved overall survival (OS) and progression-free survival (PFS) versus sorafenib in patients with unresectable hepatocellular carcinoma (HCC) in IMbrave150."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic HCC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1177/10732748241310573" target="_blank">DOI:10.1177/10732748241310573</a>
+                            </div>
+                            
+                            <div class="reference-title">Burden of Hepatocellular Carcinoma and Its Underlying Etiologies in China, 1990-2021: Findings From the Global Burden of Disease Study 2021</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The incidence and mortality of hepatocellular carcinoma (HCC) and its underlying etiologies in China are still unclear.</div>
+            
+            
+            <div class="reference-finding-supporting">"The incidence and mortality of hepatocellular carcinoma (HCC) and its underlying etiologies in China are still unclear."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1177/10732748241310573" target="_blank">DOI:10.1177/10732748241310573</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The incidence and mortality of hepatocellular carcinoma (HCC) and its underlying etiologies in China are still unclear."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic HCC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1200/jco.23.02745" target="_blank">DOI:10.1200/jco.23.02745</a>
+                            </div>
+                            
+                            <div class="reference-title">Systemic Therapy for Advanced Hepatocellular Carcinoma: ASCO Guideline Update</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">To update an evidence-based guideline to assist in clinical decision-making for patients with advanced hepatocellular carcinoma (HCC).</div>
+            
+            
+            <div class="reference-finding-supporting">"To update an evidence-based guideline to assist in clinical decision-making for patients with advanced hepatocellular carcinoma (HCC)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1200/jco.23.02745" target="_blank">DOI:10.1200/jco.23.02745</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"To update an evidence-based guideline to assist in clinical decision-making for patients with advanced hepatocellular carcinoma (HCC)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic HCC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.12771/emj.2024.e53" target="_blank">DOI:10.12771/emj.2024.e53</a>
+                            </div>
+                            
+                            <div class="reference-title">Current perspectives on the pharmacological treatment of advanced hepatocellular carcinoma: a narrative review</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Hepatocellular carcinoma (HCC) remains a critical health concern in Korea, ranking as the second leading cause of cancer mortality and imposing substantial economic burdens, particularly among the working-age population.</div>
+            
+            
+            <div class="reference-finding-supporting">"Hepatocellular carcinoma (HCC) remains a critical health concern in Korea, ranking as the second leading cause of cancer mortality and imposing substantial economic burdens, particularly among the working-age population."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.12771/emj.2024.e53" target="_blank">DOI:10.12771/emj.2024.e53</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Hepatocellular carcinoma (HCC) remains a critical health concern in Korea, ranking as the second leading cause of cancer mortality and imposing substantial economic burdens, particularly among the working-age population."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic HCC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.2147/jhc.s478604" target="_blank">DOI:10.2147/jhc.s478604</a>
+                            </div>
+                            
+                            <div class="reference-title">Efficacy of Atezolizumab Plus Bevacizumab Combined with Transarterial Chemoembolization for Unresectable Hepatocellular Carcinoma: A Real-World Study</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Efficacy of Atezolizumab Plus Bevacizumab Combined with Transarterial Chemoembolization for Unresectable Hepatocellular Carcinoma: A Real-World Study</div>
+            
+            
+            <div class="reference-finding-supporting">"Efficacy of Atezolizumab Plus Bevacizumab Combined with Transarterial Chemoembolization for Unresectable Hepatocellular Carcinoma: A Real-World Study"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.2147/jhc.s480958" target="_blank">DOI:10.2147/jhc.s480958</a>
+                            </div>
+                            
+                            <div class="reference-title">Efficacy and Safety of Transcatheter Arterial Chemoembolization Combined with Lenvatinib Plus Anti-PD-1 Inhibitors for Hepatocellular Carcinoma Patients with Extrahepatic Metastases: A Multicenter Retrospective Study</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Efficacy and Safety of Transcatheter Arterial Chemoembolization Combined with Lenvatinib Plus Anti-PD-1 Inhibitors for Hepatocellular Carcinoma Patients with Extrahepatic Metastases: A Multicenter Retrospective Study</div>
+            
+            
+            <div class="reference-finding-supporting">"Efficacy and Safety of Transcatheter Arterial Chemoembolization Combined with Lenvatinib Plus Anti-PD-1 Inhibitors for Hepatocellular Carcinoma Patients with Extrahepatic Metastases: A Multicenter Retrospective Study"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3389/fimmu.2024.1480520" target="_blank">DOI:10.3389/fimmu.2024.1480520</a>
+                            </div>
+                            
+                            <div class="reference-title">The load of hepatitis B virus reduces the immune checkpoint inhibitors efficiency in hepatocellular carcinoma patients</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The load of hepatitis B virus reduces the immune checkpoint inhibitors efficiency in hepatocellular carcinoma patients</div>
+            
+            
+            <div class="reference-finding-supporting">"Chronic viral infection may lead to an immunosuppressive microenvironment, whereas the association between virus-related indicators and treatment response in hepatocellular carcinoma(HCC) patients undergoing immune checkpoint inhibitors(ICIs) therapy remains a topic of debate."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fimmu.2024.1480520" target="_blank">DOI:10.3389/fimmu.2024.1480520</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Chronic viral infection may lead to an immunosuppressive microenvironment, whereas the association between virus-related indicators and treatment response in hepatocellular carcinoma(HCC) patients undergoing immune checkpoint inhibitors(ICIs) therapy remains a topic of debate."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic HCC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/biom14060656" target="_blank">DOI:10.3390/biom14060656</a>
+                            </div>
+                            
+                            <div class="reference-title">Molecular Mechanisms in Tumorigenesis of Hepatocellular Carcinoma and in Target Treatments—An Overview</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Hepatocellular carcinoma is the most common primary malignancy of the liver, with hepatocellular differentiation.</div>
+            
+            
+            <div class="reference-finding-supporting">"Hepatocellular carcinoma is the most common primary malignancy of the liver, with hepatocellular differentiation."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/biom14060656" target="_blank">DOI:10.3390/biom14060656</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Hepatocellular carcinoma is the most common primary malignancy of the liver, with hepatocellular differentiation."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic HCC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/cancers15030817" target="_blank">DOI:10.3390/cancers15030817</a>
+                            </div>
+                            
+                            <div class="reference-title">Genetics of Hepatocellular Carcinoma: From Tumor to Circulating DNA</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Hepatocellular carcinoma (HCC) accounts for 90% of primary hepatic malignancies and is one of the major causes of cancer-related death.</div>
+            
+            
+            <div class="reference-finding-supporting">"Hepatocellular carcinoma (HCC) accounts for 90% of primary hepatic malignancies and is one of the major causes of cancer-related death."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers15030817" target="_blank">DOI:10.3390/cancers15030817</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Hepatocellular carcinoma (HCC) accounts for 90% of primary hepatic malignancies and is one of the major causes of cancer-related death."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic HCC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/cancers15153880" target="_blank">DOI:10.3390/cancers15153880</a>
+                            </div>
+                            
+                            <div class="reference-title">Advances in the Early Detection of Hepatobiliary Cancers</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Hepatocellular cancer (HCC) and biliary tract cancers (BTCs) have poor survival rates and a low likelihood of a cure, especially in advanced-stage disease.</div>
+            
+            
+            <div class="reference-finding-supporting">"Hepatocellular cancer (HCC) and biliary tract cancers (BTCs) have poor survival rates and a low likelihood of a cure, especially in advanced-stage disease."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers15153880" target="_blank">DOI:10.3390/cancers15153880</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Hepatocellular cancer (HCC) and biliary tract cancers (BTCs) have poor survival rates and a low likelihood of a cure, especially in advanced-stage disease."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic HCC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/cancers16132387" target="_blank">DOI:10.3390/cancers16132387</a>
+                            </div>
+                            
+                            <div class="reference-title">Evolution of Systemic Treatment for Hepatocellular Carcinoma: Changing Treatment Strategies and Concepts</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Systemic therapy for hepatocellular carcinoma (HCC) has undergone substantial advancements.</div>
+            
+            
+            <div class="reference-finding-supporting">"Systemic therapy for hepatocellular carcinoma (HCC) has undergone substantial advancements."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers16132387" target="_blank">DOI:10.3390/cancers16132387</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Systemic therapy for hepatocellular carcinoma (HCC) has undergone substantial advancements."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic HCC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/cancers16193400" target="_blank">DOI:10.3390/cancers16193400</a>
+                            </div>
+                            
+                            <div class="reference-title">Role of Imaging in Screening for Hepatocellular Carcinoma</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Primary liver cancer is among the most common cancers globally.</div>
+            
+            
+            <div class="reference-finding-supporting">"Primary liver cancer is among the most common cancers globally."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers16193400" target="_blank">DOI:10.3390/cancers16193400</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Primary liver cancer is among the most common cancers globally."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic HCC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/cancers16233933" target="_blank">DOI:10.3390/cancers16233933</a>
+                            </div>
+                            
+                            <div class="reference-title">Hepatocellular Carcinoma Surveillance Strategies: Major Guidelines and Screening Advances</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Hepatocellular carcinoma (HCC) is a leading cause of cancer-related deaths globally, with prognosis and treatment outcomes that are significantly influenced by the stage at diagnosis.</div>
+            
+            
+            <div class="reference-finding-supporting">"Hepatocellular carcinoma (HCC) is a leading cause of cancer-related deaths globally, with prognosis and treatment outcomes that are significantly influenced by the stage at diagnosis."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers16233933" target="_blank">DOI:10.3390/cancers16233933</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Hepatocellular carcinoma (HCC) is a leading cause of cancer-related deaths globally, with prognosis and treatment outcomes that are significantly influenced by the stage at diagnosis."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic HCC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/jcm13226770" target="_blank">DOI:10.3390/jcm13226770</a>
+                            </div>
+                            
+                            <div class="reference-title">Beyond the Liver: A Comprehensive Review of Strategies to Prevent Hepatocellular Carcinoma</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Hepatocellular carcinoma (HCC) is a leading cause of cancer-related mortality worldwide, primarily developing in the context of chronic liver disease.</div>
+            
+            
+            <div class="reference-finding-supporting">"Hepatocellular carcinoma (HCC) is a leading cause of cancer-related mortality worldwide, primarily developing in the context of chronic liver disease."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/jcm13226770" target="_blank">DOI:10.3390/jcm13226770</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Hepatocellular carcinoma (HCC) is a leading cause of cancer-related mortality worldwide, primarily developing in the context of chronic liver disease."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic HCC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/vaccines12111254" target="_blank">DOI:10.3390/vaccines12111254</a>
+                            </div>
+                            
+                            <div class="reference-title">Hepatitis B Virus-Related Cirrhosis and Hepatocellular Carcinoma Hospital Discharge Rates from 2005 to 2021 in Spain: Impact of Universal Vaccination</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The main consequences of chronic hepatitis B virus (HBV) infections are cirrhosis and hepatocellular carcinoma (HCC), both associated with frequent hospitalization.</div>
+            
+            
+            <div class="reference-finding-supporting">"The main consequences of chronic hepatitis B virus (HBV) infections are cirrhosis and hepatocellular carcinoma (HCC), both associated with frequent hospitalization."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/vaccines12111254" target="_blank">DOI:10.3390/vaccines12111254</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The main consequences of chronic hepatitis B virus (HBV) infections are cirrhosis and hepatocellular carcinoma (HCC), both associated with frequent hospitalization."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic HCC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.5114/ceji.2024.142418" target="_blank">DOI:10.5114/ceji.2024.142418</a>
+                            </div>
+                            
+                            <div class="reference-title">Progression patterns in patients with advanced hepatocellular carcinoma treated with local therapy, targeted drugs, and PD-1/PD-L1 inhibitors</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">To explore the progression patterns of advanced hepatocellular carcinoma (HCC) in patients treated with a combination of local therapies, targeted drugs, and PD-1/PD-L1 inhibitors.</div>
+            
+            
+            <div class="reference-finding-supporting">"To explore the progression patterns of advanced hepatocellular carcinoma (HCC) in patients treated with a combination of local therapies, targeted drugs, and PD-1/PD-L1 inhibitors."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.5114/ceji.2024.142418" target="_blank">DOI:10.5114/ceji.2024.142418</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"To explore the progression patterns of advanced hepatocellular carcinoma (HCC) in patients treated with a combination of local therapies, targeted drugs, and PD-1/PD-L1 inhibitors."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic HCC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">Disease Characteristics Research Template</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">47 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-10T00:35:33.317874</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
+<p>Provide detailed information focusing on:
+1. Key concepts and definitions with current understanding
+2. Recent developments and latest research (prioritize 2023-2024 sources)
+3. Current applications and real-world implementations
+4. Expert opinions and analysis from authoritative sources
+5. Relevant statistics and data from recent studies</p>
+<p>Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
+Always prioritize recent, authoritative sources and provide specific citations for all major claims.</p>
+<h1>Disease Characteristics Research Template</h1>
+<h2>Target Disease</h2>
+<ul>
+<li><strong>Disease Name:</strong> Metastatic Hepatocellular Carcinoma</li>
+<li><strong>MONDO ID:</strong>  (if available)</li>
+<li><strong>Category:</strong></li>
+</ul>
+<h2>Research Objectives</h2>
+<p>Please provide a comprehensive research report on <strong>Metastatic Hepatocellular Carcinoma</strong> covering all of the
+disease characteristics listed below. This report will be used to populate a disease knowledge
+base entry. Be thorough and cite primary literature (PMID preferred) for all claims.</p>
+<p>For each section, <strong>suggested databases/resources</strong> are listed. These are the first places
+you should search for information on each topic.</p>
+<hr />
+<h3>1. Disease Information</h3>
+<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, ICD-10/ICD-11, MeSH, PubMed</p>
+</blockquote>
+<ul>
+<li>What is the disease? Provide a concise overview.</li>
+<li>What are the key identifiers? (OMIM, Orphanet, ICD-10/ICD-11, MeSH, Mondo)</li>
+<li>What are the common synonyms and alternative names?</li>
+<li>Is the information derived from individual patients (e.g., EHR) or aggregated disease-level resources?</li>
+</ul>
+<h3>2. Etiology</h3>
+<ul>
+<li><strong>Disease Causal Factors</strong>: What are the primary causes? (genetic, environmental, infectious, mechanistic)</li>
+<li><strong>Risk Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, UpToDate, clinical guidelines, ClinVar, ClinGen, GWAS Catalog, PheGenI, CTD, CDC, WHO, epidemiological databases</p>
+</blockquote>
+</li>
+<li>Genetic risk factors (causal variants, susceptibility loci, modifier genes)</li>
+<li>Environmental risk factors (toxins, lifestyle, occupational exposures, age, sex, family history)</li>
+<li><strong>Protective Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, clinical trial databases, GWAS Catalog, gnomAD, WHO, CDC, nutrition databases</p>
+</blockquote>
+</li>
+<li>Genetic protective factors (protective variants, modifier alleles)</li>
+<li>Environmental protective factors (diet, lifestyle, exposures that reduce risk)</li>
+<li><strong>Gene-Environment Interactions</strong>: How do genetic and environmental factors interact to influence disease?<blockquote>
+<p><strong>Search first:</strong> CTD, PubMed, PheGenI, GxE databases</p>
+</blockquote>
+</li>
+</ul>
+<h3>3. Phenotypes</h3>
+<blockquote>
+<p><strong>Search first:</strong> HPO (Human Phenotype Ontology), OMIM, Orphanet, PubMed, clinicaltrials.gov, MedDRA, SNOMED CT, DECIPHER, LOINC</p>
+</blockquote>
+<p>For each phenotype, provide:
+- <strong>Phenotype type</strong>: symptoms, clinical signs, physical manifestations, behavioral changes, or laboratory abnormalities</p>
+<blockquote>
+<p>For symptoms/signs: HPO, OMIM, Orphanet, PubMed
+For behavioral changes: HPO, DSM, RDoC (Research Domain Criteria), PubMed
+For laboratory abnormalities: LOINC, SNOMED CT, LabTests Online, PubMed
+- <strong>Phenotype characteristics</strong>:
+<strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed
+  - Age of symptom onset (neonatal, childhood, adult-onset, late-onset)
+  - Symptom severity (mild, moderate, severe, variable)
+  - Symptom progression (stable, progressive, episodic, fluctuating)
+  - Frequency among affected individuals (percentage or qualitative)
+- <strong>Quality of life impact</strong>: Effects on daily functioning and well-being (per-phenotype when possible)
+<strong>Search first:</strong> EQ-5D database, SF-36, WHO QOL databases, PubMed
+- Suggest HPO (Human Phenotype Ontology) terms for each phenotype</p>
+</blockquote>
+<h3>4. Genetic/Molecular Information</h3>
+<ul>
+<li><strong>Causal Genes</strong>: Gene mutations or chromosomal abnormalities responsible for disease (gene symbols, OMIM IDs)<blockquote>
+<p><strong>Search first:</strong> OMIM, ClinVar, HGMD, Ensembl, NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Pathogenic Variants</strong>:</li>
+<li>Affected genes (gene symbols, HGNC IDs)
+    &gt; <strong>Search first:</strong> OMIM, NCBI Gene, Ensembl, HGNC, UniProt, GeneCards</li>
+<li>Variant classification (pathogenic, likely pathogenic, VUS per ACMG/AMP guidelines)
+    &gt; <strong>Search first:</strong> ClinVar, ClinGen, ACMG/AMP guidelines, VarSome</li>
+<li>Variant type/class (missense, frameshift, nonsense, splice-site, structural)</li>
+<li>Allele frequency in population databases
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, ExAC, TOPMed, dbSNP</li>
+<li>Somatic vs germline origin
+    &gt; <strong>Search first:</strong> COSMIC (somatic), ClinVar, ICGC, TCGA</li>
+<li>Functional consequences (loss of function, gain of function, dominant negative)</li>
+<li><strong>Modifier Genes</strong>: Genes that modify disease severity or expression</li>
+<li><strong>Epigenetic Information</strong>: DNA methylation, histone modifications, chromatin changes affecting disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Chromosomal Abnormalities</strong>: Large-scale genetic changes (aneuploidy, translocations, inversions)<blockquote>
+<p><strong>Search first:</strong> DECIPHER, ClinVar, ECARUCA, UCSC Genome Browser</p>
+</blockquote>
+</li>
+</ul>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Environmental Factors</strong>: Non-genetic contributing factors (toxins, radiation, pollution, occupational exposure)<blockquote>
+<p><strong>Search first:</strong> CTD (Comparative Toxicogenomics Database), TOXNET, PubMed, EPA databases</p>
+</blockquote>
+</li>
+<li><strong>Lifestyle Factors</strong>: Behavioral factors (smoking, diet, exercise, alcohol consumption)<blockquote>
+<p><strong>Search first:</strong> CDC databases, WHO, PubMed, NHANES</p>
+</blockquote>
+</li>
+<li><strong>Infectious Agents</strong>: If applicable, pathogens causing or triggering disease (bacteria, viruses, fungi, parasites)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON</p>
+</blockquote>
+</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<ul>
+<li><strong>Molecular Pathways</strong>: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)<blockquote>
+<p><strong>Search first:</strong> KEGG, Reactome, WikiPathways, PathBank, BioCyc</p>
+</blockquote>
+</li>
+<li><strong>Cellular Processes</strong>: Cell-level mechanisms (apoptosis, autophagy, cell cycle dysregulation, inflammation, etc.)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (GO), Reactome, KEGG, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Protein Dysfunction</strong>: How protein structure or function is altered (misfolding, aggregation, loss of function, gain of function)<blockquote>
+<p><strong>Search first:</strong> UniProt, PDB (Protein Data Bank), InterPro, Pfam, AlphaFold</p>
+</blockquote>
+</li>
+<li><strong>Metabolic Changes</strong>: Alterations in metabolic processes (energy metabolism, lipid metabolism, amino acid metabolism)<blockquote>
+<p><strong>Search first:</strong> KEGG, BioCyc, HMDB (Human Metabolome Database), BRENDA</p>
+</blockquote>
+</li>
+<li><strong>Immune System Involvement</strong>: Role of immune response (autoimmunity, immunodeficiency, chronic inflammation)<blockquote>
+<p><strong>Search first:</strong> ImmPort, Immunome Database, IEDB, Gene Ontology</p>
+</blockquote>
+</li>
+<li><strong>Tissue Damage Mechanisms</strong>: How tissues/ are injured (oxidative stress, ischemia, fibrosis, necrosis)<blockquote>
+<p><strong>Search first:</strong> PubMed, Gene Ontology, Reactome</p>
+</blockquote>
+</li>
+<li><strong>Biochemical Abnormalities</strong>: Specific molecular defects (enzyme deficiencies, receptor dysfunction, ion channel defects)<blockquote>
+<p><strong>Search first:</strong> BRENDA, UniProt, KEGG, OMIM, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Epigenetic Changes</strong>: DNA methylation, histone modifications affecting gene expression in disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Molecular Profiling</strong> (if available):</li>
+<li>Transcriptomics/gene expression changes
+    &gt; <strong>Search first:</strong> GEO (Gene Expression Omnibus), ArrayExpress, GTEx, Human Cell Atlas, SRA</li>
+<li>Proteomics findings
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, Human Protein Atlas, STRING, BioGRID</li>
+<li>Metabolomics signatures
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB, METLIN</li>
+<li>Lipidomics alterations
+    &gt; <strong>Search first:</strong> LIPID MAPS, SwissLipids, LipidHome, Metabolomics Workbench</li>
+<li>Genomic structural features
+    &gt; <strong>Search first:</strong> UCSC Genome Browser, Ensembl, NCBI, dbVar, DGV</li>
+<li><strong>Advanced Technologies</strong> (if applicable):</li>
+<li>Single-cell analysis findings (cell-type specific mechanisms, cellular heterogeneity)
+    &gt; <strong>Search first:</strong> Human Cell Atlas, Single Cell Portal, GEO, CELLxGENE</li>
+<li>Spatial transcriptomics findings
+    &gt; <strong>Search first:</strong> GEO, Spatial Research, Vizgen, 10x Genomics data</li>
+<li>Multi-omics integration results
+    &gt; <strong>Search first:</strong> TCGA, ICGC, cBioPortal, LinkedOmics, PubMed</li>
+<li>Functional genomics screens (CRISPR, RNAi)
+    &gt; <strong>Search first:</strong> DepMap, GenomeRNAi, PubMed, BioGRID ORCS</li>
+</ul>
+<p>For each mechanism, describe:
+- The causal chain from initial trigger to clinical manifestation
+- Which mechanisms are upstream vs downstream
+- What cell types and biological processes are involved
+- Suggest GO terms for biological processes and CL terms for cell types</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ Level</strong>:</li>
+<li>Primary organs directly affected</li>
+<li>Secondary organ involvement (complications, secondary effects)</li>
+<li>Body systems involved (cardiovascular, nervous, digestive, respiratory, endocrine, etc.)<blockquote>
+<p><strong>Search first:</strong> Uberon, FMA (Foundational Model of Anatomy), OMIM, HPO, ICD-11, MeSH, SNOMED CT</p>
+</blockquote>
+</li>
+<li><strong>Tissue and Cell Level</strong>:</li>
+<li>Specific tissue types affected (epithelial, connective, muscle, nervous)</li>
+<li>Specific cell populations targeted (with Cell Ontology terms)<blockquote>
+<p><strong>Search first:</strong> Uberon, Human Protein Atlas, Cell Ontology, Human Cell Atlas, CellMarker, PanglaoDB</p>
+</blockquote>
+</li>
+<li><strong>Subcellular Level</strong>:</li>
+<li>Cellular compartments involved (mitochondria, nucleus, ER, lysosomes) (with GO Cellular Component terms)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (Cellular Component), UniProt, Human Protein Atlas</p>
+</blockquote>
+</li>
+<li><strong>Localization</strong>:</li>
+<li>Specific anatomical sites (with UBERON terms)
+    &gt; <strong>Search first:</strong> FMA, Uberon, NeuroNames (for brain), SNOMED CT</li>
+<li>Lateralization (unilateral, bilateral, asymmetric)
+    &gt; <strong>Search first:</strong> HPO, clinical literature, imaging databases</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset</strong>:</li>
+<li>Typical age of onset (congenital, pediatric, adult, geriatric)</li>
+<li>Onset pattern (acute, subacute, chronic, insidious)<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Progression</strong>:</li>
+<li>Disease stages (early, intermediate, advanced, end-stage)
+    &gt; <strong>Search first:</strong> Cancer Staging Manual (AJCC), WHO classifications, PubMed</li>
+<li>Progression rate (rapid, slow, variable)</li>
+<li>Disease course pattern (episodic, relapsing-remitting, progressive, stable)</li>
+<li>Disease duration (self-limited, chronic lifelong)<blockquote>
+<p><strong>Search first:</strong> Disease registries, longitudinal cohort databases, natural history studies, PubMed, Orphanet, OMIM</p>
+</blockquote>
+</li>
+<li><strong>Patterns</strong>:</li>
+<li>Remission patterns (spontaneous, treatment-induced)
+    &gt; <strong>Search first:</strong> Clinical trial databases, disease registries, PubMed</li>
+<li>Critical periods (time windows of vulnerability or opportunity for intervention)
+    &gt; <strong>Search first:</strong> PubMed, developmental biology databases, clinical guidelines</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology</strong>:</li>
+<li>Prevalence (cases per 100,000 at given time)</li>
+<li>Incidence (new cases per 100,000 per year)<blockquote>
+<p><strong>Search first:</strong> Orphanet, CDC, WHO, GBD (Global Burden of Disease), national registries, SEER, disease registries</p>
+</blockquote>
+</li>
+<li><strong>For Genetic Etiology</strong>:</li>
+<li>Inheritance pattern (AD, AR, X-linked, mitochondrial, multifactorial, polygenic)
+    &gt; <strong>Search first:</strong> OMIM, Orphanet, ClinVar, GTR (Genetic Testing Registry)</li>
+<li>Penetrance (complete, incomplete, age-dependent)
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, PubMed, ClinGen</li>
+<li>Expressivity (variable, consistent)
+    &gt; <strong>Search first:</strong> OMIM, ClinVar, PubMed</li>
+<li>Genetic anticipation (increasing severity in successive generations)
+    &gt; <strong>Search first:</strong> OMIM, PubMed (especially for repeat expansion disorders)</li>
+<li>Germline mosaicism
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, genetic counseling literature, PubMed</li>
+<li>Founder effects (population-specific mutations)
+    &gt; <strong>Search first:</strong> gnomAD, population genetics databases, PubMed</li>
+<li>Consanguinity role
+    &gt; <strong>Search first:</strong> OMIM, population studies, genetic counseling resources</li>
+<li>Carrier frequency
+    &gt; <strong>Search first:</strong> gnomAD, carrier screening databases, GeneReviews, GTR</li>
+<li><strong>Population Demographics</strong>:</li>
+<li>Affected populations (ethnic or demographic groups with higher prevalence)
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, PAGE Study, PubMed, population registries</li>
+<li>Geographic distribution (endemic areas, regional variation)
+    &gt; <strong>Search first:</strong> WHO, CDC, GBD, Orphanet, geographic epidemiology databases</li>
+<li>Geographic distribution of specific variants</li>
+<li>Sex ratio (male:female)
+    &gt; <strong>Search first:</strong> Disease registries, OMIM, PubMed, epidemiological databases</li>
+<li>Age distribution of affected individuals
+    &gt; <strong>Search first:</strong> CDC, disease registries, SEER, Orphanet</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Clinical Tests</strong>:</li>
+<li>Laboratory tests (blood, urine, tissue chemistry, specific enzyme assays)
+    &gt; <strong>Search first:</strong> LOINC, LabTests Online, PubMed</li>
+<li>Biomarkers (proteins, metabolites, genetic markers, circulating biomarkers)
+    &gt; <strong>Search first:</strong> FDA Biomarker List, BEST (Biomarkers, EndpointS, and other Tools), PubMed</li>
+<li>Imaging studies (X-ray, CT, MRI, PET, ultrasound)
+    &gt; <strong>Search first:</strong> RadLex, DICOM, Radiopaedia, imaging databases</li>
+<li>Functional tests (pulmonary function, cardiac stress tests)
+    &gt; <strong>Search first:</strong> LOINC, clinical guidelines, PubMed</li>
+<li>Electrophysiology (EEG, EMG, ECG, nerve conduction studies)
+    &gt; <strong>Search first:</strong> LOINC, clinical neurophysiology databases, PubMed</li>
+<li>Biopsy findings (histopathology, immunohistochemistry)
+    &gt; <strong>Search first:</strong> SNOMED CT, College of American Pathologists resources, PubMed</li>
+<li>Pathology findings (microscopic examination)
+    &gt; <strong>Search first:</strong> SNOMED CT, Digital Pathology databases, PubMed</li>
+<li><strong>Genetic Testing</strong>:<blockquote>
+<p><strong>Search first:</strong> GTR (Genetic Testing Registry), GeneReviews, ClinGen</p>
+</blockquote>
+</li>
+<li>Overview of recommended genetic testing approach</li>
+<li>Whole genome sequencing (WGS) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, GEL (Genomics England), gnomAD</li>
+<li>Whole exome sequencing (WES) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneMatcher</li>
+<li>Gene panels (which panels, which genes)
+    &gt; <strong>Search first:</strong> GTR, ClinVar, laboratory-specific databases</li>
+<li>Single gene testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneReviews</li>
+<li>Chromosomal microarray (CMA)
+    &gt; <strong>Search first:</strong> DECIPHER, ClinVar, dbVar, ECARUCA</li>
+<li>Karyotyping
+    &gt; <strong>Search first:</strong> Chromosome Abnormality Database, ClinVar, cytogenetics resources</li>
+<li>FISH
+    &gt; <strong>Search first:</strong> ClinVar, cytogenetics databases, PubMed</li>
+<li>Mitochondrial DNA testing
+    &gt; <strong>Search first:</strong> MITOMAP, MSeqDR, ClinVar, GTR</li>
+<li>Repeat expansion testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, repeat expansion databases, PubMed</li>
+<li><strong>Omics-Based Diagnostics</strong> (if applicable):</li>
+<li>RNA sequencing / transcriptomics
+    &gt; <strong>Search first:</strong> GEO, ArrayExpress, GTEx, RNA-seq databases</li>
+<li>Proteomics
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, FDA Biomarker database</li>
+<li>Metabolomics
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB</li>
+<li>Epigenomics
+    &gt; <strong>Search first:</strong> GEO, ENCODE, Roadmap Epigenomics, MethBase</li>
+<li>Liquid biopsy
+    &gt; <strong>Search first:</strong> COSMIC, ClinVar, liquid biopsy databases, PubMed</li>
+<li><strong>Clinical Criteria</strong>:</li>
+<li>Standardized diagnostic criteria (DSM, ICD, society guidelines)
+    &gt; <strong>Search first:</strong> DSM-5, ICD-11, clinical society guidelines, UpToDate</li>
+<li>Differential diagnosis (other conditions to rule out, with distinguishing features)
+    &gt; <strong>Search first:</strong> DynaMed, UpToDate, clinical decision support systems</li>
+<li><strong>Screening</strong>:</li>
+<li>Screening methods for asymptomatic individuals (newborn screening, carrier screening, cascade screening)
+    &gt; <strong>Search first:</strong> ACMG recommendations, CDC newborn screening, GTR</li>
+</ul>
+<h3>11. Outcome/Prognosis</h3>
+<ul>
+<li><strong>Survival and Mortality</strong>:</li>
+<li>Survival rate (5-year, 10-year, overall)
+    &gt; <strong>Search first:</strong> SEER, cancer registries, disease-specific registries, PubMed</li>
+<li>Life expectancy (with and without treatment if applicable)
+    &gt; <strong>Search first:</strong> Orphanet, disease registries, actuarial databases, PubMed</li>
+<li>Mortality rate
+    &gt; <strong>Search first:</strong> CDC, WHO, GBD, national mortality databases</li>
+<li>Disease-specific mortality (deaths directly attributable to disease)
+    &gt; <strong>Search first:</strong> Disease registries, CDC Wonder, GBD, PubMed</li>
+<li><strong>Morbidity and Function</strong>:</li>
+<li>Morbidity (disease-related disability and health impacts)
+    &gt; <strong>Search first:</strong> GBD, WHO, disability databases, PubMed</li>
+<li>Disability outcomes (long-term functional impairments)
+    &gt; <strong>Search first:</strong> ICF (International Classification of Functioning), disability registries</li>
+<li>Quality of life measures (EQ-5D, SF-36, PROMIS, disease-specific tools)
+    &gt; <strong>Search first:</strong> EQ-5D database, SF-36, PROMIS, PubMed</li>
+<li><strong>Disease Course</strong>:</li>
+<li>Complications (secondary problems: infections, organ failure, etc.)
+    &gt; <strong>Search first:</strong> ICD codes, disease registries, clinical databases, PubMed</li>
+<li>Recovery potential (likelihood and extent of recovery, with vs without treatment)
+    &gt; <strong>Search first:</strong> Natural history studies, rehabilitation databases, PubMed</li>
+<li><strong>Prediction</strong>:</li>
+<li>Prognostic factors (age, disease severity, biomarkers, treatment response)
+    &gt; <strong>Search first:</strong> Prognostic models databases, clinical calculators, PubMed</li>
+<li>Prognostic biomarkers (molecular markers predicting disease course)
+    &gt; <strong>Search first:</strong> FDA Biomarker database, PubMed, cancer prognostic databases</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Pharmacotherapy</strong>:</li>
+<li>Pharmacological treatments (drug names, drug classes, mechanisms of action)
+    &gt; <strong>Search first:</strong> DrugBank, RxNorm, ATC classification, DailyMed, FDA databases</li>
+<li>Pharmacogenomics (how genetic variants affect drug metabolism, efficacy, toxicity)
+    &gt; <strong>Search first:</strong> PharmGKB, CPIC (Clinical Pharmacogenetics), FDA Table of PGx Biomarkers</li>
+<li><strong>Advanced Therapeutics</strong>:</li>
+<li>Gene therapy (viral vectors, CRISPR, gene replacement, gene editing)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA gene therapy database, ASGCT resources</li>
+<li>Cell therapy (stem cell transplant, CAR-T, cellular therapeutics)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA cell therapy database, FACT standards</li>
+<li>RNA-based therapies (ASOs, siRNA, mRNA therapies)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA approvals, PubMed</li>
+<li>Targeted therapies (treatments directed at specific molecular targets)
+    &gt; <strong>Search first:</strong> My Cancer Genome, OncoKB, ClinicalTrials.gov, FDA approvals</li>
+<li>Immunotherapies (checkpoint inhibitors, monoclonal antibodies)
+    &gt; <strong>Search first:</strong> Cancer Immunotherapy Database, FDA approvals, ClinicalTrials.gov</li>
+<li><strong>Surgical and Interventional</strong>:</li>
+<li>Surgical interventions (types of surgery, timing, outcomes)
+    &gt; <strong>Search first:</strong> CPT codes, surgical registries, clinical guidelines, PubMed</li>
+<li><strong>Supportive and Rehabilitative</strong>:</li>
+<li>Supportive care (symptom management, pain control, nutrition)
+    &gt; <strong>Search first:</strong> Clinical guidelines, Cochrane Library, PubMed</li>
+<li>Rehabilitation (physical therapy, occupational therapy, speech therapy)
+    &gt; <strong>Search first:</strong> Rehabilitation medicine databases, clinical guidelines, PubMed</li>
+<li><strong>Experimental</strong>:</li>
+<li>Experimental treatments in clinical trials (with NCT identifiers if available)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, EU Clinical Trials Register, WHO ICTRP</li>
+<li><strong>Treatment Outcomes</strong>:</li>
+<li>Treatment response rates
+    &gt; <strong>Search first:</strong> Clinical trial databases, FDA reviews, systematic reviews, PubMed</li>
+<li>Side effects and adverse events
+    &gt; <strong>Search first:</strong> FDA Adverse Event Reporting System (FAERS), MedWatch, PubMed</li>
+<li><strong>Treatment Strategy</strong>:</li>
+<li>Treatment algorithms (clinical pathways, decision trees)
+    &gt; <strong>Search first:</strong> Clinical practice guidelines, NCCN Guidelines, UpToDate</li>
+<li>Combination therapies
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, treatment guidelines, PubMed</li>
+<li>Personalized medicine approaches (genotype-guided treatment)
+    &gt; <strong>Search first:</strong> My Cancer Genome, CIViC, PharmGKB, precision medicine databases</li>
+</ul>
+<p>For each treatment, suggest MAXO (Medical Action Ontology) terms where applicable.</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Prevention Levels</strong>:</li>
+<li>Primary prevention (preventing disease occurrence: vaccination, risk factor modification)
+    &gt; <strong>Search first:</strong> CDC, WHO, USPSTF recommendations, Cochrane Library</li>
+<li>Secondary prevention (early detection and treatment: screening programs, early intervention)
+    &gt; <strong>Search first:</strong> USPSTF, CDC screening guidelines, WHO</li>
+<li>Tertiary prevention (preventing complications in those with disease)
+    &gt; <strong>Search first:</strong> Clinical guidelines, disease management protocols, PubMed</li>
+<li><strong>Immunization</strong>: Vaccine strategies (if applicable)<blockquote>
+<p><strong>Search first:</strong> CDC vaccine schedules, WHO immunization, FDA vaccine database</p>
+</blockquote>
+</li>
+<li><strong>Screening and Early Detection</strong>:</li>
+<li>Screening programs (population-based: newborn screening, cancer screening)
+    &gt; <strong>Search first:</strong> CDC screening programs, USPSTF, cancer screening databases</li>
+<li>Genetic screening (carrier screening, preimplantation genetic diagnosis, prenatal testing)
+    &gt; <strong>Search first:</strong> ACMG recommendations, ACOG guidelines, GTR</li>
+<li>Risk stratification (identifying high-risk individuals for targeted prevention)
+    &gt; <strong>Search first:</strong> Risk prediction models, clinical calculators, PubMed</li>
+<li><strong>Behavioral Interventions</strong>: Lifestyle modifications to reduce risk<blockquote>
+<p><strong>Search first:</strong> CDC, WHO, behavioral intervention databases, Cochrane Library</p>
+</blockquote>
+</li>
+<li><strong>Counseling</strong>: Genetic counseling (risk assessment, family planning guidance)<blockquote>
+<p><strong>Search first:</strong> NSGC resources, ACMG guidelines, GeneReviews</p>
+</blockquote>
+</li>
+<li><strong>Public Health</strong>:</li>
+<li>Public health interventions (sanitation, vector control, health education)
+    &gt; <strong>Search first:</strong> CDC, WHO, public health databases, PubMed</li>
+<li>Environmental interventions (reducing environmental risk factors)
+    &gt; <strong>Search first:</strong> EPA databases, WHO environmental health, PubMed</li>
+<li><strong>Prophylaxis</strong>: Preventive medications or procedures<blockquote>
+<p><strong>Search first:</strong> Clinical guidelines, FDA approvals, PubMed</p>
+</blockquote>
+</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy</strong>: Species affected (with NCBI Taxon identifiers)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy</p>
+</blockquote>
+</li>
+<li><strong>Breed</strong>: Specific breeds affected (with VBO identifiers if applicable)<blockquote>
+<p><strong>Search first:</strong> VBO (Vertebrate Breed Ontology)</p>
+</blockquote>
+</li>
+<li><strong>Gene</strong>: Orthologous genes in other species (with NCBI Gene IDs)<blockquote>
+<p><strong>Search first:</strong> NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Natural Disease</strong>:</li>
+<li>Naturally occurring disease in other species (companion animals, wildlife)
+    &gt; <strong>Search first:</strong> OMIA (Online Mendelian Inheritance in Animals), VetCompass, PubMed</li>
+<li>Veterinary relevance and importance in animal health
+    &gt; <strong>Search first:</strong> OMIA, veterinary databases, PubMed</li>
+<li><strong>Comparative Biology</strong>:</li>
+<li>Comparative pathology (similarities and differences across species)
+    &gt; <strong>Search first:</strong> OMIA, comparative pathology databases, PubMed</li>
+<li>Evolutionary conservation of disease mechanisms
+    &gt; <strong>Search first:</strong> HomoloGene, OrthoMCL, Alliance of Genome Resources</li>
+<li><strong>Transmission</strong> (if applicable):</li>
+<li>Zoonotic potential
+    &gt; <strong>Search first:</strong> CDC zoonotic diseases, WHO zoonoses, GIDEON</li>
+<li>Cross-species susceptibility
+    &gt; <strong>Search first:</strong> NCBI Taxonomy, veterinary databases, PubMed</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Model Types</strong>:</li>
+<li>Model organism type (mammalian, invertebrate, cellular, in vitro)
+    &gt; <strong>Search first:</strong> Alliance of Genome Resources, model organism databases</li>
+<li>Specific model systems (mouse, rat, zebrafish, Drosophila, C. elegans, yeast, cell lines, organoids, iPSCs)
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, SGD, ATCC, Cellosaurus</li>
+<li>Induced models (drug treatment, surgical intervention, environmental manipulation)
+    &gt; <strong>Search first:</strong> MGI, model organism databases, PubMed</li>
+<li><strong>Genetic Models</strong>:</li>
+<li>Types available (knockout, knock-in, transgenic, conditional, humanized)
+    &gt; <strong>Search first:</strong> MGI, IMPC, KOMP, EuMMCR, IMSR</li>
+<li><strong>Model Characteristics</strong>:</li>
+<li>Phenotype recapitulation (how well model reproduces human disease features)
+    &gt; <strong>Search first:</strong> Model organism databases, comparative studies, PubMed</li>
+<li>Model limitations (aspects of human disease not captured)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed, review articles</li>
+<li><strong>Applications</strong>:</li>
+<li>Research applications (what aspects of disease can be studied)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed</li>
+<li><strong>Resources</strong>:</li>
+<li>Model databases
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, IMSR, EMMA, MMRRC</li>
+</ul>
+<hr />
+<h2>Citation Requirements</h2>
+<ul>
+<li>Cite primary literature (PMID preferred) for all mechanistic and clinical claims</li>
+<li>Prioritize recent reviews and landmark papers</li>
+<li>Include direct quotes from abstracts where possible to support key statements</li>
+<li>Distinguish evidence source types: human clinical, model organism, in vitro, computational</li>
+</ul>
+<h2>Output Format</h2>
+<p>Structure your response as a comprehensive narrative organized by the sections above.
+For each section, provide:
+- Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
+- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, MAXO, MONDO) where applicable
+- Evidence citations with PMIDs
+- Direct quotes from abstracts to support key claims
+- Clear indication when information is not available or not applicable for this disease</p>
+<p>This report will be used to populate a disease knowledge base entry with:
+- Pathophysiology descriptions with causal chains
+- Gene/protein annotations (HGNC, GO terms)
+- Phenotype associations (HP terms) with frequencies
+- Cell type involvement (CL terms)
+- Anatomical locations (UBERON terms)
+- Chemical entities (CHEBI terms)
+- Treatment annotations (MAXO terms)
+- Evidence items with PMIDs and exact abstract quotes
+- Epidemiology, prognosis, diagnostic, and prevention information
+- Animal model descriptions with phenotype recapitulation details</p>
+<h2>Comprehensive Research Report: Metastatic Hepatocellular Carcinoma (mHCC)</h2>
+<h3>Target disease</h3>
+<p>Metastatic hepatocellular carcinoma (mHCC) is hepatocellular carcinoma (HCC) with extrahepatic spread (e.g., lung, lymph nodes, bone), typically falling under “advanced” disease states used in clinical practice guidelines, together with macrovascular invasion and unresectable tumors not amenable to curative or locoregional therapy. Current systemic-therapy guidelines often operationalize the treated population as “advanced/unresectable HCC,” frequently aligned with BCLC stage C (advanced stage). (gordan2024systemictherapyfor pages 1-2, selene2024hepatocellularcarcinomaadvances pages 1-2)</p>
+<p><strong>Ontology/IDs (available in retrieved sources)</strong>
+- <strong>Open Targets disease entity:</strong> hepatocellular carcinoma (EFO_0000182) (OpenTargets Search: hepatocellular carcinoma)
+- <strong>MONDO terms seen in Open Targets context:</strong> MONDO_0016216 (adult hepatocellular carcinoma); MONDO_0044791 (combined hepatocellular carcinoma and cholangiocarcinoma). (OpenTargets Search: hepatocellular carcinoma)</p>
+<p><strong>Common synonyms / alternative names</strong>
+- Advanced HCC; unresectable HCC; inoperable HCC; locally advanced or metastatic HCC; BCLC stage C HCC. (gordan2024systemictherapyfor pages 1-2, zhao2024progressionpatternsin pages 1-2)</p>
+<p><strong>Evidence sources</strong>
+Most information below is derived from aggregated disease-level resources: international guidelines (ASCO), high-impact narrative reviews/critical appraisals, observational cohorts, and selected translational/genomic studies. (gordan2024systemictherapyfor pages 1-2, cappuyns2024criticalappraisalof pages 2-4, campani2023geneticsofhepatocellular pages 1-2)</p>
+<hr />
+<h2>1. Disease information (overview)</h2>
+<p>HCC is the dominant primary liver cancer subtype (commonly cited as &gt;75% or &gt;90% depending on classification) and is a major global cause of cancer mortality. Advanced/metastatic disease is common due to late diagnosis and underlying chronic liver disease that limits curative options. (gordan2024systemictherapyfor pages 1-2, selene2024hepatocellularcarcinomaadvances pages 1-2)</p>
+<p>A 2024 systemic-therapy review notes that HCC represents “over 90% of [primary liver cancer] cases globally,” and reports a “relative 5-year survival of approximately 18%.” (selene2024hepatocellularcarcinomaadvances pages 1-2)</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>2.1 Primary causal factors and upstream etiologies</h3>
+<p>HCC most often arises in the context of chronic liver disease and cirrhosis. A 2024 review summarizes that <strong>80–90%</strong> of HCC cases arise in patients with cirrhosis. (selene2024hepatocellularcarcinomaadvances pages 1-2)</p>
+<p>Key etiologic categories repeatedly emphasized across contemporary sources include:
+- Chronic viral hepatitis <strong>HBV</strong> and <strong>HCV</strong> (selene2024hepatocellularcarcinomaadvances pages 1-2)
+- <strong>Alcohol-associated liver disease (ALD)</strong> (selene2024hepatocellularcarcinomaadvances pages 1-2)
+- <strong>Metabolic dysfunction–associated steatotic liver disease (MASLD)/MASH/NASH</strong>, increasingly important in many regions (selene2024hepatocellularcarcinomaadvances pages 1-2)
+- <strong>Aflatoxin B1</strong> exposure (context-dependent; highlighted in mechanistic overviews) (OpenTargets Search: hepatocellular carcinoma)</p>
+<p><strong>Recent development (2024): shifting etiologic drivers</strong>
+A 2024 US projection study reports that HCC mortality is projected to continue rising to 2040, “primarily due to increased deaths from alcohol-associated liver disease (ALD) and metabolic dysfunction–associated steatotic liver disease (MASLD); deaths from viral hepatitis were under control and were projected to decrease.” (selene2024hepatocellularcarcinomaadvances pages 1-2)</p>
+<h3>2.2 Genetic risk factors (susceptibility loci)</h3>
+<p>A 2023 genetics review summarizes that common germline susceptibility variants associated with HCC risk include <strong>PNPLA3 rs738409</strong>, <strong>TM6SF2 rs58542926</strong>, and <strong>MBOAT7 rs641738</strong>, and notes a protective variant <strong>HSD17B13 rs72613567</strong>. (campani2023geneticsofhepatocellular pages 1-2)</p>
+<h3>2.3 Protective factors</h3>
+<p><strong>HBV vaccination (population-level protection)</strong>
+A 2024 population study assessing universal HBV vaccination impact in Spain reported that in vaccinated vs unvaccinated cohorts aged 20–39, the hospital discharge rate ratio for <strong>HCC was 0.66 (95% CI 0.53–0.82)</strong>. (OpenTargets Search: hepatocellular carcinoma)</p>
+<p><strong>Antiviral therapy and virus–host interaction (advanced-disease relevance)</strong>
+A 2024 meta-analysis of 55 cohort studies (2019–2024; n=7,180) reported that while HBV infection itself was not significantly associated with worse survival under immune checkpoint inhibitors, <strong>high baseline HBV load</strong> was associated with poorer OS (<strong>pooled HR 1.74; 95% CI 1.27–2.37</strong>), and <strong>antiviral therapy</strong> was associated with improved OS (<strong>pooled HR 0.24; 95% CI 0.14–0.42</strong>) and PFS (<strong>pooled HR 0.54; 95% CI 0.33–0.89</strong>). (OpenTargets Search: hepatocellular carcinoma)</p>
+<h3>2.4 Gene–environment interactions</h3>
+<p>The above HBV-load findings provide clinically relevant evidence that pathogen burden (environmental/infectious exposure intensity) interacts with host–tumor immunity and affects outcomes of immunotherapy in advanced HCC. (OpenTargets Search: hepatocellular carcinoma)</p>
+<hr />
+<h2>3. Phenotypes (advanced/metastatic disease)</h2>
+<h3>3.1 Clinical presentation (typical)</h3>
+<p>Advanced HCC phenotype reflects a combined burden of:
+1) tumor mass effect and metastases, and
+2) underlying cirrhosis/portal hypertension with risk of decompensation.</p>
+<p><strong>Portal vein tumor thrombosis (PVTT) as an advanced phenotype</strong>
+PVTT occurs in <strong>~10–40%</strong> of patients at diagnosis; untreated PVTT can confer median OS <strong>as short as 2–4 months</strong>. (finn2024efficacyandsafety pages 1-2)</p>
+<h3>3.2 Extrahepatic metastatic patterns (sites and frequencies)</h3>
+<p>Evidence from recent cohorts illustrates that metastatic patterns vary by population and ascertainment method, but lung/lymph node/bone are recurrent:</p>
+<ul>
+<li>In a 2024 multicenter retrospective cohort of <strong>60 HCC patients with extrahepatic metastases</strong>, metastatic sites were most commonly <strong>lung (n=27)</strong>, then <strong>lymph nodes (n=22)</strong>, then <strong>bone (n=10)</strong>. (liu2024efficacyandsafety pages 1-2)</li>
+<li>A 2024 cohort of <strong>86 BCLC stage C</strong> patients treated with combination approaches reported “the common sites of extrahepatic progression are the <strong>lymph nodes and lungs</strong>.” It also quantified timing: extrahepatic first progression (n=61) median <strong>5.8 months</strong>, and second progression (n=39) median <strong>8.7 months</strong>. (zhao2024progressionpatternsin pages 1-2)</li>
+</ul>
+<h3>3.3 Laboratory abnormalities and biomarkers used clinically (advanced disease)</h3>
+<ul>
+<li><strong>Alpha-fetoprotein (AFP)</strong> is used for surveillance and as a prognostic/selection biomarker in advanced HCC; the ASCO guideline restricts <strong>ramucirumab</strong> use to <strong>AFP ≥400 ng/mL</strong>. (gordan2024systemictherapyfor pages 1-2)</li>
+</ul>
+<h3>3.4 Quality of life impact and patient-reported outcomes</h3>
+<p>In the phase III HIMALAYA study, patient-reported outcomes (EORTC QLQ-C30 and HCC module) showed that <strong>time to deterioration</strong> in global health status/quality of life, physical functioning, fatigue, appetite loss, and abdominal pain was <strong>numerically longer</strong> for STRIDE (durvalumab+tremelimumab) and durvalumab vs sorafenib, and that “clinically meaningful deterioration in PROs was not observed in any treatment arm.” (cappuyns2024criticalappraisalof pages 2-4)</p>
+<h3>3.5 Suggested HPO mappings (non-exhaustive; for knowledge base)</h3>
+<ul>
+<li>Weight loss: <strong>HP:0001824</strong></li>
+<li>Anorexia: <strong>HP:0002039</strong></li>
+<li>Fatigue: <strong>HP:0012378</strong></li>
+<li>Abdominal pain: <strong>HP:0002027</strong></li>
+<li>Ascites: <strong>HP:0001541</strong></li>
+<li>Jaundice: <strong>HP:0000952</strong></li>
+<li>Elevated alpha-fetoprotein: <strong>HP:0030342</strong> (term name may vary by release)</li>
+<li>Bone pain (bone metastasis): <strong>HP:0002653</strong></li>
+<li>Dyspnea (lung metastasis): <strong>HP:0002094</strong></li>
+</ul>
+<p>(These HPO suggestions are ontology mappings; they are not direct claims of frequency.)</p>
+<hr />
+<h2>4. Genetic / molecular information</h2>
+<h3>4.1 Somatic driver genes and pathways (current understanding)</h3>
+<p>A 2023 genetics review states that the most frequently mutated genes include <strong>“TERT promoter, CTNNB1, and TP53”</strong> and organizes HCC drivers into major pathways including <strong>telomere maintenance; Wnt/β-catenin; p53/cell-cycle regulation; oxidative stress; epigenetic modifiers; AKT/mTOR; MAP kinase</strong>. (campani2023geneticsofhepatocellular pages 1-2)</p>
+<p><strong>OpenTargets disease–target association examples</strong>
+OpenTargets lists strong associations for HCC with targets including <strong>TP53</strong> and angiogenesis pathway targets such as <strong>KDR (VEGFR2)</strong>, among others (evidence links include PubMed IDs in the OpenTargets output). (OpenTargets Search: hepatocellular carcinoma)</p>
+<h3>4.2 Liquid biopsy / circulating tumor DNA (ctDNA)</h3>
+<p>The 2023 genetics review highlights ctDNA as a future tool for management, emphasizing that ctDNA may help identify “biomarkers of response or resistance” and that single tissue samples may miss intra- and intertumor heterogeneity. (campani2023geneticsofhepatocellular pages 1-2)</p>
+<h3>4.3 Suggested GO terms (mechanism-linked; examples)</h3>
+<ul>
+<li>Angiogenesis: <strong>GO:0001525</strong></li>
+<li>Epithelial to mesenchymal transition: <strong>GO:0001837</strong></li>
+<li>Regulation of immune response: <strong>GO:0050776</strong></li>
+<li>Cell cycle regulation: <strong>GO:0051726</strong></li>
+</ul>
+<hr />
+<h2>5. Mechanism / pathophysiology (advanced/metastatic)</h2>
+<h3>5.1 High-level causal chain (from trigger to metastatic disease)</h3>
+<p>1) Chronic liver injury (HBV/HCV, alcohol, MASLD/MASH, toxins such as aflatoxin) →
+2) inflammation, fibrosis/cirrhosis, genomic instability and driver alterations (e.g., TERT promoter, TP53, CTNNB1) →
+3) malignant transformation with angiogenic and immune-evasive microenvironment →
+4) local invasion (including macrovascular invasion such as PVTT) and/or dissemination to extrahepatic niches (lung/lymph node/bone) →
+5) clinical advanced-stage phenotype driven by both tumor progression and hepatic decompensation.</p>
+<p><strong>Angiogenesis as a central actionable mechanism</strong>
+The modern first-line standard regimen atezolizumab+bevacizumab combines PD-L1 blockade with VEGF inhibition; VEGF pathway targeting is described as an early and continuing focus in systemic therapy. (selene2024hepatocellularcarcinomaadvances pages 1-2, moriguchi2024evolutionofsystemic pages 1-2)</p>
+<p><strong>PVTT and portal hypertension</strong>
+PVTT is both a marker and driver of advanced disease physiology (portal hypertension and risk of variceal bleeding), directly influencing treatment safety considerations (e.g., anti-VEGF therapy). (finn2024efficacyandsafety pages 1-2, gordan2024systemictherapyfor pages 1-2)</p>
+<h3>5.2 Cell types (suggested CL mappings)</h3>
+<ul>
+<li>Hepatocyte (tumor cell-of-origin context): <strong>CL:0000182</strong></li>
+<li>Kupffer cell / hepatic macrophage: <strong>CL:0000235</strong> (macrophage; Kupffer-specific may vary)</li>
+<li>Endothelial cell: <strong>CL:0000115</strong></li>
+<li>T cell: <strong>CL:0000084</strong></li>
+</ul>
+<hr />
+<h2>6. Inheritance and population (epidemiology)</h2>
+<h3>6.1 Global burden and geographic disparities</h3>
+<p>The 2024 global epidemiology analysis using GLOBOCAN 2022 estimates <strong>~866,136 new liver cancer cases and 758,725 deaths</strong> worldwide in 2022, reporting a global mortality-to-incidence ratio of <strong>0.86</strong> and emphasizing male predominance and geographic heterogeneity (e.g., high burden in Mongolia and parts of Asia/Northern Africa). (selene2024hepatocellularcarcinomaadvances pages 1-2)</p>
+<p>ASCO’s 2024 guideline provides additional headline statistics: worldwide in 2020, HCC accounted for <strong>~725,000 new cases and ~664,000 deaths</strong>; in the US in 2023, there were <strong>~41,210 new cases and ~29,380 deaths</strong> (as cited in the guideline). (gordan2024systemictherapyfor pages 1-2)</p>
+<h3>6.2 Mortality trend statistics (US)</h3>
+<p>A 2024 US cross-sectional analysis includes <strong>188,280 HCC-related deaths</strong>, reporting rising age-standardized mortality from 2006 to 2022 with projected increases to 2040, driven mainly by ALD and MASLD. (selene2024hepatocellularcarcinomaadvances pages 1-2)</p>
+<hr />
+<h2>7. Diagnostics and staging (advanced/metastatic)</h2>
+<h3>7.1 Noninvasive diagnosis and imaging standards</h3>
+<p><strong>High-risk population constraint</strong>
+ESGAR practice recommendations emphasize that <strong>noninvasive diagnosis is limited to high-risk patients</strong> (e.g., cirrhosis, chronic HBV, prior HCC) and that <strong>contrast-enhanced CT or MRI</strong> are first-line diagnostic exams. (cannella2024esressentialsdiagnosis pages 1-3)</p>
+<p><strong>Major imaging features</strong>
+Recommended major imaging features include lesion size, <strong>non-rim arterial phase hyperenhancement (APHE)</strong>, <strong>non-peripheral washout</strong>, enhancing capsule, and threshold growth. (cannella2024esressentialsdiagnosis pages 1-3)</p>
+<p><strong>LI-RADS role and surveillance workflow</strong>
+A 2023 review states that “<strong>The LI-RADS system has standardised the imaging interpretation and diagnosis of HCC</strong>,” and that LI-RADS includes ultrasound visualization categories (A/B/C) relevant to surveillance quality. (giustini2023reviewarticleavailable pages 1-3)</p>
+<h3>7.2 Surveillance and early detection (relevance to metastatic burden)</h3>
+<p>AASLD-aligned surveillance described in the 2023 review recommends ultrasound ± AFP every 6 months for selected chronic hepatitis B and all cirrhosis patients (with exceptions). (giustini2023reviewarticleavailable pages 1-3)</p>
+<p><strong>Key statistic (test performance):</strong> the same review notes that “<strong>the sensitivity of ultrasound is highly variable for the detection of early-stage HCC with sensitivity reports ranging from 40% to 80%</strong>,” which contributes to late-stage diagnoses and metastatic presentations. (giustini2023reviewarticleavailable pages 1-3)</p>
+<h3>7.3 Biomarkers</h3>
+<ul>
+<li>AFP remains widely used, including as a treatment-selection biomarker (ramucirumab for AFP ≥400 ng/mL). (gordan2024systemictherapyfor pages 1-2)</li>
+</ul>
+<hr />
+<h2>8. Treatment (current applications; 2023–2024 emphasis)</h2>
+<h3>8.1 Guideline-based systemic therapy (ASCO 2024)</h3>
+<p>The ASCO 2024 guideline update recommends:
+- <strong>First line (Child-Pugh A, ECOG 0–1):</strong> atezolizumab+bevacizumab or durvalumab+tremelimumab (STRIDE). (gordan2024systemictherapyfor pages 1-2)
+- <strong>Key safety implementation detail:</strong> when using bevacizumab-containing regimens, screen/manage esophageal varices because of bleeding risk. (gordan2024systemictherapyfor pages 1-2)</p>
+<p>The ASCO guideline “Bottom Line” summary box (algorithm-like) is captured in the extracted figure/table images. (gordan2024systemictherapyfor media 968a7827, gordan2024systemictherapyfor media b2ca9c8b)</p>
+<h3>8.2 Pivotal trial outcomes and expert appraisal</h3>
+<p>A 2024 critical appraisal (JAMA Oncology) summarizes key phase III trial outcomes:
+- <strong>IMbrave150 (atezo+bev vs sorafenib):</strong> median OS <strong>19.2 vs 13.4 months</strong>; ORR <strong>30% vs 5%</strong>; overall bleeding <strong>25.2% vs 17.3%</strong>; grade 5 GI bleeding <strong>1.2%</strong> with atezo+bev. (cappuyns2024criticalappraisalof pages 2-4)
+- <strong>HIMALAYA STRIDE vs sorafenib:</strong> median OS <strong>16.4 vs 13.8 months</strong>; ORR <strong>20.1% vs 5.1%</strong>; immune-related AEs notable (20% required corticosteroids). (cappuyns2024criticalappraisalof pages 2-4)</p>
+<p><strong>High-risk macrovascular invasion subgroup (Vp4 PVTT):</strong> In IMbrave150 Vp4 PVTT subgroup, median OS <strong>7.6 vs 5.5 months</strong> (atezo+bev vs sorafenib) and median PFS <strong>5.4 vs 2.8 months</strong>. (finn2024efficacyandsafety pages 1-2)</p>
+<h3>8.3 Real-world implementation</h3>
+<p>A 2024 real-world cohort combining TACE with atezo+bev (92 patients; four centers; Aug 2021–Sep 2023) reported:
+- ORR <strong>54.3% (mRECIST)</strong> and <strong>41.3% (RECIST 1.1)</strong>
+- median OS <strong>15.9 months</strong>; median PFS <strong>9.1 months</strong>
+- grade 3/4 treatment-related AEs <strong>16.3%</strong>
+This illustrates multimodal treatment patterns increasingly used in routine care outside trials for unresectable disease and some advanced presentations. (shen2024efficacyofatezolizumab pages 1-2)</p>
+<h3>8.4 Treatment sequencing and “no single sequence” consensus</h3>
+<p>The 2024 JAMA Oncology appraisal stresses that while guidelines broadly prioritize atezo+bev in first line, the <strong>optimal sequencing after immunotherapy-containing regimens remains unsettled</strong>, and evidence is particularly limited for Child-Pugh B populations. (cappuyns2024criticalappraisalof pages 2-4)</p>
+<h3>8.5 Suggested MAXO (Medical Action Ontology) terms (examples)</h3>
+<ul>
+<li>Immune checkpoint inhibitor therapy: <strong>MAXO:0000748</strong> (label may vary by release)</li>
+<li>Anti-angiogenic therapy: <strong>MAXO term for anti-VEGF therapy</strong> (ontology label may vary)</li>
+<li>Transarterial chemoembolization: <strong>MAXO:0001184</strong> (label may vary)</li>
+</ul>
+<hr />
+<h2>9. Prevention (primary, secondary, tertiary)</h2>
+<p><strong>Primary prevention</strong>
+- HBV vaccination reduces HBV-related severe liver outcomes including HCC at population scale (e.g., HDRR 0.66 for HCC in vaccinated Spanish cohorts aged 20–39). (OpenTargets Search: hepatocellular carcinoma)</p>
+<p><strong>Secondary prevention</strong>
+- Surveillance in high-risk patients (ultrasound ± AFP every 6 months) is widely recommended, but limitations include variable ultrasound sensitivity (40%–80% for early HCC) and inadequate visualization in obesity/NAFLD, which contributes to advanced/metastatic presentation. (giustini2023reviewarticleavailable pages 1-3)</p>
+<p><strong>Tertiary prevention (advanced disease)</strong>
+- Control of underlying liver disease and portal hypertension/varices is integral to safe systemic therapy (e.g., anti-VEGF bleeding risk mitigation). (gordan2024systemictherapyfor pages 1-2)</p>
+<hr />
+<h2>10. Model organisms / preclinical models (metastasis-relevant research infrastructure)</h2>
+<p>HCC model systems have expanded to include chemically/diet-induced models, transgenic/transposon models, organoids, and in silico approaches. A 2023 early-detection review notes that preclinical systems such as genetically modified models and patient-derived xenografts are used, but also emphasizes that “clinically relevant models recapitulating the spectrum of human disease are still suboptimal.” (yıldırım2023advancesinthe pages 26-29)</p>
+<hr />
+<h2>Key tables (artifacts)</h2>
+<p>The following tables summarize actionable therapy data and etiologic/risk factor evidence extracted from the cited literature.</p>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Regimen</th>
+<th>Mechanism/class</th>
+<th>Key trial or guideline source</th>
+<th>Key outcomes (median OS, HR, ORR when available)</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1L</td>
+<td>Atezolizumab + bevacizumab</td>
+<td>PD-L1 inhibitor + anti-VEGF monoclonal antibody</td>
+<td>ASCO 2024 guideline; IMbrave150; JAMA Oncol 2024 appraisal (gordan2024systemictherapyfor pages 1-2, cappuyns2024criticalappraisalof pages 2-4)</td>
+<td>IMbrave150 updated median OS 19.2 mo vs 13.4 mo with sorafenib; ORR 30% vs 5%; OS HR 0.58 in trial summary cited by IMbrave150 substudy (finn2024efficacyandsafety pages 1-2, cappuyns2024criticalappraisalof pages 2-4)</td>
+<td>Preferred 1L for Child-Pugh A, ECOG 0-1. Screen/manage esophageal varices before starting because bevacizumab increases bleeding risk; overall bleeding 25.2% vs 17.3%, grade 5 GI bleeding 1.2% in appraisal. After progression, ASCO recommends TKI, ramucirumab if AFP &gt;=400 ng/mL, durvalumab+tremelimumab, or nivolumab+ipilimumab (gordan2024systemictherapyfor pages 1-2, cappuyns2024criticalappraisalof pages 2-4, gordan2024systemictherapyfor media 968a7827)</td>
+</tr>
+<tr>
+<td>1L</td>
+<td>Durvalumab + tremelimumab (STRIDE)</td>
+<td>PD-L1 inhibitor + CTLA-4 inhibitor</td>
+<td>ASCO 2024 guideline; HIMALAYA; JAMA Oncol 2024 appraisal; HIMALAYA PROs (gordan2024systemictherapyfor pages 1-2, cappuyns2024criticalappraisalof pages 2-4)</td>
+<td>HIMALAYA median OS 16.4 mo vs 13.8 mo with sorafenib; ORR 20.1% vs 5.1% (cappuyns2024criticalappraisalof pages 2-4)</td>
+<td>Preferred 1L alternative for Child-Pugh A, ECOG 0-1; particularly useful when bevacizumab is unsuitable/high GI bleeding risk. PRO analysis showed numerically longer time to deterioration in global health/QoL, physical functioning, fatigue, appetite loss, and abdominal pain vs sorafenib (gordan2024systemictherapyfor pages 1-2, cappuyns2024criticalappraisalof pages 2-4)</td>
+</tr>
+<tr>
+<td>1L</td>
+<td>Durvalumab monotherapy</td>
+<td>PD-L1 inhibitor</td>
+<td>ASCO 2024 guideline; HIMALAYA program (gordan2024systemictherapyfor pages 1-2, cappuyns2024criticalappraisalof pages 2-4)</td>
+<td>Noninferior to sorafenib for OS in HIMALAYA program; detailed median OS not extracted in current evidence bundle (cappuyns2024criticalappraisalof pages 2-4)</td>
+<td>ASCO lists as 1L option when combination immunotherapy is not appropriate/available. Consider in patients with contraindications to bevacizumab or CTLA-4 combination (gordan2024systemictherapyfor pages 1-2)</td>
+</tr>
+<tr>
+<td>1L</td>
+<td>Lenvatinib</td>
+<td>Multikinase inhibitor (VEGFR/FGFR and other kinases)</td>
+<td>ASCO 2024 guideline; REFLECT summarized in 2024 review/appraisal (gordan2024systemictherapyfor pages 1-2, yoo2024currentperspectiveson pages 4-6, cappuyns2024criticalappraisalof pages 2-4)</td>
+<td>REFLECT: median OS 13.6 mo vs 12.3 mo with sorafenib; HR 0.92 (noninferior). Better PFS/ORR than sorafenib in appraisal/review summaries (yoo2024currentperspectiveson pages 4-6, cappuyns2024criticalappraisalof pages 2-4)</td>
+<td>1L alternative when atezo+bev or STRIDE are contraindicated. Common toxicities include hypertension, fatigue, anorexia, proteinuria. Used frequently as post-atezo+bev TKI in real-world sequencing (gordan2024systemictherapyfor pages 1-2, yoo2024currentperspectiveson pages 4-6)</td>
+</tr>
+<tr>
+<td>1L</td>
+<td>Sorafenib</td>
+<td>Multikinase inhibitor (VEGFR/PDGFR/RAF/c-KIT)</td>
+<td>ASCO 2024 guideline; SHARP summarized in 2024 review (gordan2024systemictherapyfor pages 1-2, yoo2024currentperspectiveson pages 4-6)</td>
+<td>SHARP: median OS 10.7 mo vs 7.9 mo with placebo (P&lt;0.001) (yoo2024currentperspectiveson pages 4-6)</td>
+<td>Legacy TKI option when immune-based regimens are not suitable; prerequisite tolerated sorafenib for later regorafenib use (gordan2024systemictherapyfor pages 1-2, yoo2024currentperspectiveson pages 4-6)</td>
+</tr>
+<tr>
+<td>1L high-risk subset</td>
+<td>Atezolizumab + bevacizumab in Vp4 portal vein tumor thrombosis</td>
+<td>PD-L1 inhibitor + anti-VEGF monoclonal antibody</td>
+<td>IMbrave150 Vp4 substudy (finn2024efficacyandsafety pages 1-2)</td>
+<td>In Vp4 PVTT: median OS 7.6 vs 5.5 mo; HR 0.62. Median PFS 5.4 vs 2.8 mo; HR 0.62. In non-Vp4: median OS 21.1 vs 15.4 mo; HR 0.67; median PFS 7.1 vs 4.7 mo; HR 0.64 (finn2024efficacyandsafety pages 1-2)</td>
+<td>Supports use even in very poor-prognosis macrovascular invasion; grade &gt;=3 treatment-related AEs ~43-48% in Vp4 and ~46-47% without Vp4 (finn2024efficacyandsafety pages 1-2)</td>
+</tr>
+<tr>
+<td>2L+ after atezo+bev</td>
+<td>TKI class (e.g., lenvatinib, sorafenib, cabozantinib depending prior exposure/availability)</td>
+<td>Multikinase inhibitors</td>
+<td>ASCO 2024 guideline (gordan2024systemictherapyfor pages 1-2, gordan2024systemictherapyfor media 968a7827)</td>
+<td>No single preferred OS estimate in guideline excerpt; sequencing evidence remains evolving</td>
+<td>ASCO explicitly recommends a TKI after 1L atezo+bev. Choice depends on liver function, prior tolerance, portal hypertension/bleeding considerations, comorbidity, and access (gordan2024systemictherapyfor pages 1-2)</td>
+</tr>
+<tr>
+<td>2L+ after atezo+bev</td>
+<td>Ramucirumab</td>
+<td>VEGFR2 monoclonal antibody</td>
+<td>ASCO 2024 guideline (gordan2024systemictherapyfor pages 1-2)</td>
+<td>Outcome stats not extracted here</td>
+<td>Restrict to patients with AFP &gt;=400 ng/mL (gordan2024systemictherapyfor pages 1-2)</td>
+</tr>
+<tr>
+<td>2L+ after atezo+bev</td>
+<td>Nivolumab + ipilimumab</td>
+<td>PD-1 inhibitor + CTLA-4 inhibitor</td>
+<td>ASCO 2024 guideline (gordan2024systemictherapyfor pages 1-2)</td>
+<td>Outcome stats not extracted here</td>
+<td>Recommended option for appropriate candidates after atezo+bev progression (gordan2024systemictherapyfor pages 1-2)</td>
+</tr>
+<tr>
+<td>2L+ after atezo+bev</td>
+<td>Durvalumab + tremelimumab</td>
+<td>PD-L1 inhibitor + CTLA-4 inhibitor</td>
+<td>ASCO 2024 guideline (gordan2024systemictherapyfor pages 1-2)</td>
+<td>Outcome stats from HIMALAYA available in 1L setting above</td>
+<td>May be considered after atezo+bev in appropriate candidates, though optimal sequencing remains unsettled (gordan2024systemictherapyfor pages 1-2, cappuyns2024criticalappraisalof pages 2-4)</td>
+</tr>
+<tr>
+<td>2L+ after STRIDE</td>
+<td>TKI class</td>
+<td>Multikinase inhibitors</td>
+<td>ASCO 2024 guideline (gordan2024systemictherapyfor pages 1-2, gordan2024systemictherapyfor media 968a7827)</td>
+<td>No single preferred OS estimate in guideline excerpt</td>
+<td>ASCO recommends TKI after 1L durvalumab+tremelimumab (gordan2024systemictherapyfor pages 1-2)</td>
+</tr>
+<tr>
+<td>2L+ after sorafenib/lenvatinib</td>
+<td>Cabozantinib</td>
+<td>Multikinase inhibitor</td>
+<td>ASCO 2024 guideline (gordan2024systemictherapyfor pages 1-2, gordan2024systemictherapyfor pages 19-20)</td>
+<td>Trial details not extracted in evidence summary table</td>
+<td>Standard later-line option after prior TKI; also listed after sorafenib/lenvatinib progression (gordan2024systemictherapyfor pages 1-2)</td>
+</tr>
+<tr>
+<td>2L+ after sorafenib</td>
+<td>Regorafenib</td>
+<td>Multikinase inhibitor</td>
+<td>ASCO 2024 guideline (gordan2024systemictherapyfor pages 1-2, gordan2024systemictherapyfor pages 19-20)</td>
+<td>Trial details not extracted in evidence summary table</td>
+<td>Use only in patients who previously tolerated sorafenib (gordan2024systemictherapyfor pages 1-2)</td>
+</tr>
+<tr>
+<td>2L+ after sorafenib/lenvatinib</td>
+<td>Ramucirumab</td>
+<td>VEGFR2 monoclonal antibody</td>
+<td>ASCO 2024 guideline (gordan2024systemictherapyfor pages 1-2)</td>
+<td>Trial details not extracted in evidence summary table</td>
+<td>Only for AFP &gt;=400 ng/mL (gordan2024systemictherapyfor pages 1-2)</td>
+</tr>
+<tr>
+<td>2L+ after sorafenib/lenvatinib</td>
+<td>Pembrolizumab or nivolumab</td>
+<td>PD-1 inhibitors</td>
+<td>ASCO 2024 guideline (gordan2024systemictherapyfor pages 1-2)</td>
+<td>Trial details not extracted in evidence summary table</td>
+<td>Additional options for appropriate patients after TKI therapy (gordan2024systemictherapyfor pages 1-2)</td>
+</tr>
+<tr>
+<td>Any-line special population</td>
+<td>Systemic therapy in Child-Pugh B</td>
+<td>Regimen selection individualized</td>
+<td>ASCO 2024 guideline (gordan2024systemictherapyfor pages 1-2)</td>
+<td>No pooled efficacy estimate provided in extracted guideline text</td>
+<td>ASCO recommends a cautious approach in Child-Pugh B advanced HCC; most pivotal first-line evidence is strongest for Child-Pugh A (gordan2024systemictherapyfor pages 1-2)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes key 2024 systemic therapy options for advanced/metastatic unresectable hepatocellular carcinoma, including first-line and later-line regimens, mechanisms, pivotal evidence, and practical eligibility notes. It highlights survival and response results where available and flags important treatment-selection issues such as variceal screening, AFP thresholds, and Child-Pugh considerations.</em></p>
+<table>
+<thead>
+<tr>
+<th>Factor type</th>
+<th>Specific factor</th>
+<th>Evidence summary with quantitative/statements when available</th>
+<th>Evidence type</th>
+<th>Key citation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Etiologic</td>
+<td>Chronic hepatitis B virus (HBV) infection</td>
+<td>Major established cause of HCC; many guidelines/reviews identify HBV among the leading causes, and HCC often develops in the setting of chronic liver disease/cirrhosis. HBV remains a dominant cause in many Asian and African populations. In China, HBV remained a major contributor to HCC burden despite declining age-standardized rates over time (selene2024hepatocellularcarcinomaadvances pages 1-2, gordan2024systemictherapyfor pages 1-2).</td>
+<td>Human epidemiology; guideline/review</td>
+<td>Selene et al., 2024, https://doi.org/10.1055/s-0044-1779713; Gordan et al., 2024, https://doi.org/10.1200/jco.23.02745 (selene2024hepatocellularcarcinomaadvances pages 1-2, gordan2024systemictherapyfor pages 1-2)</td>
+</tr>
+<tr>
+<td>Etiologic</td>
+<td>Chronic hepatitis C virus (HCV) infection</td>
+<td>Major established cause of HCC; reviews/guidelines continue to list HCV among principal etiologies. Recent epidemiology suggests viral-hepatitis-related HCC burden is decreasing in some regions, while alcohol- and metabolic-related HCC rise.</td>
+<td>Human epidemiology; guideline/review</td>
+<td>Selene et al., 2024, https://doi.org/10.1055/s-0044-1779713; Qiu et al., 2024, https://doi.org/10.1001/jamanetworkopen.2024.45525 (selene2024hepatocellularcarcinomaadvances pages 1-2)</td>
+</tr>
+<tr>
+<td>Etiologic</td>
+<td>Alcohol-associated liver disease (ALD)</td>
+<td>Recognized major cause of HCC. Recent US projections indicate HCC mortality will continue rising through 2040 “primarily due to increased deaths from alcohol-associated liver disease (ALD) and metabolic dysfunction–associated steatotic liver disease (MASLD)” (selene2024hepatocellularcarcinomaadvances pages 1-2). In China, age-standardized incidence trends for alcohol-related HCC increased while viral-related HCC declined (selene2024hepatocellularcarcinomaadvances pages 1-2).</td>
+<td>Human epidemiology</td>
+<td>Qiu et al., 2024, https://doi.org/10.1001/jamanetworkopen.2024.45525; Long et al., 2024, https://doi.org/10.1177/10732748241310573 (selene2024hepatocellularcarcinomaadvances pages 1-2)</td>
+</tr>
+<tr>
+<td>Etiologic</td>
+<td>MASLD/MASH/NASH</td>
+<td>Increasingly important driver of HCC in high-income and aging/obese populations. Recent reviews note a shift from viral hepatitis toward MASLD-related disease; US projections suggest MASLD and ALD will become leading causes of HCC-related mortality by 2040 for most racial/ethnic groups (selene2024hepatocellularcarcinomaadvances pages 1-2).</td>
+<td>Human epidemiology; guideline/review</td>
+<td>Qiu et al., 2024, https://doi.org/10.1001/jamanetworkopen.2024.45525; EASL-EASD-EASO MASLD Guideline, 2024, https://doi.org/10.1159/000539371 (selene2024hepatocellularcarcinomaadvances pages 1-2)</td>
+</tr>
+<tr>
+<td>Etiologic</td>
+<td>Aflatoxin B1 exposure</td>
+<td>Listed in contemporary molecular/pathogenesis reviews as a major etiologic exposure, especially where food contamination is prevalent. Mechanistically linked to mutagenesis and hepatocarcinogenesis, particularly in conjunction with HBV.</td>
+<td>Human epidemiology; mechanistic review</td>
+<td>Szilveszter et al., 2024, https://doi.org/10.3390/biom14060656 (OpenTargets Search: hepatocellular carcinoma)</td>
+</tr>
+<tr>
+<td>Risk</td>
+<td>Cirrhosis / advanced fibrosis</td>
+<td>Strongest clinical substrate for HCC overall. Reviews note 80–90% of HCC cases arise in patients with cirrhosis, and surveillance recommendations target cirrhosis because it is the largest risk factor for developing HCC (selene2024hepatocellularcarcinomaadvances pages 1-2, giustini2023reviewarticleavailable pages 1-3). Cirrhosis also raises risk of later-stage presentation if surveillance is poor.</td>
+<td>Human clinical epidemiology; guideline/review</td>
+<td>Selene et al., 2024, https://doi.org/10.1055/s-0044-1779713; Giustini et al., 2023, https://doi.org/10.1111/apt.17506 (selene2024hepatocellularcarcinomaadvances pages 1-2, giustini2023reviewarticleavailable pages 1-3)</td>
+</tr>
+<tr>
+<td>Risk</td>
+<td>Obesity / metabolic syndrome / type 2 diabetes</td>
+<td>Modern guidelines and epidemiologic analyses identify obesity and metabolic risk as growing contributors to HCC burden. EASL MASLD guidance emphasizes cardiometabolic risk-factor case finding; obesity and elevated BMI increasingly contribute to liver cancer DALYs and mortality (selene2024hepatocellularcarcinomaadvances pages 1-2).</td>
+<td>Human epidemiology; guideline</td>
+<td>EASL-EASD-EASO MASLD Guideline, 2024, https://doi.org/10.1159/000539371; Qiu et al., 2024, https://doi.org/10.1001/jamanetworkopen.2024.45525 (selene2024hepatocellularcarcinomaadvances pages 1-2)</td>
+</tr>
+<tr>
+<td>Risk</td>
+<td>Male sex</td>
+<td>HCC burden is substantially higher in males across global analyses; liver cancer incidence/mortality is consistently male-predominant, which contributes to higher risk of advanced/metastatic disease burden in men.</td>
+<td>Human epidemiology</td>
+<td>Li et al., 2024, https://doi.org/10.1097/cm9.0000000000003264 (selene2024hepatocellularcarcinomaadvances pages 1-2)</td>
+</tr>
+<tr>
+<td>Risk</td>
+<td>Older age</td>
+<td>Global epidemiology reviews note highest burden in elderly populations, consistent with cumulative chronic liver injury and delayed presentation risk.</td>
+<td>Human epidemiology</td>
+<td>Li et al., 2024, https://doi.org/10.1097/cm9.0000000000003264 (selene2024hepatocellularcarcinomaadvances pages 1-2)</td>
+</tr>
+<tr>
+<td>Risk</td>
+<td>Poor surveillance / non-cirrhotic presentation</td>
+<td>About 20% of HCC cases may occur without cirrhosis, which can delay surveillance and diagnosis; screening gaps contribute to advanced-stage presentation. Ultrasound sensitivity for early-stage HCC is only ~40%–80%, limiting early detection and potentially increasing risk of progression to advanced/metastatic disease (giustini2023reviewarticleavailable pages 1-3).</td>
+<td>Guideline/review; diagnostic epidemiology</td>
+<td>Giustini et al., 2023, https://doi.org/10.1111/apt.17506; Kazi et al., 2024, https://doi.org/10.3390/cancers16193400 (giustini2023reviewarticleavailable pages 1-3)</td>
+</tr>
+<tr>
+<td>Genetic risk</td>
+<td>PNPLA3 rs738409</td>
+<td>Frequently cited germline susceptibility variant associated with HCC risk, especially in steatotic/metabolic liver disease settings (campani2023geneticsofhepatocellular pages 1-2).</td>
+<td>Germline genetics</td>
+<td>Campani et al., 2023, https://doi.org/10.3390/cancers15030817 (campani2023geneticsofhepatocellular pages 1-2)</td>
+</tr>
+<tr>
+<td>Genetic risk</td>
+<td>TM6SF2 rs58542926</td>
+<td>Germline susceptibility variant repeatedly associated with HCC risk in chronic liver disease populations (campani2023geneticsofhepatocellular pages 1-2).</td>
+<td>Germline genetics</td>
+<td>Campani et al., 2023, https://doi.org/10.3390/cancers15030817 (campani2023geneticsofhepatocellular pages 1-2)</td>
+</tr>
+<tr>
+<td>Genetic risk</td>
+<td>MBOAT7 rs641738</td>
+<td>Germline risk variant associated with HCC susceptibility, particularly in steatotic liver disease contexts (campani2023geneticsofhepatocellular pages 1-2).</td>
+<td>Germline genetics</td>
+<td>Campani et al., 2023, https://doi.org/10.3390/cancers15030817 (campani2023geneticsofhepatocellular pages 1-2)</td>
+</tr>
+<tr>
+<td>Genetic risk / gene-environment</td>
+<td>High HBV viral load</td>
+<td>In patients receiving immune checkpoint inhibitors for HCC, high baseline HBV load was associated with poorer overall survival (pooled HR 1.74, 95% CI 1.27–2.37), supporting a clinically relevant virus-host interaction that may worsen outcomes once HCC is advanced (OpenTargets Search: hepatocellular carcinoma).</td>
+<td>Human clinical meta-analysis</td>
+<td>Ji et al., 2024, https://doi.org/10.3389/fimmu.2024.1480520 (OpenTargets Search: hepatocellular carcinoma)</td>
+</tr>
+<tr>
+<td>Protective</td>
+<td>HBV vaccination</td>
+<td>Population-level prevention reduces future HCC burden. In Spain, vaccinated vs unvaccinated cohorts aged 20–39 had lower hospital discharge rates for HCC (HDRR 0.66, 95% CI 0.53–0.82) and cirrhosis (HDRR 0.41, 95% CI 0.33–0.53), supporting strong protection against progression from HBV infection to severe liver disease/HCC (OpenTargets Search: hepatocellular carcinoma).</td>
+<td>Human population study</td>
+<td>Domínguez et al., 2024, https://doi.org/10.3390/vaccines12111254 (OpenTargets Search: hepatocellular carcinoma)</td>
+</tr>
+<tr>
+<td>Protective</td>
+<td>Antiviral therapy for HBV/HCV</td>
+<td>Recent prevention reviews conclude HBV and HCV antiviral treatment significantly reduces HCC incidence. In advanced HCC treated with ICIs, antiviral therapy in HBV-infected patients was associated with better OS (pooled HR 0.24, 95% CI 0.14–0.42) and PFS (pooled HR 0.54, 95% CI 0.33–0.89) (OpenTargets Search: hepatocellular carcinoma).</td>
+<td>Human clinical meta-analysis; prevention review</td>
+<td>Ji et al., 2024, https://doi.org/10.3389/fimmu.2024.1480520; Polpichai et al., 2024, https://doi.org/10.3390/jcm13226770 (OpenTargets Search: hepatocellular carcinoma)</td>
+</tr>
+<tr>
+<td>Protective</td>
+<td>HSD17B13 rs72613567</td>
+<td>Reported protective germline variant associated with reduced HCC susceptibility in genetic reviews (campani2023geneticsofhepatocellular pages 1-2).</td>
+<td>Germline genetics</td>
+<td>Campani et al., 2023, https://doi.org/10.3390/cancers15030817 (campani2023geneticsofhepatocellular pages 1-2)</td>
+</tr>
+<tr>
+<td>Protective</td>
+<td>Weight control, exercise, alcohol reduction, smoking cessation</td>
+<td>Recent prevention reviews conclude lifestyle modification is crucial for lowering HCC risk, particularly by reducing MASLD- and ALD-related disease burden. These measures are especially relevant to preventing eventual advanced/metastatic HCC by reducing incident primary HCC.</td>
+<td>Guideline/review</td>
+<td>Polpichai et al., 2024, https://doi.org/10.3390/jcm13226770; EASL-EASD-EASO MASLD Guideline, 2024, https://doi.org/10.1159/000539371 (OpenTargets Search: hepatocellular carcinoma, selene2024hepatocellularcarcinomaadvances pages 1-2)</td>
+</tr>
+<tr>
+<td>Protective / secondary prevention</td>
+<td>Semiannual surveillance in high-risk patients</td>
+<td>AASLD-aligned surveillance with ultrasound ± AFP every 6 months is recommended for cirrhosis and selected HBV populations; early detection aims to prevent presentation with advanced/metastatic disease. However, surveillance effectiveness is limited by suboptimal uptake and ultrasound sensitivity (early-stage sensitivity ~40%–80%) (giustini2023reviewarticleavailable pages 1-3).</td>
+<td>Guideline/review</td>
+<td>Giustini et al., 2023, https://doi.org/10.1111/apt.17506; Wu et al., 2024, https://doi.org/10.3390/cancers16233933 (giustini2023reviewarticleavailable pages 1-3)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes the major etiologic drivers, risk factors, and protective factors for hepatocellular carcinoma relevant to progression toward advanced or metastatic disease. It emphasizes recent epidemiology, guideline-level prevention strategies, and germline susceptibility/protective variants using sources already cited in the conversation.</em></p>
+<hr />
+<h2>Visual evidence from guideline document</h2>
+<p>Cropped images from the ASCO 2024 guideline show the structured, algorithm-like “Bottom Line” recommendations for first-line and subsequent-line systemic therapy selection. (gordan2024systemictherapyfor media 968a7827, gordan2024systemictherapyfor media b2ca9c8b)</p>
+<hr />
+<h2>Limitations of this report (evidence access)</h2>
+<ul>
+<li><strong>PMID requirement:</strong> Several retrieved items did not include PMIDs in the accessible text and tool outputs. Where PubMed IDs are needed, the OpenTargets output includes some PubMed IDs for target–disease evidence (e.g., TP53 associations), but many clinical guideline/review PDFs in this run did not expose PMIDs directly. Therefore, I did not assert PMIDs unless present in the provided context. (OpenTargets Search: hepatocellular carcinoma)</li>
+<li><strong>ICD-10/ICD-11/MeSH/SNOMED codes:</strong> Not retrievable from the currently accessed full texts; thus not exhaustively populated.</li>
+<li><strong>ClinicalTrials.gov NCT identifiers:</strong> Although trial records were retrieved in the tool state, they were not provided with citeable context IDs in the current run output, so NCTs are not cited here.</li>
+</ul>
+<p>References</p>
+<ol>
+<li>
+<p>(gordan2024systemictherapyfor pages 1-2): John D. Gordan, Erin B. Kennedy, Ghassan K. Abou-Alfa, Eliza Beal, Richard S. Finn, Terence P. Gade, Laura Goff, Shilpi Gupta, Jennifer Guy, Hang T. Hoang, Renuka Iyer, Ishmael Jaiyesimi, Minaxi Jhawer, Asha Karippot, Ahmed O. Kaseb, R. Kate Kelley, Jeremy Kortmansky, Andrea Leaf, William M. Remak, Davendra P.S. Sohal, Tamar H. Taddei, Andrea Wilson Woods, Mark Yarchoan, and Michal G. Rose. Systemic therapy for advanced hepatocellular carcinoma: asco guideline update. Journal of Clinical Oncology, 42:1830-1850, May 2024. URL: https://doi.org/10.1200/jco.23.02745, doi:10.1200/jco.23.02745. This article has 286 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(selene2024hepatocellularcarcinomaadvances pages 1-2): Insija Ilyas Selene, Merve Ozen, and Reema A. Patel. Hepatocellular carcinoma: advances in systemic therapy. Seminars in Interventional Radiology, 41:056-062, Feb 2024. URL: https://doi.org/10.1055/s-0044-1779713, doi:10.1055/s-0044-1779713. This article has 9 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(OpenTargets Search: hepatocellular carcinoma): Open Targets Query (hepatocellular carcinoma, 13 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.</p>
+</li>
+<li>
+<p>(zhao2024progressionpatternsin pages 1-2): Yanan Zhao, Di Wu, Quan-Jun Yao, Hang Yuan, Hongtao Hu, and Hailiang Li. Progression patterns in patients with advanced hepatocellular carcinoma treated with local therapy, targeted drugs, and pd-1/pd-l1 inhibitors. Central-European Journal of Immunology, 49:147-154, Aug 2024. URL: https://doi.org/10.5114/ceji.2024.142418, doi:10.5114/ceji.2024.142418. This article has 2 citations.</p>
+</li>
+<li>
+<p>(cappuyns2024criticalappraisalof pages 2-4): Sarah Cappuyns, Virginia Corbett, Mark Yarchoan, Richard S. Finn, and Josep M. Llovet. Critical appraisal of guideline recommendations on systemic therapies for advanced hepatocellular carcinoma. JAMA Oncology, 10:395, Mar 2024. URL: https://doi.org/10.1001/jamaoncol.2023.2677, doi:10.1001/jamaoncol.2023.2677. This article has 153 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(campani2023geneticsofhepatocellular pages 1-2): Claudia Campani, Jessica Zucman-Rossi, and Jean-Charles Nault. Genetics of hepatocellular carcinoma: from tumor to circulating dna. Cancers, 15:817, Jan 2023. URL: https://doi.org/10.3390/cancers15030817, doi:10.3390/cancers15030817. This article has 46 citations.</p>
+</li>
+<li>
+<p>(finn2024efficacyandsafety pages 1-2): Richard S. Finn, Peter R. Galle, Michel Ducreux, Ann-Lii Cheng, Norelle Reilly, Alan Nicholas, Sairy Hernandez, Ning Ma, Philippe Merle, Riad Salem, Daneng Li, and Valeriy Breder. Efficacy and safety of atezolizumab plus bevacizumab versus sorafenib in hepatocellular carcinoma with main trunk and/or contralateral portal vein invasion in imbrave150. Liver Cancer, 13:1-14, Jun 2024. URL: https://doi.org/10.1159/000539897, doi:10.1159/000539897. This article has 50 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(liu2024efficacyandsafety pages 1-2): De-Yi Liu, Yi-Nan Li, Jia-Yi Wu, Zhen-Xin Zeng, Yang-Kai Fu, Han Li, Xiang-Ye Ou, Zhi-Bo Zhang, Shuang-Jia Wang, Jun-Yi Wu, and Mao-Lin Yan. Efficacy and safety of transcatheter arterial chemoembolization combined with lenvatinib plus anti-pd-1 inhibitors for hepatocellular carcinoma patients with extrahepatic metastases: a multicenter retrospective study. Journal of Hepatocellular Carcinoma, 11:2339-2349, Nov 2024. URL: https://doi.org/10.2147/jhc.s480958, doi:10.2147/jhc.s480958. This article has 2 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(moriguchi2024evolutionofsystemic pages 1-2): Michihisa Moriguchi, Seita Kataoka, and Yoshito Itoh. Evolution of systemic treatment for hepatocellular carcinoma: changing treatment strategies and concepts. Cancers, 16:2387, Jun 2024. URL: https://doi.org/10.3390/cancers16132387, doi:10.3390/cancers16132387. This article has 15 citations.</p>
+</li>
+<li>
+<p>(cannella2024esressentialsdiagnosis pages 1-3): Roberto Cannella, Marc Zins, and Giuseppe Brancatelli. Esr essentials: diagnosis of hepatocellular carcinoma—practice recommendations by esgar. European Radiology, 34:2127-2139, Feb 2024. URL: https://doi.org/10.1007/s00330-024-10606-w, doi:10.1007/s00330-024-10606-w. This article has 32 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(giustini2023reviewarticleavailable pages 1-3): Abbey Barnard Giustini, George N. Ioannou, Claude Sirlin, and Rohit Loomba. Review article: available modalities for screening and imaging diagnosis of hepatocellular carcinoma—current gaps and challenges. Alimentary Pharmacology &amp; Therapeutics, 57:1056-1065, Apr 2023. URL: https://doi.org/10.1111/apt.17506, doi:10.1111/apt.17506. This article has 11 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(gordan2024systemictherapyfor media 968a7827): John D. Gordan, Erin B. Kennedy, Ghassan K. Abou-Alfa, Eliza Beal, Richard S. Finn, Terence P. Gade, Laura Goff, Shilpi Gupta, Jennifer Guy, Hang T. Hoang, Renuka Iyer, Ishmael Jaiyesimi, Minaxi Jhawer, Asha Karippot, Ahmed O. Kaseb, R. Kate Kelley, Jeremy Kortmansky, Andrea Leaf, William M. Remak, Davendra P.S. Sohal, Tamar H. Taddei, Andrea Wilson Woods, Mark Yarchoan, and Michal G. Rose. Systemic therapy for advanced hepatocellular carcinoma: asco guideline update. Journal of Clinical Oncology, 42:1830-1850, May 2024. URL: https://doi.org/10.1200/jco.23.02745, doi:10.1200/jco.23.02745. This article has 286 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(gordan2024systemictherapyfor media b2ca9c8b): John D. Gordan, Erin B. Kennedy, Ghassan K. Abou-Alfa, Eliza Beal, Richard S. Finn, Terence P. Gade, Laura Goff, Shilpi Gupta, Jennifer Guy, Hang T. Hoang, Renuka Iyer, Ishmael Jaiyesimi, Minaxi Jhawer, Asha Karippot, Ahmed O. Kaseb, R. Kate Kelley, Jeremy Kortmansky, Andrea Leaf, William M. Remak, Davendra P.S. Sohal, Tamar H. Taddei, Andrea Wilson Woods, Mark Yarchoan, and Michal G. Rose. Systemic therapy for advanced hepatocellular carcinoma: asco guideline update. Journal of Clinical Oncology, 42:1830-1850, May 2024. URL: https://doi.org/10.1200/jco.23.02745, doi:10.1200/jco.23.02745. This article has 286 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(shen2024efficacyofatezolizumab pages 1-2): Xiao Shen, Jin-Xing Zhang, Jin Liu, Sheng Liu, Hai-Bin Shi, Yuan Cheng, Qing-Qiao Zhang, Guo-Wen Yin, and Qing-Quan Zu. Efficacy of atezolizumab plus bevacizumab combined with transarterial chemoembolization for unresectable hepatocellular carcinoma: a real-world study. Journal of Hepatocellular Carcinoma, 11:1993-2003, Oct 2024. URL: https://doi.org/10.2147/jhc.s478604, doi:10.2147/jhc.s478604. This article has 4 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(yıldırım2023advancesinthe pages 26-29): Hasan Çağrı Yıldırım, Gozde Kavgaci, Elvin Chalabiyev, and Omer Dizdar. Advances in the early detection of hepatobiliary cancers. Cancers, 15:3880, Jul 2023. URL: https://doi.org/10.3390/cancers15153880, doi:10.3390/cancers15153880. This article has 29 citations.</p>
+</li>
+<li>
+<p>(yoo2024currentperspectiveson pages 4-6): Hye-Jin Yoo, Jeong-Ju Yoo, Sang Gyune Kim, and Young Seok Kim. Current perspectives on the pharmacological treatment of advanced hepatocellular carcinoma: a narrative review. The Ewha Medical Journal, Oct 2024. URL: https://doi.org/10.12771/emj.2024.e53, doi:10.12771/emj.2024.e53. This article has 2 citations.</p>
+</li>
+<li>
+<p>(gordan2024systemictherapyfor pages 19-20): John D. Gordan, Erin B. Kennedy, Ghassan K. Abou-Alfa, Eliza Beal, Richard S. Finn, Terence P. Gade, Laura Goff, Shilpi Gupta, Jennifer Guy, Hang T. Hoang, Renuka Iyer, Ishmael Jaiyesimi, Minaxi Jhawer, Asha Karippot, Ahmed O. Kaseb, R. Kate Kelley, Jeremy Kortmansky, Andrea Leaf, William M. Remak, Davendra P.S. Sohal, Tamar H. Taddei, Andrea Wilson Woods, Mark Yarchoan, and Michal G. Rose. Systemic therapy for advanced hepatocellular carcinoma: asco guideline update. Journal of Clinical Oncology, 42:1830-1850, May 2024. URL: https://doi.org/10.1200/jco.23.02745, doi:10.1200/jco.23.02745. This article has 286 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </div>
         
 
         <footer class="page-footer">
@@ -4087,7 +7270,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Metastatic Hepatocellular Carcinoma", "mondoId": "MONDO:0007256", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Metastatic_Hepatocellular_Carcinoma", "yamlRevision": "0a87bb1b9d3c"};
+        const OS_CONFIG = {"diseaseName": "Metastatic Hepatocellular Carcinoma", "mondoId": "MONDO:0007256", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Metastatic_Hepatocellular_Carcinoma", "yamlRevision": "ce17d24a8e1e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

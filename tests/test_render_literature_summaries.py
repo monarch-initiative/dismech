@@ -150,3 +150,69 @@ Deep research body.
     assert html.index('id="references-deep-research"') < html.index(
         '<footer class="page-footer">'
     )
+
+
+def test_collect_literature_summaries_rebases_artifact_image_paths(
+    tmp_path: Path,
+) -> None:
+    research_dir = tmp_path / "research"
+    output_dir = tmp_path / "pages" / "disorders"
+    research_dir.mkdir()
+    output_dir.mkdir(parents=True)
+    (research_dir / "Test_Disorder-deep-research-falcon.md").write_text(
+        """---
+provider: falcon
+---
+## Output
+
+Summary.
+
+## Artifacts
+
+![Figure](Test_Disorder-deep-research-falcon_artifacts/image-1.png)
+"""
+    )
+
+    results = collect_literature_summaries(
+        "Test_Disorder",
+        research_root=research_dir,
+        output_dir=output_dir,
+    )
+
+    assert (
+        '../../research/Test_Disorder-deep-research-falcon_artifacts/image-1.png'
+        in results[0]["html"]
+    )
+
+
+def test_render_disorder_includes_rebased_literature_artifact_images(
+    tmp_path: Path,
+) -> None:
+    disorder_path = tmp_path / "Test_Disorder.yaml"
+    output_path = tmp_path / "pages" / "disorders" / "Test_Disorder.html"
+    research_dir = tmp_path / "research"
+    research_dir.mkdir()
+    _write_disorder(disorder_path, {"name": "Test Disorder"})
+    (research_dir / "Test_Disorder-deep-research-falcon.md").write_text(
+        """---
+provider: falcon
+model: Edison Scientific Literature
+citation_count: 1
+---
+## Output
+
+# Disease Pathophysiology Research Report
+
+Summary.
+
+## Artifacts
+
+![Figure](Test_Disorder-deep-research-falcon_artifacts/image-1.png)
+"""
+    )
+
+    render_disorder(disorder_path, output_path=output_path)
+    html = output_path.read_text()
+
+    assert '../../research/Test_Disorder-deep-research-falcon_artifacts/image-1.png' in html
+    assert '<img' in html

@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2578,10 +2731,12 @@
             </div>
             
             
+            <a class="stat-link" href="#genetic">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">1</div>
                 <div class="stat-label">Genes</div>
             </div>
+            </a>
             
             
             <a class="stat-link" href="#treatments">
@@ -2796,6 +2951,58 @@
         
 
         <!-- Genetic Associations -->
+        
+        <div class="card" id="genetic">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
+                <h2 class="card-title">Genetic Associations</h2>
+                <span class="card-count">1</span>
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    F9
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_3d56d08d-48d0-4523-b433-dbd44c5b9e45-2019-05-22T190226.728Z" target="_blank">CGGV:assertion_3d56d08d-48d0-4523-b433-dbd44c5b9e45-2019-05-22T190226.728Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"F9 | HGNC:3551 | hemophilia B | MONDO:0010604 | XL | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the F9-hemophilia B gene-disease relationship as definitive with X-linked inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+        </div>
         
 
         <!-- Treatments -->
@@ -3035,8 +3242,7 @@ prevalence:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Results: Prevalence (per 100 000 males) is 17.1 cases for all severities of hemophilia A, 6.0 cases for severe hemophilia A, 3.8 cases for all severities of hemophilia B, and 1.1 cases for severe hemophilia B. Prevalence at birth (per 100 000 males) is 24.6 cases for all severities of hemophilia A, 9.5 cases for severe hemophilia A, 5.0 cases for all severities of hemophilia B, and 1.5 cases for severe hemophilia B.&#34;
-    explanation: Meta-analysis provides the strongest aggregate prevalence
-      estimate for hemophilia B in males and at birth.
+    explanation: Meta-analysis provides the strongest aggregate prevalence estimate for hemophilia B in males and at birth.
 - population: Male births
   percentage: 5.0 per 100,000
   notes: &gt;-
@@ -3047,8 +3253,7 @@ prevalence:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Results: Prevalence (per 100 000 males) is 17.1 cases for all severities of hemophilia A, 6.0 cases for severe hemophilia A, 3.8 cases for all severities of hemophilia B, and 1.1 cases for severe hemophilia B. Prevalence at birth (per 100 000 males) is 24.6 cases for all severities of hemophilia A, 9.5 cases for severe hemophilia A, 5.0 cases for all severities of hemophilia B, and 1.5 cases for severe hemophilia B.&#34;
-    explanation: Same meta-analysis quantifies prevalence at birth separately
-      from point prevalence.
+    explanation: Same meta-analysis quantifies prevalence at birth separately from point prevalence.
 pathophysiology:
 - name: Factor IX Deficiency
   description: &gt;-
@@ -3058,10 +3263,8 @@ pathophysiology:
   - reference: PMID:23430394
     reference_title: &#34;Treatment of hemophilia B: focus on recombinant factor IX.&#34;
     supports: SUPPORT
-    snippet: &#34;Hemophilia B is a recessive X-linked bleeding disorder characterized
-      by deficiency of the coagulation factor IX (FIX).&#34;
-    explanation: The abstract identifies factor IX deficiency as the cause of
-      hemophilia B.
+    snippet: &#34;Hemophilia B is a recessive X-linked bleeding disorder characterized by deficiency of the coagulation factor IX (FIX).&#34;
+    explanation: The abstract identifies factor IX deficiency as the cause of hemophilia B.
 phenotypes:
 - name: Abnormal Bleeding
   category: Hematologic
@@ -3075,13 +3278,26 @@ phenotypes:
   - reference: PMID:23430394
     reference_title: &#34;Treatment of hemophilia B: focus on recombinant factor IX.&#34;
     supports: SUPPORT
-    snippet: &#34;Hemophilia B is a recessive X-linked bleeding disorder characterized
-      by deficiency of the coagulation factor IX (FIX).&#34;
+    snippet: &#34;Hemophilia B is a recessive X-linked bleeding disorder characterized by deficiency of the coagulation factor IX (FIX).&#34;
     explanation: The abstract describes hemophilia B as a bleeding disorder.
+genetic:
+- name: F9
+  gene_term:
+    preferred_term: F9
+    term:
+      id: hgnc:3551
+      label: F9
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_3d56d08d-48d0-4523-b433-dbd44c5b9e45-2019-05-22T190226.728Z
+    reference_title: &#34;F9 / hemophilia B (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;F9 | HGNC:3551 | hemophilia B | MONDO:0010604 | XL | Definitive&#34;
+    explanation: ClinGen classifies the F9-hemophilia B gene-disease relationship as definitive with X-linked inheritance.
 treatments:
 - name: Factor IX Replacement
-  description: Plasma-derived or recombinant factor IX concentrates for
-    on-demand or prophylactic therapy.
+  description: Plasma-derived or recombinant factor IX concentrates for on-demand or prophylactic therapy.
   treatment_term:
     preferred_term: pharmacotherapy
     term:
@@ -3091,10 +3307,8 @@ treatments:
   - reference: PMID:23430394
     reference_title: &#34;Treatment of hemophilia B: focus on recombinant factor IX.&#34;
     supports: SUPPORT
-    snippet: &#34;Hemophilia B treatment has improved greatly in the last 20 years with
-      the introduction first of plasma-derived and then of recombinant FIX concentrates.&#34;
-    explanation: The abstract notes factor IX concentrates as key treatment
-      advances.
+    snippet: &#34;Hemophilia B treatment has improved greatly in the last 20 years with the introduction first of plasma-derived and then of recombinant FIX concentrates.&#34;
+    explanation: The abstract notes factor IX concentrates as key treatment advances.
 - name: Prophylactic Factor IX Replacement
   description: Regular prophylactic dosing to prevent bleeding and arthropathy.
   treatment_term:
@@ -3106,27 +3320,19 @@ treatments:
   - reference: PMID:23430394
     reference_title: &#34;Treatment of hemophilia B: focus on recombinant factor IX.&#34;
     supports: SUPPORT
-    snippet: &#34;Replacement therapy may be administered through on-demand or prophylaxis
-      regimens, but the latter treatment modality has been shown to be superior in
-      prevention of hemophilic arthropathy and in improvement of patients&#39; quality
-      of life.&#34;
-    explanation: The abstract notes prophylaxis as a superior treatment modality
-      for prevention of arthropathy.
+    snippet: &#34;Replacement therapy may be administered through on-demand or prophylaxis regimens, but the latter treatment modality has been shown to be superior in prevention of hemophilic arthropathy and in improvement of patients&#39; quality of life.&#34;
+    explanation: The abstract notes prophylaxis as a superior treatment modality for prevention of arthropathy.
   - reference: PMID:39950390
     reference_title: &#34;Bleeding Episodes in Patients With Haemophilia B Receiving Prophylactic Factor IX Treatment: A Systematic Review and Meta-Analysis.&#34;
     supports: SUPPORT
-    snippet: &#34;Prophylaxis with coagulation factor concentrates is the mainstay of
-      treatment in severe hemophilia A and B.&#34;
-    explanation: The abstract describes prophylactic factor replacement as the
-      mainstay of treatment for severe hemophilia.
+    snippet: &#34;Prophylaxis with coagulation factor concentrates is the mainstay of treatment in severe hemophilia A and B.&#34;
+    explanation: The abstract describes prophylactic factor replacement as the mainstay of treatment for severe hemophilia.
 references:
 - reference: DOI:10.1002/14651858.cd014544.pub2
-  title: Non-clotting factor therapies for preventing bleeds in people with
-    congenital hemophilia A or B
+  title: Non-clotting factor therapies for preventing bleeds in people with congenital hemophilia A or B
   findings: []
 - reference: DOI:10.1007/s13353-025-00952-w
-  title: Gene therapy as an innovative approach to the treatment of hemophilia
-    B—a review
+  title: Gene therapy as an innovative approach to the treatment of hemophilia B—a review
   findings: []
 - reference: DOI:10.1007/s40140-024-00635-y
   title: Perioperative Management of Hemophilia Patients
@@ -3138,16 +3344,13 @@ references:
   title: &#39;Iliopsoas haemorrhage in patients with haemophilia: results from one centre&#39;
   findings: []
 - reference: DOI:10.1186/s13052-024-01819-2
-  title: &#39;Intracranial hemorrhage in an infant leads to the diagnosis and treatment
-    of severe hemophilia B: a case report&#39;
+  title: &#39;Intracranial hemorrhage in an infant leads to the diagnosis and treatment of severe hemophilia B: a case report&#39;
   findings: []
 - reference: DOI:10.14302/issn.2372-6601.jhor-24-5108
-  title: &#39;Understanding Inherited Bleeding Disorders: Genetic Mutations in Blood Coagulation
-    Factors and Regulatory Proteins&#39;
+  title: &#39;Understanding Inherited Bleeding Disorders: Genetic Mutations in Blood Coagulation Factors and Regulatory Proteins&#39;
   findings: []
 - reference: DOI:10.3389/fmed.2025.1618464
-  title: &#39;Therapeutic advances in hemophilia: from molecular innovation to patient-centered
-    global care&#39;
+  title: &#39;Therapeutic advances in hemophilia: from molecular innovation to patient-centered global care&#39;
   findings: []
 - reference: DOI:10.3390/biom14070854
   title: &#39;Recent Advances in Gene Therapy for Hemophilia: Projecting the Perspectives&#39;
@@ -3714,7 +3917,7 @@ AAV gene therapy (adult severe–moderately severe HB)
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hemophilia B", "mondoId": "MONDO:0010604", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hemophilia_B", "yamlRevision": "23f05aa55e77"};
+        const OS_CONFIG = {"diseaseName": "Hemophilia B", "mondoId": "MONDO:0010604", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hemophilia_B", "yamlRevision": "f2c14ed2f448"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

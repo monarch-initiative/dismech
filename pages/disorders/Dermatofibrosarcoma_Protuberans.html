@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2629,6 +2782,20 @@
             
             
             
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-value">4</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -3725,6 +3892,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3764,6 +3932,7 @@
                     CD34 Expression
                     
                 </div>
+                
                 
                 
     
@@ -3831,7 +4000,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Dermatofibrosarcoma Protuberans
 creation_date: &#39;2026-01-26T02:55:13Z&#39;
-updated_date: &#39;2026-04-24T00:00:00Z&#39;
+updated_date: &#39;2026-05-08T20:47:43Z&#39;
 description: &gt;-
   Dermatofibrosarcoma protuberans (DFSP) is a rare, locally aggressive fibroblastic
   tumor of the dermis and subcutaneous tissue characterized by the COL1A1-PDGFB
@@ -4161,11 +4330,1515 @@ classifications:
   harrisons_chapter:
   - classification_value: cancer
   - classification_value: solid tumor
+references:
+- reference: DOI:10.3389/fonc.2024.1399486
+  title: Hotspots and future trends of dermatofibrosarcoma protuberans
+  found_in:
+  - Dermatofibrosarcoma_Protuberans-deep-research-falcon.md
+  findings:
+  - statement: Dermatofibrosarcoma protuberans (DFSP) is a moderately malignant soft tissue sarcoma with localized infiltrative growth.
+    supporting_text: Dermatofibrosarcoma protuberans (DFSP) is a moderately malignant soft tissue sarcoma with localized infiltrative growth.
+    evidence:
+    - reference: DOI:10.3389/fonc.2024.1399486
+      reference_title: Hotspots and future trends of dermatofibrosarcoma protuberans
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Dermatofibrosarcoma protuberans (DFSP) is a moderately malignant soft tissue sarcoma with localized infiltrative growth.
+      explanation: Deep research cited this publication as relevant literature for Dermatofibrosarcoma Protuberans.
+- reference: DOI:10.3390/cancers16183124
+  title: &#39;Dermatofibrosarcoma Protuberans: An Updated Review of the Literature&#39;
+  found_in:
+  - Dermatofibrosarcoma_Protuberans-deep-research-falcon.md
+  findings:
+  - statement: Dermatofibrosarcoma protuberans (DFSP) is a rare proliferative condition representing skin sarcomas which is known to locally recur yet very rarely metastasizes.
+    supporting_text: Dermatofibrosarcoma protuberans (DFSP) is a rare proliferative condition representing skin sarcomas which is known to locally recur yet very rarely metastasizes.
+    evidence:
+    - reference: DOI:10.3390/cancers16183124
+      reference_title: &#39;Dermatofibrosarcoma Protuberans: An Updated Review of the Literature&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Dermatofibrosarcoma protuberans (DFSP) is a rare proliferative condition representing skin sarcomas which is known to locally recur yet very rarely metastasizes.
+      explanation: Deep research cited this publication as relevant literature for Dermatofibrosarcoma Protuberans.
+- reference: DOI:10.3390/dermatopathology10010008
+  title: &#39;Rare Variants of Dermatofibrosarcoma Protuberans: Clinical, Histologic, and Molecular Features and Diagnostic Pitfalls&#39;
+  found_in:
+  - Dermatofibrosarcoma_Protuberans-deep-research-falcon.md
+  findings:
+  - statement: Dermatofibrosarcoma protuberans (DFSP) is a dermal malignant mesenchymal tumor.
+    supporting_text: Dermatofibrosarcoma protuberans (DFSP) is a dermal malignant mesenchymal tumor.
+    evidence:
+    - reference: DOI:10.3390/dermatopathology10010008
+      reference_title: &#39;Rare Variants of Dermatofibrosarcoma Protuberans: Clinical, Histologic, and Molecular Features and Diagnostic Pitfalls&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Dermatofibrosarcoma protuberans (DFSP) is a dermal malignant mesenchymal tumor.
+      explanation: Deep research cited this publication as relevant literature for Dermatofibrosarcoma Protuberans.
+- reference: DOI:10.3390/jcm13061798
+  title: &#39;The Role of Postoperative Radiotherapy in the Management of Dermatofibrosarcoma Protuberans: A Multidisciplinary Systematic Review&#39;
+  found_in:
+  - Dermatofibrosarcoma_Protuberans-deep-research-falcon.md
+  findings:
+  - statement: Dermatofibrosarcoma protuberans (DFSP) is a superficial soft tissue sarcoma, and surgical excision is the first-line treatment.
+    supporting_text: Dermatofibrosarcoma protuberans (DFSP) is a superficial soft tissue sarcoma, and surgical excision is the first-line treatment.
+    evidence:
+    - reference: DOI:10.3390/jcm13061798
+      reference_title: &#39;The Role of Postoperative Radiotherapy in the Management of Dermatofibrosarcoma Protuberans: A Multidisciplinary Systematic Review&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Dermatofibrosarcoma protuberans (DFSP) is a superficial soft tissue sarcoma, and surgical excision is the first-line treatment.
+      explanation: Deep research cited this publication as relevant literature for Dermatofibrosarcoma Protuberans.
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
+        
+        <div class="card reference-card" id="references-deep-research">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+            
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">4</span>
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3389/fonc.2024.1399486" target="_blank">DOI:10.3389/fonc.2024.1399486</a>
+                            </div>
+                            
+                            <div class="reference-title">Hotspots and future trends of dermatofibrosarcoma protuberans</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Dermatofibrosarcoma protuberans (DFSP) is a moderately malignant soft tissue sarcoma with localized infiltrative growth.</div>
+            
+            
+            <div class="reference-finding-supporting">"Dermatofibrosarcoma protuberans (DFSP) is a moderately malignant soft tissue sarcoma with localized infiltrative growth."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fonc.2024.1399486" target="_blank">DOI:10.3389/fonc.2024.1399486</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Dermatofibrosarcoma protuberans (DFSP) is a moderately malignant soft tissue sarcoma with localized infiltrative growth."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Dermatofibrosarcoma Protuberans.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/cancers16183124" target="_blank">DOI:10.3390/cancers16183124</a>
+                            </div>
+                            
+                            <div class="reference-title">Dermatofibrosarcoma Protuberans: An Updated Review of the Literature</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Dermatofibrosarcoma protuberans (DFSP) is a rare proliferative condition representing skin sarcomas which is known to locally recur yet very rarely metastasizes.</div>
+            
+            
+            <div class="reference-finding-supporting">"Dermatofibrosarcoma protuberans (DFSP) is a rare proliferative condition representing skin sarcomas which is known to locally recur yet very rarely metastasizes."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers16183124" target="_blank">DOI:10.3390/cancers16183124</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Dermatofibrosarcoma protuberans (DFSP) is a rare proliferative condition representing skin sarcomas which is known to locally recur yet very rarely metastasizes."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Dermatofibrosarcoma Protuberans.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/dermatopathology10010008" target="_blank">DOI:10.3390/dermatopathology10010008</a>
+                            </div>
+                            
+                            <div class="reference-title">Rare Variants of Dermatofibrosarcoma Protuberans: Clinical, Histologic, and Molecular Features and Diagnostic Pitfalls</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Dermatofibrosarcoma protuberans (DFSP) is a dermal malignant mesenchymal tumor.</div>
+            
+            
+            <div class="reference-finding-supporting">"Dermatofibrosarcoma protuberans (DFSP) is a dermal malignant mesenchymal tumor."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/dermatopathology10010008" target="_blank">DOI:10.3390/dermatopathology10010008</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Dermatofibrosarcoma protuberans (DFSP) is a dermal malignant mesenchymal tumor."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Dermatofibrosarcoma Protuberans.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/jcm13061798" target="_blank">DOI:10.3390/jcm13061798</a>
+                            </div>
+                            
+                            <div class="reference-title">The Role of Postoperative Radiotherapy in the Management of Dermatofibrosarcoma Protuberans: A Multidisciplinary Systematic Review</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Dermatofibrosarcoma protuberans (DFSP) is a superficial soft tissue sarcoma, and surgical excision is the first-line treatment.</div>
+            
+            
+            <div class="reference-finding-supporting">"Dermatofibrosarcoma protuberans (DFSP) is a superficial soft tissue sarcoma, and surgical excision is the first-line treatment."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/jcm13061798" target="_blank">DOI:10.3390/jcm13061798</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Dermatofibrosarcoma protuberans (DFSP) is a superficial soft tissue sarcoma, and surgical excision is the first-line treatment."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Dermatofibrosarcoma Protuberans.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">Disease Characteristics Research Template</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">30 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-08T12:36:20.966198</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
+<p>Provide detailed information focusing on:
+1. Key concepts and definitions with current understanding
+2. Recent developments and latest research (prioritize 2023-2024 sources)
+3. Current applications and real-world implementations
+4. Expert opinions and analysis from authoritative sources
+5. Relevant statistics and data from recent studies</p>
+<p>Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
+Always prioritize recent, authoritative sources and provide specific citations for all major claims.</p>
+<h1>Disease Characteristics Research Template</h1>
+<h2>Target Disease</h2>
+<ul>
+<li><strong>Disease Name:</strong> Dermatofibrosarcoma Protuberans</li>
+<li><strong>MONDO ID:</strong>  (if available)</li>
+<li><strong>Category:</strong></li>
+</ul>
+<h2>Research Objectives</h2>
+<p>Please provide a comprehensive research report on <strong>Dermatofibrosarcoma Protuberans</strong> covering all of the
+disease characteristics listed below. This report will be used to populate a disease knowledge
+base entry. Be thorough and cite primary literature (PMID preferred) for all claims.</p>
+<p>For each section, <strong>suggested databases/resources</strong> are listed. These are the first places
+you should search for information on each topic.</p>
+<hr />
+<h3>1. Disease Information</h3>
+<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, ICD-10/ICD-11, MeSH, PubMed</p>
+</blockquote>
+<ul>
+<li>What is the disease? Provide a concise overview.</li>
+<li>What are the key identifiers? (OMIM, Orphanet, ICD-10/ICD-11, MeSH, Mondo)</li>
+<li>What are the common synonyms and alternative names?</li>
+<li>Is the information derived from individual patients (e.g., EHR) or aggregated disease-level resources?</li>
+</ul>
+<h3>2. Etiology</h3>
+<ul>
+<li><strong>Disease Causal Factors</strong>: What are the primary causes? (genetic, environmental, infectious, mechanistic)</li>
+<li><strong>Risk Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, UpToDate, clinical guidelines, ClinVar, ClinGen, GWAS Catalog, PheGenI, CTD, CDC, WHO, epidemiological databases</p>
+</blockquote>
+</li>
+<li>Genetic risk factors (causal variants, susceptibility loci, modifier genes)</li>
+<li>Environmental risk factors (toxins, lifestyle, occupational exposures, age, sex, family history)</li>
+<li><strong>Protective Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, clinical trial databases, GWAS Catalog, gnomAD, WHO, CDC, nutrition databases</p>
+</blockquote>
+</li>
+<li>Genetic protective factors (protective variants, modifier alleles)</li>
+<li>Environmental protective factors (diet, lifestyle, exposures that reduce risk)</li>
+<li><strong>Gene-Environment Interactions</strong>: How do genetic and environmental factors interact to influence disease?<blockquote>
+<p><strong>Search first:</strong> CTD, PubMed, PheGenI, GxE databases</p>
+</blockquote>
+</li>
+</ul>
+<h3>3. Phenotypes</h3>
+<blockquote>
+<p><strong>Search first:</strong> HPO (Human Phenotype Ontology), OMIM, Orphanet, PubMed, clinicaltrials.gov, MedDRA, SNOMED CT, DECIPHER, LOINC</p>
+</blockquote>
+<p>For each phenotype, provide:
+- <strong>Phenotype type</strong>: symptoms, clinical signs, physical manifestations, behavioral changes, or laboratory abnormalities</p>
+<blockquote>
+<p>For symptoms/signs: HPO, OMIM, Orphanet, PubMed
+For behavioral changes: HPO, DSM, RDoC (Research Domain Criteria), PubMed
+For laboratory abnormalities: LOINC, SNOMED CT, LabTests Online, PubMed
+- <strong>Phenotype characteristics</strong>:
+<strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed
+  - Age of symptom onset (neonatal, childhood, adult-onset, late-onset)
+  - Symptom severity (mild, moderate, severe, variable)
+  - Symptom progression (stable, progressive, episodic, fluctuating)
+  - Frequency among affected individuals (percentage or qualitative)
+- <strong>Quality of life impact</strong>: Effects on daily functioning and well-being (per-phenotype when possible)
+<strong>Search first:</strong> EQ-5D database, SF-36, WHO QOL databases, PubMed
+- Suggest HPO (Human Phenotype Ontology) terms for each phenotype</p>
+</blockquote>
+<h3>4. Genetic/Molecular Information</h3>
+<ul>
+<li><strong>Causal Genes</strong>: Gene mutations or chromosomal abnormalities responsible for disease (gene symbols, OMIM IDs)<blockquote>
+<p><strong>Search first:</strong> OMIM, ClinVar, HGMD, Ensembl, NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Pathogenic Variants</strong>:</li>
+<li>Affected genes (gene symbols, HGNC IDs)
+    &gt; <strong>Search first:</strong> OMIM, NCBI Gene, Ensembl, HGNC, UniProt, GeneCards</li>
+<li>Variant classification (pathogenic, likely pathogenic, VUS per ACMG/AMP guidelines)
+    &gt; <strong>Search first:</strong> ClinVar, ClinGen, ACMG/AMP guidelines, VarSome</li>
+<li>Variant type/class (missense, frameshift, nonsense, splice-site, structural)</li>
+<li>Allele frequency in population databases
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, ExAC, TOPMed, dbSNP</li>
+<li>Somatic vs germline origin
+    &gt; <strong>Search first:</strong> COSMIC (somatic), ClinVar, ICGC, TCGA</li>
+<li>Functional consequences (loss of function, gain of function, dominant negative)</li>
+<li><strong>Modifier Genes</strong>: Genes that modify disease severity or expression</li>
+<li><strong>Epigenetic Information</strong>: DNA methylation, histone modifications, chromatin changes affecting disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Chromosomal Abnormalities</strong>: Large-scale genetic changes (aneuploidy, translocations, inversions)<blockquote>
+<p><strong>Search first:</strong> DECIPHER, ClinVar, ECARUCA, UCSC Genome Browser</p>
+</blockquote>
+</li>
+</ul>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Environmental Factors</strong>: Non-genetic contributing factors (toxins, radiation, pollution, occupational exposure)<blockquote>
+<p><strong>Search first:</strong> CTD (Comparative Toxicogenomics Database), TOXNET, PubMed, EPA databases</p>
+</blockquote>
+</li>
+<li><strong>Lifestyle Factors</strong>: Behavioral factors (smoking, diet, exercise, alcohol consumption)<blockquote>
+<p><strong>Search first:</strong> CDC databases, WHO, PubMed, NHANES</p>
+</blockquote>
+</li>
+<li><strong>Infectious Agents</strong>: If applicable, pathogens causing or triggering disease (bacteria, viruses, fungi, parasites)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON</p>
+</blockquote>
+</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<ul>
+<li><strong>Molecular Pathways</strong>: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)<blockquote>
+<p><strong>Search first:</strong> KEGG, Reactome, WikiPathways, PathBank, BioCyc</p>
+</blockquote>
+</li>
+<li><strong>Cellular Processes</strong>: Cell-level mechanisms (apoptosis, autophagy, cell cycle dysregulation, inflammation, etc.)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (GO), Reactome, KEGG, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Protein Dysfunction</strong>: How protein structure or function is altered (misfolding, aggregation, loss of function, gain of function)<blockquote>
+<p><strong>Search first:</strong> UniProt, PDB (Protein Data Bank), InterPro, Pfam, AlphaFold</p>
+</blockquote>
+</li>
+<li><strong>Metabolic Changes</strong>: Alterations in metabolic processes (energy metabolism, lipid metabolism, amino acid metabolism)<blockquote>
+<p><strong>Search first:</strong> KEGG, BioCyc, HMDB (Human Metabolome Database), BRENDA</p>
+</blockquote>
+</li>
+<li><strong>Immune System Involvement</strong>: Role of immune response (autoimmunity, immunodeficiency, chronic inflammation)<blockquote>
+<p><strong>Search first:</strong> ImmPort, Immunome Database, IEDB, Gene Ontology</p>
+</blockquote>
+</li>
+<li><strong>Tissue Damage Mechanisms</strong>: How tissues/ are injured (oxidative stress, ischemia, fibrosis, necrosis)<blockquote>
+<p><strong>Search first:</strong> PubMed, Gene Ontology, Reactome</p>
+</blockquote>
+</li>
+<li><strong>Biochemical Abnormalities</strong>: Specific molecular defects (enzyme deficiencies, receptor dysfunction, ion channel defects)<blockquote>
+<p><strong>Search first:</strong> BRENDA, UniProt, KEGG, OMIM, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Epigenetic Changes</strong>: DNA methylation, histone modifications affecting gene expression in disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Molecular Profiling</strong> (if available):</li>
+<li>Transcriptomics/gene expression changes
+    &gt; <strong>Search first:</strong> GEO (Gene Expression Omnibus), ArrayExpress, GTEx, Human Cell Atlas, SRA</li>
+<li>Proteomics findings
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, Human Protein Atlas, STRING, BioGRID</li>
+<li>Metabolomics signatures
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB, METLIN</li>
+<li>Lipidomics alterations
+    &gt; <strong>Search first:</strong> LIPID MAPS, SwissLipids, LipidHome, Metabolomics Workbench</li>
+<li>Genomic structural features
+    &gt; <strong>Search first:</strong> UCSC Genome Browser, Ensembl, NCBI, dbVar, DGV</li>
+<li><strong>Advanced Technologies</strong> (if applicable):</li>
+<li>Single-cell analysis findings (cell-type specific mechanisms, cellular heterogeneity)
+    &gt; <strong>Search first:</strong> Human Cell Atlas, Single Cell Portal, GEO, CELLxGENE</li>
+<li>Spatial transcriptomics findings
+    &gt; <strong>Search first:</strong> GEO, Spatial Research, Vizgen, 10x Genomics data</li>
+<li>Multi-omics integration results
+    &gt; <strong>Search first:</strong> TCGA, ICGC, cBioPortal, LinkedOmics, PubMed</li>
+<li>Functional genomics screens (CRISPR, RNAi)
+    &gt; <strong>Search first:</strong> DepMap, GenomeRNAi, PubMed, BioGRID ORCS</li>
+</ul>
+<p>For each mechanism, describe:
+- The causal chain from initial trigger to clinical manifestation
+- Which mechanisms are upstream vs downstream
+- What cell types and biological processes are involved
+- Suggest GO terms for biological processes and CL terms for cell types</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ Level</strong>:</li>
+<li>Primary organs directly affected</li>
+<li>Secondary organ involvement (complications, secondary effects)</li>
+<li>Body systems involved (cardiovascular, nervous, digestive, respiratory, endocrine, etc.)<blockquote>
+<p><strong>Search first:</strong> Uberon, FMA (Foundational Model of Anatomy), OMIM, HPO, ICD-11, MeSH, SNOMED CT</p>
+</blockquote>
+</li>
+<li><strong>Tissue and Cell Level</strong>:</li>
+<li>Specific tissue types affected (epithelial, connective, muscle, nervous)</li>
+<li>Specific cell populations targeted (with Cell Ontology terms)<blockquote>
+<p><strong>Search first:</strong> Uberon, Human Protein Atlas, Cell Ontology, Human Cell Atlas, CellMarker, PanglaoDB</p>
+</blockquote>
+</li>
+<li><strong>Subcellular Level</strong>:</li>
+<li>Cellular compartments involved (mitochondria, nucleus, ER, lysosomes) (with GO Cellular Component terms)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (Cellular Component), UniProt, Human Protein Atlas</p>
+</blockquote>
+</li>
+<li><strong>Localization</strong>:</li>
+<li>Specific anatomical sites (with UBERON terms)
+    &gt; <strong>Search first:</strong> FMA, Uberon, NeuroNames (for brain), SNOMED CT</li>
+<li>Lateralization (unilateral, bilateral, asymmetric)
+    &gt; <strong>Search first:</strong> HPO, clinical literature, imaging databases</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset</strong>:</li>
+<li>Typical age of onset (congenital, pediatric, adult, geriatric)</li>
+<li>Onset pattern (acute, subacute, chronic, insidious)<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Progression</strong>:</li>
+<li>Disease stages (early, intermediate, advanced, end-stage)
+    &gt; <strong>Search first:</strong> Cancer Staging Manual (AJCC), WHO classifications, PubMed</li>
+<li>Progression rate (rapid, slow, variable)</li>
+<li>Disease course pattern (episodic, relapsing-remitting, progressive, stable)</li>
+<li>Disease duration (self-limited, chronic lifelong)<blockquote>
+<p><strong>Search first:</strong> Disease registries, longitudinal cohort databases, natural history studies, PubMed, Orphanet, OMIM</p>
+</blockquote>
+</li>
+<li><strong>Patterns</strong>:</li>
+<li>Remission patterns (spontaneous, treatment-induced)
+    &gt; <strong>Search first:</strong> Clinical trial databases, disease registries, PubMed</li>
+<li>Critical periods (time windows of vulnerability or opportunity for intervention)
+    &gt; <strong>Search first:</strong> PubMed, developmental biology databases, clinical guidelines</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology</strong>:</li>
+<li>Prevalence (cases per 100,000 at given time)</li>
+<li>Incidence (new cases per 100,000 per year)<blockquote>
+<p><strong>Search first:</strong> Orphanet, CDC, WHO, GBD (Global Burden of Disease), national registries, SEER, disease registries</p>
+</blockquote>
+</li>
+<li><strong>For Genetic Etiology</strong>:</li>
+<li>Inheritance pattern (AD, AR, X-linked, mitochondrial, multifactorial, polygenic)
+    &gt; <strong>Search first:</strong> OMIM, Orphanet, ClinVar, GTR (Genetic Testing Registry)</li>
+<li>Penetrance (complete, incomplete, age-dependent)
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, PubMed, ClinGen</li>
+<li>Expressivity (variable, consistent)
+    &gt; <strong>Search first:</strong> OMIM, ClinVar, PubMed</li>
+<li>Genetic anticipation (increasing severity in successive generations)
+    &gt; <strong>Search first:</strong> OMIM, PubMed (especially for repeat expansion disorders)</li>
+<li>Germline mosaicism
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, genetic counseling literature, PubMed</li>
+<li>Founder effects (population-specific mutations)
+    &gt; <strong>Search first:</strong> gnomAD, population genetics databases, PubMed</li>
+<li>Consanguinity role
+    &gt; <strong>Search first:</strong> OMIM, population studies, genetic counseling resources</li>
+<li>Carrier frequency
+    &gt; <strong>Search first:</strong> gnomAD, carrier screening databases, GeneReviews, GTR</li>
+<li><strong>Population Demographics</strong>:</li>
+<li>Affected populations (ethnic or demographic groups with higher prevalence)
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, PAGE Study, PubMed, population registries</li>
+<li>Geographic distribution (endemic areas, regional variation)
+    &gt; <strong>Search first:</strong> WHO, CDC, GBD, Orphanet, geographic epidemiology databases</li>
+<li>Geographic distribution of specific variants</li>
+<li>Sex ratio (male:female)
+    &gt; <strong>Search first:</strong> Disease registries, OMIM, PubMed, epidemiological databases</li>
+<li>Age distribution of affected individuals
+    &gt; <strong>Search first:</strong> CDC, disease registries, SEER, Orphanet</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Clinical Tests</strong>:</li>
+<li>Laboratory tests (blood, urine, tissue chemistry, specific enzyme assays)
+    &gt; <strong>Search first:</strong> LOINC, LabTests Online, PubMed</li>
+<li>Biomarkers (proteins, metabolites, genetic markers, circulating biomarkers)
+    &gt; <strong>Search first:</strong> FDA Biomarker List, BEST (Biomarkers, EndpointS, and other Tools), PubMed</li>
+<li>Imaging studies (X-ray, CT, MRI, PET, ultrasound)
+    &gt; <strong>Search first:</strong> RadLex, DICOM, Radiopaedia, imaging databases</li>
+<li>Functional tests (pulmonary function, cardiac stress tests)
+    &gt; <strong>Search first:</strong> LOINC, clinical guidelines, PubMed</li>
+<li>Electrophysiology (EEG, EMG, ECG, nerve conduction studies)
+    &gt; <strong>Search first:</strong> LOINC, clinical neurophysiology databases, PubMed</li>
+<li>Biopsy findings (histopathology, immunohistochemistry)
+    &gt; <strong>Search first:</strong> SNOMED CT, College of American Pathologists resources, PubMed</li>
+<li>Pathology findings (microscopic examination)
+    &gt; <strong>Search first:</strong> SNOMED CT, Digital Pathology databases, PubMed</li>
+<li><strong>Genetic Testing</strong>:<blockquote>
+<p><strong>Search first:</strong> GTR (Genetic Testing Registry), GeneReviews, ClinGen</p>
+</blockquote>
+</li>
+<li>Overview of recommended genetic testing approach</li>
+<li>Whole genome sequencing (WGS) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, GEL (Genomics England), gnomAD</li>
+<li>Whole exome sequencing (WES) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneMatcher</li>
+<li>Gene panels (which panels, which genes)
+    &gt; <strong>Search first:</strong> GTR, ClinVar, laboratory-specific databases</li>
+<li>Single gene testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneReviews</li>
+<li>Chromosomal microarray (CMA)
+    &gt; <strong>Search first:</strong> DECIPHER, ClinVar, dbVar, ECARUCA</li>
+<li>Karyotyping
+    &gt; <strong>Search first:</strong> Chromosome Abnormality Database, ClinVar, cytogenetics resources</li>
+<li>FISH
+    &gt; <strong>Search first:</strong> ClinVar, cytogenetics databases, PubMed</li>
+<li>Mitochondrial DNA testing
+    &gt; <strong>Search first:</strong> MITOMAP, MSeqDR, ClinVar, GTR</li>
+<li>Repeat expansion testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, repeat expansion databases, PubMed</li>
+<li><strong>Omics-Based Diagnostics</strong> (if applicable):</li>
+<li>RNA sequencing / transcriptomics
+    &gt; <strong>Search first:</strong> GEO, ArrayExpress, GTEx, RNA-seq databases</li>
+<li>Proteomics
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, FDA Biomarker database</li>
+<li>Metabolomics
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB</li>
+<li>Epigenomics
+    &gt; <strong>Search first:</strong> GEO, ENCODE, Roadmap Epigenomics, MethBase</li>
+<li>Liquid biopsy
+    &gt; <strong>Search first:</strong> COSMIC, ClinVar, liquid biopsy databases, PubMed</li>
+<li><strong>Clinical Criteria</strong>:</li>
+<li>Standardized diagnostic criteria (DSM, ICD, society guidelines)
+    &gt; <strong>Search first:</strong> DSM-5, ICD-11, clinical society guidelines, UpToDate</li>
+<li>Differential diagnosis (other conditions to rule out, with distinguishing features)
+    &gt; <strong>Search first:</strong> DynaMed, UpToDate, clinical decision support systems</li>
+<li><strong>Screening</strong>:</li>
+<li>Screening methods for asymptomatic individuals (newborn screening, carrier screening, cascade screening)
+    &gt; <strong>Search first:</strong> ACMG recommendations, CDC newborn screening, GTR</li>
+</ul>
+<h3>11. Outcome/Prognosis</h3>
+<ul>
+<li><strong>Survival and Mortality</strong>:</li>
+<li>Survival rate (5-year, 10-year, overall)
+    &gt; <strong>Search first:</strong> SEER, cancer registries, disease-specific registries, PubMed</li>
+<li>Life expectancy (with and without treatment if applicable)
+    &gt; <strong>Search first:</strong> Orphanet, disease registries, actuarial databases, PubMed</li>
+<li>Mortality rate
+    &gt; <strong>Search first:</strong> CDC, WHO, GBD, national mortality databases</li>
+<li>Disease-specific mortality (deaths directly attributable to disease)
+    &gt; <strong>Search first:</strong> Disease registries, CDC Wonder, GBD, PubMed</li>
+<li><strong>Morbidity and Function</strong>:</li>
+<li>Morbidity (disease-related disability and health impacts)
+    &gt; <strong>Search first:</strong> GBD, WHO, disability databases, PubMed</li>
+<li>Disability outcomes (long-term functional impairments)
+    &gt; <strong>Search first:</strong> ICF (International Classification of Functioning), disability registries</li>
+<li>Quality of life measures (EQ-5D, SF-36, PROMIS, disease-specific tools)
+    &gt; <strong>Search first:</strong> EQ-5D database, SF-36, PROMIS, PubMed</li>
+<li><strong>Disease Course</strong>:</li>
+<li>Complications (secondary problems: infections, organ failure, etc.)
+    &gt; <strong>Search first:</strong> ICD codes, disease registries, clinical databases, PubMed</li>
+<li>Recovery potential (likelihood and extent of recovery, with vs without treatment)
+    &gt; <strong>Search first:</strong> Natural history studies, rehabilitation databases, PubMed</li>
+<li><strong>Prediction</strong>:</li>
+<li>Prognostic factors (age, disease severity, biomarkers, treatment response)
+    &gt; <strong>Search first:</strong> Prognostic models databases, clinical calculators, PubMed</li>
+<li>Prognostic biomarkers (molecular markers predicting disease course)
+    &gt; <strong>Search first:</strong> FDA Biomarker database, PubMed, cancer prognostic databases</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Pharmacotherapy</strong>:</li>
+<li>Pharmacological treatments (drug names, drug classes, mechanisms of action)
+    &gt; <strong>Search first:</strong> DrugBank, RxNorm, ATC classification, DailyMed, FDA databases</li>
+<li>Pharmacogenomics (how genetic variants affect drug metabolism, efficacy, toxicity)
+    &gt; <strong>Search first:</strong> PharmGKB, CPIC (Clinical Pharmacogenetics), FDA Table of PGx Biomarkers</li>
+<li><strong>Advanced Therapeutics</strong>:</li>
+<li>Gene therapy (viral vectors, CRISPR, gene replacement, gene editing)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA gene therapy database, ASGCT resources</li>
+<li>Cell therapy (stem cell transplant, CAR-T, cellular therapeutics)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA cell therapy database, FACT standards</li>
+<li>RNA-based therapies (ASOs, siRNA, mRNA therapies)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA approvals, PubMed</li>
+<li>Targeted therapies (treatments directed at specific molecular targets)
+    &gt; <strong>Search first:</strong> My Cancer Genome, OncoKB, ClinicalTrials.gov, FDA approvals</li>
+<li>Immunotherapies (checkpoint inhibitors, monoclonal antibodies)
+    &gt; <strong>Search first:</strong> Cancer Immunotherapy Database, FDA approvals, ClinicalTrials.gov</li>
+<li><strong>Surgical and Interventional</strong>:</li>
+<li>Surgical interventions (types of surgery, timing, outcomes)
+    &gt; <strong>Search first:</strong> CPT codes, surgical registries, clinical guidelines, PubMed</li>
+<li><strong>Supportive and Rehabilitative</strong>:</li>
+<li>Supportive care (symptom management, pain control, nutrition)
+    &gt; <strong>Search first:</strong> Clinical guidelines, Cochrane Library, PubMed</li>
+<li>Rehabilitation (physical therapy, occupational therapy, speech therapy)
+    &gt; <strong>Search first:</strong> Rehabilitation medicine databases, clinical guidelines, PubMed</li>
+<li><strong>Experimental</strong>:</li>
+<li>Experimental treatments in clinical trials (with NCT identifiers if available)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, EU Clinical Trials Register, WHO ICTRP</li>
+<li><strong>Treatment Outcomes</strong>:</li>
+<li>Treatment response rates
+    &gt; <strong>Search first:</strong> Clinical trial databases, FDA reviews, systematic reviews, PubMed</li>
+<li>Side effects and adverse events
+    &gt; <strong>Search first:</strong> FDA Adverse Event Reporting System (FAERS), MedWatch, PubMed</li>
+<li><strong>Treatment Strategy</strong>:</li>
+<li>Treatment algorithms (clinical pathways, decision trees)
+    &gt; <strong>Search first:</strong> Clinical practice guidelines, NCCN Guidelines, UpToDate</li>
+<li>Combination therapies
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, treatment guidelines, PubMed</li>
+<li>Personalized medicine approaches (genotype-guided treatment)
+    &gt; <strong>Search first:</strong> My Cancer Genome, CIViC, PharmGKB, precision medicine databases</li>
+</ul>
+<p>For each treatment, suggest MAXO (Medical Action Ontology) terms where applicable.</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Prevention Levels</strong>:</li>
+<li>Primary prevention (preventing disease occurrence: vaccination, risk factor modification)
+    &gt; <strong>Search first:</strong> CDC, WHO, USPSTF recommendations, Cochrane Library</li>
+<li>Secondary prevention (early detection and treatment: screening programs, early intervention)
+    &gt; <strong>Search first:</strong> USPSTF, CDC screening guidelines, WHO</li>
+<li>Tertiary prevention (preventing complications in those with disease)
+    &gt; <strong>Search first:</strong> Clinical guidelines, disease management protocols, PubMed</li>
+<li><strong>Immunization</strong>: Vaccine strategies (if applicable)<blockquote>
+<p><strong>Search first:</strong> CDC vaccine schedules, WHO immunization, FDA vaccine database</p>
+</blockquote>
+</li>
+<li><strong>Screening and Early Detection</strong>:</li>
+<li>Screening programs (population-based: newborn screening, cancer screening)
+    &gt; <strong>Search first:</strong> CDC screening programs, USPSTF, cancer screening databases</li>
+<li>Genetic screening (carrier screening, preimplantation genetic diagnosis, prenatal testing)
+    &gt; <strong>Search first:</strong> ACMG recommendations, ACOG guidelines, GTR</li>
+<li>Risk stratification (identifying high-risk individuals for targeted prevention)
+    &gt; <strong>Search first:</strong> Risk prediction models, clinical calculators, PubMed</li>
+<li><strong>Behavioral Interventions</strong>: Lifestyle modifications to reduce risk<blockquote>
+<p><strong>Search first:</strong> CDC, WHO, behavioral intervention databases, Cochrane Library</p>
+</blockquote>
+</li>
+<li><strong>Counseling</strong>: Genetic counseling (risk assessment, family planning guidance)<blockquote>
+<p><strong>Search first:</strong> NSGC resources, ACMG guidelines, GeneReviews</p>
+</blockquote>
+</li>
+<li><strong>Public Health</strong>:</li>
+<li>Public health interventions (sanitation, vector control, health education)
+    &gt; <strong>Search first:</strong> CDC, WHO, public health databases, PubMed</li>
+<li>Environmental interventions (reducing environmental risk factors)
+    &gt; <strong>Search first:</strong> EPA databases, WHO environmental health, PubMed</li>
+<li><strong>Prophylaxis</strong>: Preventive medications or procedures<blockquote>
+<p><strong>Search first:</strong> Clinical guidelines, FDA approvals, PubMed</p>
+</blockquote>
+</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy</strong>: Species affected (with NCBI Taxon identifiers)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy</p>
+</blockquote>
+</li>
+<li><strong>Breed</strong>: Specific breeds affected (with VBO identifiers if applicable)<blockquote>
+<p><strong>Search first:</strong> VBO (Vertebrate Breed Ontology)</p>
+</blockquote>
+</li>
+<li><strong>Gene</strong>: Orthologous genes in other species (with NCBI Gene IDs)<blockquote>
+<p><strong>Search first:</strong> NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Natural Disease</strong>:</li>
+<li>Naturally occurring disease in other species (companion animals, wildlife)
+    &gt; <strong>Search first:</strong> OMIA (Online Mendelian Inheritance in Animals), VetCompass, PubMed</li>
+<li>Veterinary relevance and importance in animal health
+    &gt; <strong>Search first:</strong> OMIA, veterinary databases, PubMed</li>
+<li><strong>Comparative Biology</strong>:</li>
+<li>Comparative pathology (similarities and differences across species)
+    &gt; <strong>Search first:</strong> OMIA, comparative pathology databases, PubMed</li>
+<li>Evolutionary conservation of disease mechanisms
+    &gt; <strong>Search first:</strong> HomoloGene, OrthoMCL, Alliance of Genome Resources</li>
+<li><strong>Transmission</strong> (if applicable):</li>
+<li>Zoonotic potential
+    &gt; <strong>Search first:</strong> CDC zoonotic diseases, WHO zoonoses, GIDEON</li>
+<li>Cross-species susceptibility
+    &gt; <strong>Search first:</strong> NCBI Taxonomy, veterinary databases, PubMed</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Model Types</strong>:</li>
+<li>Model organism type (mammalian, invertebrate, cellular, in vitro)
+    &gt; <strong>Search first:</strong> Alliance of Genome Resources, model organism databases</li>
+<li>Specific model systems (mouse, rat, zebrafish, Drosophila, C. elegans, yeast, cell lines, organoids, iPSCs)
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, SGD, ATCC, Cellosaurus</li>
+<li>Induced models (drug treatment, surgical intervention, environmental manipulation)
+    &gt; <strong>Search first:</strong> MGI, model organism databases, PubMed</li>
+<li><strong>Genetic Models</strong>:</li>
+<li>Types available (knockout, knock-in, transgenic, conditional, humanized)
+    &gt; <strong>Search first:</strong> MGI, IMPC, KOMP, EuMMCR, IMSR</li>
+<li><strong>Model Characteristics</strong>:</li>
+<li>Phenotype recapitulation (how well model reproduces human disease features)
+    &gt; <strong>Search first:</strong> Model organism databases, comparative studies, PubMed</li>
+<li>Model limitations (aspects of human disease not captured)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed, review articles</li>
+<li><strong>Applications</strong>:</li>
+<li>Research applications (what aspects of disease can be studied)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed</li>
+<li><strong>Resources</strong>:</li>
+<li>Model databases
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, IMSR, EMMA, MMRRC</li>
+</ul>
+<hr />
+<h2>Citation Requirements</h2>
+<ul>
+<li>Cite primary literature (PMID preferred) for all mechanistic and clinical claims</li>
+<li>Prioritize recent reviews and landmark papers</li>
+<li>Include direct quotes from abstracts where possible to support key statements</li>
+<li>Distinguish evidence source types: human clinical, model organism, in vitro, computational</li>
+</ul>
+<h2>Output Format</h2>
+<p>Structure your response as a comprehensive narrative organized by the sections above.
+For each section, provide:
+- Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
+- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, MAXO, MONDO) where applicable
+- Evidence citations with PMIDs
+- Direct quotes from abstracts to support key claims
+- Clear indication when information is not available or not applicable for this disease</p>
+<p>This report will be used to populate a disease knowledge base entry with:
+- Pathophysiology descriptions with causal chains
+- Gene/protein annotations (HGNC, GO terms)
+- Phenotype associations (HP terms) with frequencies
+- Cell type involvement (CL terms)
+- Anatomical locations (UBERON terms)
+- Chemical entities (CHEBI terms)
+- Treatment annotations (MAXO terms)
+- Evidence items with PMIDs and exact abstract quotes
+- Epidemiology, prognosis, diagnostic, and prevention information
+- Animal model descriptions with phenotype recapitulation details</p>
+<h1>Dermatofibrosarcoma Protuberans (DFSP): Disease Characteristics Research Report (2026-05-08)</h1>
+<h2>Target Disease</h2>
+<ul>
+<li><strong>Disease name:</strong> Dermatofibrosarcoma protuberans (DFSP)</li>
+<li><strong>MONDO ID:</strong> <strong>MONDO:0011934</strong> (OpenTargets disease entity) (OpenTargets Search: Dermatofibrosarcoma protuberans)</li>
+<li><strong>Category:</strong> Rare cutaneous/dermal soft-tissue sarcoma (fionda2024theroleof pages 1-2, jozwik2024dermatofibrosarcomaprotuberansan pages 2-4)</li>
+</ul>
+<h2>Executive overview (current understanding)</h2>
+<p>Dermatofibrosarcoma protuberans is a rare, locally aggressive dermal/superficial soft tissue sarcoma characterized by infiltrative growth in the dermis and subcutaneous fat, frequent local recurrence, and typically low metastatic potential (fionda2024theroleof pages 1-2, trinidad2023rarevariantsof pages 1-3, algarin2024cutaneousmalignanciesin pages 2-4). DFSP is molecularly defined in most cases by a <strong>COL1A1::PDGFB</strong> fusion (often arising from t(17;22)) that drives <strong>PDGF/PDGFRβ (PDGFRB)</strong> signaling (trinidad2023rarevariantsof pages 1-3, ono2024establishmentandcharacterization pages 1-5, NCT00122473 chunk 2).</p>
+<p>Recent (2023–2024) synthesis papers emphasize: (i) improved fusion detection (including NGS for atypical/cryptic fusions), (ii) more precise surgery (Mohs/slow Mohs and image-guided approaches) to reduce recurrence, and (iii) continued clinical use of <strong>imatinib</strong> for unresectable/metastatic disease, with ongoing focus on mechanisms of resistance and alternative targeted strategies (meng2024hotspotsandfuture pages 10-12, ono2024establishmentandcharacterization pages 1-5, NCT00243191 chunk 1).</p>
+<hr />
+<h2>1. Disease information</h2>
+<h3>1.1 What is the disease?</h3>
+<p>DFSP is a <strong>superficial</strong> sarcoma involving <strong>dermis and subcutaneous fat</strong> and rarely muscle/fascia (fionda2024theroleof pages 1-2). It tends to present as a <strong>slow-growing plaque or firm nodule</strong> that may become protuberant over time (algarin2024cutaneousmalignanciesin pages 2-4, jozwik2024dermatofibrosarcomaprotuberansan pages 2-4).</p>
+<p><strong>Direct abstract quote (primary pathology review, 2023):</strong>
+- “<strong>Dermatofibrosarcoma protuberans (DFSP) is a dermal malignant mesenchymal tumor. Most variants are associated with a high risk of local recurrence and a low risk of metastasis.</strong>” (Trinidad et al., <em>Dermatopathology</em>, 2023-01-29; DOI: 10.3390/dermatopathology10010008; URL: https://doi.org/10.3390/dermatopathology10010008) (trinidad2023rarevariantsof pages 1-3)</p>
+<h3>1.2 Key identifiers</h3>
+<p>Evidence retrieved in this run supports:
+- <strong>MONDO:</strong> MONDO:0011934 (OpenTargets Search: Dermatofibrosarcoma protuberans)
+- <strong>MeSH concept used by ClinicalTrials.gov browsing:</strong> “Dermatofibrosarcoma” (MeSH term) (NCT00243191 chunk 1, NCT00122473 chunk 2)</p>
+<p>Not available in the retrieved evidence set (therefore not asserted here): OMIM, Orphanet, ICD-10/ICD-11 codes, MeSH tree identifiers.</p>
+<h3>1.3 Synonyms and alternative names</h3>
+<ul>
+<li><strong>Bednar tumor</strong>: pigmented DFSP variant (fionda2024theroleof pages 1-2, felix2024dermatofibrosarcomaprotuberansthe pages 3-4)</li>
+<li><strong>Fibrosarcomatous DFSP (FS-DFSP)</strong>: DFSP with fibrosarcomatous transformation (higher-grade behavior) (trinidad2023rarevariantsof pages 1-3, jozwik2024dermatofibrosarcomaprotuberansan pages 2-4)</li>
+<li><strong>Giant-cell fibroblastoma</strong>: often considered a juvenile form of DFSP (jozwik2024dermatofibrosarcomaprotuberansan pages 2-4)</li>
+</ul>
+<h3>1.4 Evidence sources represented</h3>
+<p>The information in this report is derived from:
+- Aggregated disease-level resources and analyses (e.g., SEER population-based registry) (kreicher2016incidenceandsurvival pages 4-6)
+- Systematic reviews and narrative reviews (2023–2024 prioritized) (meng2024hotspotsandfuture pages 10-12, fionda2024theroleof pages 1-2, trinidad2023rarevariantsof pages 1-3)
+- ClinicalTrials.gov trial records (interventional trials of imatinib) (NCT00243191 chunk 1, NCT00084630 chunk 1)
+- Preclinical model development (patient-derived DFSP cell line) (ono2024establishmentandcharacterization pages 1-5)</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>2.1 Primary causal factors (genetic/mechanistic)</h3>
+<p>The dominant etiologic driver is a tumor-specific rearrangement that places <strong>PDGFB</strong> under control of the <strong>COL1A1</strong> promoter, generating <strong>COL1A1::PDGFB</strong>, producing functional PDGF ligand and enabling autocrine signaling (trinidad2023rarevariantsof pages 1-3, NCT00122473 chunk 2, ono2024establishmentandcharacterization pages 1-5). This supports PDGFR pathway dependence and explains sensitivity to PDGFR inhibition in fusion-positive disease (ono2024establishmentandcharacterization pages 1-5, meng2024hotspotsandfuture pages 10-12).</p>
+<p><strong>Direct abstract quote (clinical trial background citation in record):</strong>
+- “<strong>The dermatofibrosarcoma protuberans-associated collagen type Ialpha1/platelet-derived growth factor (PDGF) B-chain fusion gene generates a transforming protein that is processed to functional PDGF-BB.</strong>” (Shimizu et al., <em>Cancer Research</em>, 1999; cited within the ClinicalTrials.gov record) (NCT00122473 chunk 2)</p>
+<h3>2.2 Risk factors</h3>
+<p>High-quality, exposure-based risk factors (environmental/occupational) were not identified in the retrieved evidence set. Population patterns (sex/race/age) are addressed in Epidemiology below.</p>
+<h3>2.3 Protective factors / gene–environment interactions</h3>
+<p>No protective factors or gene–environment interactions were identified in the retrieved evidence set.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>3.1 Core clinical phenotypes and course (with suggested HPO)</h3>
+<ul>
+<li><strong>Initial lesion:</strong> asymptomatic, flesh-colored indurated firm nodule; progression can lead to pain/ulceration and protuberant growth (algarin2024cutaneousmalignanciesin pages 2-4).</li>
+<li><strong>Preprotuberant phase:</strong> nonprotuberant plaques for a mean of ~7 years before nodularity in a subset (jozwik2024dermatofibrosarcomaprotuberansan pages 2-4).</li>
+<li><strong>Local recurrence:</strong> hallmark due to infiltrative growth and margin definition difficulty; recurrence depends strongly on modality (algarin2024cutaneousmalignanciesin pages 2-4, meng2024hotspotsandfuture pages 10-12).</li>
+</ul>
+<p>Suggested phenotype mappings are provided in the injected artifact below.</p>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Description (include age of onset/course/frequency when available)</th>
+<th>Suggested HPO term(s)</th>
+<th>Suggested UBERON term(s) for anatomical site</th>
+<th>Notes</th>
+<th>Citation (pqac IDs)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Slow-growing plaque or firm nodule</td>
+<td>Typical presentation is a slow-growing, firm, flesh-colored to red plaque or multilobular nodule; most often diagnosed in young to middle-aged adults, especially ages 20–59 years, with peak incidence between the 2nd and 5th decades</td>
+<td>Slow-growing cutaneous nodule; Skin plaque; HP:0001482 Nodular skin lesion; best-effort: Slow progression</td>
+<td>UBERON:0002097 skin of trunk; UBERON:0000974 integumental system</td>
+<td>Common first clinical manifestation; often initially asymptomatic</td>
+<td>(fionda2024theroleof pages 1-2, jozwik2024dermatofibrosarcomaprotuberansan pages 2-4, algarin2024cutaneousmalignanciesin pages 2-4, ono2024establishmentandcharacterization pages 1-5)</td>
+</tr>
+<tr>
+<td>Protuberant tumor mass</td>
+<td>Classic DFSP presents as an indurated tumor nodule that protrudes above the skin surface; lesions may evolve from plaque-like to bulky protuberant masses over years</td>
+<td>HP:0001482 Nodular skin lesion; best-effort: Protruding skin mass</td>
+<td>UBERON:0001003 skin</td>
+<td>“Protuberans” refers to the raised/exophytic morphology</td>
+<td>(trinidad2023rarevariantsof pages 1-3, jozwik2024dermatofibrosarcomaprotuberansan pages 2-4)</td>
+</tr>
+<tr>
+<td>Preprotuberant non-bulging plaque stage</td>
+<td>Some cases remain nonprotuberant plaques for a mean of ~7 years before becoming nodular/protuberant</td>
+<td>Skin plaque; best-effort: Insidious onset; best-effort: Delayed progression</td>
+<td>UBERON:0001003 skin</td>
+<td>Important source of delayed diagnosis/misdiagnosis</td>
+<td>(jozwik2024dermatofibrosarcomaprotuberansan pages 2-4)</td>
+</tr>
+<tr>
+<td>Pain and ulceration in progressive lesions</td>
+<td>Although often asymptomatic initially, progression can lead to pain and ulceration</td>
+<td>HP:0012531 Pain; HP:0001070 Skin ulcer</td>
+<td>UBERON:0001003 skin</td>
+<td>Pain is more typical of advanced/progressive lesions rather than early disease</td>
+<td>(algarin2024cutaneousmalignanciesin pages 2-4)</td>
+</tr>
+<tr>
+<td>Local recurrence</td>
+<td>DFSP is locally aggressive and recurrence is a hallmark; reported overall recurrence ranges from 0–60% depending on treatment modality; local recurrence common after incomplete margin control, median time reported as 34 months in one review/model paper</td>
+<td>HP:0033677 Neoplasm recurrence; best-effort: Local recurrence</td>
+<td>UBERON:0001003 skin; UBERON:0001474 dermis; UBERON:0003568 subcutaneous tissue</td>
+<td>Core disease-course phenotype; long-term follow-up needed</td>
+<td>(algarin2024cutaneousmalignanciesin pages 2-4, fionda2024theroleof pages 1-2, ono2024establishmentandcharacterization pages 1-5)</td>
+</tr>
+<tr>
+<td>Low metastatic potential</td>
+<td>Distant spread is uncommon; reviews cite metastatic potential as low, often &lt;1–5%, but risk rises with fibrosarcomatous transformation</td>
+<td>best-effort: Rare metastasis; best-effort: Low metastatic potential</td>
+<td>UBERON:0001003 skin</td>
+<td>Distinguishes classic DFSP from FS-DFSP</td>
+<td>(algarin2024cutaneousmalignanciesin pages 2-4, trinidad2023rarevariantsof pages 1-3, fionda2024theroleof pages 1-2)</td>
+</tr>
+<tr>
+<td>Fibrosarcomatous transformation with worse behavior</td>
+<td>FS-DFSP shows higher local recurrence and greater metastatic potential than classic DFSP; associated with progression and increased proliferation</td>
+<td>best-effort: Sarcoma progression; best-effort: Increased metastatic risk</td>
+<td>UBERON:0001474 dermis; UBERON:0003568 subcutaneous tissue</td>
+<td>Aggressive histologic subtype; adverse prognostic factor</td>
+<td>(trinidad2023rarevariantsof pages 1-3, jozwik2024dermatofibrosarcomaprotuberansan pages 2-4, ono2024establishmentandcharacterization pages 1-5)</td>
+</tr>
+<tr>
+<td>Honeycomb subcutaneous fat infiltration</td>
+<td>Pathology classically shows infiltration of subcutis in a diffuse “honeycomb” pattern, reflecting tentacle-like spread through fat lobules/septa</td>
+<td>best-effort: Subcutaneous tissue infiltration</td>
+<td>UBERON:0003568 subcutaneous tissue; UBERON:0001474 dermis</td>
+<td>Useful diagnostic microscopic clue and reason margins are difficult to assess</td>
+<td>(trinidad2023rarevariantsof pages 1-3, jozwik2024dermatofibrosarcomaprotuberansan pages 2-4)</td>
+</tr>
+<tr>
+<td>Storiform spindle-cell neoplasm</td>
+<td>Histology shows uniform spindle-shaped cells arranged in storiform/cartwheel pattern with low atypia and low mitotic activity in classic DFSP</td>
+<td>best-effort: Spindle cell neoplasm; best-effort: Storiform histology</td>
+<td>UBERON:0001474 dermis</td>
+<td>Foundational pathology phenotype for diagnosis</td>
+<td>(trinidad2023rarevariantsof pages 1-3, jozwik2024dermatofibrosarcomaprotuberansan pages 2-4, fionda2024theroleof pages 1-2)</td>
+</tr>
+<tr>
+<td>Diffuse CD34 positivity</td>
+<td>Classic DFSP usually demonstrates strong diffuse CD34 immunopositivity on IHC</td>
+<td>best-effort: Abnormal CD34 expression positive</td>
+<td>UBERON:0001474 dermis</td>
+<td>Key diagnostic pathology finding; helps distinguish from dermatofibroma</td>
+<td>(trinidad2023rarevariantsof pages 1-3, jozwik2024dermatofibrosarcomaprotuberansan pages 2-4, fionda2024theroleof pages 1-2)</td>
+</tr>
+<tr>
+<td>Reduced or absent CD34 in fibrosarcomatous areas</td>
+<td>CD34 expression may be lost in FS-DFSP; one review notes only ~50% positivity in fibrosarcomatous component in one study and as low as 45% in another; CD34-negative DFSP overall reported in 9.1%, especially FS-DFSP</td>
+<td>best-effort: Loss of CD34 expression</td>
+<td>UBERON:0001474 dermis; UBERON:0003568 subcutaneous tissue</td>
+<td>Important pitfall in diagnosis of high-grade transformation</td>
+<td>(jozwik2024dermatofibrosarcomaprotuberansan pages 2-4, meng2024hotspotsandfuture pages 10-12)</td>
+</tr>
+<tr>
+<td>Trunk predominance</td>
+<td>Most common primary site is trunk; examples include ~41.7% in SEER and ~50% in review literature</td>
+<td>best-effort: Neoplasm of trunk skin</td>
+<td>UBERON:0002097 skin of trunk</td>
+<td>Principal anatomic predilection</td>
+<td>(kreicher2016incidenceandsurvival pages 1-2, fionda2024theroleof pages 1-2, ono2024establishmentandcharacterization pages 1-5)</td>
+</tr>
+<tr>
+<td>Extremity involvement</td>
+<td>Upper and lower extremities are common sites after trunk; SEER and review data place extremities collectively in roughly one-third or more of cases</td>
+<td>best-effort: Neoplasm of limb skin</td>
+<td>UBERON:0002101 forelimb; UBERON:0002102 hindlimb</td>
+<td>Common anatomic distribution pattern</td>
+<td>(kreicher2016incidenceandsurvival pages 1-2, fionda2024theroleof pages 1-2, ono2024establishmentandcharacterization pages 1-5)</td>
+</tr>
+<tr>
+<td>Head and neck involvement</td>
+<td>Head/neck tumors are less common than trunk/extremities but clinically important because margins are harder to obtain; reported around 10–16% in several series</td>
+<td>best-effort: Neoplasm of head skin; best-effort: Neoplasm of neck skin</td>
+<td>UBERON:0000033 head; UBERON:0000974 neck</td>
+<td>Higher recurrence risk in anatomically constrained areas</td>
+<td>(fionda2024theroleof pages 1-2, ono2024establishmentandcharacterization pages 1-5, kreicher2016incidenceandsurvival pages 4-6)</td>
+</tr>
+<tr>
+<td>Pediatric/congenital occurrence</td>
+<td>Most cases occur in adults, but 10–15% may arise in children/adolescents; pediatric DFSP estimated at ~6% of cases in one source; giant-cell fibroblastoma is considered a juvenile form</td>
+<td>best-effort: Childhood onset; best-effort: Adolescent onset</td>
+<td>UBERON:0001003 skin</td>
+<td>Pediatric disease is uncommon but recognized</td>
+<td>(fionda2024theroleof pages 1-2, ono2024establishmentandcharacterization pages 1-5, jozwik2024dermatofibrosarcomaprotuberansan pages 2-4)</td>
+</tr>
+<tr>
+<td>Long interval to recurrence / chronic course</td>
+<td>Very delayed local recurrence can occur; longest interval from excision to local recurrence reported as 16 years</td>
+<td>HP:0033677 Neoplasm recurrence; best-effort: Chronic relapsing course</td>
+<td>UBERON:0001003 skin</td>
+<td>Supports prolonged surveillance after treatment</td>
+<td>(jozwik2024dermatofibrosarcomaprotuberansan pages 2-4)</td>
+</tr>
+<tr>
+<td>Black patients present with larger tumors more often</td>
+<td>Review of disparities literature notes Black patients often present with larger tumors (&gt;3 cm) and more advanced stage at diagnosis</td>
+<td>best-effort: Large skin neoplasm</td>
+<td>UBERON:0001003 skin</td>
+<td>Likely reflects delayed diagnosis/access differences rather than a distinct biologic phenotype alone</td>
+<td>(algarin2024cutaneousmalignanciesin pages 2-4)</td>
+</tr>
+<tr>
+<td>Female predominance in some registry datasets</td>
+<td>SEER 2000–2010 showed 53.1% female and incidence 1.14 times higher than men, though some other series report slight male predominance</td>
+<td>best-effort: Female predominance</td>
+<td>not applicable</td>
+<td>Population characteristic rather than patient phenotype, but useful for disease knowledge base</td>
+<td>(kreicher2016incidenceandsurvival pages 1-2, kreicher2016incidenceandsurvival pages 4-6)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table maps common clinical, pathologic, and disease-course features of dermatofibrosarcoma protuberans to suggested HPO and UBERON terms using recent reviews and key epidemiologic sources. It is intended as a knowledge-base ready artifact for phenotype annotation and structured curation.</em></p>
+<h3>3.2 Quality-of-life impact</h3>
+<p>While formal QoL instruments were not extracted from the retrieved texts, DFSP management has functional and cosmetic implications due to wide excision requirements and need for complex reconstruction, particularly in anatomically constrained sites (e.g., head/neck) (meng2024hotspotsandfuture pages 10-12).</p>
+<hr />
+<h2>4. Genetic / molecular information</h2>
+<h3>4.1 Causal genes and chromosomal abnormalities</h3>
+<ul>
+<li><strong>Canonical fusion:</strong> <strong>COL1A1::PDGFB</strong>; cytogenetic patterns include supernumerary ring chromosomes containing chromosome 22 centromere and material from chromosomes 17 and 22, and <strong>t(17;22)(q21.3;q13.1)</strong> (with pediatric enrichment) (trinidad2023rarevariantsof pages 1-3).</li>
+<li><strong>Mechanistic consequence:</strong> excessive PDGFB production and constitutive activation of PDGFB signaling (ono2024establishmentandcharacterization pages 1-5).</li>
+</ul>
+<h3>4.2 Less common / fusion-negative DFSP and novel fusions (recent developments)</h3>
+<p>A 2024 review highlights that <strong>~4%–10%</strong> of DFSP cases may not show detectable <strong>COL1A1–PDGFB</strong> by standard methods; among these, some may have cryptic COL1A1–PDGFB and others may be associated with <strong>PDGFD</strong> (meng2024hotspotsandfuture pages 10-12). The same review discusses newer fusions discovered via sequencing approaches (e.g., <strong>COL6A3–PDGFD</strong>, <strong>MAP3K7CL–ERG</strong>, <strong>SLC2A5–BTBD7</strong>) (meng2024hotspotsandfuture pages 10-12), motivating use of <strong>RNA-seq/NGS</strong> in diagnostically difficult cases.</p>
+<h3>4.3 Pathways (current mechanistic model)</h3>
+<p>Causal chain (simplified):
+1. Structural rearrangement → <strong>COL1A1 promoter drives PDGFB</strong> expression (trinidad2023rarevariantsof pages 1-3).
+2. PDGFB ligand production → autocrine/paracrine <strong>PDGFRβ (PDGFRB)</strong> activation (NCT00243191 chunk 1, ono2024establishmentandcharacterization pages 1-5).
+3. Sustained growth signaling → locally infiltrative spindle-cell tumor with “finger-like” extensions into subcutis (honeycomb infiltration), producing high local recurrence risk if margins are incomplete (meng2024hotspotsandfuture pages 10-12, trinidad2023rarevariantsof pages 1-3).</p>
+<p>OpenTargets disease–target associations include <strong>PDGFRB</strong> and <strong>PDGFB</strong> among top associated targets for DFSP (supporting centrality of PDGF axis in disease biology and therapeutics) (OpenTargets Search: Dermatofibrosarcoma protuberans).</p>
+<hr />
+<h2>5. Environmental information</h2>
+<p>No validated environmental, lifestyle, or infectious causal factors were identified in the retrieved evidence set.</p>
+<hr />
+<h2>6. Mechanism / pathophysiology</h2>
+<h3>6.1 Tissue-level and cellular behavior</h3>
+<p>DFSP is characterized by a <strong>storiform spindle-cell proliferation</strong> with <strong>subclinical tentacle-like infiltration</strong> into subcutaneous fat yielding a <strong>honeycomb</strong> pattern (trinidad2023rarevariantsof pages 1-3, jozwik2024dermatofibrosarcomaprotuberansan pages 2-4). This invasive growth pattern is the pathologic basis for:
+- difficulty in defining true tumor boundaries (meng2024hotspotsandfuture pages 10-12)
+- frequent local recurrence without complete margin control (meng2024hotspotsandfuture pages 10-12, algarin2024cutaneousmalignanciesin pages 2-4)</p>
+<h3>6.2 Immune system involvement</h3>
+<p>Immune-specific mechanistic data were not extracted from the currently retrieved evidence set.</p>
+<h3>6.3 Suggested GO (biological process) and CL (cell type) terms (best-effort)</h3>
+<p>Direct GO/CL annotations were not contained in the retrieved texts. Based on described biology, plausible candidates include:
+- <strong>GO (best-effort):</strong> “platelet-derived growth factor receptor signaling pathway”; “positive regulation of cell proliferation”; “extracellular matrix organization”.
+- <strong>CL (best-effort):</strong> “fibroblast” / “myofibroblast” lineage (supported by fibroblastic/myofibroblastic differentiation statements) (trinidad2023rarevariantsof pages 1-3).</p>
+<hr />
+<h2>7. Anatomical structures affected</h2>
+<h3>7.1 Organ/tissue level</h3>
+<p>DFSP primarily involves:
+- <strong>Dermis and subcutaneous fat</strong>, and rarely muscle/fascia (fionda2024theroleof pages 1-2).</p>
+<p>Common locations in SEER (2000–2010): trunk most common, followed by upper and lower limbs; head/neck less frequent but clinically significant (kreicher2016incidenceandsurvival pages 4-6).</p>
+<h3>7.2 Localization (population-based statistics)</h3>
+<p>From SEER-18 (2000–2010): trunk 33.6%, upper limb 28.1%, lower limb 28.9%, head 8.6% in one excerpted breakdown (kreicher2016incidenceandsurvival pages 4-6).</p>
+<hr />
+<h2>8. Temporal development</h2>
+<ul>
+<li><strong>Onset pattern:</strong> chronic/insidious; some lesions remain as plaques for years before protuberant phase (mean ~7 years described for a preprotuberant stage) (jozwik2024dermatofibrosarcomaprotuberansan pages 2-4).</li>
+<li><strong>Late recurrence:</strong> the longest reported interval from excision to local recurrence cited in a 2024 review was <strong>16 years</strong>, supporting long follow-up (jozwik2024dermatofibrosarcomaprotuberansan pages 2-4).</li>
+</ul>
+<hr />
+<h2>9. Inheritance and population</h2>
+<h3>9.1 Inheritance pattern</h3>
+<p>DFSP is not described as a germline inherited disorder in the retrieved evidence; the defining COL1A1::PDGFB alteration is a <strong>somatic</strong> rearrangement in tumor tissue (trinidad2023rarevariantsof pages 1-3).</p>
+<h3>9.2 Epidemiology (statistics)</h3>
+<h4>Incidence</h4>
+<p>A population-based U.S. SEER-18 analysis (2000–2010) reported:
+- “<strong>Overall annual incidence rate of DFSP from 2000 to 2010 was 4.1 persons per million person-years.</strong>” (Kreicher et al., <em>Dermatologic Surgery</em>, 2016-01; DOI: 10.1097/DSS.0000000000000300; URL: https://doi.org/10.1097/dss.0000000000000300) (kreicher2016incidenceandsurvival pages 4-6)
+- Time trend: “<strong>Age-adjusted annual incidence of primary DFSP dropped from 4.1 in 2000 to 3.1 in 2010, but time-trend analysis showed that there was no significant change in incidence over the decade.</strong>” (kreicher2016incidenceandsurvival pages 4-6)</p>
+<p>A 2024 systematic review of postoperative radiotherapy provides a broader range estimate: “<strong>The incidence is 0.8–4.5 cases per one million persons</strong>” (Fionda et al., <em>Journal of Clinical Medicine</em>, 2024-03-21; DOI: 10.3390/jcm13061798; URL: https://doi.org/10.3390/jcm13061798) (fionda2024theroleof pages 1-2).</p>
+<h4>Sex and race disparities (SEER)</h4>
+<p>Kreicher et al. (SEER-18, 2000–2010) reported:
+- “<strong>Incidence among women from 2000 to 2010 was 1.14 times higher than men</strong>” (kreicher2016incidenceandsurvival pages 4-6).
+- “<strong>Overall incidence rates were 3.6 for all whites … and 7.1 for all blacks …</strong>” (kreicher2016incidenceandsurvival pages 4-6).
+- Age-specific peak: peak incidence 7.0 per million ages 35–44 overall; among Black individuals, peak 10.4 ages 45–49 (kreicher2016incidenceandsurvival pages 4-6).</p>
+<h3>9.3 Survival (registry-derived)</h3>
+<p>Kreicher et al. reported:
+- “<strong>Five-year observed survival was 96.2%… Ten-year relative survival rate was 99.1%</strong>” (kreicher2016incidenceandsurvival pages 4-6).
+- DFSP-attributed deaths in SEER cause-specific analysis: 92 deaths (kreicher2016incidenceandsurvival pages 4-6).</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>10.1 Clinical and pathology diagnosis</h3>
+<p>A definitive diagnosis requires skin biopsy and histology/IHC showing spindle-cell storiform tumor with CD34 positivity (fionda2024theroleof pages 1-2, trinidad2023rarevariantsof pages 1-3). Trinidad et al. (2023) explicitly summarize diagnostic hallmarks and variant spectrum in the abstract (quote shown above) (trinidad2023rarevariantsof pages 1-3).</p>
+<h3>10.2 Molecular diagnostics</h3>
+<p>Molecular assays used/mentioned in reviews include:
+- <strong>FISH</strong> and <strong>multiplex RT-PCR</strong> for COL1A1::PDGFB/PDGFB rearrangements (trinidad2023rarevariantsof pages 1-3, NCT00084630 chunk 1).
+- <strong>NGS/RNA sequencing</strong> for unusual or fusion-negative cases; 2024 review notes fusion-negative fraction and new fusions found via WGS/RNA-seq approaches (meng2024hotspotsandfuture pages 10-12).</p>
+<h3>10.3 Differential diagnostic considerations</h3>
+<p>Immunophenotypic pitfalls include that CD34 is not fully specific and can be negative in a subset (particularly FS-DFSP): one review notes “<strong>9.1% of DFSP patients were CD34 negative, especially FS-DFSP</strong>” (meng2024hotspotsandfuture pages 10-12). This motivates confirmatory molecular testing where morphology/IHC is ambiguous (meng2024hotspotsandfuture pages 10-12, trinidad2023rarevariantsof pages 1-3).</p>
+<hr />
+<h2>11. Outcome / prognosis</h2>
+<h3>11.1 Key outcome themes</h3>
+<ul>
+<li><strong>Excellent long-term survival</strong> in population registries (10-year relative survival ~99%) despite significant local morbidity risk (kreicher2016incidenceandsurvival pages 4-6).</li>
+<li><strong>Recurrence</strong> is the dominant clinical problem; risk rises with incomplete margins and with FS-DFSP (meng2024hotspotsandfuture pages 10-12, trinidad2023rarevariantsof pages 1-3).</li>
+<li><strong>Metastasis</strong> is generally uncommon (&lt;1–5% in a 2024 disparities review), but increased in FS-DFSP (algarin2024cutaneousmalignanciesin pages 2-4, trinidad2023rarevariantsof pages 1-3).</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<h3>12.1 Surgery (real-world standard of care)</h3>
+<p>Surgery is first-line treatment (fionda2024theroleof pages 1-2). Two major strategies are wide local excision (WLE) and Mohs micrographic surgery (MMS).</p>
+<p>A 2024 review synthesizing recurrence data reports:
+- Overall: “<strong>local recurrence after tumor resection ranges from 26% to 60%. WLE can reduce this to 0%-41%, while MMS can control it to 0%-8.3%.</strong>” (Meng et al., <em>Frontiers in Oncology</em>, 2024-11; DOI: 10.3389/fonc.2024.1399486; URL: https://doi.org/10.3389/fonc.2024.1399486) (meng2024hotspotsandfuture pages 10-12)
+- Meta-analysis (684 patients): “<strong>recurrence rates of 9.10% after WLE and 2.72% after MMS</strong>” (meng2024hotspotsandfuture pages 10-12).</p>
+<p>A 2024 review focused on people of color also summarizes comparative recurrence: “<strong>Mohs micrographic surgery in DFSP shows a recurrence rate of only 1%, compared to 6.3–8.8% with wide local excision.</strong>” (Algarin et al., <em>Current Dermatology Reports</em>, 2024-06; DOI: 10.1007/s13671-024-00432-0; URL: https://doi.org/10.1007/s13671-024-00432-0) (algarin2024cutaneousmalignanciesin pages 2-4).</p>
+<h3>12.2 Postoperative radiotherapy</h3>
+<p>A 2024 multidisciplinary systematic review (papers 1989–2023) reports typical dosing and control:
+- “<strong>most authors reported using standard fractionation (2 Gy/die) with a wide total dose ranging from 50 to 70 Gy. The local control after postoperative radiotherapy was excellent (75–100%), with a median follow-up time of 69 months.</strong>” (Fionda et al., 2024-03-21; URL: https://doi.org/10.3390/jcm13061798) (fionda2024theroleof pages 1-2)</p>
+<p>It concludes postoperative radiotherapy may be considered adjuvantly for risk factors (close margins, recurrence, aggressive histology) or as salvage for positive margins in multidisciplinary context (fionda2024theroleof pages 1-2).</p>
+<h3>12.3 Targeted therapy: imatinib and other TKIs</h3>
+<h4>Imatinib (PDGFR inhibitor)</h4>
+<p>A 2024 patient-derived DFSP cell line study summarizes real-world clinical positioning and a quantitative resistance/progression statistic:
+- “<strong>Although PDGF receptor inhibitor imatinib mesylate was approved for the treating patients with unresectable or metastatic DFSP, disease progression was shown in 9.2% of the patients.</strong>” (Ono et al., <em>Human Cell</em>, 2024-02-19 online; DOI: 10.1007/s13577-024-01030-9; URL: https://doi.org/10.1007/s13577-024-01030-9) (ono2024establishmentandcharacterization pages 1-5).</p>
+<p>ClinicalTrials.gov records support practical implementation and biomarker integration in DFSP trials:
+- <strong>Neoadjuvant imatinib trial (Phase 2):</strong> NCT00243191 (completed; started 2006-05). Primary outcome included comparing phosphorylated PDGFRB pre/post short imatinib exposure (ClinicalTrials.gov; URL in record: http://www.sarctrials.org) (NCT00243191 chunk 1).
+- <strong>Advanced/recurrent/metastatic DFSP imatinib Phase 2 trial:</strong> NCT00084630 (completed; started 2004-05) includes objectives to measure response rate, 1-year PFS, toxicity, and correlation with PDGFB rearrangement by RT-PCR/FISH (NCT00084630 chunk 1).</p>
+<p>A 2024 review emphasizes a key clinical caveat: “<strong>cases without fusion genes may not respond to imatinib</strong>,” motivating genetic confirmation before therapy (meng2024hotspotsandfuture pages 10-12).</p>
+<h4>Other TKIs / approaches</h4>
+<p>A 2024 review discusses resistance and alternative targets/agents, including pazopanib and sunitinib as potential options in selected contexts, but high-quality comparative outcome evidence was not extracted in the retrieved text set (meng2024hotspotsandfuture pages 10-12, felix2024dermatofibrosarcomaprotuberansthe pages 3-4).</p>
+<h3>12.4 MAXO (Medical Action Ontology) term suggestions (best-effort)</h3>
+<p>MAXO IDs were not present in the retrieved texts. Best-effort action labels:
+- Surgical excision of tumor (WLE)
+- Mohs micrographic surgery
+- Adjuvant radiotherapy
+- Tyrosine kinase inhibitor therapy (imatinib)
+- Molecular diagnostic testing (FISH/RT-PCR/NGS)</p>
+<p>A structured summary of treatments/outcomes is provided below.</p>
+<table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Modality</th>
+<th>Key details/outcomes</th>
+<th>Evidence type</th>
+<th>Citation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Diagnosis</td>
+<td>Histology + immunohistochemistry</td>
+<td>Definitive diagnosis is based on biopsy showing uniform spindle cells in a storiform/cartwheel pattern with diffuse dermal and subcutaneous infiltration in a honeycomb pattern; tumor cells are typically strongly CD34-positive and usually negative for factor XIIIa, desmin, D2-40, and CD163. CD34 loss is more common in fibrosarcomatous DFSP.</td>
+<td>Review, pathology review</td>
+<td>(trinidad2023rarevariantsof pages 1-3, jozwik2024dermatofibrosarcomaprotuberansan pages 2-4, fionda2024theroleof pages 1-2)</td>
+</tr>
+<tr>
+<td>Diagnosis</td>
+<td>Molecular fusion testing: FISH, multiplex RT-PCR, RNA in situ hybridization</td>
+<td>COL1A1::PDGFB rearrangement is the canonical molecular lesion; FISH and multiplex RT-PCR are established assays, and PDGFB RNA chromogenic in situ hybridization can serve as a surrogate marker. Fusion-gene detection is diagnostically useful because ~4%–10% of DFSP lack detectable canonical COL1A1::PDGFB by routine testing; some have cryptic COL1A1::PDGFB or PDGFD-associated fusions.</td>
+<td>Review, molecular pathology</td>
+<td>(trinidad2023rarevariantsof pages 1-3, meng2024hotspotsandfuture pages 10-12)</td>
+</tr>
+<tr>
+<td>Diagnosis</td>
+<td>NGS / RNA-seq / genomic profiling</td>
+<td>Recent molecular work identified additional rare fusions including COL6A3-PDGFD, MAP3K7CL-ERG, and SLC2A5-BTBD7, supporting NGS/RNA-seq in diagnostically challenging or fusion-negative cases.</td>
+<td>Review</td>
+<td>(meng2024hotspotsandfuture pages 10-12)</td>
+</tr>
+<tr>
+<td>Diagnosis</td>
+<td>Imaging</td>
+<td>MRI is used to define extent, especially for larger or recurrent lesions; case/model reports describe homogeneously low T2 signal with heterogeneous enhancement. Imaging is supportive rather than diagnostic.</td>
+<td>Review, case/preclinical model report</td>
+<td>(acosta2017dermatofibrosarcomaprotuberans pages 1-3, ono2024establishmentandcharacterization pages 1-5)</td>
+</tr>
+<tr>
+<td>Treatment</td>
+<td>Wide local excision (WLE)</td>
+<td>Standard surgical option for localized DFSP; commonly recommended margins are 2–3 cm. Reported post-resection recurrence after WLE ranges from 0%–41%; 2023 NCCN-cited range ~1.7%–30.8%. One meta-analysis cited in review reported 9.10% recurrence after WLE.</td>
+<td>Review, meta-analytic summary</td>
+<td>(meng2024hotspotsandfuture pages 10-12, acosta2017dermatofibrosarcomaprotuberans pages 1-3, felix2024dermatofibrosarcomaprotuberansthe pages 3-4)</td>
+</tr>
+<tr>
+<td>Treatment</td>
+<td>Mohs micrographic surgery (MMS)</td>
+<td>Margin-controlled surgery that examines essentially the full peripheral/deep margin and preserves tissue; recurrence is consistently lower than WLE. Reported recurrence ranges 0%–8.3%, with 2023 NCCN-cited range ~0%–6.6%; meta-analysis reported 2.72% recurrence after MMS.</td>
+<td>Review, meta-analytic summary</td>
+<td>(meng2024hotspotsandfuture pages 10-12, algarin2024cutaneousmalignanciesin pages 2-4, acosta2017dermatofibrosarcomaprotuberans pages 1-3)</td>
+</tr>
+<tr>
+<td>Treatment</td>
+<td>Surgery choice by site</td>
+<td>Head/neck tumors have higher recurrence risk because adequate margins are harder to achieve; MMS or modified slow MMS is often favored in anatomically constrained areas, including face/neck and pediatric cases.</td>
+<td>Review</td>
+<td>(felix2024dermatofibrosarcomaprotuberansthe pages 3-4, meng2024hotspotsandfuture pages 10-12)</td>
+</tr>
+<tr>
+<td>Treatment</td>
+<td>Postoperative radiotherapy</td>
+<td>Used adjuvantly for close margins, recurrent tumors, or aggressive histology, and as salvage for positive margins. Most reports used standard fractionation of 2 Gy/day to total 50–70 Gy; local control after postoperative RT was 75%–100% with median follow-up 69 months.</td>
+<td>Systematic review</td>
+<td>(fionda2024theroleof pages 1-2)</td>
+</tr>
+<tr>
+<td>Treatment</td>
+<td>Imatinib (PDGFR inhibitor)</td>
+<td>Approved for unresectable or metastatic DFSP and rationally targeted to PDGFR signaling driven by COL1A1::PDGFB. Clinical activity is best in fusion-positive tumors; fusion-negative tumors may not respond. Across nine studies totaling 152 patients, disease progression occurred in 9.2% (14/152). Neoadjuvant and advanced-disease phase II trials are completed.</td>
+<td>Clinical trials, review, preclinical rationale</td>
+<td>(ono2024establishmentandcharacterization pages 1-5, NCT00243191 chunk 1, NCT00084630 chunk 1, NCT00122473 chunk 2)</td>
+</tr>
+<tr>
+<td>Treatment</td>
+<td>Other TKIs / salvage targeted therapy</td>
+<td>Sunitinib and pazopanib are discussed as potential options in imatinib-resistant or advanced DFSP; evidence is limited and largely non-randomized or review-based. Pazopanib has antiangiogenic and PDGFR-targeting activity; sunitinib is mentioned as salvage in refractory cases.</td>
+<td>Review, limited clinical evidence</td>
+<td>(meng2024hotspotsandfuture pages 10-12, felix2024dermatofibrosarcomaprotuberansthe pages 3-4)</td>
+</tr>
+<tr>
+<td>Treatment</td>
+<td>Preclinical drug discovery models</td>
+<td>New DFSP cell line NCC-DFSP5-C1 retains COL1A1::PDGFB, forms spheroids, is invasive, and enabled drug-library screening to identify anti-cancer agents inhibiting DFSP proliferation, expanding preclinical testing capacity.</td>
+<td>Preclinical model study</td>
+<td>(ono2024establishmentandcharacterization pages 1-5)</td>
+</tr>
+<tr>
+<td>Prognosis</td>
+<td>Local recurrence</td>
+<td>DFSP is locally aggressive with recurrence strongly influenced by margin status and treatment modality. Reviews cite overall local recurrence after tumor resection from 26%–60%, while treatment-specific recurrence falls substantially with WLE or MMS. Fibrosarcomatous transformation increases recurrence risk.</td>
+<td>Review, pathology review</td>
+<td>(meng2024hotspotsandfuture pages 10-12, trinidad2023rarevariantsof pages 1-3, algarin2024cutaneousmalignanciesin pages 2-4)</td>
+</tr>
+<tr>
+<td>Prognosis</td>
+<td>Metastatic risk</td>
+<td>Metastatic potential is low, generally reported as &lt;1%–5% overall, but is higher in fibrosarcomatous DFSP.</td>
+<td>Review</td>
+<td>(algarin2024cutaneousmalignanciesin pages 2-4, trinidad2023rarevariantsof pages 1-3)</td>
+</tr>
+<tr>
+<td>Prognosis</td>
+<td>SEER survival</td>
+<td>In SEER-18 (2000–2010), 5-year observed survival was 96.2%, 5-year relative survival 99.8%, 10-year observed survival 91.1%, and 10-year relative survival 99.1%. DFSP-specific deaths identified in SEER were 92 cases.</td>
+<td>Registry study</td>
+<td>(kreicher2016incidenceandsurvival pages 4-6)</td>
+</tr>
+<tr>
+<td>Prognosis</td>
+<td>Adverse prognostic factors</td>
+<td>Worse outcomes are associated with increasing age, male sex, black race in some registry analyses, larger tumor size, limb/head location, positive or narrow margins, and fibrosarcomatous transformation.</td>
+<td>Registry study, review</td>
+<td>(kreicher2016incidenceandsurvival pages 4-6, criscito2016prognosticfactorstreatment pages 1-2, jozwik2024dermatofibrosarcomaprotuberansan pages 2-4)</td>
+</tr>
+<tr>
+<td>Prognosis</td>
+<td>Surveillance / follow-up</td>
+<td>Long preprotuberant phases and very late local recurrence are documented; reviews note nonprotuberant plaques may persist for a mean of 7 years before becoming nodular, and recurrence has been reported up to 16 years after excision, supporting long-term surveillance.</td>
+<td>Review</td>
+<td>(jozwik2024dermatofibrosarcomaprotuberansan pages 2-4)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes key diagnostic approaches, treatments, and prognostic data for dermatofibrosarcoma protuberans, emphasizing quantitative outcomes such as recurrence, radiotherapy local control, and survival. It is useful as a compact evidence map linking practical management choices to the underlying literature.</em></p>
+<hr />
+<h2>13. Prevention</h2>
+<p>Primary prevention strategies are not established in the retrieved evidence. Secondary prevention is effectively <strong>early recognition and complete excision with margin control</strong> to prevent repeated recurrences and morbidity (meng2024hotspotsandfuture pages 10-12, jozwik2024dermatofibrosarcomaprotuberansan pages 2-4). No population screening programs were identified in the retrieved evidence.</p>
+<hr />
+<h2>14. Other species / natural disease</h2>
+<p>No naturally occurring DFSP-equivalent veterinary disease was established from the retrieved evidence set in this run.</p>
+<hr />
+<h2>15. Model organisms / experimental models</h2>
+<p>A major 2024 development is expansion of DFSP preclinical resources:
+- Ono et al. report establishment of a patient-derived DFSP cell line (NCC-DFSP5-C1) retaining COL1A1::PDGFB and enabling drug screening (published 2024-02; DOI: 10.1007/s13577-024-01030-9; URL: https://doi.org/10.1007/s13577-024-01030-9) (ono2024establishmentandcharacterization pages 1-5).</p>
+<p><strong>Direct abstract quote:</strong> “<strong>Here, we successfully established a novel DFSP cell line (NCC-DFSP5-C1) using surgically resected tumor tissue from a patient with DFSP. NCC-DFSP5-C1 cells were confirmed to carry the COL1A1-PDGFB translocation…</strong>” (ono2024establishmentandcharacterization pages 1-5).</p>
+<hr />
+<h2>Structured identifiers and key epidemiology (artifact)</h2>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Value</th>
+<th>Evidence/Citation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease name</td>
+<td>Dermatofibrosarcoma protuberans (DFSP)</td>
+<td>(trinidad2023rarevariantsof pages 1-3, jozwik2024dermatofibrosarcomaprotuberansan pages 2-4)</td>
+</tr>
+<tr>
+<td>MONDO ID</td>
+<td>MONDO:0011934</td>
+<td>(OpenTargets Search: Dermatofibrosarcoma protuberans)</td>
+</tr>
+<tr>
+<td>Disease class / brief nomenclature note</td>
+<td>Rare dermal/superficial soft-tissue sarcoma; described as the most common dermal sarcoma and about 1% of soft-tissue sarcomas</td>
+<td>(fionda2024theroleof pages 1-2, jozwik2024dermatofibrosarcomaprotuberansan pages 2-4)</td>
+</tr>
+<tr>
+<td>Canonical molecularly defined form</td>
+<td>COL1A1::PDGFB fusion-positive DFSP is the classic molecular form</td>
+<td>(acosta2017dermatofibrosarcomaprotuberans pages 1-3, trinidad2023rarevariantsof pages 1-3)</td>
+</tr>
+<tr>
+<td>Variant / synonym</td>
+<td>Bednar tumor (pigmented DFSP variant)</td>
+<td>(felix2024dermatofibrosarcomaprotuberansthe pages 3-4, fionda2024theroleof pages 1-2)</td>
+</tr>
+<tr>
+<td>Variant / synonym</td>
+<td>Fibrosarcomatous DFSP (FS-DFSP), an aggressive histologic variant with higher recurrence/metastatic risk</td>
+<td>(trinidad2023rarevariantsof pages 1-3, jozwik2024dermatofibrosarcomaprotuberansan pages 2-4)</td>
+</tr>
+<tr>
+<td>Related juvenile form</td>
+<td>Giant-cell fibroblastoma, described as a juvenile form occurring predominantly in the first decade of life</td>
+<td>(jozwik2024dermatofibrosarcomaprotuberansan pages 2-4)</td>
+</tr>
+<tr>
+<td>Other named variants</td>
+<td>Myxoid, myoid, granular cell, sclerosing, and atrophic DFSP variants</td>
+<td>(trinidad2023rarevariantsof pages 1-3)</td>
+</tr>
+<tr>
+<td>US incidence estimate</td>
+<td>4.1 per million person-years overall in SEER-18 (2000-2010)</td>
+<td>(kreicher2016incidenceandsurvival pages 4-6, kreicher2016incidenceandsurvival pages 1-2)</td>
+</tr>
+<tr>
+<td>Broader reported incidence range</td>
+<td>Approximately 0.8-4.5 cases per million across reviews/population datasets</td>
+<td>(fionda2024theroleof pages 1-2, jozwik2024dermatofibrosarcomaprotuberansan pages 1-2)</td>
+</tr>
+<tr>
+<td>Higher-incidence registry examples</td>
+<td>Alberta Cancer Registry 9.3 per million; Denmark 5.3 per million; Sweden about 4.4 in men vs 4.0 in women per million/year</td>
+<td>(jozwik2024dermatofibrosarcomaprotuberansan pages 1-2, jozwik2024dermatofibrosarcomaprotuberansan pages 2-4)</td>
+</tr>
+<tr>
+<td>Sex disparity</td>
+<td>Slight female excess in SEER-18: 53.1% female; incidence 1.14 times that of males in one large US study, though some other series report slight male predominance</td>
+<td>(kreicher2016incidenceandsurvival pages 1-2, kreicher2016incidenceandsurvival pages 4-6, jozwik2024dermatofibrosarcomaprotuberansan pages 2-4)</td>
+</tr>
+<tr>
+<td>Race disparity</td>
+<td>Black individuals have roughly twice the incidence of White individuals in US SEER analyses; example rates 7.1 vs 3.6 per million and 6.5 vs 3.9 per million in cited datasets</td>
+<td>(kreicher2016incidenceandsurvival pages 4-6, jozwik2024dermatofibrosarcomaprotuberansan pages 1-2)</td>
+</tr>
+<tr>
+<td>Age distribution</td>
+<td>Can occur at any age, but peaks in young to middle-aged adults; largest SEER age group 20-39 years, with peak incidence around the 4th-5th decades</td>
+<td>(kreicher2016incidenceandsurvival pages 2-4, jozwik2024dermatofibrosarcomaprotuberansan pages 1-2)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes the currently available standardized identifier, key names and variants, and the main epidemiologic patterns for dermatofibrosarcoma protuberans using only evidence already gathered. It is useful as a compact knowledge-base ready reference for nomenclature and population context.</em></p>
+<hr />
+<h2>Limitations of this report (evidence availability)</h2>
+<ul>
+<li>Several template-requested identifiers (ICD-10/ICD-11, OMIM, Orphanet, MeSH tree IDs) and formal QoL instrument outcomes were not present in the retrieved full texts/records in this run and therefore are not reported.</li>
+<li>Many mechanistic details (e.g., specific downstream signaling nodes, multi-omics, immune profiling) and pharmacogenomics are discussed in the broader literature but were not extractable from the current evidence set without additional document retrieval.</li>
+</ul>
+<hr />
+<h2>Key references (with dates and URLs)</h2>
+<ul>
+<li>Trinidad CM et al. <em>Dermatopathology</em> (Published 2023-01-29). “Rare Variants of Dermatofibrosarcoma Protuberans…” URL: https://doi.org/10.3390/dermatopathology10010008 (trinidad2023rarevariantsof pages 1-3)</li>
+<li>Fionda B et al. <em>Journal of Clinical Medicine</em> (Published 2024-03-21). “The Role of Postoperative Radiotherapy…” URL: https://doi.org/10.3390/jcm13061798 (fionda2024theroleof pages 1-2)</li>
+<li>Meng Z et al. <em>Frontiers in Oncology</em> (Published 2024-11). “Hotspots and future trends of DFSP.” URL: https://doi.org/10.3389/fonc.2024.1399486 (meng2024hotspotsandfuture pages 10-12)</li>
+<li>Kreicher KL et al. <em>Dermatologic Surgery</em> (2016-01). “Incidence and Survival…” URL: https://doi.org/10.1097/dss.0000000000000300 (kreicher2016incidenceandsurvival pages 4-6)</li>
+<li>Ono T et al. <em>Human Cell</em> (Published 2024-02-19 online; Version of record). “Establishment and characterization of NCC-DFSP5-C1…” URL: https://doi.org/10.1007/s13577-024-01030-9 (ono2024establishmentandcharacterization pages 1-5)</li>
+<li>ClinicalTrials.gov NCT00243191 (results posted 2012-03-29): “Neoadjuvant Imatinib in DFSP.” (NCT00243191 chunk 1)</li>
+<li>ClinicalTrials.gov NCT00084630 (last update posted 2013-02-28): “Imatinib Mesylate in Locally Recurrent or Metastatic DFSP.” (NCT00084630 chunk 1)</li>
+</ul>
+<p>References</p>
+<ol>
+<li>
+<p>(OpenTargets Search: Dermatofibrosarcoma protuberans): Open Targets Query (Dermatofibrosarcoma protuberans, 8 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.</p>
+</li>
+<li>
+<p>(fionda2024theroleof pages 1-2): Bruno Fionda, Antonella Loperfido, Alessandro Di Stefani, Valentina Lancellotta, Andrea Paradisi, Martina De Angeli, Simone Cappilli, Ernesto Rossi, Anna Amelia Caretto, Tiziano Zinicola, Giovanni Schinzari, Stefano Gentileschi, Alessio Giuseppe Morganti, Agata Rembielak, Ketty Peris, and Luca Tagliaferri. The role of postoperative radiotherapy in the management of dermatofibrosarcoma protuberans: a multidisciplinary systematic review. Journal of Clinical Medicine, 13:1798, Mar 2024. URL: https://doi.org/10.3390/jcm13061798, doi:10.3390/jcm13061798. This article has 29 citations.</p>
+</li>
+<li>
+<p>(jozwik2024dermatofibrosarcomaprotuberansan pages 2-4): Marcin Jozwik, Katarzyna Bednarczuk, and Zofia Osierda. Dermatofibrosarcoma protuberans: an updated review of the literature. Cancers, 16:3124, Sep 2024. URL: https://doi.org/10.3390/cancers16183124, doi:10.3390/cancers16183124. This article has 31 citations.</p>
+</li>
+<li>
+<p>(trinidad2023rarevariantsof pages 1-3): Celestine M. Trinidad, Sintawat Wangsiricharoen, Victor G. Prieto, and Phyu P. Aung. Rare variants of dermatofibrosarcoma protuberans: clinical, histologic, and molecular features and diagnostic pitfalls. Dermatopathology, 10:54-62, Jan 2023. URL: https://doi.org/10.3390/dermatopathology10010008, doi:10.3390/dermatopathology10010008. This article has 37 citations.</p>
+</li>
+<li>
+<p>(algarin2024cutaneousmalignanciesin pages 2-4): Yanci A. Algarin, Anika Pulumati, Jiali Tan, and Nathalie C. Zeitouni. Cutaneous malignancies in people of color: a review of dermatofibrosarcoma protuberans and kaposi sarcoma. Current Dermatology Reports, 13:217-225, Jun 2024. URL: https://doi.org/10.1007/s13671-024-00432-0, doi:10.1007/s13671-024-00432-0. This article has 1 citations.</p>
+</li>
+<li>
+<p>(ono2024establishmentandcharacterization pages 1-5): Takuya Ono, Rei Noguchi, Julia Osaki, Taro Akiyama, Yuki Adachi, Naoki Kojima, Yu Toda, Suguru Fukushima, Yuki Yoshimatsu, Akihiko Yoshida, Akira Kawai, and Tadashi Kondo. Establishment and characterization of ncc-dfsp5-c1: a novel patient-derived dermatofibrosarcoma protuberans cell line. Human cell, 37:854-864, Feb 2024. URL: https://doi.org/10.1007/s13577-024-01030-9, doi:10.1007/s13577-024-01030-9. This article has 2 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(NCT00122473 chunk 2):  Imatinib in Dermatofibrosarcoma Protuberans (DFSP). Dermatologic Cooperative Oncology Group. 2004. ClinicalTrials.gov Identifier: NCT00122473</p>
+</li>
+<li>
+<p>(meng2024hotspotsandfuture pages 10-12): Zhen Meng, Rui Zhang, Zhihong Sun, Cong Fu, Zhiyu Li, Luying Wang, Ran Huo, and Feng Xue. Hotspots and future trends of dermatofibrosarcoma protuberans. Frontiers in Oncology, Nov 2024. URL: https://doi.org/10.3389/fonc.2024.1399486, doi:10.3389/fonc.2024.1399486. This article has 3 citations.</p>
+</li>
+<li>
+<p>(NCT00243191 chunk 1):  Neoadjuvant Imatinib in Dermatofibrosarcoma Protuberans. Sarcoma Alliance for Research through Collaboration. 2006. ClinicalTrials.gov Identifier: NCT00243191</p>
+</li>
+<li>
+<p>(felix2024dermatofibrosarcomaprotuberansthe pages 3-4): Bryan Felix and Suma Kaza. Dermatofibrosarcoma protuberans: the impact of the surgical incision site in relation to tumor recurrence. Cureus, Dec 2024. URL: https://doi.org/10.7759/cureus.75591, doi:10.7759/cureus.75591. This article has 5 citations.</p>
+</li>
+<li>
+<p>(kreicher2016incidenceandsurvival pages 4-6): Kathryn L. Kreicher, David E. Kurlander, Haley R. Gittleman, Jill S. Barnholtz-Sloan, and Jeremy S. Bordeaux. Incidence and survival of primary dermatofibrosarcoma protuberans in the united states. Dermatologic Surgery, 42:S24–S31, Jan 2016. URL: https://doi.org/10.1097/dss.0000000000000300, doi:10.1097/dss.0000000000000300. This article has 260 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(NCT00084630 chunk 1):  Imatinib Mesylate in Treating Patients With Locally Recurrent or Metastatic Dermatofibrosarcoma Protuberans. National Cancer Institute (NCI). 2004. ClinicalTrials.gov Identifier: NCT00084630</p>
+</li>
+<li>
+<p>(kreicher2016incidenceandsurvival pages 1-2): Kathryn L. Kreicher, David E. Kurlander, Haley R. Gittleman, Jill S. Barnholtz-Sloan, and Jeremy S. Bordeaux. Incidence and survival of primary dermatofibrosarcoma protuberans in the united states. Dermatologic Surgery, 42:S24–S31, Jan 2016. URL: https://doi.org/10.1097/dss.0000000000000300, doi:10.1097/dss.0000000000000300. This article has 260 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(acosta2017dermatofibrosarcomaprotuberans pages 1-3): Alvaro E. Acosta and Catalina Santa Vélez. Dermatofibrosarcoma protuberans. Current Treatment Options in Oncology, 18:1-14, Aug 2017. URL: https://doi.org/10.1007/s11864-017-0498-5, doi:10.1007/s11864-017-0498-5. This article has 119 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(criscito2016prognosticfactorstreatment pages 1-2): Maressa C. Criscito, Kathryn J. Martires, and Jennifer A. Stein. Prognostic factors, treatment, and survival in dermatofibrosarcoma protuberans. JAMA Dermatology, 152:1365, Dec 2016. URL: https://doi.org/10.1001/jamadermatol.2016.1886, doi:10.1001/jamadermatol.2016.1886. This article has 104 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(jozwik2024dermatofibrosarcomaprotuberansan pages 1-2): Marcin Jozwik, Katarzyna Bednarczuk, and Zofia Osierda. Dermatofibrosarcoma protuberans: an updated review of the literature. Cancers, 16:3124, Sep 2024. URL: https://doi.org/10.3390/cancers16183124, doi:10.3390/cancers16183124. This article has 31 citations.</p>
+</li>
+<li>
+<p>(kreicher2016incidenceandsurvival pages 2-4): Kathryn L. Kreicher, David E. Kurlander, Haley R. Gittleman, Jill S. Barnholtz-Sloan, and Jeremy S. Bordeaux. Incidence and survival of primary dermatofibrosarcoma protuberans in the united states. Dermatologic Surgery, 42:S24–S31, Jan 2016. URL: https://doi.org/10.1097/dss.0000000000000300, doi:10.1097/dss.0000000000000300. This article has 260 citations and is from a peer-reviewed journal.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </div>
         
 
         <footer class="page-footer">
@@ -4216,7 +5889,7 @@ classifications:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Dermatofibrosarcoma Protuberans", "mondoId": "MONDO:0011934", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dermatofibrosarcoma_Protuberans", "yamlRevision": "f75a7b60ddfa"};
+        const OS_CONFIG = {"diseaseName": "Dermatofibrosarcoma Protuberans", "mondoId": "MONDO:0011934", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dermatofibrosarcoma_Protuberans", "yamlRevision": "f14778e5ae4a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

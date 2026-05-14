@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,7 +2570,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 34</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Organic Acidemia</span>
@@ -2555,7 +2708,7 @@
             
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
-                <div class="stat-value">5</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">Pathophysiology</div>
             </div>
             </a>
@@ -2569,7 +2722,7 @@
             
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
-                <div class="stat-value">12</div>
+                <div class="stat-value">13</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -2577,7 +2730,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">8</div>
+                <div class="stat-value">34</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -2686,7 +2839,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">7</span>
             </div>
             
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ivd-molecular-function-deficiency">
@@ -2725,6 +2878,8 @@
                     
                     <span class="tag tag-gene">
                         IVD
+                        
+                        <a href="https://bioregistry.io/hgnc:6186" target="_blank" class="linkout">link</a>
                         
                     </span>
                     
@@ -2780,11 +2935,14 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine metabolism caused by a deficiency of isovaleryl-CoA dehydrogenase (IVD), leading to an accumulation of isovaleric acid and its derivates 3-hydroxyisovaleric acid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids."</div>
+                <div class="evidence-snippet">"Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine 
+metabolism caused by a deficiency of isovaleryl-CoA dehydrogenase (IVD), leading 
+to an accumulation of isovaleric acid and its derivates 3-hydroxyisovaleric 
+acid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids."</div>
                 
                 
                 <div class="evidence-explanation">Supports IVD molecular dysfunction as the initiating defect.</div>
@@ -2863,17 +3021,9 @@
 	                    <div class="crosslink-list">
 	                        
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Secondary urea cycle impairment and hyperammonemia</span>
+	                            <span class="crosslink-meta">Toxic isovaleryl-CoA and organic acid accumulation</span>
 	                            
-	                        </div>
-	                        
-	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Mitochondrial energy depletion and oxidative stress</span>
-	                            
-	                        </div>
-	                        
-	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Neuronal membrane dysfunction via Na+,K+-ATPase inhibition</span>
+	                            <span class="crosslink-desc">Blocked IVD flux causes upstream isovaleryl-CoA and derivative organic acids to accumulate.</span>
 	                            
 	                        </div>
 	                        
@@ -2897,14 +3047,484 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Organic acids (OAs) are intermediary products of several amino acid catabolism 
+or degradation via multiple biochemical pathways for energy production."</div>
+                
+                
+                <div class="evidence-explanation">Supports organic acid disorders as defects in amino acid catabolic pathways.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+	            </div>
+	            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-toxic-isovaleryl-coa-and-organic-acid-accumulation">
+                <div class="item-name">Toxic isovaleryl-CoA and organic acid accumulation</div>
+                
+                <div class="item-desc">Blocked isovaleryl-CoA oxidation causes accumulation of isovaleryl-CoA, isovaleric acid, 3-hydroxyisovaleric acid, isovalerylcarnitine, and isovalerylglycine. This toxic organic acid burden drives the characteristic odor, secondary detoxification through carnitine and glycine conjugation, and downstream acute metabolic decompensation, hyperammonemia, mitochondrial stress, and direct neurotoxicity.
+</div>
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-cell">
+                        hepatocyte
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        cellular response to toxic substance
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0097237" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    <span class="tag tag-bio">
+                        leucine catabolic process
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0006552" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-location">
+                        mitochondrion
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Isovaleric acid</span>
+	                            
+	                            <span class="crosslink-desc">IVD deficiency causes free isovaleric acid accumulation.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">3-Hydroxyisovaleric acid</span>
+	                            
+	                            <span class="crosslink-desc">Alternative metabolism of accumulated isovaleryl-CoA produces elevated 3-hydroxyisovaleric acid.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Isovalerylcarnitine (C5)</span>
+	                            
+	                            <span class="crosslink-desc">Carnitine conjugation of accumulated isovaleryl-CoA produces elevated C5 isovalerylcarnitine.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Isovalerylglycine</span>
+	                            
+	                            <span class="crosslink-desc">Glycine conjugation of accumulated isovaleryl-CoA produces elevated urinary isovalerylglycine.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Free carnitine</span>
+	                            
+	                            <span class="crosslink-desc">Formation and urinary excretion of isovalerylcarnitine depletes the free carnitine pool.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Catabolic acute metabolic decompensation</span>
+	                            
+	                            <span class="crosslink-desc">Toxic metabolite load worsens during fasting, illness, and protein intake, producing acute crises.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Secondary urea cycle impairment and hyperammonemia</span>
+	                            
+	                            <span class="crosslink-desc">Accumulated isovaleryl-CoA impairs N-acetylglutamate synthesis and urea-cycle activation.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Mitochondrial energy depletion and oxidative stress</span>
+	                            
+	                            <span class="crosslink-desc">Accumulated organic acids decrease mitochondrial energy production and increase oxidative stress.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Neuronal membrane dysfunction via Na+,K+-ATPase inhibition</span>
+	                            
+	                            <span class="crosslink-desc">Free isovaleric acid inhibits cerebral cortical Na+,K+-ATPase in model systems.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Characteristic sweaty feet odor</span>
+	                            
+	                            <span class="crosslink-desc">Volatile isovaleric acid buildup produces the characteristic sweaty-feet odor.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
+	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41133704" target="_blank">PMID:41133704</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine 
+metabolism caused by a deficiency of isovaleryl-CoA dehydrogenase (IVD), leading 
+to an accumulation of isovaleric acid and its derivates 3-hydroxyisovaleric 
+acid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids."</div>
+                
+                
+                <div class="evidence-explanation">Review and expert consensus directly list the accumulated organic acids and conjugates in IVA.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30547004" target="_blank">PMID:30547004</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"Organic acids (OAs) are intermediary products of several amino acid catabolism or degradation via multiple biochemical pathways for energy production."</div>
+                <div class="evidence-snippet">"Deficiency of this enzyme leads to accumulation of
+organic acids, such as isovalerylcarnitine and isovalerylglycine."</div>
                 
                 
-                <div class="evidence-explanation">Supports organic acid disorders as defects in amino acid catabolic pathways.</div>
+                <div class="evidence-explanation">Human therapeutic follow-up paper supports toxic organic acid accumulation downstream of IVD deficiency.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+	            </div>
+	            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-catabolic-acute-metabolic-decompensation">
+                <div class="item-name">Catabolic acute metabolic decompensation</div>
+                
+                <div class="item-desc">Fasting, febrile illness, gastroenteritis, and increased protein intake increase leucine flux and toxic organic-acid burden, triggering acute metabolic decompensation with vomiting, encephalopathy, metabolic acidosis, ketosis, hyperammonemia, and neurologic deterioration.
+</div>
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-cell">
+                        hepatocyte
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        response to starvation
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0042594" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    <span class="tag tag-bio">
+                        cellular response to toxic substance
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0097237" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-location">
+                        liver
+                        
+                        <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Metabolic acidosis</span>
+	                            
+	                            <span class="crosslink-desc">Acute organic-acid accumulation produces metabolic acidosis during crises.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hyperammonemia</span>
+	                            
+	                            <span class="crosslink-desc">Acute decompensation in IVA commonly includes secondary hyperammonemia.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Vomiting</span>
+	                            
+	                            <span class="crosslink-desc">Vomiting is a common acute decompensation symptom.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Encephalopathy</span>
+	                            
+	                            <span class="crosslink-desc">Acute decompensation produces encephalopathy through hyperammonemia and organic-acid neurotoxicity.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Lethargy</span>
+	                            
+	                            <span class="crosslink-desc">Acute crises commonly cause reduced alertness.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hypotonia</span>
+	                            
+	                            <span class="crosslink-desc">Hypotonia is listed among acute decompensation manifestations in classic IVA.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hypoglycemia</span>
+	                            
+	                            <span class="crosslink-desc">Hypoglycemia occurs in a subset of acute IVA presentations.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Seizures</span>
+	                            
+	                            <span class="crosslink-desc">Acute metabolic decompensation can present with seizures.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Pancytopenia</span>
+	                            
+	                            <span class="crosslink-desc">Severe infection-triggered decompensation can present with pancytopenia.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Global developmental delay</span>
+	                            
+	                            <span class="crosslink-desc">Recurrent or severe IVA decompensation contributes to developmental delay risk.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Failure to thrive</span>
+	                            
+	                            <span class="crosslink-desc">Chronic intermittent IVA can present with failure to thrive.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
+	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38484105" target="_blank">PMID:38484105</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Classic IVA is characterized by acute metabolic
+decompensations (vomiting, poor feeding, lethargy, hypotonia, seizures, and a
+distinct odor of sweaty feet)."</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews summarizes the acute decompensation phenotype of classic IVA.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38484105" target="_blank">PMID:38484105</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Acute metabolic decompensations are typically
+triggered by fasting, (febrile) illness (especially gastroenteritis), or
+increased protein intake."</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews directly supports catabolic and protein-load triggers for acute IVA crises.</div>
                 
             </div>
             
@@ -2990,6 +3610,48 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Ammonia</span>
+	                            
+	                            <span class="crosslink-desc">Urea-cycle impairment increases circulating ammonia.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hyperammonemia</span>
+	                            
+	                            <span class="crosslink-desc">Impaired urea-cycle entry produces the hyperammonemia phenotype.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Encephalopathy</span>
+	                            
+	                            <span class="crosslink-desc">Severe hyperammonemia during organic-acidemia crises contributes to life-threatening neurologic dysfunction.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Intellectual disability</span>
+	                            
+	                            <span class="crosslink-desc">Repeated hyperammonemia and metabolic decompensation can lead to intellectual disability.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Failure to thrive</span>
+	                            
+	                            <span class="crosslink-desc">Repeated hyperammonemia and metabolic decompensation can impair growth.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
@@ -3007,11 +3669,12 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"High anion gap metabolic acidosis with hyperammonemia is a characteristic OA biochemical finding."</div>
+                <div class="evidence-snippet">"High anion gap metabolic acidosis with 
+hyperammonemia is a characteristic OA biochemical finding."</div>
                 
                 
                 <div class="evidence-explanation">Supports hyperammonemia as characteristic of organic acid disorders.</div>
@@ -3027,11 +3690,14 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"The clinical presentation is highly variable, ranging from life-threatening metabolic crises with metabolic acidosis and hyperammonemia to a clinically asymptomatic only biochemical phenotype."</div>
+                <div class="evidence-snippet">"The 
+clinical presentation is highly variable, ranging from life-threatening 
+metabolic crises with metabolic acidosis and hyperammonemia to a clinically 
+asymptomatic only biochemical phenotype."</div>
                 
                 
                 <div class="evidence-explanation">Directly supports hyperammonemia as a key crisis feature of IVA.</div>
@@ -3140,6 +3806,27 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Encephalopathy</span>
+	                            
+	                            <span class="crosslink-desc">Impaired cerebral energy metabolism contributes to the acute encephalopathy seen in IVA.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Lethargy</span>
+	                            
+	                            <span class="crosslink-desc">Cerebral energy impairment can contribute to reduced alertness during acute crises.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
@@ -3161,7 +3848,9 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"IVA administration significantly inhibited (14)CO(2) production from acetate (22%) and citrate synthase activity (20%) in cerebral cortex homogenates prepared 24 h after injection."</div>
+                <div class="evidence-snippet">"IVA administration significantly inhibited (14)CO(2) production from 
+acetate (22%) and citrate synthase activity (20%) in cerebral cortex homogenates 
+prepared 24 h after injection."</div>
                 
                 
                 <div class="evidence-explanation">Demonstrates TCA cycle impairment in cerebral cortex from isovaleric acid exposure in vivo.</div>
@@ -3171,20 +3860,21 @@
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27613073" target="_blank">PMID:27613073</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36817957" target="_blank">PMID:36817957</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"More than 65 organic acidurias have been described"</div>
+                <div class="evidence-snippet">"The increase in these metabolites decreases mitochondrial energy 
+production and increases oxidative stress."</div>
                 
                 
-                <div class="evidence-explanation">Review providing pathogenetic basis for oxidative stress and mitochondrial dysfunction in classical organic acidurias including IVA.</div>
+                <div class="evidence-explanation">Review component of this mechanistic paper supports mitochondrial energy impairment and oxidative stress from metabolite accumulation.</div>
                 
             </div>
             
@@ -3270,6 +3960,27 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Encephalopathy</span>
+	                            
+	                            <span class="crosslink-desc">Membrane-pump inhibition disrupts neurotransmission and contributes to acute encephalopathy.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Seizures</span>
+	                            
+	                            <span class="crosslink-desc">Disrupted neuronal membrane potential can contribute to seizure susceptibility during crises.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
@@ -3291,7 +4002,10 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"IVA injection significantly inhibited Na(+),K(+)-ATPase activity (25%) in cerebral cortex of rats 2 or 24 h after IVA administration, while pre-treatment of rats with creatine completely prevented the inhibitory effects of IVA on Na(+),K(+)-ATPase."</div>
+                <div class="evidence-snippet">"IVA injection significantly inhibited 
+Na(+),K(+)-ATPase activity (25%) in cerebral cortex of rats 2 or 24 h after IVA 
+administration, while pre-treatment of rats with creatine completely prevented 
+the inhibitory effects of IVA on Na(+),K(+)-ATPase."</div>
                 
                 
                 <div class="evidence-explanation">Demonstrates direct inhibition of Na+,K+-ATPase by isovaleric acid in cerebral cortex and prevention by creatine.</div>
@@ -3330,7 +4044,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Deficient leucine catabolic flux\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IVD deficiency blocks leucine degradation at the mitochondrial isovaleryl-CoA to 3-methylcrotonyl-CoA step, causing upstream accumulation of isovaleryl-CoA, isovaleric acid, and characteristic secondary metabolites.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"branched-chain amino acid catabolic process\", \"leucine catabolic process\"]}}, {\"id\": \"IVD - c.941C\u003eT (p.Ala314Val) - mild IVA variant\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The c.941C\u003eT (p.Ala314Val) variant in IVD is commonly associated with the attenuated or mild biochemical phenotype detected by newborn screening. Individuals homozygous for this variant may remain clinically asymptomatic.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"IVD molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in IVD reduce isovaleryl-CoA dehydrogenase catalytic activity in mitochondria.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"genes\": [\"IVD\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"IVD variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"IVD\"], \"variant_count\": 2}}, {\"id\": \"Mitochondrial energy depletion and oxidative stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulated isovaleryl-CoA and isovaleric acid impair tricarboxylic acid cycle function, with evidence for inhibition of citrate synthase and reduced CO2 production from acetate in brain tissue. Chronic metabolite accumulation also increases oxidative stress, contributing to neurological morbidity. Oxidative stress from chronic persistent buildup of isovaleric acid may be more neurologically detrimental than acute buildup.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"tricarboxylic acid cycle\", \"response to oxidative stress\"], \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"Neuronal membrane dysfunction via Na+,K+-ATPase inhibition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Isovaleric acid directly inhibits Na+,K+-ATPase activity in cerebral cortex, a crucial enzyme for maintaining membrane potential and normal neurotransmission. This inhibition is observed as early as 2 hours after exposure and persists at 24 hours, contributing to the acute encephalopathy seen during metabolic crises.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"sodium ion transport\"], \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"Secondary urea cycle impairment and hyperammonemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Isovaleryl-CoA inhibits N-acetylglutamate synthase (NAGS), reducing N-acetylglutamate availability and impairing activation of carbamoyl phosphate synthetase 1 (CPS1), the rate-limiting entry enzyme of the urea cycle. Combined with acetyl-CoA depletion, this produces secondary hyperammonemia that contributes to encephalopathy and neurological complications.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"urea cycle\"], \"locations\": [\"liver\"]}}, {\"id\": \"Various pathogenic IVD variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Multiple pathogenic variants in IVD have been described causing variable clinical severity from severe neonatal-onset to chronic intermittent forms. Biallelic pathogenic variants are required for disease manifestation.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"IVD molecular function deficiency\", \"target\": \"Deficient leucine catabolic flux\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Deficient leucine catabolic flux\", \"target\": \"Secondary urea cycle impairment and hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Deficient leucine catabolic flux\", \"target\": \"Mitochondrial energy depletion and oxidative stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Deficient leucine catabolic flux\", \"target\": \"Neuronal membrane dysfunction via Na+,K+-ATPase inhibition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"IVD variants\", \"target\": \"IVD molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IVD - c.941C\u003eT (p.Ala314Val) - mild IVA variant\", \"target\": \"IVD variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Various pathogenic IVD variants\", \"target\": \"IVD variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"3-Hydroxyisovaleric acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Acute decompensation management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Emergency management during catabolic crises includes cessation of protein intake, high-calorie glucose infusion to reverse catabolism, correction of metabolic acidosis, and administration of ammonia scavengers when needed.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Ammonia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"Catabolic acute metabolic decompensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fasting, febrile illness, gastroenteritis, and increased protein intake increase leucine flux and toxic organic-acid burden, triggering acute metabolic decompensation with vomiting, encephalopathy, metabolic acidosis, ketosis, hyperammonemia, and neurologic deterioration.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"response to starvation\", \"cellular response to toxic substance\"], \"locations\": [\"liver\"]}}, {\"id\": \"Characteristic sweaty feet odor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A distinctive sweaty feet or cheesy odor due to volatile isovaleric acid accumulation is a classic clinical feature of IVA, particularly during acute metabolic crises.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0500001\"}}, {\"id\": \"Deficient leucine catabolic flux\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IVD deficiency blocks leucine degradation at the mitochondrial isovaleryl-CoA to 3-methylcrotonyl-CoA step, causing upstream accumulation of isovaleryl-CoA, isovaleric acid, and characteristic secondary metabolites.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"branched-chain amino acid catabolic process\", \"leucine catabolic process\"]}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute encephalopathy occurs during severe metabolic crises, mediated by hyperammonemia, direct organic acid neurotoxicity, and impaired neuronal energy metabolism. In a Jordanian cohort, encephalopathy occurred in 33.3%.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0006846\"}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth impairment can occur in patients with recurrent or poorly controlled disease due to chronic metabolic instability and dietary protein restriction.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Free carnitine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is a risk in severe or recurrent disease, particularly following repeated hyperammonemic episodes.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Glycine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Glycine supplementation promotes conjugation of isovaleryl-CoA to isovalerylglycine, a less toxic water-soluble metabolite excreted in urine. However, glycine supplementation should be carefully considered as increased glycine concentration does not proportionally increase N-isovalerylglycine formation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hyperammonemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Secondary hyperammonemia results from inhibition of N-acetylglutamate synthase by isovaleryl-CoA. In a Jordanian cohort, hyperammonemia was present in 71.4% of patients. Repeated hyperammonemic episodes increase the risk of brain damage.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001987\"}}, {\"id\": \"Hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoglycemia may occur during metabolic crises, reported in 14.3% of patients in a Jordanian cohort.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001943\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced muscle tone during acute metabolic decompensation is a characteristic neurologic manifestation of classic IVA.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"IVD - c.941C\u003eT (p.Ala314Val) - mild IVA variant\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The c.941C\u003eT (p.Ala314Val) variant in IVD is commonly associated with the attenuated or mild biochemical phenotype detected by newborn screening. Individuals homozygous for this variant may remain clinically asymptomatic.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"IVD molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in IVD reduce isovaleryl-CoA dehydrogenase catalytic activity in mitochondria.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"genes\": [\"IVD\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"IVD variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"IVD\"], \"variant_count\": 2}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability may develop as a long-term consequence of recurrent metabolic crises and hyperammonemia, particularly in severe neonatal-onset forms.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Isovaleric acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"Isovalerylcarnitine (C5)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"Isovalerylglycine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"L-Carnitine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"L-carnitine supplementation promotes formation and urinary excretion of isovalerylcarnitine, reducing the toxic free isovaleric acid pool and correcting secondary carnitine deficiency.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced alertness and responsiveness during acute metabolic decompensation, ranging from somnolence to coma.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001254\"}}, {\"id\": \"Leucine-restricted diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Protein-restricted or leucine-restricted dietary management with specialized metabolic formula is the cornerstone of chronic IVA management. The goal is to reduce leucine flux and thereby limit isovaleryl-CoA production.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Metabolic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High-anion-gap metabolic acidosis is the hallmark acute presentation during metabolic decompensation episodes. In a Jordanian cohort, acidosis was present in 81% of patients.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001942\"}}, {\"id\": \"Mitochondrial energy depletion and oxidative stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulated isovaleryl-CoA and isovaleric acid impair tricarboxylic acid cycle function, with evidence for inhibition of citrate synthase and reduced CO2 production from acetate in brain tissue. Chronic metabolite accumulation also increases oxidative stress, contributing to neurological morbidity. Oxidative stress from chronic persistent buildup of isovaleric acid may be more neurologically detrimental than acute buildup.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"tricarboxylic acid cycle\", \"response to oxidative stress\"], \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"N-Carbamylglutamate (carglumic acid)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"N-carbamylglutamate is a synthetic analog of N-acetylglutamate approved for treatment of hyperammonemia in IVA. It directly activates CPS1, bypassing the NAGS inhibition caused by isovaleryl-CoA, and can rapidly normalize ammonia levels.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neuronal membrane dysfunction via Na+,K+-ATPase inhibition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Isovaleric acid directly inhibits Na+,K+-ATPase activity in cerebral cortex, a crucial enzyme for maintaining membrane potential and normal neurotransmission. This inhibition is observed as early as 2 hours after exposure and persists at 24 hours, contributing to the acute encephalopathy seen during metabolic crises.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"sodium ion transport\"], \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"Pancytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pancytopenia and neutropenia may occur during acute metabolic decompensation in organic acidemias including IVA, due to bone marrow suppression by toxic metabolites.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001876\"}}, {\"id\": \"Secondary urea cycle impairment and hyperammonemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Isovaleryl-CoA inhibits N-acetylglutamate synthase (NAGS), reducing N-acetylglutamate availability and impairing activation of carbamoyl phosphate synthetase 1 (CPS1), the rate-limiting entry enzyme of the urea cycle. Combined with acetyl-CoA depletion, this produces secondary hyperammonemia that contributes to encephalopathy and neurological complications.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"urea cycle\"], \"locations\": [\"liver\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures may occur during severe metabolic decompensation, likely mediated by hyperammonemia and direct neurotoxicity of accumulated metabolites.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Toxic isovaleryl-CoA and organic acid accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Blocked isovaleryl-CoA oxidation causes accumulation of isovaleryl-CoA, isovaleric acid, 3-hydroxyisovaleric acid, isovalerylcarnitine, and isovalerylglycine. This toxic organic acid burden drives the characteristic odor, secondary detoxification through carnitine and glycine conjugation, and downstream acute metabolic decompensation, hyperammonemia, mitochondrial stress, and direct neurotoxicity.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"cellular response to toxic substance\", \"leucine catabolic process\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Various pathogenic IVD variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Multiple pathogenic variants in IVD have been described causing variable clinical severity from severe neonatal-onset to chronic intermittent forms. Biallelic pathogenic variants are required for disease manifestation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent vomiting is the most prevalent symptom during metabolic crises in IVA. In a Jordanian cohort, vomiting was the most common presenting symptom at 57.1%.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002013\"}}], \"edges\": [{\"source\": \"IVD molecular function deficiency\", \"target\": \"Deficient leucine catabolic flux\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Deficient leucine catabolic flux\", \"target\": \"Toxic isovaleryl-CoA and organic acid accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic isovaleryl-CoA and organic acid accumulation\", \"target\": \"Isovaleric acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic isovaleryl-CoA and organic acid accumulation\", \"target\": \"3-Hydroxyisovaleric acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic isovaleryl-CoA and organic acid accumulation\", \"target\": \"Isovalerylcarnitine (C5)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic isovaleryl-CoA and organic acid accumulation\", \"target\": \"Isovalerylglycine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic isovaleryl-CoA and organic acid accumulation\", \"target\": \"Free carnitine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic isovaleryl-CoA and organic acid accumulation\", \"target\": \"Catabolic acute metabolic decompensation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic isovaleryl-CoA and organic acid accumulation\", \"target\": \"Secondary urea cycle impairment and hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic isovaleryl-CoA and organic acid accumulation\", \"target\": \"Mitochondrial energy depletion and oxidative stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic isovaleryl-CoA and organic acid accumulation\", \"target\": \"Neuronal membrane dysfunction via Na+,K+-ATPase inhibition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic isovaleryl-CoA and organic acid accumulation\", \"target\": \"Characteristic sweaty feet odor\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic acute metabolic decompensation\", \"target\": \"Metabolic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic acute metabolic decompensation\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic acute metabolic decompensation\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic acute metabolic decompensation\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic acute metabolic decompensation\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic acute metabolic decompensation\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic acute metabolic decompensation\", \"target\": \"Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic acute metabolic decompensation\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic acute metabolic decompensation\", \"target\": \"Pancytopenia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic acute metabolic decompensation\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic acute metabolic decompensation\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary urea cycle impairment and hyperammonemia\", \"target\": \"Ammonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary urea cycle impairment and hyperammonemia\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary urea cycle impairment and hyperammonemia\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary urea cycle impairment and hyperammonemia\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary urea cycle impairment and hyperammonemia\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial energy depletion and oxidative stress\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial energy depletion and oxidative stress\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuronal membrane dysfunction via Na+,K+-ATPase inhibition\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuronal membrane dysfunction via Na+,K+-ATPase inhibition\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leucine-restricted diet\", \"target\": \"Deficient leucine catabolic flux\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"L-Carnitine supplementation\", \"target\": \"Toxic isovaleryl-CoA and organic acid accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Glycine supplementation\", \"target\": \"Toxic isovaleryl-CoA and organic acid accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"N-Carbamylglutamate (carglumic acid)\", \"target\": \"Secondary urea cycle impairment and hyperammonemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Acute decompensation management\", \"target\": \"Catabolic acute metabolic decompensation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Acute decompensation management\", \"target\": \"Secondary urea cycle impairment and hyperammonemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"IVD variants\", \"target\": \"IVD molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IVD - c.941C\u003eT (p.Ala314Val) - mild IVA variant\", \"target\": \"IVD variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Various pathogenic IVD variants\", \"target\": \"IVD variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3343,7 +4057,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">12</span>
+                <span class="card-count">13</span>
             </div>
             
             
@@ -3355,11 +4069,13 @@
                 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(3)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(1)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Constitutional<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(5)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Constitutional<span class="pill-count">(1)</span></button>
+                
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(1)</span></button>
                 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -3376,8 +4092,6 @@
                     <div class="item-name">
                         Pancytopenia
                         
-                        <span class="phenotype-freq">OCCASIONAL</span>
-                        
                     
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0001876" target="_blank">
@@ -3389,10 +4103,39 @@
                     </div>
                     
                     
-                    <div class="item-desc">Pancytopenia may occur during severe metabolic decompensation in organic acidemias, but this entry currently lacks a direct abstract quote explicitly naming pancytopenia in IVA.</div>
                     
                     
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2124776" target="_blank">PMID:2124776</a>
+                    </span>
                     
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"A case of isovaleric acidemia appearing as diabetic ketoacidosis with acute
+encephalopathy and pancytopenia was reported."</div>
+                
+                
+                <div class="evidence-explanation">Case-report abstract directly names pancytopenia in a patient with IVA and acute encephalopathy.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
                     
@@ -3448,7 +4191,8 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Vomiting was the most prevalent symptom (57.1%), and encephalopathy occurred in 33.3%."</div>
+                <div class="evidence-snippet">"Vomiting was the most prevalent symptom (57.1%), and 
+encephalopathy occurred in 33.3%."</div>
                 
                 
                 <div class="evidence-explanation">Directly quantifies vomiting as the most common symptom.</div>
@@ -3513,7 +4257,8 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Laboratory results showed acidosis (81%), hyperammonemia (71.4%), and hypoglycemia (14.3%)."</div>
+                <div class="evidence-snippet">"Laboratory results showed acidosis (81%), 
+hyperammonemia (71.4%), and hypoglycemia (14.3%)."</div>
                 
                 
                 <div class="evidence-explanation">Directly quantifies acidosis at 81% in an IVA cohort.</div>
@@ -3529,11 +4274,14 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"The clinical presentation is highly variable, ranging from life-threatening metabolic crises with metabolic acidosis and hyperammonemia to a clinically asymptomatic only biochemical phenotype."</div>
+                <div class="evidence-snippet">"The 
+clinical presentation is highly variable, ranging from life-threatening 
+metabolic crises with metabolic acidosis and hyperammonemia to a clinically 
+asymptomatic only biochemical phenotype."</div>
                 
                 
                 <div class="evidence-explanation">Supports metabolic acidosis as a key crisis phenotype.</div>
@@ -3589,7 +4337,8 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Laboratory results showed acidosis (81%), hyperammonemia (71.4%), and hypoglycemia (14.3%)."</div>
+                <div class="evidence-snippet">"Laboratory results showed acidosis (81%), 
+hyperammonemia (71.4%), and hypoglycemia (14.3%)."</div>
                 
                 
                 <div class="evidence-explanation">Directly quantifies hyperammonemia at 71.4% in an IVA cohort.</div>
@@ -3605,11 +4354,14 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"Repeated and frequent episodes of hyperammonaemia (alongside metabolic decompensations) can result in impaired growth and intellectual disability, the severity of which increase with longer duration of hyperammonaemia."</div>
+                <div class="evidence-snippet">"Repeated and frequent episodes of hyperammonaemia 
+(alongside metabolic decompensations) can result in impaired growth and 
+intellectual disability, the severity of which increase with longer duration of 
+hyperammonaemia."</div>
                 
                 
                 <div class="evidence-explanation">Supports hyperammonemia as contributing to neurological sequelae.</div>
@@ -3665,7 +4417,8 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Laboratory results showed acidosis (81%), hyperammonemia (71.4%), and hypoglycemia (14.3%)."</div>
+                <div class="evidence-snippet">"Laboratory results showed acidosis (81%), 
+hyperammonemia (71.4%), and hypoglycemia (14.3%)."</div>
                 
                 
                 <div class="evidence-explanation">Directly quantifies hypoglycemia at 14.3% in an IVA cohort.</div>
@@ -3685,6 +4438,71 @@
             </details>
             
             <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">1</span>
+                </summary>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Hypotonia
+                        
+                    
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank">
+                            Hypotonia
+                        </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001252)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38484105" target="_blank">PMID:38484105</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Classic IVA is characterized by acute metabolic
+decompensations (vomiting, poor feeding, lethargy, hypotonia, seizures, and a
+distinct odor of sweaty feet)."</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews directly lists hypotonia among acute decompensation manifestations of classic IVA.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+            </details>
+            
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
@@ -3730,7 +4548,8 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Vomiting was the most prevalent symptom (57.1%), and encephalopathy occurred in 33.3%."</div>
+                <div class="evidence-snippet">"Vomiting was the most prevalent symptom (57.1%), and 
+encephalopathy occurred in 33.3%."</div>
                 
                 
                 <div class="evidence-explanation">Directly quantifies encephalopathy at 33.3% in an IVA cohort.</div>
@@ -3750,7 +4569,9 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Patients affected by IVAcidemia suffer from acute episodes of encephalopathy, whose underlying mechanisms are poorly known."</div>
+                <div class="evidence-snippet">"Patients affected by IVAcidemia suffer 
+from acute episodes of encephalopathy, whose underlying mechanisms are poorly 
+known."</div>
                 
                 
                 <div class="evidence-explanation">Confirms encephalopathy as a recognized acute manifestation of IVA.</div>
@@ -3770,8 +4591,6 @@
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Lethargy
-                        
-                        <span class="phenotype-freq">FREQUENT</span>
                         
                     
                     <span class="phenotype-id">
@@ -3796,7 +4615,7 @@
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30522498" target="_blank">PMID:30522498</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24637313" target="_blank">PMID:24637313</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
@@ -3806,10 +4625,11 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"The &#39;classic&#39; organic acidaemias (OAs) (propionic, methylmalonic and isovaleric) typically present in neonates or infants as acute metabolic decompensation with encephalopathy."</div>
+                <div class="evidence-snippet">"Isovaleric acidemia (IVA) is characterized by periodic vomiting, lethargy, coma,
+ketoacidosis and a &#39;sweaty feet&#39; odor."</div>
                 
                 
-                <div class="evidence-explanation">Acute metabolic decompensation with encephalopathy encompasses lethargy as a presenting feature.</div>
+                <div class="evidence-explanation">Case-report abstract directly lists lethargy among characteristic IVA acute manifestations.</div>
                 
             </div>
             
@@ -3826,8 +4646,6 @@
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Seizures
-                        
-                        <span class="phenotype-freq">OCCASIONAL</span>
                         
                     
                     <span class="phenotype-id">
@@ -3852,20 +4670,22 @@
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30522498" target="_blank">PMID:30522498</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38484105" target="_blank">PMID:38484105</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"This is frequently accompanied by severe hyperammonaemia and constitutes a metabolic emergency, as increased ammonia levels and accumulating toxic metabolites are associated with life-threatening neurological complications."</div>
+                <div class="evidence-snippet">"Classic IVA is characterized by acute metabolic
+decompensations (vomiting, poor feeding, lethargy, hypotonia, seizures, and a
+distinct odor of sweaty feet)."</div>
                 
                 
-                <div class="evidence-explanation">Severe neurological complications from hyperammonemia include seizures during metabolic crises.</div>
+                <div class="evidence-explanation">GeneReviews directly lists seizures as an acute decompensation manifestation of classic IVA.</div>
                 
             </div>
             
@@ -3882,8 +4702,6 @@
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Global developmental delay
-                        
-                        <span class="phenotype-freq">OCCASIONAL</span>
                         
                     
                     <span class="phenotype-id">
@@ -3908,20 +4726,22 @@
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30522498" target="_blank">PMID:30522498</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38484105" target="_blank">PMID:38484105</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"Repeated and frequent episodes of hyperammonaemia (alongside metabolic decompensations) can result in impaired growth and intellectual disability, the severity of which increase with longer duration of hyperammonaemia."</div>
+                <div class="evidence-snippet">"Additional manifestations of classic IVA include developmental
+delay, intellectual disability and/or impaired cognition, epilepsy, and movement
+disorder (tremor, dysmetria, extrapyramidal movements)."</div>
                 
                 
-                <div class="evidence-explanation">Supports developmental compromise from repeated hyperammonemic episodes.</div>
+                <div class="evidence-explanation">GeneReviews directly lists developmental delay among additional manifestations of classic IVA.</div>
                 
             </div>
             
@@ -3939,8 +4759,6 @@
                     <div class="item-name">
                         Intellectual disability
                         
-                        <span class="phenotype-freq">OCCASIONAL</span>
-                        
                     
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank">
@@ -3957,9 +4775,31 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38484105" target="_blank">PMID:38484105</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Additional manifestations of classic IVA include developmental
+delay, intellectual disability and/or impaired cognition, epilepsy, and movement
+disorder (tremor, dysmetria, extrapyramidal movements)."</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews directly lists intellectual disability or impaired cognition among additional manifestations of classic IVA.</div>
+                
+            </div>
             
             <div class="evidence-item">
                 <div class="evidence-header">
@@ -3970,14 +4810,17 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"Repeated and frequent episodes of hyperammonaemia (alongside metabolic decompensations) can result in impaired growth and intellectual disability, the severity of which increase with longer duration of hyperammonaemia."</div>
+                <div class="evidence-snippet">"Repeated and frequent episodes of hyperammonaemia 
+(alongside metabolic decompensations) can result in impaired growth and 
+intellectual disability, the severity of which increase with longer duration of 
+hyperammonaemia."</div>
                 
                 
-                <div class="evidence-explanation">Directly supports intellectual disability as outcome of repeated hyperammonemic episodes in organic acidaemias.</div>
+                <div class="evidence-explanation">Review evidence supports intellectual disability as an outcome of repeated hyperammonemic episodes in organic acidaemias.</div>
                 
             </div>
             
@@ -3993,7 +4836,7 @@
                 
             </details>
             
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
@@ -4003,8 +4846,6 @@
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Characteristic sweaty feet odor
-                        
-                        <span class="phenotype-freq">FREQUENT</span>
                         
                     
                     <span class="phenotype-id">
@@ -4029,7 +4870,7 @@
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27613073" target="_blank">PMID:27613073</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24637313" target="_blank">PMID:24637313</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
@@ -4039,10 +4880,11 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Among these disorders, methyl malonic aciduria, propionic aciduria, maple syrup urine disease and isovaleric aciduria are sometimes referred to as classical organic acidurias."</div>
+                <div class="evidence-snippet">"Isovaleric acidemia (IVA) is characterized by periodic vomiting, lethargy, coma,
+ketoacidosis and a &#39;sweaty feet&#39; odor."</div>
                 
                 
-                <div class="evidence-explanation">IVA is a classical organic aciduria characterized by distinct volatile acid accumulation producing the sweaty feet odor.</div>
+                <div class="evidence-explanation">Case-report abstract directly supports the characteristic sweaty-feet odor in IVA.</div>
                 
             </div>
             
@@ -4058,7 +4900,7 @@
                 
             </details>
             
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -4068,8 +4910,6 @@
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Failure to thrive
-                        
-                        <span class="phenotype-freq">OCCASIONAL</span>
                         
                     
                     <span class="phenotype-id">
@@ -4094,7 +4934,7 @@
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30522498" target="_blank">PMID:30522498</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30547004" target="_blank">PMID:30547004</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
@@ -4104,10 +4944,10 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Repeated and frequent episodes of hyperammonaemia (alongside metabolic decompensations) can result in impaired growth and intellectual disability"</div>
+                <div class="evidence-snippet">"The chronic intermittent form with onset in infancy or childhood presents with developmental delays and/or failure to thrive."</div>
                 
                 
-                <div class="evidence-explanation">Supports impaired growth as a consequence of recurrent metabolic instability.</div>
+                <div class="evidence-explanation">Review/background section directly lists failure to thrive in chronic intermittent IVA.</div>
                 
             </div>
             
@@ -4176,7 +5016,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
             
@@ -4189,11 +5029,14 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine metabolism caused by a deficiency of isovaleryl-CoA dehydrogenase (IVD), leading to an accumulation of isovaleric acid and its derivates 3-hydroxyisovaleric acid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids."</div>
+                <div class="evidence-snippet">"Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine 
+metabolism caused by a deficiency of isovaleryl-CoA dehydrogenase (IVD), leading 
+to an accumulation of isovaleric acid and its derivates 3-hydroxyisovaleric 
+acid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids."</div>
                 
                 
                 <div class="evidence-explanation">Directly supports IVD as the causal gene with characteristic metabolite accumulation.</div>
@@ -4209,14 +5052,36 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"Among these disorders, methyl malonic aciduria, propionic aciduria, maple syrup urine disease and isovaleric aciduria are sometimes referred to as classical organic acidurias."</div>
+                <div class="evidence-snippet">"Among these disorders, methyl malonic aciduria, propionic aciduria, 
+maple syrup urine disease and isovaleric aciduria are sometimes referred to as 
+classical organic acidurias."</div>
                 
                 
                 <div class="evidence-explanation">Supports IVA as a classical organic aciduria with well-defined genetic basis.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_05f5d468-2f46-44f3-ba67-c4e708d2954f-2019-05-10T160000.000Z" target="_blank">CGGV:assertion_05f5d468-2f46-44f3-ba67-c4e708d2954f-2019-05-10T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"IVD | HGNC:6186 | isovaleric acidemia | MONDO:0009475 | AR | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the IVD-isovaleric acidemia gene-disease relationship as definitive with autosomal recessive inheritance.</div>
                 
             </div>
             
@@ -4280,6 +5145,56 @@
 </div>
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Deficient leucine catabolic flux</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Leucine/protein restriction reduces substrate flux into the blocked IVD step.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41133704" target="_blank">PMID:41133704</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Treatment consists of a protein-restricted diet 
+combined with supplementation of carnitine and/or glycine and emergency 
+treatment in catabolic episodes."</div>
+                
+                
+                <div class="evidence-explanation">Review and expert consensus support protein restriction as a standard strategy to reduce leucine-derived metabolite production.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
+                
                 
                 
                 
@@ -4299,11 +5214,13 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"Treatment consists of a protein-restricted diet combined with supplementation of carnitine and/or glycine and emergency treatment in catabolic episodes."</div>
+                <div class="evidence-snippet">"Treatment consists of a protein-restricted diet 
+combined with supplementation of carnitine and/or glycine and emergency 
+treatment in catabolic episodes."</div>
                 
                 
                 <div class="evidence-explanation">Directly supports protein-restricted diet as the primary chronic treatment.</div>
@@ -4323,7 +5240,8 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"The early initiation of treatment for organic acid disorders carries a more favorable prognosis."</div>
+                <div class="evidence-snippet">"The early initiation of treatment for organic acid disorders 
+carries a more favorable prognosis."</div>
                 
                 
                 <div class="evidence-explanation">Supports early treatment initiation including dietary management for better outcomes.</div>
@@ -4378,6 +5296,58 @@
 </div>
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            BYPASSES
+                        </span>
+                        <strong style="color: #5b21b6;">Toxic isovaleryl-CoA and organic acid accumulation</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; L-carnitine diverts accumulated isovaleryl-CoA into isovalerylcarnitine for urinary excretion.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/6549017" target="_blank">PMID:6549017</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Administration
+of equimolar amounts of glycine or L-carnitine separately with leucine
+demonstrated that isovaleryl-coenzyme A is removed by supplemental L-carnitine
+in the form of isovalerylcarnitine as effectively as it is by glycine, in the
+form of isovalerylglycine."</div>
+                
+                
+                <div class="evidence-explanation">Human therapeutic study directly supports L-carnitine-mediated removal of isovaleryl-CoA as isovalerylcarnitine.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
+                
                 
                 
                 
@@ -4397,11 +5367,13 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"Treatment consists of a protein-restricted diet combined with supplementation of carnitine and/or glycine and emergency treatment in catabolic episodes."</div>
+                <div class="evidence-snippet">"Treatment consists of a protein-restricted diet 
+combined with supplementation of carnitine and/or glycine and emergency 
+treatment in catabolic episodes."</div>
                 
                 
                 <div class="evidence-explanation">Directly supports carnitine supplementation as part of standard IVA treatment.</div>
@@ -4456,6 +5428,58 @@
 </div>
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            BYPASSES
+                        </span>
+                        <strong style="color: #5b21b6;">Toxic isovaleryl-CoA and organic acid accumulation</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Glycine diverts accumulated isovaleryl-CoA into isovalerylglycine for urinary excretion.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/6549017" target="_blank">PMID:6549017</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Administration
+of equimolar amounts of glycine or L-carnitine separately with leucine
+demonstrated that isovaleryl-coenzyme A is removed by supplemental L-carnitine
+in the form of isovalerylcarnitine as effectively as it is by glycine, in the
+form of isovalerylglycine."</div>
+                
+                
+                <div class="evidence-explanation">Human therapeutic study supports glycine-mediated removal of isovaleryl-CoA as isovalerylglycine.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
+                
                 
                 
                 
@@ -4475,11 +5499,13 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"Treatment consists of a protein-restricted diet combined with supplementation of carnitine and/or glycine and emergency treatment in catabolic episodes."</div>
+                <div class="evidence-snippet">"Treatment consists of a protein-restricted diet 
+combined with supplementation of carnitine and/or glycine and emergency 
+treatment in catabolic episodes."</div>
                 
                 
                 <div class="evidence-explanation">Directly supports glycine supplementation as part of standard treatment.</div>
@@ -4534,6 +5560,55 @@
 </div>
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            BYPASSES
+                        </span>
+                        <strong style="color: #5b21b6;">Secondary urea cycle impairment and hyperammonemia</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Carglumic acid stimulates the first urea-cycle step despite deficient endogenous N-acetylglutamate signaling.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30522498" target="_blank">PMID:30522498</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Treatment with N-carbamyl-L-glutamate can rapidly normalise 
+ammonia levels by stimulating the first step of the urea cycle."</div>
+                
+                
+                <div class="evidence-explanation">Review evidence supports N-carbamylglutamate as a bypass for secondary urea-cycle impairment in organic acidaemias.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
+                
                 
                 
                 
@@ -4553,11 +5628,12 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"Treatment with N-carbamyl-L-glutamate can rapidly normalise ammonia levels by stimulating the first step of the urea cycle."</div>
+                <div class="evidence-snippet">"Treatment with N-carbamyl-L-glutamate can rapidly normalise 
+ammonia levels by stimulating the first step of the urea cycle."</div>
                 
                 
                 <div class="evidence-explanation">Directly supports N-carbamylglutamate as an effective treatment for hyperammonemia in organic acidaemias.</div>
@@ -4612,6 +5688,102 @@
 </div>
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Catabolic acute metabolic decompensation</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Emergency calories, protein cessation, hydration, and acidosis correction suppress catabolism and acute crisis physiology.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30522498" target="_blank">PMID:30522498</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The acute management of hyperammonaemia in organic 
+acidaemias requires administration of intravenous calories as glucose and lipids 
+to promote anabolism, carnitine to promote urinary excretion of urinary organic 
+acid esters, and correction of metabolic acidosis"</div>
+                
+                
+                <div class="evidence-explanation">Review evidence supports acute management as a strategy to reverse catabolism and correct metabolic decompensation.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+                        <strong style="color: #5b21b6;">Secondary urea cycle impairment and hyperammonemia</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Acute management can include ammonia scavengers and N-carbamylglutamate to reduce hyperammonemia.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30522498" target="_blank">PMID:30522498</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"It may also include the 
+administration of ammonia scavengers such as sodium benzoate or sodium 
+phenylbutyrate."</div>
+                
+                
+                <div class="evidence-explanation">Review evidence supports acute hyperammonemia-directed treatment during organic-acidemia crises.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
+                
                 
                 
                 
@@ -4631,11 +5803,13 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"Treatment consists of a protein-restricted diet combined with supplementation of carnitine and/or glycine and emergency treatment in catabolic episodes."</div>
+                <div class="evidence-snippet">"Treatment consists of a protein-restricted diet 
+combined with supplementation of carnitine and/or glycine and emergency 
+treatment in catabolic episodes."</div>
                 
                 
                 <div class="evidence-explanation">Directly supports emergency treatment during catabolic episodes.</div>
@@ -4651,11 +5825,14 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"The acute management of hyperammonaemia in organic acidaemias requires administration of intravenous calories as glucose and lipids to promote anabolism, carnitine to promote urinary excretion of urinary organic acid esters, and correction of metabolic acidosis"</div>
+                <div class="evidence-snippet">"The acute management of hyperammonaemia in organic 
+acidaemias requires administration of intravenous calories as glucose and lipids 
+to promote anabolism, carnitine to promote urinary excretion of urinary organic 
+acid esters, and correction of metabolic acidosis"</div>
                 
                 
                 <div class="evidence-explanation">Provides detailed acute management protocol for hyperammonemia in organic acidaemias.</div>
@@ -4733,7 +5910,9 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Out of 156 772 newborns tested, one turned out to have genetically proven IVA while 99 were false positive (C5: 0.5-8.2 μmol/L) due to the presence of pivaloylcarnitine."</div>
+                <div class="evidence-snippet">"Out of 156 772 
+newborns tested, one turned out to have genetically proven IVA while 99 were 
+false positive (C5: 0.5-8.2 μmol/L) due to the presence of pivaloylcarnitine."</div>
                 
                 
                 <div class="evidence-explanation">Documents NBS implementation and the high false-positive rate from pivaloylcarnitine interference.</div>
@@ -4753,7 +5932,9 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Our results show that this reduces the false positive rate by 69.9% from 103 to 31 while maintaining 100% sensitivity in cross-validation."</div>
+                <div class="evidence-snippet">"Our 
+results show that this reduces the false positive rate by 69.9% from 103 to 31 
+while maintaining 100% sensitivity in cross-validation."</div>
                 
                 
                 <div class="evidence-explanation">Demonstrates machine learning approach to improve NBS specificity for IVA.</div>
@@ -4827,11 +6008,12 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine metabolism caused by a deficiency of isovaleryl-CoA dehydrogenase (IVD)"</div>
+                <div class="evidence-snippet">"Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine 
+metabolism caused by a deficiency of isovaleryl-CoA dehydrogenase (IVD)"</div>
                 
                 
                 <div class="evidence-explanation">Inherited genetic etiology supports the role of genetic counseling for affected families.</div>
@@ -4872,6 +6054,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4888,11 +6071,14 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine metabolism caused by a deficiency of isovaleryl-CoA dehydrogenase (IVD), leading to an accumulation of isovaleric acid and its derivates 3-hydroxyisovaleric acid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids."</div>
+                <div class="evidence-snippet">"Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine 
+metabolism caused by a deficiency of isovaleryl-CoA dehydrogenase (IVD), leading 
+to an accumulation of isovaleric acid and its derivates 3-hydroxyisovaleric 
+acid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids."</div>
                 
                 
                 <div class="evidence-explanation">Directly supports elevated C5 carnitine as a characteristic IVA biomarker.</div>
@@ -4912,7 +6098,8 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Newborn screening (NBS) for isovaleric acidemia (IVA) is performed by flow injection tandem mass spectrometry quantifying C5 carnitines (C5)."</div>
+                <div class="evidence-snippet">"Newborn screening (NBS) for isovaleric acidemia (IVA) is performed by flow 
+injection tandem mass spectrometry quantifying C5 carnitines (C5)."</div>
                 
                 
                 <div class="evidence-explanation">Confirms C5 as the primary NBS analyte for IVA detection.</div>
@@ -4938,6 +6125,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4954,11 +6142,14 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine metabolism caused by a deficiency of isovaleryl-CoA dehydrogenase (IVD), leading to an accumulation of isovaleric acid and its derivates 3-hydroxyisovaleric acid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids."</div>
+                <div class="evidence-snippet">"Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine 
+metabolism caused by a deficiency of isovaleryl-CoA dehydrogenase (IVD), leading 
+to an accumulation of isovaleric acid and its derivates 3-hydroxyisovaleric 
+acid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids."</div>
                 
                 
                 <div class="evidence-explanation">Directly supports isovalerylglycine as a characteristic accumulated metabolite.</div>
@@ -4978,10 +6169,12 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"GLYAT forms part of the phase II glycine conjugation pathway in the liver and detoxifies excess acyl-CoA&#39;s namely benzoyl-CoA."</div>
+                <div class="evidence-snippet">"The in-silico and in vitro findings suggested that both enzymes 
+could form N-isovaleryglycine albeit at lower affinities than their preferred 
+substrates."</div>
                 
                 
-                <div class="evidence-explanation">Supports GLYAT-mediated glycine conjugation as the source of isovalerylglycine.</div>
+                <div class="evidence-explanation">In vitro validation supports GLYAT/GLYATL1-mediated formation of N-isovalerylglycine from isovaleryl-CoA.</div>
                 
             </div>
             
@@ -5004,6 +6197,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5020,11 +6214,14 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine metabolism caused by a deficiency of isovaleryl-CoA dehydrogenase (IVD), leading to an accumulation of isovaleric acid and its derivates 3-hydroxyisovaleric acid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids."</div>
+                <div class="evidence-snippet">"Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine 
+metabolism caused by a deficiency of isovaleryl-CoA dehydrogenase (IVD), leading 
+to an accumulation of isovaleric acid and its derivates 3-hydroxyisovaleric 
+acid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids."</div>
                 
                 
                 <div class="evidence-explanation">Directly lists 3-hydroxyisovaleric acid as one of the accumulated metabolites.</div>
@@ -5050,12 +6247,36 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41133704" target="_blank">PMID:41133704</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine 
+metabolism caused by a deficiency of isovaleryl-CoA dehydrogenase (IVD), leading 
+to an accumulation of isovaleric acid and its derivates 3-hydroxyisovaleric 
+acid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids."</div>
+                
+                
+                <div class="evidence-explanation">Review and expert consensus directly lists isovaleric acid among accumulated metabolites.</div>
+                
+            </div>
             
             <div class="evidence-item">
                 <div class="evidence-header">
@@ -5070,7 +6291,9 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Isovaleric acidemia (IVAcidemia) is an inborn error of metabolism due to deficiency of isovaleryl-CoA dehydrogenase activity, leading to predominant accumulation of isovaleric acid (IVA)."</div>
+                <div class="evidence-snippet">"Isovaleric acidemia (IVAcidemia) is an inborn error of metabolism due to 
+deficiency of isovaleryl-CoA dehydrogenase activity, leading to predominant 
+accumulation of isovaleric acid (IVA)."</div>
                 
                 
                 <div class="evidence-explanation">Supports isovaleric acid as the predominant accumulated metabolite.</div>
@@ -5096,6 +6319,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5116,7 +6340,8 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Laboratory results showed acidosis (81%), hyperammonemia (71.4%), and hypoglycemia (14.3%)."</div>
+                <div class="evidence-snippet">"Laboratory results showed acidosis (81%), 
+hyperammonemia (71.4%), and hypoglycemia (14.3%)."</div>
                 
                 
                 <div class="evidence-explanation">Directly quantifies hyperammonemia frequency in an IVA cohort.</div>
@@ -5132,11 +6357,12 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"This is frequently accompanied by severe hyperammonaemia and constitutes a metabolic emergency"</div>
+                <div class="evidence-snippet">"This is frequently accompanied by severe 
+hyperammonaemia and constitutes a metabolic emergency"</div>
                 
                 
                 <div class="evidence-explanation">Supports hyperammonemia as a frequent finding in classic organic acidaemias.</div>
@@ -5162,6 +6388,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5172,7 +6399,7 @@
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41133704" target="_blank">PMID:41133704</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/6549017" target="_blank">PMID:6549017</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
@@ -5182,10 +6409,12 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Treatment consists of a protein-restricted diet combined with supplementation of carnitine and/or glycine and emergency treatment in catabolic episodes."</div>
+                <div class="evidence-snippet">"Isovaleric acidemia, resulting from isovaleryl-coenzyme A dehydrogenase
+deficiency, is associated with marked reduction of free carnitine in both plasma
+and urine."</div>
                 
                 
-                <div class="evidence-explanation">Carnitine supplementation requirement implies secondary carnitine depletion.</div>
+                <div class="evidence-explanation">Human therapeutic study directly supports reduced free carnitine in IVA.</div>
                 
             </div>
             
@@ -5228,7 +6457,7 @@
                 <pre class="yaml-preview">name: Isovaleric Acidemia
 category: Mendelian
 creation_date: &#39;2025-06-12T20:16:27Z&#39;
-updated_date: &#39;2026-04-22T20:13:21Z&#39;
+updated_date: &#39;2026-05-08T18:18:25Z&#39;
 classifications:
   harrisons_chapter:
   - classification_value: hereditary disease
@@ -5259,7 +6488,7 @@ prevalence:
   - reference: PMID:34394177
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Primary carnitine deficiency (1/9,332), phenylketonuria (1/18,664), and isovaleric acidemia (1/37,329) ranked the highest in neonates, while citrullinemia type II ranked the highest in high-risk infants (1/1,865).&#34;
+    snippet: &#34;Primary \ncarnitine deficiency (1/9,332), phenylketonuria (1/18,664), and isovaleric \nacidemia (1/37,329) ranked the highest in neonates, while citrullinemia type II \nranked the highest in high-risk infants (1/1,865).&#34;
     explanation: This large newborn-screening cohort provides a direct incidence estimate for isovaleric acidemia in southern China.
 pathophysiology:
 - name: IVD molecular function deficiency
@@ -5268,6 +6497,9 @@ pathophysiology:
     &#39;
   genes:
   - preferred_term: IVD
+    term:
+      id: hgnc:6186
+      label: IVD
   cell_types:
   - preferred_term: hepatocyte
     term:
@@ -5282,12 +6514,13 @@ pathophysiology:
   - reference: PMID:41133704
     reference_title: &#34;Practical Considerations for the Diagnosis and Management of Isovaleryl-CoA-Dehydrogenase Deficiency (Isovaleric Acidemia): Systematic Search and Review and Expert Opinions.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine metabolism caused by a deficiency of isovaleryl-CoA dehydrogenase (IVD), leading to an accumulation of isovaleric acid and its derivates 3-hydroxyisovaleric acid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids.
+    evidence_source: OTHER
+    snippet: &#34;Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine \nmetabolism caused by a deficiency of isovaleryl-CoA dehydrogenase (IVD), leading \nto an accumulation of isovaleric acid and its derivates 3-hydroxyisovaleric \nacid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids.&#34;
     explanation: Supports IVD molecular dysfunction as the initiating defect.
   downstream:
   - target: Deficient leucine catabolic flux
     description: Reduced IVD activity blocks isovaleryl-CoA oxidation in leucine catabolism.
+    causal_link_type: DIRECT
 - name: Deficient leucine catabolic flux
   description: &#39;IVD deficiency blocks leucine degradation at the mitochondrial isovaleryl-CoA to 3-methylcrotonyl-CoA step, causing upstream accumulation of isovaleryl-CoA, isovaleric acid, and characteristic secondary metabolites.
 
@@ -5305,13 +6538,174 @@ pathophysiology:
   - reference: PMID:30740403
     reference_title: &#34;Organic acid disorders.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: Organic acids (OAs) are intermediary products of several amino acid catabolism or degradation via multiple biochemical pathways for energy production.
+    evidence_source: OTHER
+    snippet: &#34;Organic acids (OAs) are intermediary products of several amino acid catabolism \nor degradation via multiple biochemical pathways for energy production.&#34;
     explanation: Supports organic acid disorders as defects in amino acid catabolic pathways.
   downstream:
+  - target: Toxic isovaleryl-CoA and organic acid accumulation
+    description: Blocked IVD flux causes upstream isovaleryl-CoA and derivative organic acids to accumulate.
+    causal_link_type: DIRECT
+- name: Toxic isovaleryl-CoA and organic acid accumulation
+  description: &#39;Blocked isovaleryl-CoA oxidation causes accumulation of isovaleryl-CoA, isovaleric acid, 3-hydroxyisovaleric acid, isovalerylcarnitine, and isovalerylglycine. This toxic organic acid burden drives the characteristic odor, secondary detoxification through carnitine and glycine conjugation, and downstream acute metabolic decompensation, hyperammonemia, mitochondrial stress, and direct neurotoxicity.
+
+    &#39;
+  biological_processes:
+  - preferred_term: cellular response to toxic substance
+    term:
+      id: GO:0097237
+      label: cellular response to toxic substance
+  - preferred_term: leucine catabolic process
+    term:
+      id: GO:0006552
+      label: L-leucine catabolic process
+  cell_types:
+  - preferred_term: hepatocyte
+    term:
+      id: CL:0000182
+      label: hepatocyte
+  locations:
+  - preferred_term: mitochondrion
+    term:
+      id: GO:0005739
+      label: mitochondrion
+  evidence:
+  - reference: PMID:41133704
+    reference_title: &#34;Practical Considerations for the Diagnosis and Management of Isovaleryl-CoA-Dehydrogenase Deficiency (Isovaleric Acidemia): Systematic Search and Review and Expert Opinions.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine \nmetabolism caused by a deficiency of isovaleryl-CoA dehydrogenase (IVD), leading \nto an accumulation of isovaleric acid and its derivates 3-hydroxyisovaleric \nacid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids.&#34;
+    explanation: Review and expert consensus directly list the accumulated organic acids and conjugates in IVA.
+  - reference: PMID:30547004
+    reference_title: &#34;Isovaleric acidemia: Therapeutic response to supplementation with glycine, l-carnitine, or both in combination and a 10-year follow-up case study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Deficiency of this enzyme leads to accumulation of\norganic acids, such as isovalerylcarnitine and isovalerylglycine.&#34;
+    explanation: Human therapeutic follow-up paper supports toxic organic acid accumulation downstream of IVD deficiency.
+  downstream:
+  - target: Isovaleric acid
+    description: IVD deficiency causes free isovaleric acid accumulation.
+    causal_link_type: DIRECT
+  - target: 3-Hydroxyisovaleric acid
+    description: Alternative metabolism of accumulated isovaleryl-CoA produces elevated 3-hydroxyisovaleric acid.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - alternate oxidation of accumulated isovaleryl-CoA derivatives
+  - target: Isovalerylcarnitine (C5)
+    description: Carnitine conjugation of accumulated isovaleryl-CoA produces elevated C5 isovalerylcarnitine.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - carnitine conjugation of accumulated isovaleryl-CoA
+  - target: Isovalerylglycine
+    description: Glycine conjugation of accumulated isovaleryl-CoA produces elevated urinary isovalerylglycine.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - glycine conjugation of accumulated isovaleryl-CoA
+  - target: Free carnitine
+    description: Formation and urinary excretion of isovalerylcarnitine depletes the free carnitine pool.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - isovalerylcarnitine formation and urinary excretion
+  - target: Catabolic acute metabolic decompensation
+    description: Toxic metabolite load worsens during fasting, illness, and protein intake, producing acute crises.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - fasting, febrile illness, gastroenteritis, or increased protein intake
   - target: Secondary urea cycle impairment and hyperammonemia
+    description: Accumulated isovaleryl-CoA impairs N-acetylglutamate synthesis and urea-cycle activation.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - N-acetylglutamate synthase inhibition and acetyl-CoA depletion
   - target: Mitochondrial energy depletion and oxidative stress
+    description: Accumulated organic acids decrease mitochondrial energy production and increase oxidative stress.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - TCA-cycle inhibition and secondary oxidative stress
   - target: Neuronal membrane dysfunction via Na+,K+-ATPase inhibition
+    description: Free isovaleric acid inhibits cerebral cortical Na+,K+-ATPase in model systems.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - isovaleric acid exposure in brain tissue
+  - target: Characteristic sweaty feet odor
+    description: Volatile isovaleric acid buildup produces the characteristic sweaty-feet odor.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - buildup of volatile isovaleric acid
+- name: Catabolic acute metabolic decompensation
+  description: &#39;Fasting, febrile illness, gastroenteritis, and increased protein intake increase leucine flux and toxic organic-acid burden, triggering acute metabolic decompensation with vomiting, encephalopathy, metabolic acidosis, ketosis, hyperammonemia, and neurologic deterioration.
+
+    &#39;
+  biological_processes:
+  - preferred_term: response to starvation
+    term:
+      id: GO:0042594
+      label: response to starvation
+  - preferred_term: cellular response to toxic substance
+    term:
+      id: GO:0097237
+      label: cellular response to toxic substance
+  cell_types:
+  - preferred_term: hepatocyte
+    term:
+      id: CL:0000182
+      label: hepatocyte
+  locations:
+  - preferred_term: liver
+    term:
+      id: UBERON:0002107
+      label: liver
+  evidence:
+  - reference: PMID:38484105
+    reference_title: &#34;Classic Isovaleric Acidemia.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Classic IVA is characterized by acute metabolic\ndecompensations (vomiting, poor feeding, lethargy, hypotonia, seizures, and a\ndistinct odor of sweaty feet).&#34;
+    explanation: GeneReviews summarizes the acute decompensation phenotype of classic IVA.
+  - reference: PMID:38484105
+    reference_title: &#34;Classic Isovaleric Acidemia.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Acute metabolic decompensations are typically\ntriggered by fasting, (febrile) illness (especially gastroenteritis), or\nincreased protein intake.&#34;
+    explanation: GeneReviews directly supports catabolic and protein-load triggers for acute IVA crises.
+  downstream:
+  - target: Metabolic acidosis
+    description: Acute organic-acid accumulation produces metabolic acidosis during crises.
+    causal_link_type: DIRECT
+  - target: Hyperammonemia
+    description: Acute decompensation in IVA commonly includes secondary hyperammonemia.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - secondary urea-cycle impairment
+  - target: Vomiting
+    description: Vomiting is a common acute decompensation symptom.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+  - target: Encephalopathy
+    description: Acute decompensation produces encephalopathy through hyperammonemia and organic-acid neurotoxicity.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - hyperammonemia, mitochondrial dysfunction, and Na+,K+-ATPase inhibition
+  - target: Lethargy
+    description: Acute crises commonly cause reduced alertness.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+  - target: Hypotonia
+    description: Hypotonia is listed among acute decompensation manifestations in classic IVA.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+  - target: Hypoglycemia
+    description: Hypoglycemia occurs in a subset of acute IVA presentations.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+  - target: Seizures
+    description: Acute metabolic decompensation can present with seizures.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - hyperammonemia and organic-acid neurotoxicity
+  - target: Pancytopenia
+    description: Severe infection-triggered decompensation can present with pancytopenia.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+  - target: Global developmental delay
+    description: Recurrent or severe IVA decompensation contributes to developmental delay risk.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+  - target: Failure to thrive
+    description: Chronic intermittent IVA can present with failure to thrive.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
 - name: Secondary urea cycle impairment and hyperammonemia
   description: &#39;Isovaleryl-CoA inhibits N-acetylglutamate synthase (NAGS), reducing N-acetylglutamate availability and impairing activation of carbamoyl phosphate synthetase 1 (CPS1), the rate-limiting entry enzyme of the urea cycle. Combined with acetyl-CoA depletion, this produces secondary hyperammonemia that contributes to encephalopathy and neurological complications.
 
@@ -5335,15 +6729,37 @@ pathophysiology:
   - reference: PMID:30740403
     reference_title: &#34;Organic acid disorders.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: High anion gap metabolic acidosis with hyperammonemia is a characteristic OA biochemical finding.
+    evidence_source: OTHER
+    snippet: &#34;High anion gap metabolic acidosis with \nhyperammonemia is a characteristic OA biochemical finding.&#34;
     explanation: Supports hyperammonemia as characteristic of organic acid disorders.
   - reference: PMID:41133704
     reference_title: &#34;Practical Considerations for the Diagnosis and Management of Isovaleryl-CoA-Dehydrogenase Deficiency (Isovaleric Acidemia): Systematic Search and Review and Expert Opinions.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: The clinical presentation is highly variable, ranging from life-threatening metabolic crises with metabolic acidosis and hyperammonemia to a clinically asymptomatic only biochemical phenotype.
+    evidence_source: OTHER
+    snippet: &#34;The \nclinical presentation is highly variable, ranging from life-threatening \nmetabolic crises with metabolic acidosis and hyperammonemia to a clinically \nasymptomatic only biochemical phenotype.&#34;
     explanation: Directly supports hyperammonemia as a key crisis feature of IVA.
+  downstream:
+  - target: Ammonia
+    description: Urea-cycle impairment increases circulating ammonia.
+    causal_link_type: DIRECT
+  - target: Hyperammonemia
+    description: Impaired urea-cycle entry produces the hyperammonemia phenotype.
+    causal_link_type: DIRECT
+  - target: Encephalopathy
+    description: Severe hyperammonemia during organic-acidemia crises contributes to life-threatening neurologic dysfunction.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - increased ammonia levels and accumulating toxic metabolites
+  - target: Intellectual disability
+    description: Repeated hyperammonemia and metabolic decompensation can lead to intellectual disability.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - repeated hyperammonemic metabolic decompensations
+  - target: Failure to thrive
+    description: Repeated hyperammonemia and metabolic decompensation can impair growth.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - repeated hyperammonemic metabolic decompensations
 - name: Mitochondrial energy depletion and oxidative stress
   description: &#39;Accumulated isovaleryl-CoA and isovaleric acid impair tricarboxylic acid cycle function, with evidence for inhibition of citrate synthase and reduced CO2 production from acetate in brain tissue. Chronic metabolite accumulation also increases oxidative stress, contributing to neurological morbidity. Oxidative stress from chronic persistent buildup of isovaleric acid may be more neurologically detrimental than acute buildup.
 
@@ -5372,14 +6788,23 @@ pathophysiology:
     reference_title: &#34;Creatine administration prevents Na+,K+-ATPase inhibition induced by intracerebroventricular administration of isovaleric acid in cerebral cortex of young rats.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
-    snippet: IVA administration significantly inhibited (14)CO(2) production from acetate (22%) and citrate synthase activity (20%) in cerebral cortex homogenates prepared 24 h after injection.
+    snippet: &#34;IVA administration significantly inhibited (14)CO(2) production from \nacetate (22%) and citrate synthase activity (20%) in cerebral cortex homogenates \nprepared 24 h after injection.&#34;
     explanation: Demonstrates TCA cycle impairment in cerebral cortex from isovaleric acid exposure in vivo.
-  - reference: PMID:27613073
-    reference_title: &#34;\&#34;Classical organic acidurias\&#34;: diagnosis and pathogenesis.&#34;
+  - reference: PMID:36817957
+    reference_title: &#34;The glycine N-acyltransferases, GLYAT and GLYATL1, contribute to the detoxification of isovaleryl-CoA - an in-silico and in vitro validation.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: More than 65 organic acidurias have been described
-    explanation: Review providing pathogenetic basis for oxidative stress and mitochondrial dysfunction in classical organic acidurias including IVA.
+    evidence_source: OTHER
+    snippet: &#34;The increase in these metabolites decreases mitochondrial energy \nproduction and increases oxidative stress.&#34;
+    explanation: Review component of this mechanistic paper supports mitochondrial energy impairment and oxidative stress from metabolite accumulation.
+  downstream:
+  - target: Encephalopathy
+    description: Impaired cerebral energy metabolism contributes to the acute encephalopathy seen in IVA.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - impaired TCA-cycle activity in cerebral cortex
+  - target: Lethargy
+    description: Cerebral energy impairment can contribute to reduced alertness during acute crises.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
 - name: Neuronal membrane dysfunction via Na+,K+-ATPase inhibition
   description: &#39;Isovaleric acid directly inhibits Na+,K+-ATPase activity in cerebral cortex, a crucial enzyme for maintaining membrane potential and normal neurotransmission. This inhibition is observed as early as 2 hours after exposure and persists at 24 hours, contributing to the acute encephalopathy seen during metabolic crises.
 
@@ -5404,8 +6829,17 @@ pathophysiology:
     reference_title: &#34;Creatine administration prevents Na+,K+-ATPase inhibition induced by intracerebroventricular administration of isovaleric acid in cerebral cortex of young rats.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
-    snippet: IVA injection significantly inhibited Na(+),K(+)-ATPase activity (25%) in cerebral cortex of rats 2 or 24 h after IVA administration, while pre-treatment of rats with creatine completely prevented the inhibitory effects of IVA on Na(+),K(+)-ATPase.
+    snippet: &#34;IVA injection significantly inhibited \nNa(+),K(+)-ATPase activity (25%) in cerebral cortex of rats 2 or 24 h after IVA \nadministration, while pre-treatment of rats with creatine completely prevented \nthe inhibitory effects of IVA on Na(+),K(+)-ATPase.&#34;
     explanation: Demonstrates direct inhibition of Na+,K+-ATPase by isovaleric acid in cerebral cortex and prevention by creatine.
+  downstream:
+  - target: Encephalopathy
+    description: Membrane-pump inhibition disrupts neurotransmission and contributes to acute encephalopathy.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - impaired basal membrane potential and neurotransmission
+  - target: Seizures
+    description: Disrupted neuronal membrane potential can contribute to seizure susceptibility during crises.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
 phenotypes:
 - name: Metabolic acidosis
   frequency: VERY_FREQUENT
@@ -5422,13 +6856,13 @@ phenotypes:
     reference_title: &#34;Isovaleric Acidemia in Jordan.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Laboratory results showed acidosis (81%), hyperammonemia (71.4%), and hypoglycemia (14.3%).
+    snippet: &#34;Laboratory results showed acidosis (81%), \nhyperammonemia (71.4%), and hypoglycemia (14.3%).&#34;
     explanation: Directly quantifies acidosis at 81% in an IVA cohort.
   - reference: PMID:41133704
     reference_title: &#34;Practical Considerations for the Diagnosis and Management of Isovaleryl-CoA-Dehydrogenase Deficiency (Isovaleric Acidemia): Systematic Search and Review and Expert Opinions.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: The clinical presentation is highly variable, ranging from life-threatening metabolic crises with metabolic acidosis and hyperammonemia to a clinically asymptomatic only biochemical phenotype.
+    evidence_source: OTHER
+    snippet: &#34;The \nclinical presentation is highly variable, ranging from life-threatening \nmetabolic crises with metabolic acidosis and hyperammonemia to a clinically \nasymptomatic only biochemical phenotype.&#34;
     explanation: Supports metabolic acidosis as a key crisis phenotype.
 - name: Hyperammonemia
   frequency: VERY_FREQUENT
@@ -5445,13 +6879,13 @@ phenotypes:
     reference_title: &#34;Isovaleric Acidemia in Jordan.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Laboratory results showed acidosis (81%), hyperammonemia (71.4%), and hypoglycemia (14.3%).
+    snippet: &#34;Laboratory results showed acidosis (81%), \nhyperammonemia (71.4%), and hypoglycemia (14.3%).&#34;
     explanation: Directly quantifies hyperammonemia at 71.4% in an IVA cohort.
   - reference: PMID:30522498
     reference_title: &#34;Hyperammonaemia in classic organic acidaemias: a review of the literature and two case histories.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: Repeated and frequent episodes of hyperammonaemia (alongside metabolic decompensations) can result in impaired growth and intellectual disability, the severity of which increase with longer duration of hyperammonaemia.
+    evidence_source: OTHER
+    snippet: &#34;Repeated and frequent episodes of hyperammonaemia \n(alongside metabolic decompensations) can result in impaired growth and \nintellectual disability, the severity of which increase with longer duration of \nhyperammonaemia.&#34;
     explanation: Supports hyperammonemia as contributing to neurological sequelae.
 - name: Vomiting
   frequency: FREQUENT
@@ -5468,7 +6902,7 @@ phenotypes:
     reference_title: &#34;Isovaleric Acidemia in Jordan.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Vomiting was the most prevalent symptom (57.1%), and encephalopathy occurred in 33.3%.
+    snippet: &#34;Vomiting was the most prevalent symptom (57.1%), and \nencephalopathy occurred in 33.3%.&#34;
     explanation: Directly quantifies vomiting as the most common symptom.
 - name: Encephalopathy
   frequency: FREQUENT
@@ -5485,16 +6919,15 @@ phenotypes:
     reference_title: &#34;Isovaleric Acidemia in Jordan.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Vomiting was the most prevalent symptom (57.1%), and encephalopathy occurred in 33.3%.
+    snippet: &#34;Vomiting was the most prevalent symptom (57.1%), and \nencephalopathy occurred in 33.3%.&#34;
     explanation: Directly quantifies encephalopathy at 33.3% in an IVA cohort.
   - reference: PMID:19210957
     reference_title: &#34;Creatine administration prevents Na+,K+-ATPase inhibition induced by intracerebroventricular administration of isovaleric acid in cerebral cortex of young rats.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
-    snippet: Patients affected by IVAcidemia suffer from acute episodes of encephalopathy, whose underlying mechanisms are poorly known.
+    snippet: &#34;Patients affected by IVAcidemia suffer \nfrom acute episodes of encephalopathy, whose underlying mechanisms are poorly \nknown.&#34;
     explanation: Confirms encephalopathy as a recognized acute manifestation of IVA.
 - name: Lethargy
-  frequency: FREQUENT
   description: &#39;Reduced alertness and responsiveness during acute metabolic decompensation, ranging from somnolence to coma.
 
     &#39;
@@ -5504,12 +6937,28 @@ phenotypes:
       id: HP:0001254
       label: Lethargy
   evidence:
-  - reference: PMID:30522498
-    reference_title: &#34;Hyperammonaemia in classic organic acidaemias: a review of the literature and two case histories.&#34;
+  - reference: PMID:24637313
+    reference_title: &#34;Isovaleric acidemia presenting as diabetic ketoacidosis: a case report.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: The &#39;classic&#39; organic acidaemias (OAs) (propionic, methylmalonic and isovaleric) typically present in neonates or infants as acute metabolic decompensation with encephalopathy.
-    explanation: Acute metabolic decompensation with encephalopathy encompasses lethargy as a presenting feature.
+    snippet: &#34;Isovaleric acidemia (IVA) is characterized by periodic vomiting, lethargy, coma,\nketoacidosis and a &#39;sweaty feet&#39; odor.&#34;
+    explanation: Case-report abstract directly lists lethargy among characteristic IVA acute manifestations.
+- name: Hypotonia
+  description: &#39;Reduced muscle tone during acute metabolic decompensation is a characteristic neurologic manifestation of classic IVA.
+
+    &#39;
+  phenotype_term:
+    preferred_term: Hypotonia
+    term:
+      id: HP:0001252
+      label: Hypotonia
+  evidence:
+  - reference: PMID:38484105
+    reference_title: &#34;Classic Isovaleric Acidemia.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Classic IVA is characterized by acute metabolic\ndecompensations (vomiting, poor feeding, lethargy, hypotonia, seizures, and a\ndistinct odor of sweaty feet).&#34;
+    explanation: GeneReviews directly lists hypotonia among acute decompensation manifestations of classic IVA.
 - name: Hypoglycemia
   frequency: OCCASIONAL
   description: &#39;Hypoglycemia may occur during metabolic crises, reported in 14.3% of patients in a Jordanian cohort.
@@ -5525,10 +6974,9 @@ phenotypes:
     reference_title: &#34;Isovaleric Acidemia in Jordan.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Laboratory results showed acidosis (81%), hyperammonemia (71.4%), and hypoglycemia (14.3%).
+    snippet: &#34;Laboratory results showed acidosis (81%), \nhyperammonemia (71.4%), and hypoglycemia (14.3%).&#34;
     explanation: Directly quantifies hypoglycemia at 14.3% in an IVA cohort.
 - name: Seizures
-  frequency: OCCASIONAL
   description: &#39;Seizures may occur during severe metabolic decompensation, likely mediated by hyperammonemia and direct neurotoxicity of accumulated metabolites.
 
     &#39;
@@ -5538,14 +6986,13 @@ phenotypes:
       id: HP:0001250
       label: Seizure
   evidence:
-  - reference: PMID:30522498
-    reference_title: &#34;Hyperammonaemia in classic organic acidaemias: a review of the literature and two case histories.&#34;
+  - reference: PMID:38484105
+    reference_title: &#34;Classic Isovaleric Acidemia.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: This is frequently accompanied by severe hyperammonaemia and constitutes a metabolic emergency, as increased ammonia levels and accumulating toxic metabolites are associated with life-threatening neurological complications.
-    explanation: Severe neurological complications from hyperammonemia include seizures during metabolic crises.
+    evidence_source: OTHER
+    snippet: &#34;Classic IVA is characterized by acute metabolic\ndecompensations (vomiting, poor feeding, lethargy, hypotonia, seizures, and a\ndistinct odor of sweaty feet).&#34;
+    explanation: GeneReviews directly lists seizures as an acute decompensation manifestation of classic IVA.
 - name: Global developmental delay
-  frequency: OCCASIONAL
   description: &#39;Developmental delay is a risk in severe or recurrent disease, particularly following repeated hyperammonemic episodes.
 
     &#39;
@@ -5555,14 +7002,13 @@ phenotypes:
       id: HP:0001263
       label: Global developmental delay
   evidence:
-  - reference: PMID:30522498
-    reference_title: &#34;Hyperammonaemia in classic organic acidaemias: a review of the literature and two case histories.&#34;
+  - reference: PMID:38484105
+    reference_title: &#34;Classic Isovaleric Acidemia.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: Repeated and frequent episodes of hyperammonaemia (alongside metabolic decompensations) can result in impaired growth and intellectual disability, the severity of which increase with longer duration of hyperammonaemia.
-    explanation: Supports developmental compromise from repeated hyperammonemic episodes.
+    evidence_source: OTHER
+    snippet: &#34;Additional manifestations of classic IVA include developmental\ndelay, intellectual disability and/or impaired cognition, epilepsy, and movement\ndisorder (tremor, dysmetria, extrapyramidal movements).&#34;
+    explanation: GeneReviews directly lists developmental delay among additional manifestations of classic IVA.
 - name: Intellectual disability
-  frequency: OCCASIONAL
   description: &#39;Intellectual disability may develop as a long-term consequence of recurrent metabolic crises and hyperammonemia, particularly in severe neonatal-onset forms.
 
     &#39;
@@ -5572,14 +7018,19 @@ phenotypes:
       id: HP:0001249
       label: Intellectual disability
   evidence:
+  - reference: PMID:38484105
+    reference_title: &#34;Classic Isovaleric Acidemia.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Additional manifestations of classic IVA include developmental\ndelay, intellectual disability and/or impaired cognition, epilepsy, and movement\ndisorder (tremor, dysmetria, extrapyramidal movements).&#34;
+    explanation: GeneReviews directly lists intellectual disability or impaired cognition among additional manifestations of classic IVA.
   - reference: PMID:30522498
     reference_title: &#34;Hyperammonaemia in classic organic acidaemias: a review of the literature and two case histories.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: Repeated and frequent episodes of hyperammonaemia (alongside metabolic decompensations) can result in impaired growth and intellectual disability, the severity of which increase with longer duration of hyperammonaemia.
-    explanation: Directly supports intellectual disability as outcome of repeated hyperammonemic episodes in organic acidaemias.
+    evidence_source: OTHER
+    snippet: &#34;Repeated and frequent episodes of hyperammonaemia \n(alongside metabolic decompensations) can result in impaired growth and \nintellectual disability, the severity of which increase with longer duration of \nhyperammonaemia.&#34;
+    explanation: Review evidence supports intellectual disability as an outcome of repeated hyperammonemic episodes in organic acidaemias.
 - name: Failure to thrive
-  frequency: OCCASIONAL
   description: &#39;Growth impairment can occur in patients with recurrent or poorly controlled disease due to chronic metabolic instability and dietary protein restriction.
 
     &#39;
@@ -5589,14 +7040,13 @@ phenotypes:
       id: HP:0001508
       label: Failure to thrive
   evidence:
-  - reference: PMID:30522498
-    reference_title: &#34;Hyperammonaemia in classic organic acidaemias: a review of the literature and two case histories.&#34;
+  - reference: PMID:30547004
+    reference_title: &#34;Isovaleric acidemia: Therapeutic response to supplementation with glycine, l-carnitine, or both in combination and a 10-year follow-up case study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Repeated and frequent episodes of hyperammonaemia (alongside metabolic decompensations) can result in impaired growth and intellectual disability
-    explanation: Supports impaired growth as a consequence of recurrent metabolic instability.
+    snippet: The chronic intermittent form with onset in infancy or childhood presents with developmental delays and/or failure to thrive.
+    explanation: Review/background section directly lists failure to thrive in chronic intermittent IVA.
 - name: Pancytopenia
-  frequency: OCCASIONAL
   description: &#39;Pancytopenia and neutropenia may occur during acute metabolic decompensation in organic acidemias including IVA, due to bone marrow suppression by toxic metabolites.
 
     &#39;
@@ -5605,9 +7055,14 @@ phenotypes:
     term:
       id: HP:0001876
       label: Pancytopenia
-  notes: Pancytopenia may occur during severe metabolic decompensation in organic acidemias, but this entry currently lacks a direct abstract quote explicitly naming pancytopenia in IVA.
+  evidence:
+  - reference: PMID:2124776
+    reference_title: &#34;Isovaleric acidemia: report of one case.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;A case of isovaleric acidemia appearing as diabetic ketoacidosis with acute\nencephalopathy and pancytopenia was reported.&#34;
+    explanation: Case-report abstract directly names pancytopenia in a patient with IVA and acute encephalopathy.
 - name: Characteristic sweaty feet odor
-  frequency: FREQUENT
   description: &#39;A distinctive sweaty feet or cheesy odor due to volatile isovaleric acid accumulation is a classic clinical feature of IVA, particularly during acute metabolic crises.
 
     &#39;
@@ -5617,12 +7072,12 @@ phenotypes:
       id: HP:0500001
       label: Body odor
   evidence:
-  - reference: PMID:27613073
-    reference_title: &#34;\&#34;Classical organic acidurias\&#34;: diagnosis and pathogenesis.&#34;
+  - reference: PMID:24637313
+    reference_title: &#34;Isovaleric acidemia presenting as diabetic ketoacidosis: a case report.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Among these disorders, methyl malonic aciduria, propionic aciduria, maple syrup urine disease and isovaleric aciduria are sometimes referred to as classical organic acidurias.
-    explanation: IVA is a classical organic aciduria characterized by distinct volatile acid accumulation producing the sweaty feet odor.
+    snippet: &#34;Isovaleric acidemia (IVA) is characterized by periodic vomiting, lethargy, coma,\nketoacidosis and a &#39;sweaty feet&#39; odor.&#34;
+    explanation: Case-report abstract directly supports the characteristic sweaty-feet odor in IVA.
 biochemical:
 - name: Isovalerylcarnitine (C5)
   presence: INCREASED
@@ -5633,14 +7088,14 @@ biochemical:
   - reference: PMID:41133704
     reference_title: &#34;Practical Considerations for the Diagnosis and Management of Isovaleryl-CoA-Dehydrogenase Deficiency (Isovaleric Acidemia): Systematic Search and Review and Expert Opinions.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine metabolism caused by a deficiency of isovaleryl-CoA dehydrogenase (IVD), leading to an accumulation of isovaleric acid and its derivates 3-hydroxyisovaleric acid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids.
+    evidence_source: OTHER
+    snippet: &#34;Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine \nmetabolism caused by a deficiency of isovaleryl-CoA dehydrogenase (IVD), leading \nto an accumulation of isovaleric acid and its derivates 3-hydroxyisovaleric \nacid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids.&#34;
     explanation: Directly supports elevated C5 carnitine as a characteristic IVA biomarker.
   - reference: PMID:36636590
     reference_title: &#34;Neonatal screening for isovaleric aciduria: Reducing the increasingly high false-positive rate in Germany.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Newborn screening (NBS) for isovaleric acidemia (IVA) is performed by flow injection tandem mass spectrometry quantifying C5 carnitines (C5).
+    snippet: &#34;Newborn screening (NBS) for isovaleric acidemia (IVA) is performed by flow \ninjection tandem mass spectrometry quantifying C5 carnitines (C5).&#34;
     explanation: Confirms C5 as the primary NBS analyte for IVA detection.
 - name: Isovalerylglycine
   presence: INCREASED
@@ -5651,15 +7106,15 @@ biochemical:
   - reference: PMID:41133704
     reference_title: &#34;Practical Considerations for the Diagnosis and Management of Isovaleryl-CoA-Dehydrogenase Deficiency (Isovaleric Acidemia): Systematic Search and Review and Expert Opinions.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine metabolism caused by a deficiency of isovaleryl-CoA dehydrogenase (IVD), leading to an accumulation of isovaleric acid and its derivates 3-hydroxyisovaleric acid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids.
+    evidence_source: OTHER
+    snippet: &#34;Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine \nmetabolism caused by a deficiency of isovaleryl-CoA dehydrogenase (IVD), leading \nto an accumulation of isovaleric acid and its derivates 3-hydroxyisovaleric \nacid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids.&#34;
     explanation: Directly supports isovalerylglycine as a characteristic accumulated metabolite.
   - reference: PMID:36817957
     reference_title: &#34;The glycine N-acyltransferases, GLYAT and GLYATL1, contribute to the detoxification of isovaleryl-CoA - an in-silico and in vitro validation.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
-    snippet: GLYAT forms part of the phase II glycine conjugation pathway in the liver and detoxifies excess acyl-CoA&#39;s namely benzoyl-CoA.
-    explanation: Supports GLYAT-mediated glycine conjugation as the source of isovalerylglycine.
+    snippet: &#34;The in-silico and in vitro findings suggested that both enzymes \ncould form N-isovaleryglycine albeit at lower affinities than their preferred \nsubstrates.&#34;
+    explanation: In vitro validation supports GLYAT/GLYATL1-mediated formation of N-isovalerylglycine from isovaleryl-CoA.
 - name: 3-Hydroxyisovaleric acid
   presence: INCREASED
   context: &#39;Elevated 3-hydroxyisovaleric acid in urine organic acid analysis is a characteristic biomarker for IVA and one of the key confirmatory analytes alongside isovalerylglycine.
@@ -5669,8 +7124,8 @@ biochemical:
   - reference: PMID:41133704
     reference_title: &#34;Practical Considerations for the Diagnosis and Management of Isovaleryl-CoA-Dehydrogenase Deficiency (Isovaleric Acidemia): Systematic Search and Review and Expert Opinions.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine metabolism caused by a deficiency of isovaleryl-CoA dehydrogenase (IVD), leading to an accumulation of isovaleric acid and its derivates 3-hydroxyisovaleric acid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids.
+    evidence_source: OTHER
+    snippet: &#34;Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine \nmetabolism caused by a deficiency of isovaleryl-CoA dehydrogenase (IVD), leading \nto an accumulation of isovaleric acid and its derivates 3-hydroxyisovaleric \nacid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids.&#34;
     explanation: Directly lists 3-hydroxyisovaleric acid as one of the accumulated metabolites.
 - name: Isovaleric acid
   presence: INCREASED
@@ -5678,11 +7133,17 @@ biochemical:
 
     &#39;
   evidence:
+  - reference: PMID:41133704
+    reference_title: &#34;Practical Considerations for the Diagnosis and Management of Isovaleryl-CoA-Dehydrogenase Deficiency (Isovaleric Acidemia): Systematic Search and Review and Expert Opinions.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine \nmetabolism caused by a deficiency of isovaleryl-CoA dehydrogenase (IVD), leading \nto an accumulation of isovaleric acid and its derivates 3-hydroxyisovaleric \nacid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids.&#34;
+    explanation: Review and expert consensus directly lists isovaleric acid among accumulated metabolites.
   - reference: PMID:19210957
     reference_title: &#34;Creatine administration prevents Na+,K+-ATPase inhibition induced by intracerebroventricular administration of isovaleric acid in cerebral cortex of young rats.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
-    snippet: Isovaleric acidemia (IVAcidemia) is an inborn error of metabolism due to deficiency of isovaleryl-CoA dehydrogenase activity, leading to predominant accumulation of isovaleric acid (IVA).
+    snippet: &#34;Isovaleric acidemia (IVAcidemia) is an inborn error of metabolism due to \ndeficiency of isovaleryl-CoA dehydrogenase activity, leading to predominant \naccumulation of isovaleric acid (IVA).&#34;
     explanation: Supports isovaleric acid as the predominant accumulated metabolite.
 - name: Ammonia
   presence: INCREASED
@@ -5694,13 +7155,13 @@ biochemical:
     reference_title: &#34;Isovaleric Acidemia in Jordan.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Laboratory results showed acidosis (81%), hyperammonemia (71.4%), and hypoglycemia (14.3%).
+    snippet: &#34;Laboratory results showed acidosis (81%), \nhyperammonemia (71.4%), and hypoglycemia (14.3%).&#34;
     explanation: Directly quantifies hyperammonemia frequency in an IVA cohort.
   - reference: PMID:30522498
     reference_title: &#34;Hyperammonaemia in classic organic acidaemias: a review of the literature and two case histories.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: This is frequently accompanied by severe hyperammonaemia and constitutes a metabolic emergency
+    evidence_source: OTHER
+    snippet: &#34;This is frequently accompanied by severe \nhyperammonaemia and constitutes a metabolic emergency&#34;
     explanation: Supports hyperammonemia as a frequent finding in classic organic acidaemias.
 - name: Free carnitine
   presence: DECREASED
@@ -5708,12 +7169,12 @@ biochemical:
 
     &#39;
   evidence:
-  - reference: PMID:41133704
-    reference_title: &#34;Practical Considerations for the Diagnosis and Management of Isovaleryl-CoA-Dehydrogenase Deficiency (Isovaleric Acidemia): Systematic Search and Review and Expert Opinions.&#34;
+  - reference: PMID:6549017
+    reference_title: &#34;L-carnitine therapy in isovaleric acidemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Treatment consists of a protein-restricted diet combined with supplementation of carnitine and/or glycine and emergency treatment in catabolic episodes.
-    explanation: Carnitine supplementation requirement implies secondary carnitine depletion.
+    snippet: &#34;Isovaleric acidemia, resulting from isovaleryl-coenzyme A dehydrogenase\ndeficiency, is associated with marked reduction of free carnitine in both plasma\nand urine.&#34;
+    explanation: Human therapeutic study directly supports reduced free carnitine in IVA.
 genetic:
 - name: IVD variants
   gene_term:
@@ -5727,8 +7188,8 @@ genetic:
     - reference: PMID:41133704
       reference_title: &#34;Practical Considerations for the Diagnosis and Management of Isovaleryl-CoA-Dehydrogenase Deficiency (Isovaleric Acidemia): Systematic Search and Review and Expert Opinions.&#34;
       supports: SUPPORT
-      evidence_source: HUMAN_CLINICAL
-      snippet: Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine metabolism caused by a deficiency of isovaleryl-CoA dehydrogenase (IVD)
+      evidence_source: OTHER
+      snippet: &#34;Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine \nmetabolism caused by a deficiency of isovaleryl-CoA dehydrogenase (IVD)&#34;
       explanation: Supports inherited Mendelian etiology consistent with autosomal recessive inheritance.
   variants:
   - name: IVD - c.941C&gt;T (p.Ala314Val) - mild IVA variant
@@ -5740,7 +7201,7 @@ genetic:
       reference_title: &#34;Machine Learning Methods Improve Specificity in Newborn Screening for Isovaleric Aciduria.&#34;
       supports: SUPPORT
       evidence_source: COMPUTATIONAL
-      snippet: NBS for IVA is hampered by, first, the increased birth prevalence due to the identification of individuals with an attenuated disease variant (so-called &#34;mild&#34; IVA)
+      snippet: &#34;NBS for IVA is hampered by, \nfirst, the increased birth prevalence due to the identification of individuals \nwith an attenuated disease variant (so-called \&#34;mild\&#34; IVA)&#34;
       explanation: Supports existence of attenuated IVA variants detected by newborn screening.
   - name: Various pathogenic IVD variants
     description: &#39;Multiple pathogenic variants in IVD have been described causing variable clinical severity from severe neonatal-onset to chronic intermittent forms. Biallelic pathogenic variants are required for disease manifestation.
@@ -5750,8 +7211,8 @@ genetic:
     - reference: PMID:41133704
       reference_title: &#34;Practical Considerations for the Diagnosis and Management of Isovaleryl-CoA-Dehydrogenase Deficiency (Isovaleric Acidemia): Systematic Search and Review and Expert Opinions.&#34;
       supports: SUPPORT
-      evidence_source: HUMAN_CLINICAL
-      snippet: Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine metabolism caused by a deficiency of isovaleryl-CoA dehydrogenase (IVD)
+      evidence_source: OTHER
+      snippet: &#34;Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine \nmetabolism caused by a deficiency of isovaleryl-CoA dehydrogenase (IVD)&#34;
       explanation: Supports IVD as the causal gene with biallelic variants required.
   features: &#39;Biallelic pathogenic variants in IVD cause variable phenotypic severity spanning severe neonatal-onset acute metabolic crises to mild biochemical-only phenotypes identified through newborn screening. The IVD gene encodes a mitochondrial flavoprotein that catalyzes the conversion of isovaleryl-CoA to 3-methylcrotonyl-CoA in the leucine catabolic pathway.
 
@@ -5760,15 +7221,21 @@ genetic:
   - reference: PMID:41133704
     reference_title: &#34;Practical Considerations for the Diagnosis and Management of Isovaleryl-CoA-Dehydrogenase Deficiency (Isovaleric Acidemia): Systematic Search and Review and Expert Opinions.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine metabolism caused by a deficiency of isovaleryl-CoA dehydrogenase (IVD), leading to an accumulation of isovaleric acid and its derivates 3-hydroxyisovaleric acid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids.
+    evidence_source: OTHER
+    snippet: &#34;Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine \nmetabolism caused by a deficiency of isovaleryl-CoA dehydrogenase (IVD), leading \nto an accumulation of isovaleric acid and its derivates 3-hydroxyisovaleric \nacid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids.&#34;
     explanation: Directly supports IVD as the causal gene with characteristic metabolite accumulation.
   - reference: PMID:27613073
     reference_title: &#34;\&#34;Classical organic acidurias\&#34;: diagnosis and pathogenesis.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: Among these disorders, methyl malonic aciduria, propionic aciduria, maple syrup urine disease and isovaleric aciduria are sometimes referred to as classical organic acidurias.
+    evidence_source: OTHER
+    snippet: &#34;Among these disorders, methyl malonic aciduria, propionic aciduria, \nmaple syrup urine disease and isovaleric aciduria are sometimes referred to as \nclassical organic acidurias.&#34;
     explanation: Supports IVA as a classical organic aciduria with well-defined genetic basis.
+  - reference: CGGV:assertion_05f5d468-2f46-44f3-ba67-c4e708d2954f-2019-05-10T160000.000Z
+    reference_title: &#34;IVD / isovaleric acidemia (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;IVD | HGNC:6186 | isovaleric acidemia | MONDO:0009475 | AR | Definitive&#34;
+    explanation: ClinGen classifies the IVD-isovaleric acidemia gene-disease relationship as definitive with autosomal recessive inheritance.
 treatments:
 - name: Leucine-restricted diet
   description: &#39;Protein-restricted or leucine-restricted dietary management with specialized metabolic formula is the cornerstone of chronic IVA management. The goal is to reduce leucine flux and thereby limit isovaleryl-CoA production.
@@ -5779,18 +7246,29 @@ treatments:
     term:
       id: MAXO:0000088
       label: dietary intervention
+  target_mechanisms:
+  - target: Deficient leucine catabolic flux
+    treatment_effect: INHIBITS
+    description: Leucine/protein restriction reduces substrate flux into the blocked IVD step.
+    evidence:
+    - reference: PMID:41133704
+      reference_title: &#34;Practical Considerations for the Diagnosis and Management of Isovaleryl-CoA-Dehydrogenase Deficiency (Isovaleric Acidemia): Systematic Search and Review and Expert Opinions.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Treatment consists of a protein-restricted diet \ncombined with supplementation of carnitine and/or glycine and emergency \ntreatment in catabolic episodes.&#34;
+      explanation: Review and expert consensus support protein restriction as a standard strategy to reduce leucine-derived metabolite production.
   evidence:
   - reference: PMID:41133704
     reference_title: &#34;Practical Considerations for the Diagnosis and Management of Isovaleryl-CoA-Dehydrogenase Deficiency (Isovaleric Acidemia): Systematic Search and Review and Expert Opinions.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: Treatment consists of a protein-restricted diet combined with supplementation of carnitine and/or glycine and emergency treatment in catabolic episodes.
+    evidence_source: OTHER
+    snippet: &#34;Treatment consists of a protein-restricted diet \ncombined with supplementation of carnitine and/or glycine and emergency \ntreatment in catabolic episodes.&#34;
     explanation: Directly supports protein-restricted diet as the primary chronic treatment.
   - reference: PMID:38344522
     reference_title: &#34;Isovaleric Acidemia in Jordan.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: The early initiation of treatment for organic acid disorders carries a more favorable prognosis.
+    snippet: &#34;The early initiation of treatment for organic acid disorders \ncarries a more favorable prognosis.&#34;
     explanation: Supports early treatment initiation including dietary management for better outcomes.
 - name: L-Carnitine supplementation
   description: &#39;L-carnitine supplementation promotes formation and urinary excretion of isovalerylcarnitine, reducing the toxic free isovaleric acid pool and correcting secondary carnitine deficiency.
@@ -5801,12 +7279,23 @@ treatments:
     term:
       id: MAXO:0010006
       label: carnitine supplementation
+  target_mechanisms:
+  - target: Toxic isovaleryl-CoA and organic acid accumulation
+    treatment_effect: BYPASSES
+    description: L-carnitine diverts accumulated isovaleryl-CoA into isovalerylcarnitine for urinary excretion.
+    evidence:
+    - reference: PMID:6549017
+      reference_title: &#34;L-carnitine therapy in isovaleric acidemia.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Administration\nof equimolar amounts of glycine or L-carnitine separately with leucine\ndemonstrated that isovaleryl-coenzyme A is removed by supplemental L-carnitine\nin the form of isovalerylcarnitine as effectively as it is by glycine, in the\nform of isovalerylglycine.&#34;
+      explanation: Human therapeutic study directly supports L-carnitine-mediated removal of isovaleryl-CoA as isovalerylcarnitine.
   evidence:
   - reference: PMID:41133704
     reference_title: &#34;Practical Considerations for the Diagnosis and Management of Isovaleryl-CoA-Dehydrogenase Deficiency (Isovaleric Acidemia): Systematic Search and Review and Expert Opinions.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: Treatment consists of a protein-restricted diet combined with supplementation of carnitine and/or glycine and emergency treatment in catabolic episodes.
+    evidence_source: OTHER
+    snippet: &#34;Treatment consists of a protein-restricted diet \ncombined with supplementation of carnitine and/or glycine and emergency \ntreatment in catabolic episodes.&#34;
     explanation: Directly supports carnitine supplementation as part of standard IVA treatment.
 - name: Glycine supplementation
   description: &#39;Glycine supplementation promotes conjugation of isovaleryl-CoA to isovalerylglycine, a less toxic water-soluble metabolite excreted in urine. However, glycine supplementation should be carefully considered as increased glycine concentration does not proportionally increase N-isovalerylglycine formation.
@@ -5817,12 +7306,23 @@ treatments:
     term:
       id: MAXO:0000058
       label: pharmacotherapy
+  target_mechanisms:
+  - target: Toxic isovaleryl-CoA and organic acid accumulation
+    treatment_effect: BYPASSES
+    description: Glycine diverts accumulated isovaleryl-CoA into isovalerylglycine for urinary excretion.
+    evidence:
+    - reference: PMID:6549017
+      reference_title: &#34;L-carnitine therapy in isovaleric acidemia.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Administration\nof equimolar amounts of glycine or L-carnitine separately with leucine\ndemonstrated that isovaleryl-coenzyme A is removed by supplemental L-carnitine\nin the form of isovalerylcarnitine as effectively as it is by glycine, in the\nform of isovalerylglycine.&#34;
+      explanation: Human therapeutic study supports glycine-mediated removal of isovaleryl-CoA as isovalerylglycine.
   evidence:
   - reference: PMID:41133704
     reference_title: &#34;Practical Considerations for the Diagnosis and Management of Isovaleryl-CoA-Dehydrogenase Deficiency (Isovaleric Acidemia): Systematic Search and Review and Expert Opinions.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: Treatment consists of a protein-restricted diet combined with supplementation of carnitine and/or glycine and emergency treatment in catabolic episodes.
+    evidence_source: OTHER
+    snippet: &#34;Treatment consists of a protein-restricted diet \ncombined with supplementation of carnitine and/or glycine and emergency \ntreatment in catabolic episodes.&#34;
     explanation: Directly supports glycine supplementation as part of standard treatment.
 - name: N-Carbamylglutamate (carglumic acid)
   description: &#39;N-carbamylglutamate is a synthetic analog of N-acetylglutamate approved for treatment of hyperammonemia in IVA. It directly activates CPS1, bypassing the NAGS inhibition caused by isovaleryl-CoA, and can rapidly normalize ammonia levels.
@@ -5833,12 +7333,23 @@ treatments:
     term:
       id: MAXO:0000058
       label: pharmacotherapy
+  target_mechanisms:
+  - target: Secondary urea cycle impairment and hyperammonemia
+    treatment_effect: BYPASSES
+    description: Carglumic acid stimulates the first urea-cycle step despite deficient endogenous N-acetylglutamate signaling.
+    evidence:
+    - reference: PMID:30522498
+      reference_title: &#34;Hyperammonaemia in classic organic acidaemias: a review of the literature and two case histories.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Treatment with N-carbamyl-L-glutamate can rapidly normalise \nammonia levels by stimulating the first step of the urea cycle.&#34;
+      explanation: Review evidence supports N-carbamylglutamate as a bypass for secondary urea-cycle impairment in organic acidaemias.
   evidence:
   - reference: PMID:30522498
     reference_title: &#34;Hyperammonaemia in classic organic acidaemias: a review of the literature and two case histories.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: Treatment with N-carbamyl-L-glutamate can rapidly normalise ammonia levels by stimulating the first step of the urea cycle.
+    evidence_source: OTHER
+    snippet: &#34;Treatment with N-carbamyl-L-glutamate can rapidly normalise \nammonia levels by stimulating the first step of the urea cycle.&#34;
     explanation: Directly supports N-carbamylglutamate as an effective treatment for hyperammonemia in organic acidaemias.
 - name: Acute decompensation management
   description: &#39;Emergency management during catabolic crises includes cessation of protein intake, high-calorie glucose infusion to reverse catabolism, correction of metabolic acidosis, and administration of ammonia scavengers when needed.
@@ -5849,18 +7360,39 @@ treatments:
     term:
       id: MAXO:0000950
       label: supportive care
+  target_mechanisms:
+  - target: Catabolic acute metabolic decompensation
+    treatment_effect: INHIBITS
+    description: Emergency calories, protein cessation, hydration, and acidosis correction suppress catabolism and acute crisis physiology.
+    evidence:
+    - reference: PMID:30522498
+      reference_title: &#34;Hyperammonaemia in classic organic acidaemias: a review of the literature and two case histories.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;The acute management of hyperammonaemia in organic \nacidaemias requires administration of intravenous calories as glucose and lipids \nto promote anabolism, carnitine to promote urinary excretion of urinary organic \nacid esters, and correction of metabolic acidosis&#34;
+      explanation: Review evidence supports acute management as a strategy to reverse catabolism and correct metabolic decompensation.
+  - target: Secondary urea cycle impairment and hyperammonemia
+    treatment_effect: MODULATES
+    description: Acute management can include ammonia scavengers and N-carbamylglutamate to reduce hyperammonemia.
+    evidence:
+    - reference: PMID:30522498
+      reference_title: &#34;Hyperammonaemia in classic organic acidaemias: a review of the literature and two case histories.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;It may also include the \nadministration of ammonia scavengers such as sodium benzoate or sodium \nphenylbutyrate.&#34;
+      explanation: Review evidence supports acute hyperammonemia-directed treatment during organic-acidemia crises.
   evidence:
   - reference: PMID:41133704
     reference_title: &#34;Practical Considerations for the Diagnosis and Management of Isovaleryl-CoA-Dehydrogenase Deficiency (Isovaleric Acidemia): Systematic Search and Review and Expert Opinions.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: Treatment consists of a protein-restricted diet combined with supplementation of carnitine and/or glycine and emergency treatment in catabolic episodes.
+    evidence_source: OTHER
+    snippet: &#34;Treatment consists of a protein-restricted diet \ncombined with supplementation of carnitine and/or glycine and emergency \ntreatment in catabolic episodes.&#34;
     explanation: Directly supports emergency treatment during catabolic episodes.
   - reference: PMID:30522498
     reference_title: &#34;Hyperammonaemia in classic organic acidaemias: a review of the literature and two case histories.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: The acute management of hyperammonaemia in organic acidaemias requires administration of intravenous calories as glucose and lipids to promote anabolism, carnitine to promote urinary excretion of urinary organic acid esters, and correction of metabolic acidosis
+    evidence_source: OTHER
+    snippet: &#34;The acute management of hyperammonaemia in organic \nacidaemias requires administration of intravenous calories as glucose and lipids \nto promote anabolism, carnitine to promote urinary excretion of urinary organic \nacid esters, and correction of metabolic acidosis&#34;
     explanation: Provides detailed acute management protocol for hyperammonemia in organic acidaemias.
 - name: Newborn screening
   description: &#39;IVA is detectable by newborn screening via tandem mass spectrometry measuring C5 acylcarnitines. However, false positives from pivaloylcarnitine are an increasing problem, and second-tier chromatographic methods are needed to differentiate C5 isomers.
@@ -5876,13 +7408,13 @@ treatments:
     reference_title: &#34;Neonatal screening for isovaleric aciduria: Reducing the increasingly high false-positive rate in Germany.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#39;Out of 156 772 newborns tested, one turned out to have genetically proven IVA while 99 were false positive (C5: 0.5-8.2 μmol/L) due to the presence of pivaloylcarnitine.&#39;
+    snippet: &#34;Out of 156 772 \nnewborns tested, one turned out to have genetically proven IVA while 99 were \nfalse positive (C5: 0.5-8.2 μmol/L) due to the presence of pivaloylcarnitine.&#34;
     explanation: Documents NBS implementation and the high false-positive rate from pivaloylcarnitine interference.
   - reference: PMID:36837923
     reference_title: &#34;Machine Learning Methods Improve Specificity in Newborn Screening for Isovaleric Aciduria.&#34;
     supports: SUPPORT
     evidence_source: COMPUTATIONAL
-    snippet: Our results show that this reduces the false positive rate by 69.9% from 103 to 31 while maintaining 100% sensitivity in cross-validation.
+    snippet: &#34;Our \nresults show that this reduces the false positive rate by 69.9% from 103 to 31 \nwhile maintaining 100% sensitivity in cross-validation.&#34;
     explanation: Demonstrates machine learning approach to improve NBS specificity for IVA.
 - name: Genetic counseling
   description: &#39;Genetic counseling for affected families includes discussion of autosomal recessive inheritance, 25% recurrence risk, carrier testing for relatives, prenatal diagnosis options, and distinction between severe and mild IVA genotypes.
@@ -5897,8 +7429,8 @@ treatments:
   - reference: PMID:41133704
     reference_title: &#34;Practical Considerations for the Diagnosis and Management of Isovaleryl-CoA-Dehydrogenase Deficiency (Isovaleric Acidemia): Systematic Search and Review and Expert Opinions.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine metabolism caused by a deficiency of isovaleryl-CoA dehydrogenase (IVD)
+    evidence_source: OTHER
+    snippet: &#34;Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine \nmetabolism caused by a deficiency of isovaleryl-CoA dehydrogenase (IVD)&#34;
     explanation: Inherited genetic etiology supports the role of genetic counseling for affected families.
 notes: &#39;The clinical spectrum of IVA has broadened with the introduction of newborn screening, which detects many individuals with attenuated biochemical phenotypes (mild IVA) who may never develop clinical symptoms. This has raised questions about potential overdiagnosis and overtreatment. A major practical challenge in NBS is the false-positive rate from pivaloylcarnitine, which is isobaric with isovalerylcarnitine. Second-tier chromatographic methods and machine learning approaches are being implemented to improve screening specificity. Glycine conjugation via GLYAT and GLYATL1 represents a key detoxification pathway, though 2023 evidence suggests the enzyme kinetics limit the benefit of simply increasing glycine supplementation.
 
@@ -6293,7 +7825,7 @@ IVA (OMIM 243500) is caused by deficiency of mitochondrial isovaleryl‑CoA dehy
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Isovaleric Acidemia", "mondoId": "MONDO:0009475", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Isovaleric_Acidemia", "yamlRevision": "e21ea50a77b3"};
+        const OS_CONFIG = {"diseaseName": "Isovaleric Acidemia", "mondoId": "MONDO:0009475", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Isovaleric_Acidemia", "yamlRevision": "213830e081ab"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

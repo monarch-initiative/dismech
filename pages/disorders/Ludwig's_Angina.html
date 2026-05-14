@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2625,6 +2778,20 @@
             
             
             
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-value">10</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -3090,7 +3257,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Ludwig&#39;s angina with mediastinitis complication was established by a computed tomography (CT) scan."</div>
+                <div class="evidence-snippet">"Ludwig&#39;s angina with mediastinitis complication was established by a computed tomography (CT) scan, which was promptly treated and he recovered completely."</div>
                 
                 
                 <div class="evidence-explanation">CT-documented mediastinitis demonstrates downward extension along fascial planes.</div>
@@ -3918,7 +4085,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"immediate surgical decompression leading to pus drainage, removal of the offending tooth... and administration of empirical antibiotics"</div>
+                <div class="evidence-snippet">"the patient was taken up for immediate surgical decompression leading to pus drainage, removal of the offending tooth, bacterial culture and sensitivity, and administration of empirical antibiotics."</div>
                 
                 
                 <div class="evidence-explanation">Shows surgical drainage with tooth extraction as effective source control.</div>
@@ -4207,7 +4374,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Submandibular sialolithiasis... could present with the double tongue sign without symptoms suggestive of airway involvement."</div>
+                <div class="evidence-snippet">"Submandibular sialolithiasis, on the other hand, could present with the double tongue sign without symptoms suggestive of airway involvement."</div>
                 
                 
                 <div class="evidence-explanation">Shows sialolithiasis can mimic clinical swelling yet lacks airway compromise typical of Ludwig&#39;s angina.</div>
@@ -4365,7 +4532,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Ludwig&#39;s Angina
 creation_date: &#39;2026-01-21T23:24:28Z&#39;
-updated_date: &#39;2026-01-22T16:26:32Z&#39;
+updated_date: &#39;2026-05-09T19:51:23Z&#39;
 category: Infectious
 parents:
 - Infectious Disorder
@@ -4477,7 +4644,7 @@ pathophysiology:
   - reference: PMID:35784784
     reference_title: &#34;Ludwig&#39;s angina: An alarming radiology challenge.&#34;
     supports: PARTIAL
-    snippet: &#34;Ludwig&#39;s angina with mediastinitis complication was established by a computed tomography (CT) scan.&#34;
+    snippet: &#34;Ludwig&#39;s angina with mediastinitis complication was established by a computed tomography (CT) scan, which was promptly treated and he recovered completely.&#34;
     explanation: CT-documented mediastinitis demonstrates downward extension along fascial planes.
 - name: Tongue Elevation and Airway Narrowing from Floor Edema
   description: Submandibular and sublingual edema elevate the tongue and floor of mouth, narrowing the oropharyngeal airway and precipitating stridor or dyspnea.
@@ -4627,7 +4794,7 @@ diagnosis:
   - reference: PMID:35784784
     reference_title: &#34;Ludwig&#39;s angina: An alarming radiology challenge.&#34;
     supports: SUPPORT
-    snippet: &#34;Ludwig&#39;s angina with mediastinitis complication was established by a computed tomography (CT) scan&#34;
+    snippet: &#34;Ludwig&#39;s angina with mediastinitis complication was established by a computed tomography (CT) scan, which was promptly treated and he recovered completely.&#34;
     explanation: Shows CT confirming both diagnosis and mediastinal spread.
 treatments:
 - name: Airway Protection (Tracheostomy or Secured Airway)
@@ -4689,7 +4856,7 @@ treatments:
   - reference: PMID:39296495
     reference_title: &#34;Case Report: Ludwig&#39;s angina - &#39;The Dangerous Space&#39;.&#34;
     supports: SUPPORT
-    snippet: &#34;immediate surgical decompression leading to pus drainage, removal of the offending tooth... and administration of empirical antibiotics&#34;
+    snippet: &#34;the patient was taken up for immediate surgical decompression leading to pus drainage, removal of the offending tooth, bacterial culture and sensitivity, and administration of empirical antibiotics.&#34;
     explanation: Shows surgical drainage with tooth extraction as effective source control.
   treatment_term:
     preferred_term: surgical procedure
@@ -4735,7 +4902,7 @@ epidemiology:
   - reference: PMID:37944093
     reference_title: &#34;Ludwig&#39;s Angina: Higher Incidence and Worse Outcomes Associated With the Onset of the Coronavirus Disease 2019 Pandemic.&#34;
     supports: SUPPORT
-    snippet: &#34;In the pre-COVID group, we identified 32 of 1,301 patients with LA for an incidence of 0.02 per year... The COVID-onset group consisted of 41 of 641 patients, with an incidence of 0.04 per year.&#34;
+    snippet: &#34;In the pre-COVID group, we identified 32 of 1,301 patients with LA for an incidence of 0.02 per year. The COVID-onset group consisted of 41 of 641 patients, with an incidence of 0.04 per year.&#34;
     explanation: Washington University single-center data showed incidence doubling during COVID-onset vs pre-COVID periods when dental care was delayed.
 - name: Case Fatality Range Across Nigerian Centers
   unit: percent case fatality
@@ -4813,7 +4980,7 @@ differential_diagnoses:
   - reference: PMID:38960547
     reference_title: &#34;Submandibular Sialolithiasis Mimicking Ludwig&#39;s Angina: A Case Report and Brief Clinical Review.&#34;
     supports: PARTIAL
-    snippet: &#34;Submandibular sialolithiasis... could present with the double tongue sign without symptoms suggestive of airway involvement.&#34;
+    snippet: &#34;Submandibular sialolithiasis, on the other hand, could present with the double tongue sign without symptoms suggestive of airway involvement.&#34;
     explanation: Shows sialolithiasis can mimic clinical swelling yet lacks airway compromise typical of Ludwig&#39;s angina.
 - name: Pseudo-Ludwig&#39;s Angina from Anticoagulant-Related Sublingual Hematoma
   description: Sublingual hematoma from anticoagulation causes swelling that resembles Ludwig&#39;s angina but is noninfectious.
@@ -4826,11 +4993,1130 @@ differential_diagnoses:
     supports: SUPPORT
     snippet: &#34;we describe a novel case of apixaban-induced pseudo-Ludwig&#39;s angina, which was successfully managed with urgent surgical intervention and supportive care&#34;
     explanation: Documents anticoagulant-induced pseudo-Ludwig presentation mimicking infection.
+references:
+- reference: DOI:10.1007/s12663-024-02116-5
+  title: &#39;Incidence of Mortality and Its Relation to Comorbidity in Ludwig’s Angina: A Retrospective Study&#39;
+  found_in:
+  - Ludwigs_Angina-deep-research-falcon.md
+  findings:
+  - statement: &#39;Incidence of Mortality and Its Relation to Comorbidity in Ludwig’s Angina: A Retrospective Study&#39;
+    supporting_text: &#39;Incidence of Mortality and Its Relation to Comorbidity in Ludwig’s Angina: A Retrospective Study&#39;
+- reference: DOI:10.1016/b978-0-323-28945-0.00012-0
+  title: Odontogenic Infections of the Fascial Spaces
+  found_in:
+  - Ludwigs_Angina-deep-research-falcon.md
+  findings:
+  - statement: Odontogenic Infections of the Fascial Spaces
+    supporting_text: Odontogenic Infections of the Fascial Spaces
+- reference: DOI:10.1186/s40560-021-00554-8
+  title: &#39;A novel risk score for the prediction of airway management in patients with deep neck space abscess: a multicenter retrospective cohort study&#39;
+  found_in:
+  - Ludwigs_Angina-deep-research-falcon.md
+  findings:
+  - statement: &#39;A novel risk score for the prediction of airway management in patients with deep neck space abscess: a multicenter retrospective cohort study&#39;
+    supporting_text: Airway management, including noninvasive endotracheal intubation or invasive tracheostomy, is an essential treatment strategy for patients with deep neck space abscess (DNSA) to reverse acute hypoxia, which aids in avoiding acute cerebral hypoxia and cardiac arrest.
+    evidence:
+    - reference: DOI:10.1186/s40560-021-00554-8
+      reference_title: &#39;A novel risk score for the prediction of airway management in patients with deep neck space abscess: a multicenter retrospective cohort study&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Airway management, including noninvasive endotracheal intubation or invasive tracheostomy, is an essential treatment strategy for patients with deep neck space abscess (DNSA) to reverse acute hypoxia, which aids in avoiding acute cerebral hypoxia and cardiac arrest.
+      explanation: Deep research cited this publication as relevant literature for Ludwigs Angina.
+- reference: DOI:10.1186/s43163-023-00431-1
+  title: &#39;Ludwig’s angina in a child: a case report and literature review&#39;
+  found_in:
+  - Ludwigs_Angina-deep-research-falcon.md
+  findings:
+  - statement: Ludwig’s angina is a diffuse cellulitis in the sub-mandibular space, which extends to the sublingual space.
+    supporting_text: Ludwig’s angina is a diffuse cellulitis in the sub-mandibular space, which extends to the sublingual space.
+    evidence:
+    - reference: DOI:10.1186/s43163-023-00431-1
+      reference_title: &#39;Ludwig’s angina in a child: a case report and literature review&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Ludwig’s angina is a diffuse cellulitis in the sub-mandibular space, which extends to the sublingual space.
+      explanation: Deep research cited this publication as relevant literature for Ludwigs Angina.
+- reference: DOI:10.18203/2320-6012.ijrms20241233
+  title: &#34;Diabetes mellitus and odontogenic infections: a life threatening combination in Ludwig&#39;s angina&#34;
+  found_in:
+  - Ludwigs_Angina-deep-research-falcon.md
+  findings:
+  - statement: The present study was a prospective study which was aimed to assess the risk factors, microbiological profile, management strategies of Ludwig’s angina patients and its association with odontogenic infections and diabetes mellitus.
+    supporting_text: The present study was a prospective study which was aimed to assess the risk factors, microbiological profile, management strategies of Ludwig’s angina patients and its association with odontogenic infections and diabetes mellitus.
+    evidence:
+    - reference: DOI:10.18203/2320-6012.ijrms20241233
+      reference_title: &#34;Diabetes mellitus and odontogenic infections: a life threatening combination in Ludwig&#39;s angina&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The present study was a prospective study which was aimed to assess the risk factors, microbiological profile, management strategies of Ludwig’s angina patients and its association with odontogenic infections and diabetes mellitus.
+      explanation: Deep research cited this publication as relevant literature for Ludwigs Angina.
+- reference: DOI:10.21203/rs.3.rs-7314800/v1
+  title: &#39;Ludwig’s Angina in the Emergency Department: Epidemiology, Diagnosis, and Outcomes: a retrospective study in Somalia&#39;
+  found_in:
+  - Ludwigs_Angina-deep-research-falcon.md
+  findings:
+  - statement: &#39;Ludwig’s Angina in the Emergency Department: Epidemiology, Diagnosis, and Outcomes: a retrospective study in Somalia&#39;
+    supporting_text: This study aims to document the demographic distribution of Ludwig’s angina; evaluate patients who presented at Mogadishu Somali Turkey Training and Research Hospital in Mogadishu, Somalia, over one year; and analyse the causes, complications, length of hospital stay, treatment, outcomes, and management approaches used.
+    evidence:
+    - reference: DOI:10.21203/rs.3.rs-7314800/v1
+      reference_title: &#39;Ludwig’s Angina in the Emergency Department: Epidemiology, Diagnosis, and Outcomes: a retrospective study in Somalia&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: This study aims to document the demographic distribution of Ludwig’s angina; evaluate patients who presented at Mogadishu Somali Turkey Training and Research Hospital in Mogadishu, Somalia, over one year; and analyse the causes, complications, length of hospital stay, treatment, outcomes, and management approaches used.
+      explanation: Deep research cited this publication as relevant literature for Ludwigs Angina.
+- reference: DOI:10.21203/rs.3.rs-8062782/v1
+  title: &#39;Ludwig’s Angina in Somalia: Clinical Characteristics, Management, and Outcomes from a Tertiary Emergency Department Retrospective Study. First report of Ludwig’s angina in Somalia&#39;
+  found_in:
+  - Ludwigs_Angina-deep-research-falcon.md
+  findings:
+  - statement: and Objectives Ludwig’s angina is a life-threatening cellulitis of the submandibular space that can rapidly compromise the airway.
+    supporting_text: and Objectives Ludwig’s angina is a life-threatening cellulitis of the submandibular space that can rapidly compromise the airway.
+    evidence:
+    - reference: DOI:10.21203/rs.3.rs-8062782/v1
+      reference_title: &#39;Ludwig’s Angina in Somalia: Clinical Characteristics, Management, and Outcomes from a Tertiary Emergency Department Retrospective Study. First report of Ludwig’s angina in Somalia&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: and Objectives Ludwig’s angina is a life-threatening cellulitis of the submandibular space that can rapidly compromise the airway.
+      explanation: Deep research cited this publication as relevant literature for Ludwigs Angina.
+- reference: DOI:10.3329/mumcj.v6i2.71369
+  title: Bacteriological Study and Antibacterial Susceptibility in Ludwig’s Angina in a Tertiary Level Hospital in Dhaka, Bangladesh
+  found_in:
+  - Ludwigs_Angina-deep-research-falcon.md
+  findings:
+  - statement: The knowledge of the local pattern of infection and antibacterial sensitivity in Ludwig’s angina is essential to enable efficacious treatment for it.
+    supporting_text: The knowledge of the local pattern of infection and antibacterial sensitivity in Ludwig’s angina is essential to enable efficacious treatment for it.
+    evidence:
+    - reference: DOI:10.3329/mumcj.v6i2.71369
+      reference_title: Bacteriological Study and Antibacterial Susceptibility in Ludwig’s Angina in a Tertiary Level Hospital in Dhaka, Bangladesh
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The knowledge of the local pattern of infection and antibacterial sensitivity in Ludwig’s angina is essential to enable efficacious treatment for it.
+      explanation: Deep research cited this publication as relevant literature for Ludwigs Angina.
+- reference: DOI:10.3390/jcm7110385
+  title: &#39;High Risk of Deep Neck Infection in Patients with Type 1 Diabetes Mellitus: A Nationwide Population-Based Cohort Study&#39;
+  found_in:
+  - Ludwigs_Angina-deep-research-falcon.md
+  findings:
+  - statement: To investigate the risk of deep neck infection (DNI) in patients with type 1 diabetes mellitus (T1DM).
+    supporting_text: To investigate the risk of deep neck infection (DNI) in patients with type 1 diabetes mellitus (T1DM).
+    evidence:
+    - reference: DOI:10.3390/jcm7110385
+      reference_title: &#39;High Risk of Deep Neck Infection in Patients with Type 1 Diabetes Mellitus: A Nationwide Population-Based Cohort Study&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: To investigate the risk of deep neck infection (DNI) in patients with type 1 diabetes mellitus (T1DM).
+      explanation: Deep research cited this publication as relevant literature for Ludwigs Angina.
+- reference: PMID:26788478
+  title: &#39;Deep Neck Space Infections: A Study of 76 Cases.&#39;
+  found_in:
+  - Ludwigs_Angina-deep-research-falcon.md
+  findings:
+  - statement: Kataria G(1), Saxena A(2), Bhagat S(3), Singh B(3), Kaur M(3), Kaur G(3).
+    supporting_text: Kataria G(1), Saxena A(2), Bhagat S(3), Singh B(3), Kaur M(3), Kaur G(3).
+    evidence:
+    - reference: PMID:26788478
+      reference_title: &#39;Deep Neck Space Infections: A Study of 76 Cases.&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Kataria G(1), Saxena A(2), Bhagat S(3), Singh B(3), Kaur M(3), Kaur G(3).
+      explanation: Deep research cited this publication as relevant literature for Ludwigs Angina.
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
+        
+        <div class="card reference-card" id="references-deep-research">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+            
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">10</span>
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s12663-024-02116-5" target="_blank">DOI:10.1007/s12663-024-02116-5</a>
+                            </div>
+                            
+                            <div class="reference-title">Incidence of Mortality and Its Relation to Comorbidity in Ludwig’s Angina: A Retrospective Study</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Incidence of Mortality and Its Relation to Comorbidity in Ludwig’s Angina: A Retrospective Study</div>
+            
+            
+            <div class="reference-finding-supporting">"Incidence of Mortality and Its Relation to Comorbidity in Ludwig’s Angina: A Retrospective Study"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1016/b978-0-323-28945-0.00012-0" target="_blank">DOI:10.1016/b978-0-323-28945-0.00012-0</a>
+                            </div>
+                            
+                            <div class="reference-title">Odontogenic Infections of the Fascial Spaces</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Odontogenic Infections of the Fascial Spaces</div>
+            
+            
+            <div class="reference-finding-supporting">"Odontogenic Infections of the Fascial Spaces"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1186/s40560-021-00554-8" target="_blank">DOI:10.1186/s40560-021-00554-8</a>
+                            </div>
+                            
+                            <div class="reference-title">A novel risk score for the prediction of airway management in patients with deep neck space abscess: a multicenter retrospective cohort study</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">A novel risk score for the prediction of airway management in patients with deep neck space abscess: a multicenter retrospective cohort study</div>
+            
+            
+            <div class="reference-finding-supporting">"Airway management, including noninvasive endotracheal intubation or invasive tracheostomy, is an essential treatment strategy for patients with deep neck space abscess (DNSA) to reverse acute hypoxia, which aids in avoiding acute cerebral hypoxia and cardiac arrest."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s40560-021-00554-8" target="_blank">DOI:10.1186/s40560-021-00554-8</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Airway management, including noninvasive endotracheal intubation or invasive tracheostomy, is an essential treatment strategy for patients with deep neck space abscess (DNSA) to reverse acute hypoxia, which aids in avoiding acute cerebral hypoxia and cardiac arrest."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Ludwigs Angina.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1186/s43163-023-00431-1" target="_blank">DOI:10.1186/s43163-023-00431-1</a>
+                            </div>
+                            
+                            <div class="reference-title">Ludwig’s angina in a child: a case report and literature review</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Ludwig’s angina is a diffuse cellulitis in the sub-mandibular space, which extends to the sublingual space.</div>
+            
+            
+            <div class="reference-finding-supporting">"Ludwig’s angina is a diffuse cellulitis in the sub-mandibular space, which extends to the sublingual space."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s43163-023-00431-1" target="_blank">DOI:10.1186/s43163-023-00431-1</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Ludwig’s angina is a diffuse cellulitis in the sub-mandibular space, which extends to the sublingual space."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Ludwigs Angina.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.18203/2320-6012.ijrms20241233" target="_blank">DOI:10.18203/2320-6012.ijrms20241233</a>
+                            </div>
+                            
+                            <div class="reference-title">Diabetes mellitus and odontogenic infections: a life threatening combination in Ludwig&#39;s angina</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The present study was a prospective study which was aimed to assess the risk factors, microbiological profile, management strategies of Ludwig’s angina patients and its association with odontogenic infections and diabetes mellitus.</div>
+            
+            
+            <div class="reference-finding-supporting">"The present study was a prospective study which was aimed to assess the risk factors, microbiological profile, management strategies of Ludwig’s angina patients and its association with odontogenic infections and diabetes mellitus."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.18203/2320-6012.ijrms20241233" target="_blank">DOI:10.18203/2320-6012.ijrms20241233</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The present study was a prospective study which was aimed to assess the risk factors, microbiological profile, management strategies of Ludwig’s angina patients and its association with odontogenic infections and diabetes mellitus."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Ludwigs Angina.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.21203/rs.3.rs-7314800/v1" target="_blank">DOI:10.21203/rs.3.rs-7314800/v1</a>
+                            </div>
+                            
+                            <div class="reference-title">Ludwig’s Angina in the Emergency Department: Epidemiology, Diagnosis, and Outcomes: a retrospective study in Somalia</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Ludwig’s Angina in the Emergency Department: Epidemiology, Diagnosis, and Outcomes: a retrospective study in Somalia</div>
+            
+            
+            <div class="reference-finding-supporting">"This study aims to document the demographic distribution of Ludwig’s angina; evaluate patients who presented at Mogadishu Somali Turkey Training and Research Hospital in Mogadishu, Somalia, over one year; and analyse the causes, complications, length of hospital stay, treatment, outcomes, and..."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.21203/rs.3.rs-7314800/v1" target="_blank">DOI:10.21203/rs.3.rs-7314800/v1</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"This study aims to document the demographic distribution of Ludwig’s angina; evaluate patients who presented at Mogadishu Somali Turkey Training and Research Hospital in Mogadishu, Somalia, over one year; and analyse the causes, complications, length of hospital stay, treatment, outcomes, and..."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Ludwigs Angina.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.21203/rs.3.rs-8062782/v1" target="_blank">DOI:10.21203/rs.3.rs-8062782/v1</a>
+                            </div>
+                            
+                            <div class="reference-title">Ludwig’s Angina in Somalia: Clinical Characteristics, Management, and Outcomes from a Tertiary Emergency Department Retrospective Study. First report of Ludwig’s angina in Somalia</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">and Objectives Ludwig’s angina is a life-threatening cellulitis of the submandibular space that can rapidly compromise the airway.</div>
+            
+            
+            <div class="reference-finding-supporting">"and Objectives Ludwig’s angina is a life-threatening cellulitis of the submandibular space that can rapidly compromise the airway."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.21203/rs.3.rs-8062782/v1" target="_blank">DOI:10.21203/rs.3.rs-8062782/v1</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"and Objectives Ludwig’s angina is a life-threatening cellulitis of the submandibular space that can rapidly compromise the airway."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Ludwigs Angina.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3329/mumcj.v6i2.71369" target="_blank">DOI:10.3329/mumcj.v6i2.71369</a>
+                            </div>
+                            
+                            <div class="reference-title">Bacteriological Study and Antibacterial Susceptibility in Ludwig’s Angina in a Tertiary Level Hospital in Dhaka, Bangladesh</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The knowledge of the local pattern of infection and antibacterial sensitivity in Ludwig’s angina is essential to enable efficacious treatment for it.</div>
+            
+            
+            <div class="reference-finding-supporting">"The knowledge of the local pattern of infection and antibacterial sensitivity in Ludwig’s angina is essential to enable efficacious treatment for it."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3329/mumcj.v6i2.71369" target="_blank">DOI:10.3329/mumcj.v6i2.71369</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The knowledge of the local pattern of infection and antibacterial sensitivity in Ludwig’s angina is essential to enable efficacious treatment for it."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Ludwigs Angina.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/jcm7110385" target="_blank">DOI:10.3390/jcm7110385</a>
+                            </div>
+                            
+                            <div class="reference-title">High Risk of Deep Neck Infection in Patients with Type 1 Diabetes Mellitus: A Nationwide Population-Based Cohort Study</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">To investigate the risk of deep neck infection (DNI) in patients with type 1 diabetes mellitus (T1DM).</div>
+            
+            
+            <div class="reference-finding-supporting">"To investigate the risk of deep neck infection (DNI) in patients with type 1 diabetes mellitus (T1DM)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/jcm7110385" target="_blank">DOI:10.3390/jcm7110385</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"To investigate the risk of deep neck infection (DNI) in patients with type 1 diabetes mellitus (T1DM)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Ludwigs Angina.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/26788478" target="_blank">PMID:26788478</a>
+                            </div>
+                            
+                            <div class="reference-title">Deep Neck Space Infections: A Study of 76 Cases.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Kataria G(1), Saxena A(2), Bhagat S(3), Singh B(3), Kaur M(3), Kaur G(3).</div>
+            
+            
+            <div class="reference-finding-supporting">"Kataria G(1), Saxena A(2), Bhagat S(3), Singh B(3), Kaur M(3), Kaur G(3)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26788478" target="_blank">PMID:26788478</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Kataria G(1), Saxena A(2), Bhagat S(3), Singh B(3), Kaur M(3), Kaur G(3)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Ludwigs Angina.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">Ludwig’s Angina (Infectious) — Disease Characteristics Research Report</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">23 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-09T11:45:06.277390</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <h1>Ludwig’s Angina (Infectious) — Disease Characteristics Research Report</h1>
+<h2>1. Disease information</h2>
+<h3>1.1 Concise overview (current understanding)</h3>
+<p>Ludwig’s angina is a rapidly progressive, potentially life‑threatening cellulitis/infection involving the floor of mouth and upper neck that classically affects the <strong>submandibular, sublingual, and submental spaces</strong>, often bilaterally, and can cause <strong>tongue elevation/displacement</strong> and <strong>acute airway compromise</strong>. (ahmed2025ludwig’sanginain pages 8-11, sahoo2024incidenceofmortality pages 1-2, boynton201612–odontogenic pages 13-14)</p>
+<p>Older surgical-pathology descriptions emphasize a <strong>“firm, acute, toxic cellulitis”</strong> in these spaces and highlight that tongue displacement can produce a “sensation of choking and suffocation.” (boynton201612–odontogenic pages 13-14)</p>
+<h3>1.2 Key identifiers (ontology/terminology)</h3>
+<p>The currently retrieved full texts do <strong>not</strong> provide standardized identifiers (MONDO, MeSH, ICD-10/ICD-11, OMIM, Orphanet) directly; this portion should be curated from external ontology portals (e.g., MONDO browser, MeSH, ICD). This report therefore focuses on evidence-backed clinical characteristics from peer‑reviewed/primary literature. (sahoo2024incidenceofmortality pages 1-2, boynton201612–odontogenic pages 13-14, mahbub2024bacteriologicalstudyand pages 1-2)</p>
+<h3>1.3 Synonyms and alternative names</h3>
+<p>Commonly used clinical terminology in the literature includes:
+- “Ludwig’s angina” (standard eponym) (sahoo2024incidenceofmortality pages 1-2)
+- “Diffuse cellulitis of the submandibular space extending to the sublingual space” (definition used in pediatric report/review) (benhoummad2023ludwig’sanginain pages 1-3)</p>
+<h3>1.4 Evidence source type</h3>
+<p>Evidence synthesized here is largely <strong>aggregated disease-level clinical literature</strong> (retrospective/prospective hospital cohorts and narrative reviews) plus selected case reports for special populations (pediatrics). (mahbub2024bacteriologicalstudyand pages 1-2, benhoummad2023ludwig’sanginain pages 1-3, kumari2024diabetesmellitusand pages 2-4)</p>
+<h2>2. Etiology</h2>
+<h3>2.1 Disease causal factors</h3>
+<p><strong>Primary cause:</strong> Ludwig’s angina is usually <strong>odontogenic</strong> (originating from infected mandibular molars or dental infections), with polymicrobial oral flora. (sahoo2024incidenceofmortality pages 1-2, boynton201612–odontogenic pages 13-14, sahoo2024incidenceofmortality pages 5-6)</p>
+<p><strong>Causal chain (high-level):</strong> odontogenic infection → spread along fascial planes into submandibular/sublingual/submental spaces → edema/cellulitis ± abscess/necrotizing infection → tongue elevation/posterior displacement → airway compromise and systemic spread (sepsis/mediastinitis). (sahoo2024incidenceofmortality pages 1-2, boynton201612–odontogenic pages 13-14, sahoo2024incidenceofmortality pages 6-7)</p>
+<h3>2.2 Risk factors</h3>
+<p><strong>Diabetes mellitus (DM):</strong> Multiple cohorts show high DM comorbidity among Ludwig’s angina/deep neck infection patients and association with worse clinical course.
+- Prospective Ludwig’s angina cohort (India, 2022–2023): <strong>50%</strong> had diabetes mellitus. (kumari2024diabetesmellitusand pages 2-4)
+- Prospective Ludwig’s angina cohort (Bangladesh): <strong>25%</strong> had diabetes mellitus. (mahbub2024bacteriologicalstudyand pages 2-4)
+- Retrospective Ludwig’s angina cohort (n=17): <strong>50%</strong> had DM; <strong>70.5%</strong> had comorbidities. (sahoo2024incidenceofmortality pages 5-6)
+- Population-based cohort (Taiwan; deep neck infection broadly, including Ludwig angina ICD coding in methods): Type 1 DM associated with <strong>adjusted hazard ratio 10.71</strong> for deep neck infection and longer hospitalizations (<strong>9.0 ± 6.2 vs 4.1 ± 2.0 days</strong>). (sahoo2024incidenceofmortality pages 5-6)</p>
+<p><strong>Other host risk factors discussed in clinical series/reviews</strong> include immunocompromise (e.g., HIV/AIDS), malnutrition, chronic kidney disease, cirrhosis, COPD, CAD, pregnancy, and older age. (sahoo2024incidenceofmortality pages 1-2, sahoo2024incidenceofmortality pages 5-6)</p>
+<p><strong>Socioeconomic/oral hygiene factors:</strong> In the Bangladesh cohort, many patients were from poor socioeconomic background (70%), rural areas (70%), and had dental infection (70%). (mahbub2024bacteriologicalstudyand pages 2-4)</p>
+<h3>2.3 Protective factors</h3>
+<p>Direct protective factors are not explicitly quantified in the retrieved evidence; however, prevention-focused statements emphasize oral hygiene and early dental care to prevent odontogenic infections that precipitate Ludwig’s angina. (mahbub2024bacteriologicalstudyand pages 1-2, ahmed2025ludwig’sanginain pages 8-11)</p>
+<h3>2.4 Gene–environment interactions</h3>
+<p>No gene–environment interaction evidence specific to Ludwig’s angina was found in the retrieved full texts; the condition is typically <strong>not</strong> described as genetically determined but rather driven by <strong>infection + host comorbidity</strong>. (sahoo2024incidenceofmortality pages 1-2, mahbub2024bacteriologicalstudyand pages 1-2)</p>
+<h2>3. Phenotypes (clinical presentation)</h2>
+<h3>3.1 Core signs and symptoms (with cohort statistics)</h3>
+<p>Common phenotypes include neck/floor-of-mouth swelling, pain, fever, dysphagia, trismus, tongue elevation, drooling, muffled voice, and respiratory distress.</p>
+<p>Recent cohort examples:
+- India prospective cohort (n=40): pain <strong>80%</strong>, neck swelling <strong>75%</strong>, dysphagia <strong>65%</strong>, trismus <strong>55%</strong>, fever <strong>25%</strong>, respiratory distress <strong>22.5%</strong>. (kumari2024diabetesmellitusand pages 2-4)
+- Bangladesh prospective cohort (n=100): floor-of-mouth/neck swelling <strong>100%</strong>, pain/tenderness <strong>100%</strong>, fever <strong>100%</strong>, dysphagia <strong>80%</strong>, trismus <strong>15%</strong>, muffled voice <strong>10%</strong>, respiratory distress <strong>3%</strong>. (mahbub2024bacteriologicalstudyand pages 4-5)
+- Somalia retrospective cohort (n=90): submandibular swelling + trismus + tongue elevation + difficulty breathing <strong>52.2%</strong>; fever/toothache/submental swelling <strong>35.6%</strong>. (ahmed2025ludwig’sanginain pages 8-11)</p>
+<h3>3.2 Suggested HPO terms (non-exhaustive)</h3>
+<p>The following HPO mappings are appropriate for knowledge base structuring (ontology suggestions; not claims of frequency unless paired with above statistics):
+- Neck swelling (HP:0000474)
+- Facial swelling (HP:0000289)
+- Fever (HP:0001945)
+- Dysphagia (HP:0002015)
+- Trismus (HP:0000210)
+- Drooling (HP:0002307)
+- Dyspnea/Respiratory distress (HP:0002094)
+- Stridor (HP:0001618)
+- Muffled voice/Hoarseness (HP:0001609)</p>
+<h3>3.3 Quality of life impact</h3>
+<p>Although validated QoL instrument scores (EQ‑5D/SF‑36) were not reported in the retrieved texts, the symptom complex (pain, dysphagia, trismus, airway threat) implies acute, severe functional impairment requiring urgent care and often hospitalization/ICU-level monitoring. (sahoo2024incidenceofmortality pages 1-2, sahoo2024incidenceofmortality pages 6-7)</p>
+<h2>4. Genetic / molecular information</h2>
+<h3>4.1 Causal genes and pathogenic variants</h3>
+<p>Ludwig’s angina is not primarily characterized as a monogenic disorder in the retrieved evidence and no causal genes/variants are reported. It is best represented as an <strong>acute polymicrobial infection syndrome</strong> influenced by host comorbidity rather than inherited variants. (sahoo2024incidenceofmortality pages 1-2, mahbub2024bacteriologicalstudyand pages 1-2)</p>
+<h3>4.2 Molecular profiling / omics</h3>
+<p>No transcriptomic/proteomic/metabolomic profiling studies specific to Ludwig’s angina were identified in the retrieved evidence set. (mahbub2024bacteriologicalstudyand pages 1-2)</p>
+<h2>5. Environmental information</h2>
+<h3>5.1 Lifestyle and contextual factors</h3>
+<p>Poor oral hygiene and delayed dental care are repeatedly implicated as upstream factors increasing odontogenic infection burden, which then precipitates Ludwig’s angina/deep neck infection. (mahbub2024bacteriologicalstudyand pages 2-4, ahmed2025ludwig’sanginain pages 8-11)</p>
+<h3>5.2 Infectious agents</h3>
+<p>Ludwig’s angina is commonly polymicrobial and derived from oral flora; cohorts report frequent isolation of <strong>viridans streptococci</strong>, <strong>Staphylococcus aureus</strong>, and Gram-negative organisms in some settings.
+- Bangladesh cohort: <em>Streptococcus viridans</em> <strong>40%</strong>, <em>S. aureus</em> <strong>23%</strong>, coagulase‑negative staphylococci <strong>20%</strong>, <em>Klebsiella</em> <strong>16%</strong>, <em>E. coli</em> <strong>13%</strong>, <em>Pseudomonas</em> <strong>12%</strong>, <em>Proteus</em> <strong>11%</strong>, and mixed organisms <strong>30%</strong> (note: multiple isolates possible). (mahbub2024bacteriologicalstudyand pages 4-5)
+- India cohort: <em>S. viridans</em> <strong>22.5%</strong>, <em>S. aureus</em> <strong>12.5%</strong>, <em>E. coli</em> <strong>7.5%</strong>, <em>Klebsiella</em> <strong>5%</strong>; “no growth” <strong>52.5%</strong> (likely reflecting pre-treatment/collection limits). (kumari2024diabetesmellitusand pages 2-4)</p>
+<h2>6. Mechanism / pathophysiology</h2>
+<h3>6.1 Anatomic–pathophysiologic mechanism (causal chain)</h3>
+<p>A consistent mechanistic explanation is:
+1) odontogenic infection (often mandibular molar) spreads through lingual cortical bone and fascial planes (relationship to mylohyoid region) (sahoo2024incidenceofmortality pages 5-6)
+2) cellulitis/edema involves submandibular space and spreads to sublingual/submental spaces, frequently bilaterally (sahoo2024incidenceofmortality pages 1-2, boynton201612–odontogenic pages 13-14)
+3) floor-of-mouth induration and edema displace tongue upward/backward → airway compromise (boynton201612–odontogenic pages 13-14, sahoo2024incidenceofmortality pages 5-6)
+4) systemic extension may cause sepsis, necrotizing fasciitis, and descending mediastinitis. (sahoo2024incidenceofmortality pages 5-6, mahbub2024bacteriologicalstudyand pages 4-5)</p>
+<h3>6.2 Immune involvement and host factors</h3>
+<p>Diabetes is repeatedly discussed as contributing to susceptibility and more severe course. The comorbidity burden is emphasized in a 2024 retrospective series where all deaths occurred in patients with comorbidity. (sahoo2024incidenceofmortality pages 1-2)</p>
+<h3>6.3 Suggested GO biological process terms (mechanism structuring)</h3>
+<p>Ontology suggestions for mechanistic annotation:
+- GO:0006954 inflammatory response
+- GO:0002682 regulation of immune system process
+- GO:0009617 response to bacterium
+- GO:0009405 pathogenesis
+- GO:0009408 response to heat (fever physiology)</p>
+<h3>6.4 Suggested cell types (CL) implicated</h3>
+<p>Ontology suggestions:
+- Neutrophil (CL:0000775) (consistent with inflammatory marker emphasis and neutrophil predictors in deep neck abscess airway risk modeling) (sahoo2024incidenceofmortality pages 5-6)
+- Macrophage (CL:0000235)
+- Oral epithelial cell (CL:0000066)</p>
+<h2>7. Anatomical structures affected</h2>
+<h3>7.1 Primary sites</h3>
+<p>Core spaces: submandibular, sublingual, submental spaces (floor of mouth). (ahmed2025ludwig’sanginain pages 8-11, boynton201612–odontogenic pages 13-14)</p>
+<p>Suggested UBERON terms (ontology suggestions):
+- Floor of mouth (UBERON:0003679)
+- Submandibular region (UBERON concept mapping may be required)
+- Tongue (UBERON:0001723)</p>
+<h3>7.2 Secondary involvement (complications)</h3>
+<p>Reported complications include necrotizing fasciitis, septicemia/sepsis, mediastinitis, and airway obstruction. (ahmed2025ludwig’sanginain pages 8-11, mahbub2024bacteriologicalstudyand pages 4-5)</p>
+<h2>8. Temporal development</h2>
+<h3>8.1 Onset and course</h3>
+<p>Ludwig’s angina is typically <strong>acute and rapidly progressive</strong>; delays in presentation are common in some settings (e.g., 77.8% waiting 5–7 days in a Somali ED cohort), which can increase complication risk. (ahmed2025ludwig’sanginain pages 8-11)</p>
+<h3>8.2 Disease stages (practical clinical staging)</h3>
+<p>Evidence supports a practical progression: odontogenic infection → cellulitis/edema → airway-threatening floor-of-mouth swelling ± abscess/necrotizing infection → systemic complications. (boynton201612–odontogenic pages 13-14, sahoo2024incidenceofmortality pages 6-7)</p>
+<h2>9. Inheritance and population</h2>
+<h3>9.1 Epidemiology</h3>
+<p>High-quality population incidence/prevalence estimates for Ludwig’s angina specifically were not captured in the retrieved texts. Available evidence is predominantly hospital-based series.</p>
+<p>Examples of reported demographics:
+- Somalia ED cohort: 77.8% male; mean age 39.1 years. (ahmed2025ludwig’sanginaina pages 5-7)
+- Bangladesh cohort: 60% male; most common age group 31–45 years (42%). (mahbub2024bacteriologicalstudyand pages 2-4)</p>
+<h2>10. Diagnostics</h2>
+<h3>10.1 Clinical diagnosis and labs</h3>
+<p>Diagnosis is largely clinical, supported by inflammatory markers (WBC, CRP) and cultures where feasible. Pediatric case review notes hyperleukocytosis and very high CRP (CRP=300 in the index case). (benhoummad2023ludwig’sanginain pages 1-3)</p>
+<h3>10.2 Imaging</h3>
+<p>A 2024 retrospective Ludwig’s angina series reports routine use of <strong>contrast-enhanced CT (CECT)</strong> to define spread. (sahoo2024incidenceofmortality pages 6-7)
+Radiographic work-up may begin with dental imaging (OPG) to identify source and chest X‑ray to evaluate thoracic spread. (sahoo2024incidenceofmortality pages 5-6)</p>
+<h3>10.3 Differential diagnosis</h3>
+<p>Conditions that may mimic floor-of-mouth swelling include <strong>angioneurotic (angioedema) edema</strong> and <strong>sublingual hematoma</strong>, which are explicitly listed as differential diagnoses in a 2024 retrospective report. (sahoo2024incidenceofmortality pages 5-6)</p>
+<h2>11. Outcomes / prognosis</h2>
+<h3>11.1 Mortality and severe complications</h3>
+<p>Mortality varies substantially by setting and comorbidity burden.
+- India prospective cohort (n=40): death <strong>7.5%</strong> (3 deaths, attributed to septicemia). (kumari2024diabetesmellitusand pages 2-4)
+- Bangladesh cohort (n=100): deaths reported (2 patients died due to mediastinitis in the discussion of complications). (mahbub2024bacteriologicalstudyand pages 4-5)
+- Retrospective series (n=17): mortality <strong>23.5%</strong>; all deaths occurred with comorbidity. (sahoo2024incidenceofmortality pages 1-2)
+- Somalia ED cohort (n=90): <strong>no mortality</strong> reported, despite <strong>48.9%</strong> complication rate. (ahmed2025ludwig’sanginain pages 8-11)</p>
+<p>Complication rates can be high:
+- Somalia cohort: any complication <strong>48.9%</strong>; septicemia <strong>36.7%</strong>; necrotizing fasciitis <strong>5.5%</strong>; DIC <strong>3.3%</strong>; laryngeal spasm <strong>3.3%</strong>. (ahmed2025ludwig’sanginain pages 8-11)
+- Bangladesh cohort: necrotizing fasciitis <strong>8%</strong>; mediastinitis and septicemia are reported complications (percentages reported in text). (mahbub2024bacteriologicalstudyand pages 4-5)</p>
+<h3>11.2 Prognostic factors (expert synthesis grounded in evidence)</h3>
+<p>Across series, <strong>comorbidities (especially diabetes)</strong> and delayed presentation are repeatedly linked to longer hospitalization and worse outcomes, and multispace disease/airway compromise increases intervention needs. (sahoo2024incidenceofmortality pages 5-6, ahmed2025ludwig’sanginaina pages 5-7, sahoo2024incidenceofmortality pages 1-2)</p>
+<h2>12. Treatment</h2>
+<h3>12.1 Current applications and real-world implementation (core algorithm)</h3>
+<p>Evidence from recent cohorts emphasizes a consistent emergency-management triad:
+1) <strong>Airway management</strong> (monitoring, oxygen, escalation to intubation or tracheostomy) (sahoo2024incidenceofmortality pages 6-7)
+2) <strong>Broad-spectrum IV antibiotics</strong> with aerobic + anaerobic coverage, tailored to cultures when possible (sahoo2024incidenceofmortality pages 6-7, mahbub2024bacteriologicalstudyand pages 1-2)
+3) <strong>Early surgical decompression/drainage and source control (e.g., extraction/drainage)</strong> when indicated. (sahoo2024incidenceofmortality pages 6-7, kumari2024diabetesmellitusand pages 4-5)</p>
+<p>A 2024 retrospective series provides quantitative airway management data: <strong>oro-tracheal intubation 88.2%</strong> and <strong>tracheostomy 11.2%</strong>. (sahoo2024incidenceofmortality pages 6-7)
+A 2024 prospective series reported <strong>emergency tracheostomy 12.5%</strong> in patients presenting with respiratory distress/stridor. (kumari2024diabetesmellitusand pages 4-5)</p>
+<h3>12.2 Antibiotics and susceptibility (recent microbiology/statistics)</h3>
+<p>The Bangladesh cohort provides organism-specific susceptibility counts and overall statements including that the “most effective antibiotic was Ceftriaxone (65%)” and ceftazidime 58% (as reported in the results and Table VI). (mahbub2024bacteriologicalstudyand pages 4-5, mahbub2024bacteriologicalstudyand media 459caceb)</p>
+<h3>12.3 MAXO (Medical Action Ontology) suggestions</h3>
+<p>Ontology suggestions for intervention annotation:
+- Airway management / tracheal intubation / tracheostomy (MAXO term mapping required)
+- Surgical drainage of abscess / surgical decompression (MAXO mapping required)
+- Antibacterial therapy (MAXO mapping required)
+- Tooth extraction / dental source control (MAXO mapping required)</p>
+<h2>13. Prevention</h2>
+<p>Primary prevention centers on preventing odontogenic infection progression via <strong>oral hygiene, regular dental evaluation, and early treatment of dental infections</strong>, which is explicitly recommended in cohort conclusions. (ahmed2025ludwig’sanginain pages 8-11, mahbub2024bacteriologicalstudyand pages 1-2)</p>
+<p>Secondary/tertiary prevention in clinical practice includes early recognition, early imaging when needed, and early airway protection to prevent catastrophic airway obstruction and systemic spread. (sahoo2024incidenceofmortality pages 6-7)</p>
+<h2>14. Other species / natural disease</h2>
+<p>No evidence in the retrieved texts describes Ludwig’s angina as a naturally occurring disease entity in non-human species, or zoonotic transmission; this section is currently <strong>not evidenced</strong> in the available corpus. (sahoo2024incidenceofmortality pages 1-2)</p>
+<h2>15. Model organisms</h2>
+<p>No animal model or experimental model organism evidence specific to Ludwig’s angina was identified in the retrieved texts; most mechanistic and therapeutic understanding is derived from <strong>human clinical series</strong> of odontogenic and deep neck space infections. (mahbub2024bacteriologicalstudyand pages 1-2)</p>
+<hr />
+<h2>Recent developments (prioritizing 2023–2024) — synthesis</h2>
+<p>The strongest “recent” (2023–2024) evidence retrieved here consists of prospective/retrospective cohorts in diverse health systems that quantify:
+- High burden of <strong>DM and other comorbidities</strong> among cases and association with longer stays/outcomes. (kumari2024diabetesmellitusand pages 2-4, sahoo2024incidenceofmortality pages 5-6)
+- Persistent <strong>polymicrobial</strong> patterns with site-specific Gram-negative representation and substantial “no growth” proportions, emphasizing sampling/treatment effects and the need for empiric broad coverage. (mahbub2024bacteriologicalstudyand pages 4-5, kumari2024diabetesmellitusand pages 2-4)
+- Real-world airway intervention rates (intubation vs tracheostomy) and continued emphasis on early decompression plus antibiotics. (sahoo2024incidenceofmortality pages 6-7, kumari2024diabetesmellitusand pages 4-5)</p>
+<h2>Key quantitative evidence table</h2>
+<p>The following table consolidates the most actionable statistics and management details from the retrieved studies.</p>
+<table>
+<thead>
+<tr>
+<th>Study (first author, year)</th>
+<th>Design/Setting</th>
+<th style="text-align: right;">N</th>
+<th>Key etiologies/risk factors (with %)</th>
+<th>Key clinical features (with % if available)</th>
+<th>Microbiology findings</th>
+<th>Interventions (airway/surgery/antibiotics)</th>
+<th>Outcomes/complications (with %)</th>
+<th>URL/DOI</th>
+<th>Publication date</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Kumari, 2024</td>
+<td>Prospective study; ENT department, Government Medical College, Amritsar, India</td>
+<td style="text-align: right;">40</td>
+<td>Dental infection 85%; tooth extraction 10%; diabetes mellitus 50%; HIV/HCV 15% (kumari2024diabetesmellitusand pages 2-4, kumari2024diabetesmellitusand pages 4-5)</td>
+<td>Pain 80%; neck swelling 75%; dysphagia 65%; trismus 55%; fever 25%; respiratory distress 22.5% (kumari2024diabetesmellitusand pages 2-4)</td>
+<td><em>Streptococcus viridans</em> 22.5%; <em>Staphylococcus aureus</em> 12.5%; <em>E. coli</em> 7.5%; <em>Klebsiella</em> 5%; no growth 52.5% (kumari2024diabetesmellitusand pages 2-4, kumari2024diabetesmellitusand pages 4-5)</td>
+<td>Surgical + medical management 90%; medical only 10%; emergency tracheostomy 12.5%; antibiotics based on culture sensitivity (kumari2024diabetesmellitusand pages 4-5)</td>
+<td>Necrotizing fasciitis 5%; peritonsillar abscess 2.5%; respiratory distress/stridor 22.5%; death 7.5%; diabetic hospital stay ~10 days vs 5-7 days in non-diabetics (kumari2024diabetesmellitusand pages 2-4, kumari2024diabetesmellitusand pages 4-5)</td>
+<td>https://doi.org/10.18203/2320-6012.ijrms20241233</td>
+<td>Apr 2024</td>
+</tr>
+<tr>
+<td>Mahbub, 2024</td>
+<td>Prospective observational study; Dhaka Medical College Hospital/ICDDR,B, Bangladesh</td>
+<td style="text-align: right;">100</td>
+<td>Dental infection 70%; tooth extraction 10%; diabetes mellitus 25%; rural residence 70%; poor socioeconomic status 70% (mahbub2024bacteriologicalstudyand pages 1-2, mahbub2024bacteriologicalstudyand pages 2-4, mahbub2024bacteriologicalstudyand pages 4-5)</td>
+<td>Floor-of-mouth and neck swelling 100%; pain/tenderness 100%; fever 100%; dysphagia 80%; trismus 15%; foul smell 24%; respiratory distress 3%; muffled voice 10% (mahbub2024bacteriologicalstudyand pages 2-4, mahbub2024bacteriologicalstudyand pages 4-5)</td>
+<td><em>Streptococcus viridans</em> 40%; <em>S. aureus</em> 23%; coagulase-negative staphylococci 20%; <em>Klebsiella</em> 16%; <em>E. coli</em> 13%; <em>Pseudomonas</em> 12%; <em>Proteus</em> 11%; mixed organisms 30%; no organism 5% (mahbub2024bacteriologicalstudyand pages 4-5, mahbub2024bacteriologicalstudyand media 024e80f3, mahbub2024bacteriologicalstudyand media 459caceb)</td>
+<td>Incision and drainage performed for included cases; empiric IV penicillin G/clindamycin/metronidazole discussed; ceftriaxone most effective antibiotic 65%; ceftazidime 58%; ciprofloxacin 56% (mahbub2024bacteriologicalstudyand pages 1-2, mahbub2024bacteriologicalstudyand pages 2-4, mahbub2024bacteriologicalstudyand pages 4-5, mahbub2024bacteriologicalstudyand media 459caceb)</td>
+<td>Necrotizing fasciitis 8%; septicemia 7%; mediastinitis 6%; death 2% (2 patients, due to mediastinitis); discharged within 1-2 weeks 36% (mahbub2024bacteriologicalstudyand pages 4-5)</td>
+<td>https://doi.org/10.3329/mumcj.v6i2.71369</td>
+<td>Feb 2024</td>
+</tr>
+<tr>
+<td>Sahoo, 2024</td>
+<td>Retrospective study; maxillofacial/oral surgery setting</td>
+<td style="text-align: right;">17</td>
+<td>Comorbidities 70.5%; diabetes mellitus 50%; all patients had infected lower molar source; risk factors discussed: malnutrition, immunocompromise, old age, obesity, pregnancy, CKD, cirrhosis, COPD, CAD (sahoo2024incidenceofmortality pages 1-2, sahoo2024incidenceofmortality pages 5-6)</td>
+<td>Painful neck swelling; drooling; tooth pain; dysphagia; shortness of breath; fever; trismus; muffled voice; impending airway crisis signs include cyanosis/stridor (percentages NR) (sahoo2024incidenceofmortality pages 5-6)</td>
+<td>Polymicrobial; native streptococci, staphylococci, <em>Bacteroides</em>, mixed aerobic/anaerobic oral flora (sahoo2024incidenceofmortality pages 1-2)</td>
+<td>Oro-tracheal intubation 88.2%; tracheostomy 11.2%; CECT for all cases; OPG and chest X-ray recommended; institutional empiric regimen ceftriaxone-sulbactam + amikacin + metronidazole; early decompression mainstay (sahoo2024incidenceofmortality pages 1-2, sahoo2024incidenceofmortality pages 5-6, sahoo2024incidenceofmortality pages 6-7)</td>
+<td>Mortality 23.5%; all deaths had comorbidity; necrotizing fasciitis 29.4% with 100% recovery in that subgroup; historical overall mortality cited as 0.3% in a 5,855-patient representative study; cervical necrotizing fasciitis mortality rises to 41% with descending necrotizing mediastinitis and 64% with sepsis (sahoo2024incidenceofmortality pages 5-6, sahoo2024incidenceofmortality pages 1-2, sahoo2024incidenceofmortality pages 6-7)</td>
+<td>https://doi.org/10.1007/s12663-024-02116-5</td>
+<td>Feb 2024</td>
+</tr>
+<tr>
+<td>Benhoummad, 2023</td>
+<td>Case report and literature review; pediatric emergency/ENT</td>
+<td style="text-align: right;">1</td>
+<td>Pediatric case; no dental/systemic etiology in index case; literature notes adult cases usually secondary to oral infections (benhoummad2023ludwig’sanginain pages 1-3)</td>
+<td>Firm submental/submandibular swelling; pain; fever; respiratory discomfort in supine position; no dysphagia/respiratory distress initially; hyperleukocytosis; CRP 300 (benhoummad2023ludwig’sanginain pages 1-3)</td>
+<td>Gram-positive cocci in chains; culture grew <em>Staphylococcus aureus</em> (benhoummad2023ludwig’sanginain pages 1-3)</td>
+<td>Percutaneous drainage of 15 mL pus; broad-spectrum IV antibiotics; wound care; airway control emphasized in review (benhoummad2023ludwig’sanginain pages 1-3)</td>
+<td>Clinical and biological improvement; discharged after 7 days; no complication at 6-month follow-up (benhoummad2023ludwig’sanginain pages 1-3)</td>
+<td>https://doi.org/10.1186/s43163-023-00431-1</td>
+<td>Apr 2023</td>
+</tr>
+<tr>
+<td>Ahmed, 2025</td>
+<td>Retrospective emergency department study; Mogadishu Somali Turkey Training and Research Hospital, Somalia</td>
+<td style="text-align: right;">90</td>
+<td>Odontogenic infection 65.5%; periodontal abscess 34.4%; post-extraction abscess 21.1%; dental caries 16.7%; diabetes mellitus 5.6%; severe anaemia 13.3%; chronic liver disease 4.4%; no underlying conditions 41.1%; symptom delay 5-7 days in 77.8% (ahmed2025ludwig’sanginain pages 5-8, ahmed2025ludwig’sanginain pages 8-11, ahmed2025ludwig’sanginaina pages 5-7)</td>
+<td>Submandibular swelling, trismus, tongue elevation, difficulty breathing 52.2%; fever/toothache/submental swelling 35.6%; bilateral swelling 12.2% (ahmed2025ludwig’sanginain pages 8-11)</td>
+<td>Species breakdown NR in available excerpt (ahmed2025ludwig’sanginain pages 8-11)</td>
+<td>Airway support for all (oropharyngeal airway + intranasal oxygen); ceftriaxone + metronidazole empirically, then tailored; surgical decompression 38.9%; incision and drainage 14.4%; antibiotics/targeted therapy 46.7%; source removal in 53.3% of operated cases; ICU 4.4% (ahmed2025ludwig’sanginain pages 5-8, ahmed2025ludwig’sanginaina pages 5-7)</td>
+<td>Complications 48.9%; septicemia 36.7%; sepsis ~30%; necrotizing fasciitis 5.5-5.6%; DIC 3.3%; laryngeal spasm 3.3%; no mortality; hospital stay 3-5 days in 52.3% (ahmed2025ludwig’sanginain pages 5-8, ahmed2025ludwig’sanginain pages 8-11, ahmed2025ludwig’sanginaina pages 5-7)</td>
+<td>https://doi.org/10.21203/rs.3.rs-7314800/v1</td>
+<td>Aug 2025</td>
+</tr>
+<tr>
+<td>Chang, 2018</td>
+<td>Nationwide population-based cohort study; Taiwan NHIRD; deep neck infection risk in T1DM</td>
+<td style="text-align: right;">5,741 T1DM vs 22,964 matched controls</td>
+<td>Type 1 diabetes mellitus associated with higher DNI risk; adjusted hazard ratio 10.71 (95% CI 6.02-19.05) (sahoo2024incidenceofmortality pages 5-6)</td>
+<td>NR for Ludwig-specific presentation in excerpt</td>
+<td>NR</td>
+<td>Therapeutic methods did not differ significantly between T1DM and non-DM DNI cohorts (sahoo2024incidenceofmortality pages 5-6)</td>
+<td>Longer hospitalization for DNI in T1DM: 9.0 ± 6.2 vs 4.1 ± 2.0 days; younger age at DNI in T1DM (sahoo2024incidenceofmortality pages 5-6)</td>
+<td>https://doi.org/10.3390/jcm7110385</td>
+<td>Oct 2018</td>
+</tr>
+<tr>
+<td>Lin, 2021</td>
+<td>Multicenter retrospective cohort study; 9 hospitals, Guangdong Province; deep neck space abscess airway-risk model</td>
+<td style="text-align: right;">440</td>
+<td>Predictors of airway management: multispace involvement OR 6.42; gas formation OR 4.95; dyspnea OR 10.35; neutrophil percentage OR 1.10; platelet/lymphocyte ratio OR 1.01; albumin OR 0.86; diabetes noted in cohort characteristics (sahoo2024incidenceofmortality pages 5-6)</td>
+<td>Dyspnea used as predictor; other Ludwig-specific symptom percentages NR in excerpt</td>
+<td>NR</td>
+<td>Outcome modeled was need for airway management (intubation/tracheostomy); internal validation AUC 0.951, external AUC 0.947 (sahoo2024incidenceofmortality pages 5-6)</td>
+<td>60/363 in training cohort and 13/77 in validation cohort required airway management (sahoo2024incidenceofmortality pages 5-6)</td>
+<td>https://doi.org/10.1186/s40560-021-00554-8</td>
+<td>May 2021</td>
+</tr>
+<tr>
+<td>Kataria, 2015</td>
+<td>Retrospective study of deep neck space infections</td>
+<td style="text-align: right;">76</td>
+<td>Odontogenic infection 34.21%; diabetes comorbidity 10.52%; rural background common; poor oral hygiene/smoking/chewing tobacco highlighted (sahoo2024incidenceofmortality pages 5-6)</td>
+<td>Neck pain 89.47%; Ludwig's angina was the most common presentation 28.94% (sahoo2024incidenceofmortality pages 5-6)</td>
+<td>Streptococcus/Staphylococcus in 50% of cases (sahoo2024incidenceofmortality pages 5-6)</td>
+<td>Surgical intervention 89.47%; emergency tracheotomy 5.26%; IV antibiotics recommended for all (sahoo2024incidenceofmortality pages 5-6)</td>
+<td>Airway obstruction, jugular vein thrombosis, and sepsis noted as DNSI complications (sahoo2024incidenceofmortality pages 5-6)</td>
+<td>https://doi.org/10.22038/ijorl.2015.4520</td>
+<td>Jul 2015</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table compiles the main quantitative findings and clinical takeaways for Ludwig’s angina from the currently available evidence in the conversation. It highlights etiology, risk factors, microbiology, interventions, and outcomes to support rapid synthesis for a disease knowledge base.</em></p>
+<h2>Visual evidence from recent study tables</h2>
+<p>Cropped tables from the 2024 Bangladesh prospective study show bacterial isolate distributions and antibiotic sensitivity counts (Tables IV and VI). (mahbub2024bacteriologicalstudyand media 024e80f3, mahbub2024bacteriologicalstudyand media 459caceb)</p>
+<hr />
+<h2>Abstract-supported quotes (selected)</h2>
+<ul>
+<li>Definition/anatomy: Ludwig’s angina in a pediatric report is described as “a diffuse cellulitis in the sub-mandibular space, which extends to the sublingual space.” (benhoummad2023ludwig’sanginain pages 1-3)</li>
+<li>Cohort microbiology/antibiogram relevance: “The knowledge of the local pattern of infection and antibacterial sensitivity in Ludwig’s angina is essential to enable efficacious treatment for it.” (mahbub2024bacteriologicalstudyand pages 1-2)</li>
+</ul>
+<hr />
+<h2>Limitations of this report</h2>
+<ul>
+<li>Standard identifiers (MONDO/MeSH/ICD/Orphanet/OMIM) and PMID-level indexing were not available in the retrieved full texts; URLs and DOIs are provided where present in the evidence, and identifier curation should be performed using dedicated ontology resources. (sahoo2024incidenceofmortality pages 1-2, mahbub2024bacteriologicalstudyand pages 1-2)</li>
+<li>Some data (e.g., incidence/prevalence) are not well represented in the retrieved set and may require targeted epidemiology database queries beyond the current corpus.</li>
+</ul>
+<p>References</p>
+<ol>
+<li>
+<p>(ahmed2025ludwig’sanginain pages 8-11): Abdullahi Ahmed Ahmed, Ismail Mohamoud Abdullahi, Nasteho Mohamed Sheikh Omar, Abdishakur Mohamed Abdirahman, Resul Nusretoğlu, and Sahra Ali Yusuf. Ludwig’s angina in the emergency department: epidemiology, diagnosis, and outcomes: a retrospective study in somalia. Unknown journal, Aug 2025. URL: https://doi.org/10.21203/rs.3.rs-7314800/v1, doi:10.21203/rs.3.rs-7314800/v1.</p>
+</li>
+<li>
+<p>(sahoo2024incidenceofmortality pages 1-2): N. K. Sahoo, Ankur Thakral, Swati Pandey, Himani Vaswani, Sahil Vashisht, and Isha Maheshwari. Incidence of mortality and its relation to comorbidity in ludwig's angina: a retrospective study. Journal of maxillofacial and oral surgery, 23 3:581-588, Feb 2024. URL: https://doi.org/10.1007/s12663-024-02116-5, doi:10.1007/s12663-024-02116-5. This article has 3 citations.</p>
+</li>
+<li>
+<p>(boynton201612–odontogenic pages 13-14): Tyler T. Boynton, Elie M. Ferneini, and Morton H. Goldberg. 12 – odontogenic infections of the fascial spaces. ArXiv, pages 203-221, Jan 2016. URL: https://doi.org/10.1016/b978-0-323-28945-0.00012-0, doi:10.1016/b978-0-323-28945-0.00012-0. This article has 7 citations.</p>
+</li>
+<li>
+<p>(mahbub2024bacteriologicalstudyand pages 1-2): AHM Rashid E Mahbub, Abdullah Al Mamun, Rokhsana Sarmin, Syed Sanaul Islam, Rashedul Islam, AHM Noor E As Sayeed, and Md Asif Anowar. Bacteriological study and antibacterial susceptibility in ludwig’s angina in a tertiary level hospital in dhaka, bangladesh. Mugda Medical College Journal, 6:71-76, Feb 2024. URL: https://doi.org/10.3329/mumcj.v6i2.71369, doi:10.3329/mumcj.v6i2.71369. This article has 0 citations.</p>
+</li>
+<li>
+<p>(benhoummad2023ludwig’sanginain pages 1-3): Othmane Benhoummad, Kaoutar Cherrabi, Najib El Orfi, Zineb Mortaji, and Mehdi El Fakiri. Ludwig’s angina in a child: a case report and literature review. The Egyptian Journal of Otolaryngology, Apr 2023. URL: https://doi.org/10.1186/s43163-023-00431-1, doi:10.1186/s43163-023-00431-1. This article has 5 citations.</p>
+</li>
+<li>
+<p>(kumari2024diabetesmellitusand pages 2-4): Anjana Kumari, Arvinder Singh Maan, Satinderpal Singh, and Simerpreet Kaur Saran. Diabetes mellitus and odontogenic infections: a life threatening combination in ludwig's angina. International Journal of Research in Medical Sciences, 12:1502-1506, Apr 2024. URL: https://doi.org/10.18203/2320-6012.ijrms20241233, doi:10.18203/2320-6012.ijrms20241233. This article has 4 citations.</p>
+</li>
+<li>
+<p>(sahoo2024incidenceofmortality pages 5-6): N. K. Sahoo, Ankur Thakral, Swati Pandey, Himani Vaswani, Sahil Vashisht, and Isha Maheshwari. Incidence of mortality and its relation to comorbidity in ludwig's angina: a retrospective study. Journal of maxillofacial and oral surgery, 23 3:581-588, Feb 2024. URL: https://doi.org/10.1007/s12663-024-02116-5, doi:10.1007/s12663-024-02116-5. This article has 3 citations.</p>
+</li>
+<li>
+<p>(sahoo2024incidenceofmortality pages 6-7): N. K. Sahoo, Ankur Thakral, Swati Pandey, Himani Vaswani, Sahil Vashisht, and Isha Maheshwari. Incidence of mortality and its relation to comorbidity in ludwig's angina: a retrospective study. Journal of maxillofacial and oral surgery, 23 3:581-588, Feb 2024. URL: https://doi.org/10.1007/s12663-024-02116-5, doi:10.1007/s12663-024-02116-5. This article has 3 citations.</p>
+</li>
+<li>
+<p>(mahbub2024bacteriologicalstudyand pages 2-4): AHM Rashid E Mahbub, Abdullah Al Mamun, Rokhsana Sarmin, Syed Sanaul Islam, Rashedul Islam, AHM Noor E As Sayeed, and Md Asif Anowar. Bacteriological study and antibacterial susceptibility in ludwig’s angina in a tertiary level hospital in dhaka, bangladesh. Mugda Medical College Journal, 6:71-76, Feb 2024. URL: https://doi.org/10.3329/mumcj.v6i2.71369, doi:10.3329/mumcj.v6i2.71369. This article has 0 citations.</p>
+</li>
+<li>
+<p>(mahbub2024bacteriologicalstudyand pages 4-5): AHM Rashid E Mahbub, Abdullah Al Mamun, Rokhsana Sarmin, Syed Sanaul Islam, Rashedul Islam, AHM Noor E As Sayeed, and Md Asif Anowar. Bacteriological study and antibacterial susceptibility in ludwig’s angina in a tertiary level hospital in dhaka, bangladesh. Mugda Medical College Journal, 6:71-76, Feb 2024. URL: https://doi.org/10.3329/mumcj.v6i2.71369, doi:10.3329/mumcj.v6i2.71369. This article has 0 citations.</p>
+</li>
+<li>
+<p>(ahmed2025ludwig’sanginaina pages 5-7): Abdullahi Ahmed Ahmed, Ismail Mohamoud Abdullahi, Hussein Hassan Mohamud, Nasteho Mohamed Sheikh Omar, Abdishakur Mohamed Abdirahman, Resul Nusretoğlu, and Sahra Ali Yusuf. Ludwig’s angina in somalia: clinical characteristics, management, and outcomes from a tertiary emergency department retrospective study. first report of ludwig’s angina in somalia. Unknown journal, Dec 2025. URL: https://doi.org/10.21203/rs.3.rs-8062782/v1, doi:10.21203/rs.3.rs-8062782/v1.</p>
+</li>
+<li>
+<p>(kumari2024diabetesmellitusand pages 4-5): Anjana Kumari, Arvinder Singh Maan, Satinderpal Singh, and Simerpreet Kaur Saran. Diabetes mellitus and odontogenic infections: a life threatening combination in ludwig's angina. International Journal of Research in Medical Sciences, 12:1502-1506, Apr 2024. URL: https://doi.org/10.18203/2320-6012.ijrms20241233, doi:10.18203/2320-6012.ijrms20241233. This article has 4 citations.</p>
+</li>
+<li>
+<p>(mahbub2024bacteriologicalstudyand media 459caceb): AHM Rashid E Mahbub, Abdullah Al Mamun, Rokhsana Sarmin, Syed Sanaul Islam, Rashedul Islam, AHM Noor E As Sayeed, and Md Asif Anowar. Bacteriological study and antibacterial susceptibility in ludwig’s angina in a tertiary level hospital in dhaka, bangladesh. Mugda Medical College Journal, 6:71-76, Feb 2024. URL: https://doi.org/10.3329/mumcj.v6i2.71369, doi:10.3329/mumcj.v6i2.71369. This article has 0 citations.</p>
+</li>
+<li>
+<p>(mahbub2024bacteriologicalstudyand media 024e80f3): AHM Rashid E Mahbub, Abdullah Al Mamun, Rokhsana Sarmin, Syed Sanaul Islam, Rashedul Islam, AHM Noor E As Sayeed, and Md Asif Anowar. Bacteriological study and antibacterial susceptibility in ludwig’s angina in a tertiary level hospital in dhaka, bangladesh. Mugda Medical College Journal, 6:71-76, Feb 2024. URL: https://doi.org/10.3329/mumcj.v6i2.71369, doi:10.3329/mumcj.v6i2.71369. This article has 0 citations.</p>
+</li>
+<li>
+<p>(ahmed2025ludwig’sanginain pages 5-8): Abdullahi Ahmed Ahmed, Ismail Mohamoud Abdullahi, Nasteho Mohamed Sheikh Omar, Abdishakur Mohamed Abdirahman, Resul Nusretoğlu, and Sahra Ali Yusuf. Ludwig’s angina in the emergency department: epidemiology, diagnosis, and outcomes: a retrospective study in somalia. Unknown journal, Aug 2025. URL: https://doi.org/10.21203/rs.3.rs-7314800/v1, doi:10.21203/rs.3.rs-7314800/v1.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </div>
         
 
         <footer class="page-footer">
@@ -4881,7 +6167,7 @@ differential_diagnoses:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Ludwig\u0027s Angina", "mondoId": "MONDO:0006576", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Ludwig\u0027s_Angina", "yamlRevision": "093c2ae6da38"};
+        const OS_CONFIG = {"diseaseName": "Ludwig\u0027s Angina", "mondoId": "MONDO:0006576", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Ludwig\u0027s_Angina", "yamlRevision": "dce2ac03966e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

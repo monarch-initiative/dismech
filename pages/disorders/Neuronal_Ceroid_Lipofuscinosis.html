@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,7 +2570,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Lysosomal Storage Disease</span>
@@ -2577,7 +2730,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">7</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -2585,7 +2738,7 @@
             
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
-                <div class="stat-value">1</div>
+                <div class="stat-value">10</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
@@ -2870,6 +3023,21 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Progressive Neurodegeneration</span>
+	                            
+	                            <span class="crosslink-desc">Toxic endo-lysosomal storage is modeled as part of the inherited lysosomal storage disease process that drives progressive neurodegeneration across NCLs.
+</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
@@ -2972,6 +3140,21 @@
                 
                 
 	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Toxic Endo-Lysosomal Storage</span>
+	                            
+	                            <span class="crosslink-desc">Pathogenic CLN-gene disruption of endomembrane and lysosomal processes is modeled upstream of the shared toxic endo-lysosomal storage phenotype.
+</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
 	                
 	                
     
@@ -3369,7 +3552,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Apoptotic Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Apoptosis is another recurring component of NCL cellular pathology and likely contributes to neuronal loss.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"]}}, {\"id\": \"Autophagy Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired autophagic handling is a recurring component of NCL cellular pathology and contributes to progressive neuronal dysfunction.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"autophagy\"]}}, {\"id\": \"Cognitive Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"NCL causes progressive decline in cognition and mental function.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100543\"}}, {\"id\": \"Developmental Regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive deterioration of motor and cognitive function in childhood NCL commonly presents clinically as loss of previously acquired skills.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002376\"}}, {\"id\": \"Progressive Neurodegeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in CLN genes ultimately drive a shared neurodegenerative disease process across NCL subtypes.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epileptic seizures are a frequent clinical manifestation of NCL.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Visual Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive loss of vision is a common hallmark phenotype across NCL subtypes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000505\"}}], \"edges\": [{\"source\": \"Autophagy Dysregulation\", \"target\": \"Progressive Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Apoptotic Signaling\", \"target\": \"Progressive Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Neurodegeneration\", \"target\": \"Visual Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Neurodegeneration\", \"target\": \"Cognitive Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Neurodegeneration\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Neurodegeneration\", \"target\": \"Developmental Regression\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Apoptotic Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Apoptosis is another recurring component of NCL cellular pathology and likely contributes to neuronal loss.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"]}}, {\"id\": \"Autophagy Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired autophagic handling is a recurring component of NCL cellular pathology and contributes to progressive neuronal dysfunction.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"autophagy\"]}}, {\"id\": \"CLN Endomembrane Protein Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NCL-causing genes encode proteins distributed across the endomembrane system, and convergent dysfunction of this intracellular network is thought to underlie the shared clinical manifestations across subtypes.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"lysosomal transport\"]}}, {\"id\": \"Cognitive Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"NCL causes progressive decline in cognition and mental function.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100543\"}}, {\"id\": \"Developmental Regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive deterioration of motor and cognitive function in childhood NCL commonly presents clinically as loss of previously acquired skills.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002376\"}}, {\"id\": \"Progressive Neurodegeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in CLN genes ultimately drive a shared neurodegenerative disease process across NCL subtypes.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epileptic seizures are a frequent clinical manifestation of NCL.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Toxic Endo-Lysosomal Storage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NCL is defined by toxic endo-lysosomal storage that accompanies the genetically heterogeneous lysosomal defects across the disease group.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\", \"glial cell\"], \"biological_processes\": [\"lysosomal transport\"]}}, {\"id\": \"Visual Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive loss of vision is a common hallmark phenotype across NCL subtypes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000505\"}}], \"edges\": [{\"source\": \"Toxic Endo-Lysosomal Storage\", \"target\": \"Progressive Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CLN Endomembrane Protein Dysfunction\", \"target\": \"Toxic Endo-Lysosomal Storage\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autophagy Dysregulation\", \"target\": \"Progressive Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Apoptotic Signaling\", \"target\": \"Progressive Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Neurodegeneration\", \"target\": \"Visual Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Neurodegeneration\", \"target\": \"Cognitive Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Neurodegeneration\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Neurodegeneration\", \"target\": \"Developmental Regression\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3664,7 +3847,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">1</span>
+                <span class="card-count">10</span>
             </div>
             
             <div class="item-box genetic-box">
@@ -3700,6 +3883,393 @@
                 
                 
                 <div class="evidence-explanation">This review summarizes the marked genetic heterogeneity of NCL across multiple causative CLN loci.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    CLN3
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_6be652b4-092f-4d1c-9606-4dfeb689c4b9-2023-04-04T040000.000Z" target="_blank">CGGV:assertion_6be652b4-092f-4d1c-9606-4dfeb689c4b9-2023-04-04T040000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"CLN3 | HGNC:2074 | neuronal ceroid lipofuscinosis | MONDO:0016295 | AR | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the CLN3-neuronal ceroid lipofuscinosis gene-disease relationship as definitive with autosomal recessive inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    CLN5
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_a522b1d6-5ade-4749-94b8-d5426bbe5961-2021-09-08T023930.981Z" target="_blank">CGGV:assertion_a522b1d6-5ade-4749-94b8-d5426bbe5961-2021-09-08T023930.981Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"CLN5 | HGNC:2076 | neuronal ceroid lipofuscinosis | MONDO:0016295 | AR | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the CLN5-neuronal ceroid lipofuscinosis gene-disease relationship as definitive with autosomal recessive inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    CLN6
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_09654b45-6649-4d11-b43e-aeb6d20fb86d-2020-12-01T170000.000Z" target="_blank">CGGV:assertion_09654b45-6649-4d11-b43e-aeb6d20fb86d-2020-12-01T170000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"CLN6 | HGNC:2077 | neuronal ceroid lipofuscinosis | MONDO:0016295 | AR | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the CLN6-neuronal ceroid lipofuscinosis gene-disease relationship as definitive with autosomal recessive inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    CLN8
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_68775ed0-576e-4ee7-90f2-d16329ecd7c1-2020-09-07T220116.243Z" target="_blank">CGGV:assertion_68775ed0-576e-4ee7-90f2-d16329ecd7c1-2020-09-07T220116.243Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"CLN8 | HGNC:2079 | neuronal ceroid lipofuscinosis | MONDO:0016295 | AR | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the CLN8-neuronal ceroid lipofuscinosis gene-disease relationship as definitive with autosomal recessive inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    CTSD
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_d74b1b2a-52a3-4192-b5b4-e4fd46ffc0ba-2020-11-03T180000.000Z" target="_blank">CGGV:assertion_d74b1b2a-52a3-4192-b5b4-e4fd46ffc0ba-2020-11-03T180000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"CTSD | HGNC:2529 | neuronal ceroid lipofuscinosis | MONDO:0016295 | AR | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the CTSD-neuronal ceroid lipofuscinosis gene-disease relationship as definitive with autosomal recessive inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    GRN
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_49eb0915-acff-423d-a70f-d00d4319d404-2023-01-03T170000.000Z" target="_blank">CGGV:assertion_49eb0915-acff-423d-a70f-d00d4319d404-2023-01-03T170000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"GRN | HGNC:4601 | neuronal ceroid lipofuscinosis | MONDO:0016295 | AR | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the GRN-neuronal ceroid lipofuscinosis gene-disease relationship as definitive with autosomal recessive inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    MFSD8
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_0f42cb66-5f28-4674-8f5a-76e15880bbfc-2020-12-15T170000.000Z" target="_blank">CGGV:assertion_0f42cb66-5f28-4674-8f5a-76e15880bbfc-2020-12-15T170000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"MFSD8 | HGNC:28486 | neuronal ceroid lipofuscinosis | MONDO:0016295 | AR | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the MFSD8-neuronal ceroid lipofuscinosis gene-disease relationship as definitive with autosomal recessive inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    PPT1
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_ae7ebc05-9401-4932-afe2-a80e0d31e12f-2024-06-10T190000.000Z" target="_blank">CGGV:assertion_ae7ebc05-9401-4932-afe2-a80e0d31e12f-2024-06-10T190000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"PPT1 | HGNC:9325 | neuronal ceroid lipofuscinosis | MONDO:0016295 | AR | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the PPT1-neuronal ceroid lipofuscinosis gene-disease relationship as definitive with autosomal recessive inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    TPP1
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_9b2f3b20-fb9a-4b5e-ad8e-e03be5ebb8e5-2020-09-26T005342.102Z" target="_blank">CGGV:assertion_9b2f3b20-fb9a-4b5e-ad8e-e03be5ebb8e5-2020-09-26T005342.102Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"TPP1 | HGNC:2073 | neuronal ceroid lipofuscinosis | MONDO:0016295 | AR | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the TPP1-neuronal ceroid lipofuscinosis gene-disease relationship as definitive with autosomal recessive inheritance.</div>
                 
             </div>
             
@@ -3937,7 +4507,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Neuronal Ceroid Lipofuscinosis
 creation_date: &#39;2026-03-30T18:20:00Z&#39;
-updated_date: &#39;2026-03-30T23:35:00Z&#39;
+updated_date: &#39;2026-05-09T03:16:10Z&#39;
 description: &gt;
   Neuronal ceroid lipofuscinosis (NCL; Batten disease) is a genetically
   heterogeneous group of lysosomal neurodegenerative disorders that primarily
@@ -3989,6 +4559,25 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;These are genetic diseases associated with the formation of toxic endo-lysosomal storage.&#34;
     explanation: This review identifies toxic endo-lysosomal storage as a core mechanistic feature of childhood NCL.
+  downstream:
+  - target: Progressive Neurodegeneration
+    description: &gt;
+      Toxic endo-lysosomal storage is modeled as part of the inherited
+      lysosomal storage disease process that drives progressive
+      neurodegeneration across NCLs.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:31678162
+      reference_title: &#34;Pathomechanisms in the neuronal ceroid lipofuscinoses.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;
+        The neuronal ceroid lipofuscinoses (NCLs) are a group of inherited
+        neurodegenerative lysosomal storage disorders (LSDs)
+      explanation: &gt;
+        The review defines NCLs as inherited neurodegenerative lysosomal storage
+        disorders, supporting an indirect connection from storage pathology to
+        the shared neurodegenerative process.
 - name: CLN Endomembrane Protein Dysfunction
   description: &gt;
     NCL-causing genes encode proteins distributed across the endomembrane
@@ -4016,6 +4605,34 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;A growing body of literature supports the networking of CLN genes and proteins within cells, which aligns with the broadly similar cellular and clinical manifestations among the different subtypes of NCL.&#34;
     explanation: This supports convergent intracellular CLN protein dysfunction as an explanation for shared manifestations across NCL subtypes.
+  downstream:
+  - target: Toxic Endo-Lysosomal Storage
+    description: &gt;
+      Pathogenic CLN-gene disruption of endomembrane and lysosomal processes is
+      modeled upstream of the shared toxic endo-lysosomal storage phenotype.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:37022340
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;
+        In humans, mutations in CLN genes cause a devastating form of
+        neurodegeneration called neuronal ceroid lipofuscinosis (NCL), commonly
+        known as Batten disease.
+      explanation: &gt;
+        This review directly links CLN-gene mutations to the human NCL disease
+        group.
+    - reference: PMID:31678162
+      reference_title: &#34;Pathomechanisms in the neuronal ceroid lipofuscinoses.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;
+        The neuronal ceroid lipofuscinoses (NCLs) are a group of inherited
+        neurodegenerative lysosomal storage disorders (LSDs)
+      explanation: &gt;
+        This review classifies NCLs as lysosomal storage disorders, supporting
+        toxic endo-lysosomal storage as the downstream storage phenotype of
+        CLN-gene disease.
 - name: Autophagy Dysregulation
   description: &gt;
     Impaired autophagic handling is a recurring component of NCL cellular
@@ -4197,6 +4814,132 @@ genetic:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;To date, 13 autosomal recessive gene variants, as well as one autosomal dominant gene variant, of NCL have been described.&#34;
     explanation: This review summarizes the marked genetic heterogeneity of NCL across multiple causative CLN loci.
+- name: CLN3
+  gene_term:
+    preferred_term: CLN3
+    term:
+      id: hgnc:2074
+      label: CLN3
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_6be652b4-092f-4d1c-9606-4dfeb689c4b9-2023-04-04T040000.000Z
+    reference_title: &#34;CLN3 / neuronal ceroid lipofuscinosis (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;CLN3 | HGNC:2074 | neuronal ceroid lipofuscinosis | MONDO:0016295 | AR | Definitive&#34;
+    explanation: ClinGen classifies the CLN3-neuronal ceroid lipofuscinosis gene-disease relationship as definitive with autosomal recessive inheritance.
+- name: CLN5
+  gene_term:
+    preferred_term: CLN5
+    term:
+      id: hgnc:2076
+      label: CLN5
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_a522b1d6-5ade-4749-94b8-d5426bbe5961-2021-09-08T023930.981Z
+    reference_title: &#34;CLN5 / neuronal ceroid lipofuscinosis (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;CLN5 | HGNC:2076 | neuronal ceroid lipofuscinosis | MONDO:0016295 | AR | Definitive&#34;
+    explanation: ClinGen classifies the CLN5-neuronal ceroid lipofuscinosis gene-disease relationship as definitive with autosomal recessive inheritance.
+- name: CLN6
+  gene_term:
+    preferred_term: CLN6
+    term:
+      id: hgnc:2077
+      label: CLN6
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_09654b45-6649-4d11-b43e-aeb6d20fb86d-2020-12-01T170000.000Z
+    reference_title: &#34;CLN6 / neuronal ceroid lipofuscinosis (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;CLN6 | HGNC:2077 | neuronal ceroid lipofuscinosis | MONDO:0016295 | AR | Definitive&#34;
+    explanation: ClinGen classifies the CLN6-neuronal ceroid lipofuscinosis gene-disease relationship as definitive with autosomal recessive inheritance.
+- name: CLN8
+  gene_term:
+    preferred_term: CLN8
+    term:
+      id: hgnc:2079
+      label: CLN8
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_68775ed0-576e-4ee7-90f2-d16329ecd7c1-2020-09-07T220116.243Z
+    reference_title: &#34;CLN8 / neuronal ceroid lipofuscinosis (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;CLN8 | HGNC:2079 | neuronal ceroid lipofuscinosis | MONDO:0016295 | AR | Definitive&#34;
+    explanation: ClinGen classifies the CLN8-neuronal ceroid lipofuscinosis gene-disease relationship as definitive with autosomal recessive inheritance.
+- name: CTSD
+  gene_term:
+    preferred_term: CTSD
+    term:
+      id: hgnc:2529
+      label: CTSD
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_d74b1b2a-52a3-4192-b5b4-e4fd46ffc0ba-2020-11-03T180000.000Z
+    reference_title: &#34;CTSD / neuronal ceroid lipofuscinosis (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;CTSD | HGNC:2529 | neuronal ceroid lipofuscinosis | MONDO:0016295 | AR | Definitive&#34;
+    explanation: ClinGen classifies the CTSD-neuronal ceroid lipofuscinosis gene-disease relationship as definitive with autosomal recessive inheritance.
+- name: GRN
+  gene_term:
+    preferred_term: GRN
+    term:
+      id: hgnc:4601
+      label: GRN
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_49eb0915-acff-423d-a70f-d00d4319d404-2023-01-03T170000.000Z
+    reference_title: &#34;GRN / neuronal ceroid lipofuscinosis (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;GRN | HGNC:4601 | neuronal ceroid lipofuscinosis | MONDO:0016295 | AR | Definitive&#34;
+    explanation: ClinGen classifies the GRN-neuronal ceroid lipofuscinosis gene-disease relationship as definitive with autosomal recessive inheritance.
+- name: MFSD8
+  gene_term:
+    preferred_term: MFSD8
+    term:
+      id: hgnc:28486
+      label: MFSD8
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_0f42cb66-5f28-4674-8f5a-76e15880bbfc-2020-12-15T170000.000Z
+    reference_title: &#34;MFSD8 / neuronal ceroid lipofuscinosis (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;MFSD8 | HGNC:28486 | neuronal ceroid lipofuscinosis | MONDO:0016295 | AR | Definitive&#34;
+    explanation: ClinGen classifies the MFSD8-neuronal ceroid lipofuscinosis gene-disease relationship as definitive with autosomal recessive inheritance.
+- name: PPT1
+  gene_term:
+    preferred_term: PPT1
+    term:
+      id: hgnc:9325
+      label: PPT1
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_ae7ebc05-9401-4932-afe2-a80e0d31e12f-2024-06-10T190000.000Z
+    reference_title: &#34;PPT1 / neuronal ceroid lipofuscinosis (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;PPT1 | HGNC:9325 | neuronal ceroid lipofuscinosis | MONDO:0016295 | AR | Definitive&#34;
+    explanation: ClinGen classifies the PPT1-neuronal ceroid lipofuscinosis gene-disease relationship as definitive with autosomal recessive inheritance.
+- name: TPP1
+  gene_term:
+    preferred_term: TPP1
+    term:
+      id: hgnc:2073
+      label: TPP1
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_9b2f3b20-fb9a-4b5e-ad8e-e03be5ebb8e5-2020-09-26T005342.102Z
+    reference_title: &#34;TPP1 / neuronal ceroid lipofuscinosis (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;TPP1 | HGNC:2073 | neuronal ceroid lipofuscinosis | MONDO:0016295 | AR | Definitive&#34;
+    explanation: ClinGen classifies the TPP1-neuronal ceroid lipofuscinosis gene-disease relationship as definitive with autosomal recessive inheritance.
 treatments:
 - name: Cerliponase Alfa
   description: &gt;
@@ -4662,7 +5405,7 @@ datasets: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Neuronal Ceroid Lipofuscinosis", "mondoId": "MONDO:0016295", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Neuronal_Ceroid_Lipofuscinosis", "yamlRevision": "c65d37f435e4"};
+        const OS_CONFIG = {"diseaseName": "Neuronal Ceroid Lipofuscinosis", "mondoId": "MONDO:0016295", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Neuronal_Ceroid_Lipofuscinosis", "yamlRevision": "6f30ee5d7768"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

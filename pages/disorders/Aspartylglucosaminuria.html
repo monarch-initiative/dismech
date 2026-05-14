@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,7 +2570,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 15</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 22</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Lysosomal Storage Disorder</span>
@@ -2587,7 +2740,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">15</div>
+                <div class="stat-value">22</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3281,6 +3434,13 @@
 	                            
 	                        </div>
 	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Aspartylglucosaminuria</span>
+	                            
+	                            <span class="crosslink-desc">Accumulated GlcNAc-Asn/aspartylglucosamine is excreted in urine as the biochemical phenotype.</span>
+	                            
+	                        </div>
+	                        
 	                    </div>
 	                </div>
 	                
@@ -3341,7 +3501,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -3460,6 +3620,13 @@
 	                        </div>
 	                        
 	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Abnormality of speech or vocalization</span>
+	                            
+	                            <span class="crosslink-desc">Progressive brain involvement also manifests as abnormal speech and vocalization.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Dyskinesia</span>
 	                            
 	                            <span class="crosslink-desc">Progressive CNS involvement contributes to abnormal involuntary movement.</span>
@@ -3513,7 +3680,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -3534,7 +3701,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-connective-tissue-and-skeletal-involvement">
                 <div class="item-name">Systemic connective tissue and skeletal involvement</div>
                 
-                <div class="item-desc">Non-neuronal lysosomal storage and connective-tissue overgrowth contribute to the facial, gingival, hernia, and skeletal manifestations of aspartylglucosaminuria.
+                <div class="item-desc">Non-neuronal lysosomal storage and connective-tissue overgrowth contribute to the coarse facial, gingival/oral, hernia, and skeletal manifestations of aspartylglucosaminuria.
 </div>
                 
                 
@@ -3577,6 +3744,13 @@
 	                        </div>
 	                        
 	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Coarse facial features</span>
+	                            
+	                            <span class="crosslink-desc">Systemic storage and connective-tissue overgrowth contribute to coarse facial features.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Umbilical hernia</span>
 	                            
 	                            <span class="crosslink-desc">Connective tissue involvement contributes to hernias.</span>
@@ -3584,9 +3758,37 @@
 	                        </div>
 	                        
 	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Inguinal hernia</span>
+	                            
+	                            <span class="crosslink-desc">Connective tissue involvement can also manifest as inguinal hernia.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Scoliosis</span>
 	                            
 	                            <span class="crosslink-desc">Skeletal involvement contributes to spinal curvature.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Pectus carinatum</span>
+	                            
+	                            <span class="crosslink-desc">Skeletal involvement can manifest as pectus carinatum.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Thickened calvaria</span>
+	                            
+	                            <span class="crosslink-desc">Cranial skeletal involvement can manifest as calvarial thickening.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Anterior beaking of lumbar vertebrae</span>
+	                            
+	                            <span class="crosslink-desc">Spinal skeletal involvement can manifest as anterior lumbar vertebral beaking.</span>
 	                            
 	                        </div>
 	                        
@@ -3673,7 +3875,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AAV9/AGA gene replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"AAV9-mediated AGA gene replacement is a preclinical disease-modifying strategy that restored AGA activity, reduced GlcNAc-Asn substrate, and improved neurologic and histopathologic outcomes in Aga-deficient mice. It is not yet an approved human therapy.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"AGA lysosomal enzyme deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in AGA reduce functional aspartylglucosaminidase/glycosylasparaginase, a lysosomal enzyme required for hydrolysis of the protein-oligosaccharide linkage in Asn-linked glycoprotein turnover.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"glycoprotein catabolic process\", \"protein deglycosylation\"], \"genes\": [\"AGA\"]}}, {\"id\": \"AGA protein maturation and folding defects\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Many AGA missense variants disrupt folding, dimerization, autocatalytic activation, lysosomal trafficking, or active-site function, lowering mature lysosomal enzyme activity and contributing to genotype-specific severity.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein folding\", \"protein maturation\"], \"genes\": [\"AGA\"]}}, {\"id\": \"Biallelic AGA pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"AGA\"], \"association\": \"CAUSATIVE\"}}, {\"id\": \"Delayed speech and language development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed speech and language development is a very frequent early neurodevelopmental feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Dyskinesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dyskinesia is a very frequent motor manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0100660\"}}, {\"id\": \"Gingival overgrowth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gingival overgrowth is a very frequent connective-tissue/facial feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000212\"}}, {\"id\": \"Glycoasparagine substrate accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient AGA activity causes accumulation of undegraded glycoasparagines, especially aspartylglucosamine/GlcNAc-Asn, in tissue lysosomes and body fluids. Urinary excretion of aspartylglucosamine is the characteristic biochemical signature.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"glycoprotein catabolic process\"]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive intellectual disability is a core neurologic manifestation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Neuronal and glial lysosomal storage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glycoasparagine accumulation produces lysosomal storage in neurons and glia, brain atrophy, impaired learning, progressive intellectual disability, speech impairment, gait disturbance, dyskinesia, and seizures.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\", \"glial cell\"], \"locations\": [\"brain\"]}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Scoliosis is a very frequent skeletal manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in a subset of affected individuals.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Supportive and anticipatory care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"No approved disease-modifying therapy is currently available; supportive care focuses on early interventions, management of neurodevelopmental, seizure, infection, sleep, orthopedic, and functional complications, and anticipatory guidance.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Systemic connective tissue and skeletal involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Non-neuronal lysosomal storage and connective-tissue overgrowth contribute to the facial, gingival, hernia, and skeletal manifestations of aspartylglucosaminuria.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"connective tissue\", \"cartilage tissue\"]}}, {\"id\": \"Umbilical hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Umbilical hernia is very frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001537\"}}], \"edges\": [{\"source\": \"AGA lysosomal enzyme deficiency\", \"target\": \"Glycoasparagine substrate accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"AGA protein maturation and folding defects\", \"target\": \"AGA lysosomal enzyme deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Glycoasparagine substrate accumulation\", \"target\": \"Neuronal and glial lysosomal storage\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Glycoasparagine substrate accumulation\", \"target\": \"Systemic connective tissue and skeletal involvement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuronal and glial lysosomal storage\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuronal and glial lysosomal storage\", \"target\": \"Delayed speech and language development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuronal and glial lysosomal storage\", \"target\": \"Dyskinesia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuronal and glial lysosomal storage\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic connective tissue and skeletal involvement\", \"target\": \"Gingival overgrowth\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic connective tissue and skeletal involvement\", \"target\": \"Umbilical hernia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic connective tissue and skeletal involvement\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Supportive and anticipatory care\", \"target\": \"Intellectual disability\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive and anticipatory care\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"AAV9/AGA gene replacement therapy\", \"target\": \"AGA lysosomal enzyme deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Biallelic AGA pathogenic variants\", \"target\": \"AGA lysosomal enzyme deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic AGA pathogenic variants\", \"target\": \"AGA protein maturation and folding defects\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AAV9/AGA gene replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"AAV9-mediated AGA gene replacement is a preclinical disease-modifying strategy that restored AGA activity, reduced GlcNAc-Asn substrate, and improved neurologic and histopathologic outcomes in Aga-deficient mice. It is not yet an approved human therapy.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"AGA lysosomal enzyme deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in AGA reduce functional aspartylglucosaminidase/glycosylasparaginase, a lysosomal enzyme required for hydrolysis of the protein-oligosaccharide linkage in Asn-linked glycoprotein turnover.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"glycoprotein catabolic process\", \"protein deglycosylation\"], \"genes\": [\"AGA\"]}}, {\"id\": \"AGA protein maturation and folding defects\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Many AGA missense variants disrupt folding, dimerization, autocatalytic activation, lysosomal trafficking, or active-site function, lowering mature lysosomal enzyme activity and contributing to genotype-specific severity.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein folding\", \"protein maturation\"], \"genes\": [\"AGA\"]}}, {\"id\": \"Abnormality of speech or vocalization\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech and vocalization abnormalities are very frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002167\"}}, {\"id\": \"Anterior beaking of lumbar vertebrae\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anterior beaking of lumbar vertebrae is a frequent spinal feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0008430\"}}, {\"id\": \"Aspartylglucosaminuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Urinary aspartylglucosamine is the characteristic biochemical phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012068\"}}, {\"id\": \"Biallelic AGA pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"AGA\"], \"association\": \"CAUSATIVE\"}}, {\"id\": \"Coarse facial features\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coarse facial features are frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000280\"}}, {\"id\": \"Delayed speech and language development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed speech and language development is a very frequent early neurodevelopmental feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Dyskinesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dyskinesia is a very frequent motor manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0100660\"}}, {\"id\": \"Gingival overgrowth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gingival overgrowth is a very frequent connective-tissue/facial feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000212\"}}, {\"id\": \"Glycoasparagine substrate accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient AGA activity causes accumulation of undegraded glycoasparagines, especially aspartylglucosamine/GlcNAc-Asn, in tissue lysosomes and body fluids. Urinary excretion of aspartylglucosamine is the characteristic biochemical signature.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"glycoprotein catabolic process\"]}}, {\"id\": \"Inguinal hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Inguinal hernia occurs in a subset of patients and is useful for early recognition.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000023\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive intellectual disability is a core neurologic manifestation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Neuronal and glial lysosomal storage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glycoasparagine accumulation produces lysosomal storage in neurons and glia, brain atrophy, impaired learning, progressive intellectual disability, speech impairment, gait disturbance, dyskinesia, and seizures.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\", \"glial cell\"], \"locations\": [\"brain\"]}}, {\"id\": \"Pectus carinatum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pectus carinatum is a frequent skeletal feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000768\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Scoliosis is a very frequent skeletal manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in a subset of affected individuals.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Supportive and anticipatory care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"No approved disease-modifying therapy is currently available; supportive care focuses on early interventions, management of neurodevelopmental, seizure, infection, sleep, orthopedic, and functional complications, and anticipatory guidance.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Systemic connective tissue and skeletal involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Non-neuronal lysosomal storage and connective-tissue overgrowth contribute to the coarse facial, gingival/oral, hernia, and skeletal manifestations of aspartylglucosaminuria.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"connective tissue\", \"cartilage tissue\"]}}, {\"id\": \"Thickened calvaria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thickened calvaria is a frequent cranial skeletal feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002684\"}}, {\"id\": \"Umbilical hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Umbilical hernia is very frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001537\"}}], \"edges\": [{\"source\": \"AGA lysosomal enzyme deficiency\", \"target\": \"Glycoasparagine substrate accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"AGA protein maturation and folding defects\", \"target\": \"AGA lysosomal enzyme deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Glycoasparagine substrate accumulation\", \"target\": \"Neuronal and glial lysosomal storage\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Glycoasparagine substrate accumulation\", \"target\": \"Systemic connective tissue and skeletal involvement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Glycoasparagine substrate accumulation\", \"target\": \"Aspartylglucosaminuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuronal and glial lysosomal storage\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuronal and glial lysosomal storage\", \"target\": \"Delayed speech and language development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuronal and glial lysosomal storage\", \"target\": \"Abnormality of speech or vocalization\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuronal and glial lysosomal storage\", \"target\": \"Dyskinesia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuronal and glial lysosomal storage\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic connective tissue and skeletal involvement\", \"target\": \"Gingival overgrowth\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic connective tissue and skeletal involvement\", \"target\": \"Coarse facial features\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic connective tissue and skeletal involvement\", \"target\": \"Umbilical hernia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic connective tissue and skeletal involvement\", \"target\": \"Inguinal hernia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic connective tissue and skeletal involvement\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic connective tissue and skeletal involvement\", \"target\": \"Pectus carinatum\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic connective tissue and skeletal involvement\", \"target\": \"Thickened calvaria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic connective tissue and skeletal involvement\", \"target\": \"Anterior beaking of lumbar vertebrae\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Supportive and anticipatory care\", \"target\": \"Intellectual disability\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive and anticipatory care\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"AAV9/AGA gene replacement therapy\", \"target\": \"AGA lysosomal enzyme deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"AAV9/AGA gene replacement therapy\", \"target\": \"Glycoasparagine substrate accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"AAV9/AGA gene replacement therapy\", \"target\": \"Neuronal and glial lysosomal storage\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Biallelic AGA pathogenic variants\", \"target\": \"AGA lysosomal enzyme deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic AGA pathogenic variants\", \"target\": \"AGA protein maturation and folding defects\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5517,7 +5719,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
             
@@ -5558,6 +5760,26 @@
                 
                 
                 <div class="evidence-explanation">Clinical review supports broader allelic heterogeneity outside Finland.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_1f315b4a-1a3b-4deb-90fd-2b73f732a4ba-2022-09-02T160000.000Z" target="_blank">CGGV:assertion_1f315b4a-1a3b-4deb-90fd-2b73f732a4ba-2022-09-02T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"AGA | HGNC:318 | aspartylglucosaminuria | MONDO:0008830 | AR | Definitive"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the AGA-aspartylglucosaminuria gene-disease relationship as definitive with autosomal recessive inheritance.</div>
                 
             </div>
             
@@ -5764,6 +5986,112 @@
     
                     </div>
                     
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Glycoasparagine substrate accumulation</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Restored AGA activity reduces the accumulated GlcNAc-Asn substrate burden in Aga-deficient mice.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33186692" target="_blank">PMID:33186692</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"rapid, sustained, and dose-dependent elimination of AGA substrate in body fluids"</div>
+                
+                
+                <div class="evidence-explanation">Mouse AAV9/AGA data support direct reduction of the storage substrate downstream of enzyme restoration.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Neuronal and glial lysosomal storage</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; AAV9/AGA reduced central nervous system pathology in the mouse model.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33186692" target="_blank">PMID:33186692</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"dose-dependent preservation of Purkinje neurons in the cerebellum"</div>
+                
+                
+                <div class="evidence-explanation">Preservation of cerebellar neurons supports disease-modifying impact on the neuronal storage branch.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33186692" target="_blank">PMID:33186692</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"significantly reduced gliosis in the brain"</div>
+                
+                
+                <div class="evidence-explanation">Reduced gliosis supports inhibition of downstream glial pathology in the mouse model.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
                 </div>
                 
                 
@@ -5830,6 +6158,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5866,7 +6195,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -5893,6 +6222,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Reduced AGA/glycosylasparaginase enzyme activity is the primary biochemical defect.</div>
+                
                 
                 
     
@@ -5961,7 +6291,7 @@
                 <pre class="yaml-preview">name: Aspartylglucosaminuria
 category: Mendelian
 creation_date: &#39;2026-05-03T15:19:05Z&#39;
-updated_date: &#39;2026-05-03T17:02:30Z&#39;
+updated_date: &#39;2026-05-10T13:31:42Z&#39;
 synonyms:
 - Aspartylglucosaminidase deficiency
 - AGU
@@ -6135,7 +6465,15 @@ pathophysiology:
     explanation: Biochemical review identifies the affected gene and enzymatic reaction.
   downstream:
   - target: Glycoasparagine substrate accumulation
+    causal_link_type: DIRECT
     description: Loss of AGA activity blocks clearance of aspartylglucosamine-containing glycoasparagines.
+    evidence:
+    - reference: PMID:10571008
+      reference_title: &#34;Aspartylglycosaminuria: biochemistry and molecular biology.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Loss of glycosylasparaginase activity leads to accumulation of the linkage unit Asn-GlcNAc in tissue lysosomes.&#34;
+      explanation: This biochemical review directly links loss of AGA/glycosylasparaginase activity to lysosomal Asn-GlcNAc substrate accumulation.
 - name: AGA protein maturation and folding defects
   description: &gt;
     Many AGA missense variants disrupt folding, dimerization, autocatalytic
@@ -6172,7 +6510,15 @@ pathophysiology:
     explanation: Study distinguishes dimerization, active-site, and maturation effects of pathogenic variants.
   downstream:
   - target: AGA lysosomal enzyme deficiency
+    causal_link_type: DIRECT
     description: Defective folding and maturation reduce the amount of active AGA reaching lysosomes.
+    evidence:
+    - reference: PMID:11309371
+      reference_title: &#34;Molecular pathogenesis of a disease: structural consequences of aspartylglucosaminuria mutations.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &#34;Many of these are predicted to interfere with the complex intracellular maturation and processing of the AGA polypeptide.&#34;
+      explanation: Functional mutation analysis supports the edge from folding/maturation defects to reduced mature AGA enzyme.
 - name: Glycoasparagine substrate accumulation
   description: &gt;
     Deficient AGA activity causes accumulation of undegraded glycoasparagines,
@@ -6206,14 +6552,43 @@ pathophysiology:
   - reference: PMID:33186692
     reference_title: &#34;Pre-clinical Gene Therapy with AAV9/AGA in Aspartylglucosaminuria Mice Provides Evidence for Clinical Translation.&#34;
     supports: SUPPORT
-    evidence_source: MODEL_ORGANISM
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;The accumulated substrate GlcNAc-Asn is excreted in urine of patients in large quantities.&#34;
     explanation: Gene-therapy study summarizes urinary GlcNAc-Asn as a disease biomarker.
   downstream:
   - target: Neuronal and glial lysosomal storage
+    causal_link_type: DIRECT
     description: Storage affects lysosomes in brain cells, producing progressive neurodegeneration.
+    evidence:
+    - reference: PMID:10571008
+      reference_title: &#34;Aspartylglycosaminuria: biochemistry and molecular biology.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Storage of this fragment affects the pathophysiology of neuronal cells most severely.&#34;
+      explanation: This directly supports neuronal cells as a major downstream target of Asn-GlcNAc storage.
   - target: Systemic connective tissue and skeletal involvement
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - glycoasparagine storage in non-neuronal tissues
+    - cellular dysfunction and connective-tissue or skeletal remodeling
     description: Storage in non-neuronal tissues contributes to coarse features, hernias, and skeletal abnormalities.
+    evidence:
+    - reference: PMID:33439067
+      reference_title: &#34;Aspartylglucosaminuria: Clinical Presentation and Potential Therapies.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;AGU is caused by pathogenic variants in the aspartylglucosaminidase (AGA) gene, leading to glycoasparagine accumulation and cellular dysfunction.&#34;
+      explanation: This supports the storage-to-cellular-dysfunction bridge; the specific connective-tissue and skeletal intermediates are compressed into the downstream node.
+  - target: Aspartylglucosaminuria
+    causal_link_type: DIRECT
+    description: Accumulated GlcNAc-Asn/aspartylglucosamine is excreted in urine as the biochemical phenotype.
+    evidence:
+    - reference: PMID:33186692
+      reference_title: &#34;Pre-clinical Gene Therapy with AAV9/AGA in Aspartylglucosaminuria Mice Provides Evidence for Clinical Translation.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The accumulated substrate GlcNAc-Asn is excreted in urine of patients in large quantities.&#34;
+      explanation: This directly links substrate accumulation to the urinary aspartylglucosamine phenotype.
 - name: Neuronal and glial lysosomal storage
   description: &gt;
     Glycoasparagine accumulation produces lysosomal storage in neurons and glia,
@@ -6248,22 +6623,66 @@ pathophysiology:
   - reference: PMID:33186692
     reference_title: &#34;Pre-clinical Gene Therapy with AAV9/AGA in Aspartylglucosaminuria Mice Provides Evidence for Clinical Translation.&#34;
     supports: SUPPORT
-    evidence_source: MODEL_ORGANISM
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;AGU is a slow but progressive and severe neurodegenerative disease characterized by intellectual disability, skeletal and motor abnormalities, and early mortality.&#34;
     explanation: Preclinical translational paper summarizes the progressive neurodegenerative phenotype.
   downstream:
   - target: Intellectual disability
+    causal_link_type: DIRECT
     description: Progressive brain storage and atrophy impair cognition and adaptive function.
+    evidence:
+    - reference: PMID:33439067
+      reference_title: &#34;Aspartylglucosaminuria: Clinical Presentation and Potential Therapies.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Aspartylglucosaminuria (AGU) is a recessively inherited neurodegenerative lysosomal storage disease characterized by progressive intellectual disability, skeletal abnormalities, connective tissue overgrowth, gait disturbance, and seizures followed by premature death.&#34;
+      explanation: This directly connects neurodegenerative lysosomal storage disease to progressive intellectual disability.
   - target: Delayed speech and language development
+    causal_link_type: DIRECT
     description: Neurodevelopmental impairment includes prominent speech delay.
+    evidence:
+    - reference: PMID:33186692
+      reference_title: &#34;Pre-clinical Gene Therapy with AAV9/AGA in Aspartylglucosaminuria Mice Provides Evidence for Clinical Translation.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;AGU patients have developmental delays including delayed speech and impaired learning caused by progressive brain atrophy.&#34;
+      explanation: This directly supports delayed speech as a consequence of progressive brain involvement.
+  - target: Abnormality of speech or vocalization
+    causal_link_type: DIRECT
+    description: Progressive brain involvement also manifests as abnormal speech and vocalization.
+    evidence:
+    - reference: ORPHA:93
+      reference_title: &#34;Aspartylglucosaminuria (Orphanet structured-database record)&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;HP:0002167 | Abnormality of speech or vocalization | Very frequent (99-80%)&#34;
+      explanation: Orphanet supports abnormal speech/vocalization as a very frequent neurodevelopmental manifestation.
   - target: Dyskinesia
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - progressive motor-system involvement
     description: Progressive CNS involvement contributes to abnormal involuntary movement.
+    evidence:
+    - reference: ORPHA:93
+      reference_title: &#34;Aspartylglucosaminuria (Orphanet structured-database record)&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;HP:0100660 | Dyskinesia | Very frequent (99-80%)&#34;
+      explanation: Orphanet supports dyskinesia as a very frequent manifestation downstream of neurologic disease.
   - target: Seizure
+    causal_link_type: DIRECT
     description: Progressive brain disease can include seizures.
+    evidence:
+    - reference: PMID:33439067
+      reference_title: &#34;Aspartylglucosaminuria: Clinical Presentation and Potential Therapies.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;skeletal abnormalities, connective tissue overgrowth, gait disturbance, and seizures&#34;
+      explanation: Clinical review lists seizures among the core manifestations of AGU.
 - name: Systemic connective tissue and skeletal involvement
   description: &gt;
     Non-neuronal lysosomal storage and connective-tissue overgrowth contribute
-    to the facial, gingival, hernia, and skeletal manifestations of
+    to the coarse facial, gingival/oral, hernia, and skeletal manifestations of
     aspartylglucosaminuria.
   locations:
   - preferred_term: connective tissue
@@ -6289,11 +6708,85 @@ pathophysiology:
     explanation: Review supports broad systemic involvement beyond the CNS.
   downstream:
   - target: Gingival overgrowth
+    causal_link_type: DIRECT
     description: Connective-tissue overgrowth contributes to gingival enlargement.
+    evidence:
+    - reference: ORPHA:93
+      reference_title: &#34;Aspartylglucosaminuria (Orphanet structured-database record)&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;HP:0000212 | Gingival overgrowth | Very frequent (99-80%)&#34;
+      explanation: Orphanet supports gingival overgrowth as a very frequent manifestation of the systemic connective-tissue branch.
+  - target: Coarse facial features
+    causal_link_type: DIRECT
+    description: Systemic storage and connective-tissue overgrowth contribute to coarse facial features.
+    evidence:
+    - reference: ORPHA:93
+      reference_title: &#34;Aspartylglucosaminuria (Orphanet structured-database record)&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;HP:0000280 | Coarse facial features | Frequent (79-30%)&#34;
+      explanation: Orphanet supports coarse facial features as a frequent manifestation of AGU.
   - target: Umbilical hernia
+    causal_link_type: DIRECT
     description: Connective tissue involvement contributes to hernias.
+    evidence:
+    - reference: ORPHA:93
+      reference_title: &#34;Aspartylglucosaminuria (Orphanet structured-database record)&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;HP:0001537 | Umbilical hernia | Very frequent (99-80%)&#34;
+      explanation: Orphanet supports umbilical hernia as a very frequent manifestation.
+  - target: Inguinal hernia
+    causal_link_type: DIRECT
+    description: Connective tissue involvement can also manifest as inguinal hernia.
+    evidence:
+    - reference: PMID:33439067
+      reference_title: &#34;Aspartylglucosaminuria: Clinical Presentation and Potential Therapies.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;developmental delays, hyperactivity, early growth spurt, inguinal and abdominal hernias&#34;
+      explanation: Clinical review includes inguinal and abdominal hernias among early AGU diagnostic features.
   - target: Scoliosis
+    causal_link_type: DIRECT
     description: Skeletal involvement contributes to spinal curvature.
+    evidence:
+    - reference: ORPHA:93
+      reference_title: &#34;Aspartylglucosaminuria (Orphanet structured-database record)&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;HP:0002650 | Scoliosis | Very frequent (99-80%)&#34;
+      explanation: Orphanet supports scoliosis as a very frequent skeletal manifestation.
+  - target: Pectus carinatum
+    causal_link_type: DIRECT
+    description: Skeletal involvement can manifest as pectus carinatum.
+    evidence:
+    - reference: ORPHA:93
+      reference_title: &#34;Aspartylglucosaminuria (Orphanet structured-database record)&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;HP:0000768 | Pectus carinatum | Frequent (79-30%)&#34;
+      explanation: Orphanet supports pectus carinatum as a frequent skeletal manifestation.
+  - target: Thickened calvaria
+    causal_link_type: DIRECT
+    description: Cranial skeletal involvement can manifest as calvarial thickening.
+    evidence:
+    - reference: ORPHA:93
+      reference_title: &#34;Aspartylglucosaminuria (Orphanet structured-database record)&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;HP:0002684 | Thickened calvaria | Frequent (79-30%)&#34;
+      explanation: Orphanet supports thickened calvaria as a frequent skeletal manifestation.
+  - target: Anterior beaking of lumbar vertebrae
+    causal_link_type: DIRECT
+    description: Spinal skeletal involvement can manifest as anterior lumbar vertebral beaking.
+    evidence:
+    - reference: ORPHA:93
+      reference_title: &#34;Aspartylglucosaminuria (Orphanet structured-database record)&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;HP:0008430 | Anterior beaking of lumbar vertebrae | Frequent (79-30%)&#34;
+      explanation: Orphanet supports anterior beaking of lumbar vertebrae as a frequent skeletal manifestation.
 biochemical:
 - name: Increased urinary aspartylglucosamine
   presence: INCREASED
@@ -6310,7 +6803,7 @@ biochemical:
   - reference: PMID:33186692
     reference_title: &#34;Pre-clinical Gene Therapy with AAV9/AGA in Aspartylglucosaminuria Mice Provides Evidence for Clinical Translation.&#34;
     supports: SUPPORT
-    evidence_source: MODEL_ORGANISM
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;Large amounts of GlcNAc-Asn substrate can be readily detected in urine of AGU patients and is thereby used as a diagnostic biomarker.&#34;
     explanation: Study supports urinary GlcNAc-Asn as the diagnostic biochemical substrate.
 - name: Reduced aspartylglucosaminidase activity
@@ -6349,6 +6842,12 @@ genetic:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;more than 30 AGA variants have been identified worldwide.&#34;
     explanation: Clinical review supports broader allelic heterogeneity outside Finland.
+  - reference: CGGV:assertion_1f315b4a-1a3b-4deb-90fd-2b73f732a4ba-2022-09-02T160000.000Z
+    reference_title: &#34;AGA / aspartylglucosaminuria (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;AGA | HGNC:318 | aspartylglucosaminuria | MONDO:0008830 | AR | Definitive&#34;
+    explanation: ClinGen classifies the AGA-aspartylglucosaminuria gene-disease relationship as definitive with autosomal recessive inheritance.
 phenotypes:
 - name: Intellectual disability
   frequency: VERY_FREQUENT
@@ -6813,7 +7312,7 @@ diagnosis:
   - reference: PMID:33186692
     reference_title: &#34;Pre-clinical Gene Therapy with AAV9/AGA in Aspartylglucosaminuria Mice Provides Evidence for Clinical Translation.&#34;
     supports: SUPPORT
-    evidence_source: MODEL_ORGANISM
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;Large amounts of GlcNAc-Asn substrate can be readily detected in urine of AGU patients and is thereby used as a diagnostic biomarker.&#34;
     explanation: Study supports urinary GlcNAc-Asn as a diagnostic biomarker.
 - name: AGA molecular genetic testing
@@ -6892,6 +7391,29 @@ treatments:
       evidence_source: MODEL_ORGANISM
       snippet: &#34;AAV9/AGA administration led to (1) dose dependently increased and sustained AGA activity&#34;
       explanation: Preclinical mouse study supports restoration of AGA activity after gene transfer.
+  - target: Glycoasparagine substrate accumulation
+    treatment_effect: INHIBITS
+    description: Restored AGA activity reduces the accumulated GlcNAc-Asn substrate burden in Aga-deficient mice.
+    evidence:
+    - reference: PMID:33186692
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;rapid, sustained, and dose-dependent elimination of AGA substrate in body fluids&#34;
+      explanation: Mouse AAV9/AGA data support direct reduction of the storage substrate downstream of enzyme restoration.
+  - target: Neuronal and glial lysosomal storage
+    treatment_effect: INHIBITS
+    description: AAV9/AGA reduced central nervous system pathology in the mouse model.
+    evidence:
+    - reference: PMID:33186692
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;dose-dependent preservation of Purkinje neurons in the cerebellum&#34;
+      explanation: Preservation of cerebellar neurons supports disease-modifying impact on the neuronal storage branch.
+    - reference: PMID:33186692
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;significantly reduced gliosis in the brain&#34;
+      explanation: Reduced gliosis supports inhibition of downstream glial pathology in the mouse model.
   evidence:
   - reference: PMID:33186692
     reference_title: &#34;Pre-clinical Gene Therapy with AAV9/AGA in Aspartylglucosaminuria Mice Provides Evidence for Clinical Translation.&#34;
@@ -7232,7 +7754,7 @@ PMID:9930336; PMID:33186692).</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Aspartylglucosaminuria", "mondoId": "MONDO:0008830", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Aspartylglucosaminuria", "yamlRevision": "3399c3ffe85e"};
+        const OS_CONFIG = {"diseaseName": "Aspartylglucosaminuria", "mondoId": "MONDO:0008830", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Aspartylglucosaminuria", "yamlRevision": "8dab7e49591f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

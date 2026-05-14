@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,7 +2570,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 3</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 18</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Inborn Error of Purine Metabolism</span>
@@ -2436,7 +2589,7 @@
             </div>
             
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; opacity: 0.95; position: relative;">
-                Phosphoribosylpyrophosphate synthetase (PRS-I) superactivity is an X-linked disorder of purine metabolism caused by gain-of-function mutations in PRPS1. Overexpression of PRS-I leads to excessive purine nucleotide synthesis and consequent uric acid overproduction. Clinical features include hyperuricemia, gout, uric acid nephrolithiasis, and in some patients, neurodevelopmental abnormalities including hypotonia, ataxia, and postlingual hearing impairment. This is mechanistically opposite to the PRPS1 deficiency spectrum (Arts syndrome, CMTX5, DFN2) where loss-of-function mutations reduce enzyme activity.
+                Phosphoribosylpyrophosphate synthetase (PRS-I) superactivity is an X-linked disorder of purine metabolism caused either by PRPS1 gain-of-function variants that disrupt allosteric regulation or by increased PRPS1 transcription with PRS-I overexpression. Both mechanisms increase phosphoribosylpyrophosphate (PRPP), purine nucleotide synthesis, and uric acid production. The core biochemical phenotype is hyperuricemia with hyperuricosuria, leading to uric acid crystalluria, nephrolithiasis, and gout; severe disease can also include developmental delay or intellectual disability, sensorineural hearing loss, hypotonia, and ataxia.
             </p>
             
         </header>
@@ -2554,7 +2707,7 @@
             
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
-                <div class="stat-value">2</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Pathophysiology</div>
             </div>
             </a>
@@ -2568,7 +2721,7 @@
             
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
-                <div class="stat-value">6</div>
+                <div class="stat-value">10</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -2576,7 +2729,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">3</div>
+                <div class="stat-value">18</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -2598,10 +2751,12 @@
             </a>
             
             
+            <a class="stat-link" href="#subtypes">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Subtypes</div>
             </div>
+            </a>
             
             
             <div class="stat-item">
@@ -2689,6 +2844,151 @@
 
         <!-- Subtypes -->
         
+        <div class="card" id="subtypes">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
+                <h2 class="card-title">Subtypes</h2>
+                <span class="card-count">2</span>
+            </div>
+            
+            
+            
+                
+                
+                    
+                
+                
+            
+                
+                
+                
+            
+            
+                
+                
+                
+                
+                
+                <div class="item-box subtype-box">
+                    
+                    <div class="item-name">
+                        PRS-I superactivity, mild phenotype
+                        
+                        
+                        
+                    </div>
+                    <div class="subtype-meta">
+                        
+                        <span class="subtype-freq-badge">~75% of affected males</span>
+                        
+                        
+                        
+                        
+                        
+                    </div>
+                    
+                    <div class="item-desc">Later-onset phenotype, typically presenting in the second or third decade and usually limited to hyperuricemia and hyperuricosuria with urinary crystalluria or stones and later gout if serum urate is not controlled.</div>
+                    
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301734" target="_blank">PMID:20301734</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The mild phenotype (~75% of affected males) with onset in the second or third decade of life is typically limited to these biochemical findings, whereas the severe phenotype (~25% of affected males) with onset in the first decade of life has in addition to these biochemical findings variable..."</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews defines the mild PRS-I superactivity phenotype and its approximate proportion among affected males.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                </div>
+                
+                
+                
+                
+                <div class="item-box subtype-box">
+                    
+                    <div class="item-name">
+                        PRS-I superactivity, severe phenotype
+                        
+                        
+                        
+                    </div>
+                    <div class="subtype-meta">
+                        
+                        <span class="subtype-freq-badge">~25% of affected males</span>
+                        
+                        
+                        
+                        
+                        
+                    </div>
+                    
+                    <div class="item-desc">Early-onset phenotype with hyperuricemia and hyperuricosuria plus variable neurodevelopmental, auditory, hypotonia, and ataxia findings.</div>
+                    
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301734" target="_blank">PMID:20301734</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"whereas the severe phenotype (~25% of affected males) with onset in the first decade of life has in addition to these biochemical findings variable combinations of developmental delay (DD) / intellectual disability (ID), sensorineural hearing loss, hypotonia, and ataxia."</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews defines the severe PRS-I superactivity phenotype and its approximate proportion among affected males.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                </div>
+                
+            
+        </div>
+        
 
         <!-- Comorbidities -->
         
@@ -2699,13 +2999,13 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">5</span>
             </div>
             
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-prs-i-gain-of-function">
-                <div class="item-name">PRS-I Gain of Function</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-prs-i-allosteric-gain-of-function">
+                <div class="item-name">PRS-I allosteric gain of function</div>
                 
-                <div class="item-desc">Gain-of-function mutations in PRPS1 increase PRS-I enzyme activity, accelerating the conversion of ribose-5-phosphate to phosphoribosylpyrophosphate (PRPP).</div>
+                <div class="item-desc">PRPS1 missense variants can make PRS-I resistant to normal purine nucleotide feedback inhibition and alter activation by inorganic phosphate. This allosteric gain of function increases effective PRS-I activity in patient cells and recombinant PRS1 models.</div>
                 
                 
                 
@@ -2735,6 +3035,10 @@
     
     
     
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+    
     
     
     
@@ -2757,7 +3061,16 @@
 	                    <div class="crosslink-list">
 	                        
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Purine Overproduction</span>
+	                            <span class="crosslink-meta">PRPP and purine nucleotide overproduction</span>
+	                            
+	                            <span class="crosslink-desc">Feedback-resistant PRS-I increases PRPP availability and de novo purine nucleotide synthesis.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Neurodevelopmental and auditory involvement</span>
+	                            
+	                            <span class="crosslink-desc">Severe PRS-I superactivity with allosteric variants can include neurodevelopmental and auditory findings through incompletely defined downstream mechanisms.</span>
 	                            
 	                        </div>
 	                        
@@ -2768,27 +3081,47 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23190330" target="_blank">PMID:23190330</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7593598" target="_blank">PMID:7593598</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"Gain of function mutations in PRPS1 cause a superactivity of the PRS-I protein"</div>
+                <div class="evidence-snippet">"Kinetic analysis of recombinant mutant PRS1s showed that widely dispersed point mutations in the X chromosome-linked PRPS1 gene encoding the PRS1 isoform result in alteration of the allosteric mechanisms regulating both enzyme inhibition by purine nucleotides and activation by inorganic phosphate."</div>
                 
                 
-                <div class="evidence-explanation">Confirms GOF mechanism for superactivity.</div>
+                <div class="evidence-explanation">Shows that PRPS1 variants directly alter allosteric regulation of PRS-I, the proximal gain-of-function mechanism in severe PRS-I superactivity.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8253776" target="_blank">PMID:8253776</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"recombinant N. B. and S. M. PRS1s showed the purine nucleotide feedback resistance phenotypes characteristic of PRS from patients&#39; cells."</div>
+                
+                
+                <div class="evidence-explanation">Recombinant PRS1 variants reproduce the feedback-resistance phenotype measured in patient cells.</div>
                 
             </div>
             
@@ -2799,10 +3132,105 @@
     
 	            </div>
 	            
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-purine-overproduction">
-                <div class="item-name">Purine Overproduction</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-prps1-transcriptional-overactivity">
+                <div class="item-name">PRPS1 transcriptional overactivity</div>
                 
-                <div class="item-desc">Excess PRPP drives purine nucleotide biosynthesis beyond metabolic demand, leading to overproduction of purines and their degradation product uric acid. Hyperuricemia causes urate crystal deposition in joints (gout) and kidneys (nephrolithiasis).</div>
+                <div class="item-desc">In the mild overactivity-of-normal-PRS mechanism, patient cells have increased PRPS1 transcription and PRS1 isoform expression despite normal PRS-I allosteric regulation, increasing PRPP and purine synthesis.</div>
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-gene">
+                        PRPS1
+                        
+                        <a href="https://bioregistry.io/hgnc:9462" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+                
+                
+                
+                
+                
+	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">PRPP and purine nucleotide overproduction</span>
+	                            
+	                            <span class="crosslink-desc">PRS1 overexpression increases PRPP and purine nucleotide synthesis in intact patient cells.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
+	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10066814" target="_blank">PMID:10066814</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"PRPS1 transcription was increased relative to GAPDH (3- to 4-fold normal in fibroblasts; 1.9- to 2.4-fold in lymphoblasts) and PRPS2."</div>
+                
+                
+                <div class="evidence-explanation">Patient fibroblasts and lymphoblasts show increased PRPS1 transcription.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10066814" target="_blank">PMID:10066814</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"accelerated PRPS1 transcription is the major aberration leading to PRS1 overexpression."</div>
+                
+                
+                <div class="evidence-explanation">Identifies PRPS1 transcriptional up-regulation as the primary aberration in overactivity of structurally normal PRS-I.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+	            </div>
+	            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-prpp-and-purine-nucleotide-overproduction">
+                <div class="item-name">PRPP and purine nucleotide overproduction</div>
+                
+                <div class="item-desc">Excess PRS-I activity increases PRPP availability and drives de novo purine nucleotide biosynthesis beyond metabolic demand, creating the biochemical substrate for uric acid overproduction.</div>
                 
                 
                 
@@ -2811,7 +3239,7 @@
                 <div class="item-meta">
                     
                     <span class="tag tag-bio">
-                        Purine nucleotide biosynthesis
+                        purine nucleotide biosynthetic process
                         
                         <a href="http://purl.obolibrary.org/obo/GO_0006164" target="_blank" class="linkout">link</a>
                         
@@ -2819,6 +3247,10 @@
                     
     
     
+    
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
     
     
     
@@ -2838,13 +3270,299 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Urate overproduction and crystal disease</span>
+	                            
+	                            <span class="crosslink-desc">Increased purine nucleotide flux increases downstream uric acid production.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7593598" target="_blank">PMID:7593598</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The functional consequences of these mutations provide a tenable basis for the enhanced production of phosphoribosylpyrophosphate, purine nucleotides, and uric acid that are the biochemical hallmarks of PRS superactivity."</div>
+                
+                
+                <div class="evidence-explanation">Directly supports PRPP, purine nucleotide, and uric acid overproduction as biochemical hallmarks of PRS-I superactivity.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10066814" target="_blank">PMID:10066814</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Phosphoribosylpyrophosphate (PRPP) synthetase (PRS) superactivity is an X-linked disorder characterized by gout with overproduction of purine nucleotides and uric acid."</div>
+                
+                
+                <div class="evidence-explanation">Confirms purine nucleotide and uric acid overproduction in PRS-I superactivity.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+	            </div>
+	            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-urate-overproduction-and-crystal-disease">
+                <div class="item-name">Urate overproduction and crystal disease</div>
+                
+                <div class="item-desc">Excess purine turnover increases uric acid production, causing hyperuricemia and hyperuricosuria. Uric acid crystallization in urine, kidneys, and joints drives crystalluria or stones followed by gouty arthritis when serum urate is not controlled.</div>
+                
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        purine nucleobase catabolic process
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0006145" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hyperuricemia</span>
+	                            
+	                            <span class="crosslink-desc">Serum urate rises because uric acid production exceeds clearance.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hyperuricosuria</span>
+	                            
+	                            <span class="crosslink-desc">Urinary uric acid excretion rises with urate overproduction.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Gout</span>
+	                            
+	                            <span class="crosslink-desc">Persistent hyperuricemia promotes urate crystal arthritis.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Uric Acid Nephrolithiasis</span>
+	                            
+	                            <span class="crosslink-desc">Hyperuricosuria and uric acid crystalluria promote urinary stones.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Uric Acid Crystalluria</span>
+	                            
+	                            <span class="crosslink-desc">Urate overproduction can first manifest as urinary uric acid crystals.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Acute kidney injury</span>
+	                            
+	                            <span class="crosslink-desc">Severe urate crystal disease can cause acute kidney failure.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
+	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301734" target="_blank">PMID:20301734</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Phosphoribosylpyrophosphate synthetase (PRS) superactivity comprises two phenotypes, both characterized by hyperuricemia and hyperuricosuria."</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews identifies hyperuricemia and hyperuricosuria as shared biochemical features of both PRS-I superactivity phenotypes.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30423175" target="_blank">PMID:30423175</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"We describe a 16-year-old African American female who developed progressive tophi, nephrolithiasis and acute kidney failure due to urate overproduction."</div>
+                
+                
+                <div class="evidence-explanation">Human cohort/case evidence links urate overproduction to crystal complications including tophi and nephrolithiasis.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+	            </div>
+	            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurodevelopmental-and-auditory-involvement">
+                <div class="item-name">Neurodevelopmental and auditory involvement</div>
+                
+                <div class="item-desc">Severe PRS-I superactivity can involve the nervous system and hearing, including developmental delay or intellectual disability, sensorineural hearing loss, hypotonia, and ataxia. The connecting mechanism from purine dysregulation to these features is not fully defined.</div>
+                
+                
+                
+                
+                
+                
+                
+                
+                
+	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Neurodevelopmental Abnormality</span>
+	                            
+	                            <span class="crosslink-desc">Severe PRS-I superactivity can include developmental delay or intellectual disability.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Sensorineural Hearing Impairment</span>
+	                            
+	                            <span class="crosslink-desc">Severe PRS-I superactivity can include sensorineural hearing loss.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hypotonia</span>
+	                            
+	                            <span class="crosslink-desc">Severe PRS-I superactivity can include hypotonia.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Ataxia</span>
+	                            
+	                            <span class="crosslink-desc">Severe PRS-I superactivity can include ataxia.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
+	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301734" target="_blank">PMID:20301734</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"whereas the severe phenotype (~25% of affected males) with onset in the first decade of life has in addition to these biochemical findings variable combinations of developmental delay (DD) / intellectual disability (ID), sensorineural hearing loss, hypotonia, and ataxia."</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews lists the neurologic and auditory manifestations of severe PRS-I superactivity.</div>
+                
+            </div>
             
             <div class="evidence-item">
                 <div class="evidence-header">
@@ -2855,14 +3573,14 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
                 <div class="evidence-snippet">"The overexpression of PRPS1 results in PRS-I superactivity resulting in purine overproduction. Patients with PRS-I superactivity demonstrate uric acid overproduction, hypotonia, ataxia, neurodevelopment abnormalities, and postlingual hearing impairment."</div>
                 
                 
-                <div class="evidence-explanation">Describes purine overproduction and its clinical consequences.</div>
+                <div class="evidence-explanation">PRPS1 review summarizes neurological and hearing features reported in PRS-I superactivity.</div>
                 
             </div>
             
@@ -2898,7 +3616,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"PRPS1 Gain-of-Function Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PRPS1\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"PRS-I Gain of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gain-of-function mutations in PRPS1 increase PRS-I enzyme activity, accelerating the conversion of ribose-5-phosphate to phosphoribosylpyrophosphate (PRPP).\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"ribose phosphate diphosphokinase activity\"], \"genes\": [\"PRPS1\"]}}, {\"id\": \"Purine Overproduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess PRPP drives purine nucleotide biosynthesis beyond metabolic demand, leading to overproduction of purines and their degradation product uric acid. Hyperuricemia causes urate crystal deposition in joints (gout) and kidneys (nephrolithiasis).\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Purine nucleotide biosynthesis\"]}}], \"edges\": [{\"source\": \"PRS-I Gain of Function\", \"target\": \"Purine Overproduction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PRPS1 Gain-of-Function Variants\", \"target\": \"PRS-I Gain of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute kidney injury\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe urate overproduction with nephrolithiasis can precipitate acute kidney failure.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001919\"}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ataxia occurs in the severe phenotype as part of neurologic involvement.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Severe\"], \"term_id\": \"HP:0001251\"}}, {\"id\": \"Gout\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gouty arthritis develops when serum urate is not adequately controlled, and can be severe or tophaceous in affected females and males.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001997\"}}, {\"id\": \"Hyperuricemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated serum urate from PRS-I-driven uric acid overproduction. This is a defining biochemical feature in both mild and severe PRS-I superactivity.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002149\"}}, {\"id\": \"Hyperuricosuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased urinary uric acid excretion accompanies hyperuricemia and contributes to uric acid crystalluria and urinary stones.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003149\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia occurs in the severe phenotype as part of neurologic involvement.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Severe\"], \"term_id\": \"HP:0001252\"}}, {\"id\": \"Neurodevelopmental Abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe PRS-I superactivity can include developmental delay or intellectual disability.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Severe\"], \"term_id\": \"HP:0012759\"}}, {\"id\": \"Neurodevelopmental and auditory involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe PRS-I superactivity can involve the nervous system and hearing, including developmental delay or intellectual disability, sensorineural hearing loss, hypotonia, and ataxia. The connecting mechanism from purine dysregulation to these features is not fully defined.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"PRPP and purine nucleotide overproduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess PRS-I activity increases PRPP availability and drives de novo purine nucleotide biosynthesis beyond metabolic demand, creating the biochemical substrate for uric acid overproduction.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"purine nucleotide biosynthetic process\"]}}, {\"id\": \"PRPS1 gain-of-function and overexpression mechanisms\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"PRPS1\"], \"association\": \"Pathogenic Variants\", \"variant_count\": 2}}, {\"id\": \"PRPS1 missense gain-of-function variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense variants alter PRS-I allosteric regulation, including reduced inhibition by purine nucleotides such as ADP/GDP.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"PRPS1 transcriptional overactivity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the mild overactivity-of-normal-PRS mechanism, patient cells have increased PRPS1 transcription and PRS1 isoform expression despite normal PRS-I allosteric regulation, increasing PRPP and purine synthesis.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"PRPS1\"]}}, {\"id\": \"PRPS1 transcriptional overactivity with structurally normal PRS1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Some affected males have increased PRPS1 transcription and PRS1 overexpression without a detectable PRPS1 coding variant.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"PRS-I allosteric gain of function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PRPS1 missense variants can make PRS-I resistant to normal purine nucleotide feedback inhibition and alter activation by inorganic phosphate. This allosteric gain of function increases effective PRS-I activity in patient cells and recombinant PRS1 models.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"ribose phosphate diphosphokinase activity\"], \"genes\": [\"PRPS1\"]}}, {\"id\": \"Sensorineural Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensorineural hearing loss is a severe-phenotype manifestation and may be postlingual in PRS-I superactivity.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Severe\"], \"term_id\": \"HP:0000407\"}}, {\"id\": \"Urate overproduction and crystal disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess purine turnover increases uric acid production, causing hyperuricemia and hyperuricosuria. Uric acid crystallization in urine, kidneys, and joints drives crystalluria or stones followed by gouty arthritis when serum urate is not controlled.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"purine nucleobase catabolic process\"]}}, {\"id\": \"Uric Acid Crystalluria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Uric acid crystalluria can be the first clinical finding in the mild phenotype, reflecting urinary uric acid supersaturation before overt gout.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Mild\"], \"term_id\": \"HP:0020074\"}}, {\"id\": \"Uric Acid Nephrolithiasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Uric acid urinary stones and nephrolithiasis arise from increased urinary uric acid excretion and crystalluria.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000791\"}}], \"edges\": [{\"source\": \"PRS-I allosteric gain of function\", \"target\": \"PRPP and purine nucleotide overproduction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PRS-I allosteric gain of function\", \"target\": \"Neurodevelopmental and auditory involvement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PRPS1 transcriptional overactivity\", \"target\": \"PRPP and purine nucleotide overproduction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PRPP and purine nucleotide overproduction\", \"target\": \"Urate overproduction and crystal disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Urate overproduction and crystal disease\", \"target\": \"Hyperuricemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Urate overproduction and crystal disease\", \"target\": \"Hyperuricosuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Urate overproduction and crystal disease\", \"target\": \"Gout\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Urate overproduction and crystal disease\", \"target\": \"Uric Acid Nephrolithiasis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Urate overproduction and crystal disease\", \"target\": \"Uric Acid Crystalluria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Urate overproduction and crystal disease\", \"target\": \"Acute kidney injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and auditory involvement\", \"target\": \"Neurodevelopmental Abnormality\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and auditory involvement\", \"target\": \"Sensorineural Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and auditory involvement\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and auditory involvement\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PRPS1 gain-of-function and overexpression mechanisms\", \"target\": \"PRPS1 transcriptional overactivity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PRPS1 gain-of-function and overexpression mechanisms\", \"target\": \"PRS-I allosteric gain of function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PRPS1 missense gain-of-function variants\", \"target\": \"PRPS1 gain-of-function and overexpression mechanisms\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"PRPS1 transcriptional overactivity with structurally normal PRS1\", \"target\": \"PRPS1 gain-of-function and overexpression mechanisms\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -2911,7 +3629,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">10</span>
             </div>
             
             
@@ -2919,13 +3637,15 @@
                 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(2)</span></button>
                 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(1)</span></button>
                 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(2)</span></button>
                 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(1)</span></button>
+                
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(3)</span></button>
                 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -2940,9 +3660,7 @@
                 
                 <div class="item-box phenotype-box">
                     <div class="item-name">
-                        Postlingual Hearing Impairment
-                        
-                        <span class="phenotype-freq">OCCASIONAL</span>
+                        Sensorineural Hearing Impairment
                         
                     
                     <span class="phenotype-id">
@@ -2958,6 +3676,56 @@
                     
                     
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301734" target="_blank">PMID:20301734</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"whereas the severe phenotype (~25% of affected males) with onset in the first decade of life has in addition to these biochemical findings variable combinations of developmental delay (DD) / intellectual disability (ID), sensorineural hearing loss, hypotonia, and ataxia."</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews lists sensorineural hearing loss among severe PRS-I superactivity manifestations.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26089585" target="_blank">PMID:26089585</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The overexpression of PRPS1 results in PRS-I superactivity resulting in purine overproduction. Patients with PRS-I superactivity demonstrate uric acid overproduction, hypotonia, ataxia, neurodevelopment abnormalities, and postlingual hearing impairment."</div>
+                
+                
+                <div class="evidence-explanation">PRPS1 review lists postlingual hearing impairment among reported features of PRS-I superactivity.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
                     
     
@@ -2970,14 +3738,12 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
                 
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Uric Acid Nephrolithiasis
-                        
-                        <span class="phenotype-freq">FREQUENT</span>
                         
                     
                     <span class="phenotype-id">
@@ -2992,6 +3758,110 @@
                     
                     
                     
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301734" target="_blank">PMID:20301734</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"In the mild phenotype, uric acid crystalluria or a urinary stone is commonly the first clinical finding, followed later by gouty arthritis if serum urate concentration is not controlled."</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews identifies uric acid crystalluria or urinary stones as an early clinical feature.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30423175" target="_blank">PMID:30423175</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"We describe a 16-year-old African American female who developed progressive tophi, nephrolithiasis and acute kidney failure due to urate overproduction."</div>
+                
+                
+                <div class="evidence-explanation">Human PRPS1 superactivity case data directly links urate overproduction to nephrolithiasis.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Acute kidney injury
+                        
+                    
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0001919" target="_blank">
+                            Acute kidney injury
+                        </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001919)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30423175" target="_blank">PMID:30423175</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"We describe a 16-year-old African American female who developed progressive tophi, nephrolithiasis and acute kidney failure due to urate overproduction."</div>
+                
+                
+                <div class="evidence-explanation">Human PRPS1 superactivity case data documents acute kidney failure due to urate overproduction.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
                     
@@ -3012,8 +3882,6 @@
                     <div class="item-name">
                         Hyperuricemia
                         
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
                     
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0002149" target="_blank">
@@ -3030,14 +3898,34 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26089585" target="_blank">PMID:26089585</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301734" target="_blank">PMID:20301734</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Phosphoribosylpyrophosphate synthetase (PRS) superactivity comprises two phenotypes, both characterized by hyperuricemia and hyperuricosuria."</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews states that both PRS-I superactivity phenotypes are characterized by hyperuricemia.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30423175" target="_blank">PMID:30423175</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
@@ -3047,10 +3935,10 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"uric acid overproduction"</div>
+                <div class="evidence-snippet">"Clinical findings in previously reported females with PRPS1 superactivity showed a high clinical penetrance of this disorder with a mean serum urate level of 8.5 (4.1) mg/dl"</div>
                 
                 
-                <div class="evidence-explanation">Hyperuricemia from purine overproduction.</div>
+                <div class="evidence-explanation">Female PRPS1 superactivity cases had elevated mean serum urate.</div>
                 
             </div>
             
@@ -3077,8 +3965,6 @@
                     <div class="item-name">
                         Gout
                         
-                        <span class="phenotype-freq">FREQUENT</span>
-                        
                     
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0001997" target="_blank">
@@ -3093,6 +3979,56 @@
                     
                     
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301734" target="_blank">PMID:20301734</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"In the mild phenotype, uric acid crystalluria or a urinary stone is commonly the first clinical finding, followed later by gouty arthritis if serum urate concentration is not controlled."</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews describes gouty arthritis as a downstream clinical feature when serum urate is not controlled.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30423175" target="_blank">PMID:30423175</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Family history included a mother with tophaceous gout who developed end-stage kidney disease due to nephrolithiasis and an affected sister with polyarticular gout."</div>
+                
+                
+                <div class="evidence-explanation">Human family data documents tophaceous and polyarticular gout in PRPS1 superactivity.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
                     
     
@@ -3102,8 +4038,6 @@
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hypotonia
-                        
-                        <span class="phenotype-freq">OCCASIONAL</span>
                         
                     
                     <span class="phenotype-id">
@@ -3128,20 +4062,20 @@
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26089585" target="_blank">PMID:26089585</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301734" target="_blank">PMID:20301734</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"hypotonia, ataxia, neurodevelopment abnormalities, and postlingual hearing impairment"</div>
+                <div class="evidence-snippet">"whereas the severe phenotype (~25% of affected males) with onset in the first decade of life has in addition to these biochemical findings variable combinations of developmental delay (DD) / intellectual disability (ID), sensorineural hearing loss, hypotonia, and ataxia."</div>
                 
                 
-                <div class="evidence-explanation">Hypotonia listed among neurological features of superactivity.</div>
+                <div class="evidence-explanation">GeneReviews lists hypotonia among severe PRS-I superactivity manifestations.</div>
                 
             </div>
             
@@ -3168,8 +4102,6 @@
                     <div class="item-name">
                         Ataxia
                         
-                        <span class="phenotype-freq">OCCASIONAL</span>
-                        
                     
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank">
@@ -3193,20 +4125,191 @@
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26089585" target="_blank">PMID:26089585</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301734" target="_blank">PMID:20301734</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"hypotonia, ataxia, neurodevelopment abnormalities, and postlingual hearing impairment"</div>
+                <div class="evidence-snippet">"whereas the severe phenotype (~25% of affected males) with onset in the first decade of life has in addition to these biochemical findings variable combinations of developmental delay (DD) / intellectual disability (ID), sensorineural hearing loss, hypotonia, and ataxia."</div>
                 
                 
-                <div class="evidence-explanation">Ataxia listed among neurological features of superactivity.</div>
+                <div class="evidence-explanation">GeneReviews lists ataxia among severe PRS-I superactivity manifestations.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+            </details>
+            
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">3</span>
+                </summary>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Hyperuricosuria
+                        
+                    
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0003149" target="_blank">
+                            Hyperuricosuria
+                        </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0003149)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301734" target="_blank">PMID:20301734</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Phosphoribosylpyrophosphate synthetase (PRS) superactivity comprises two phenotypes, both characterized by hyperuricemia and hyperuricosuria."</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews identifies hyperuricosuria as a core biochemical feature.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Uric Acid Crystalluria
+                        
+                    
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0020074" target="_blank">
+                            Crystalluria
+                        </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0020074)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301734" target="_blank">PMID:20301734</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"In the mild phenotype, uric acid crystalluria or a urinary stone is commonly the first clinical finding, followed later by gouty arthritis if serum urate concentration is not controlled."</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews identifies uric acid crystalluria as a common early clinical finding in the mild phenotype.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Neurodevelopmental Abnormality
+                        
+                    
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0012759" target="_blank">
+                            Neurodevelopmental abnormality
+                        </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0012759)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301734" target="_blank">PMID:20301734</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"whereas the severe phenotype (~25% of affected males) with onset in the first decade of life has in addition to these biochemical findings variable combinations of developmental delay (DD) / intellectual disability (ID), sensorineural hearing loss, hypotonia, and ataxia."</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews lists developmental delay and intellectual disability among severe PRS-I superactivity manifestations.</div>
                 
             </div>
             
@@ -3261,7 +4364,7 @@
             
             <div class="item-box genetic-box">
                 <div class="item-name">
-                    PRPS1 Gain-of-Function Variants
+                    PRPS1 gain-of-function and overexpression mechanisms
                     
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
                     
@@ -3277,30 +4380,72 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
             
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23190330" target="_blank">PMID:23190330</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7593598" target="_blank">PMID:7593598</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"Gain of function mutations in PRPS1 cause a superactivity of the PRS-I protein whereas the loss-of-function mutations result in X-linked nonsyndromic sensorineural deafness type 2 (DFN2), or in syndromic deafness including Arts syndrome"</div>
+                <div class="evidence-snippet">"each PRS1 cDNA contained a distinctive single base substitution predicting a corresponding amino acid substitution in the PRS1 isoform."</div>
                 
                 
-                <div class="evidence-explanation">Distinguishes GOF (superactivity) from LOF (deficiency spectrum).</div>
+                <div class="evidence-explanation">Identifies distinct PRPS1 missense variants in affected families.</div>
                 
             </div>
             
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10066814" target="_blank">PMID:10066814</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Study of the two X-linked PRS isoforms (PRS1 and PRS2) in cells from certain affected individuals has shown selectively increased concentrations of structurally normal PRS1 transcript and isoform, suggesting that this form of the disorder involves pretranslational dysregulation of PRPS1..."</div>
+                
+                
+                <div class="evidence-explanation">Supports the non-coding/transcriptional overactivity mechanism of structurally normal PRS1 in a subset of affected individuals.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301734" target="_blank">PMID:20301734</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"PRS superactivity caused by a pathogenic variant in PRPS1 is inherited in an X-linked manner."</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews confirms X-linked inheritance for PRPS1 variant-positive PRS-I superactivity.</div>
+                
+            </div>
+            
+            
+            <div class="evidence-more">+ 1 more reference</div>
             
         </div>
     </details>
@@ -3357,14 +4502,63 @@
                 
                 
                 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        allopurinol
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_40279" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-treatment">
+                        febuxostat
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_31596" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
                 
                 
-                <div class="item-desc">Allopurinol or other xanthine oxidase inhibitors to reduce uric acid production and prevent gout and nephrolithiasis.</div>
+                
+                <div class="item-desc">Xanthine oxidase inhibitor therapy with allopurinol or febuxostat reduces uric acid formation and helps control serum urate, urinary uric acid, gout, and stone risk. High daily fluid intake and urine alkalinization with potassium citrate are used as needed for urinary crystal prevention.</div>
                 
                 
                 
                 
                 
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301734" target="_blank">PMID:20301734</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"In all individuals, hyperuricemia and hyperuricosuria can be reduced by treatment with allopurinol or febuxostat to reduce uric acid formation and thus serum urate and urinary uric acid; high daily fluid intake; and, as needed, potassium citrate to alkalinize the urine."</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews recommends allopurinol or febuxostat plus hydration and urine alkalinization for the uric acid overproduction phenotype.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
             </div>
@@ -3408,12 +4602,42 @@
                 
                 
                 
-                <div class="item-desc">Genetic counseling regarding X-linked inheritance.</div>
+                <div class="item-desc">Genetic counseling addresses X-linked inheritance, reproductive risks, heterozygote testing, and prenatal or preimplantation genetic testing when the familial PRPS1 variant is known.</div>
                 
                 
                 
                 
                 
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301734" target="_blank">PMID:20301734</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"If a PRPS1 pathogenic variant has been identified in the proband, heterozygote testing for at-risk female relatives, prenatal testing for a pregnancy at increased risk, and preimplantation genetic testing are possible."</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews supports genetic counseling and familial testing when the PRPS1 variant is known.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
             </div>
@@ -3425,6 +4649,219 @@
         
 
         <!-- Biochemical Markers -->
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
+                <h2 class="card-title">Biochemical Markers</h2>
+                <span class="card-count">4</span>
+            </div>
+            
+            <div class="item-box biochemical-box">
+                <div class="item-name">
+                    Increased PRS-I activity or impaired allosteric regulation
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(INCREASED)</span>
+                    
+                </div>
+                
+                <div class="item-desc">Context: Enzyme testing can show high PRS-I activity or lack of allosteric regulation; the severe variant mechanism impairs purine nucleotide feedback inhibition.</div>
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301734" target="_blank">PMID:20301734</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"detection of high activity or lack of allosteric regulation of the PRS-I enzyme (PRS-I enzyme assay) establishes the diagnosis."</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews identifies increased activity or impaired allosteric regulation as diagnostic biochemical evidence.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7593598" target="_blank">PMID:7593598</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Kinetic analysis of recombinant mutant PRS1s showed that widely dispersed point mutations in the X chromosome-linked PRPS1 gene encoding the PRS1 isoform result in alteration of the allosteric mechanisms regulating both enzyme inhibition by purine nucleotides and activation by inorganic phosphate."</div>
+                
+                
+                <div class="evidence-explanation">Functional assays define altered allosteric regulation as the biochemical mechanism of gain-of-function variants.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box biochemical-box">
+                <div class="item-name">
+                    Increased PRPP and purine nucleotide synthesis
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(INCREASED)</span>
+                    
+                </div>
+                
+                <div class="item-desc">Context: Patient cells can show increased PRPP and purine nucleotide synthesis, reflecting enhanced entry of ribose into purine biosynthesis.</div>
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10066814" target="_blank">PMID:10066814</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"modulated relative increases in PRS activities at suboptimal Pi concentration and in rates of PRPP and purine nucleotide synthesis in intact patient fibroblasts indicate that despite an intact allosteric mechanism of regulation of PRS activity, PRPS1 transcription is a major determinant of PRPP..."</div>
+                
+                
+                <div class="evidence-explanation">Patient fibroblast data shows increased PRPP and purine nucleotide synthesis downstream of PRPS1 transcriptional overactivity.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box biochemical-box">
+                <div class="item-name">
+                    Elevated serum urate
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(INCREASED)</span>
+                    
+                </div>
+                
+                <div class="item-desc">Context: Serum urate is elevated from uric acid overproduction and is monitored as a treatment target.</div>
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30423175" target="_blank">PMID:30423175</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Clinical findings in previously reported females with PRPS1 superactivity showed a high clinical penetrance of this disorder with a mean serum urate level of 8.5 (4.1) mg/dl"</div>
+                
+                
+                <div class="evidence-explanation">Female PRPS1 superactivity cases had elevated mean serum urate.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box biochemical-box">
+                <div class="item-name">
+                    Increased urinary uric acid excretion
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(INCREASED)</span>
+                    
+                </div>
+                
+                <div class="item-desc">Context: Urinary uric acid excretion is increased and is used for screening and treatment surveillance.</div>
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301734" target="_blank">PMID:20301734</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"In male relatives at risk: measurement of serum urate concentration and 24-hour urinary uric acid excretion or spot urinary urate-to-creatinine ratio."</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews recommends urinary uric acid measurement for screening relatives at risk.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+        </div>
         
 
         <!-- Differential Diagnoses -->
@@ -3455,16 +4892,17 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: PRPS1 Superactivity
 creation_date: &#34;2026-04-04T00:00:00Z&#34;
-updated_date: &#34;2026-04-07T02:27:09Z&#34;
+updated_date: &#34;2026-05-05T03:40:31Z&#34;
 description: &gt;-
-  Phosphoribosylpyrophosphate synthetase (PRS-I) superactivity is an X-linked
-  disorder of purine metabolism caused by gain-of-function mutations in PRPS1.
-  Overexpression of PRS-I leads to excessive purine nucleotide synthesis and
-  consequent uric acid overproduction. Clinical features include hyperuricemia,
-  gout, uric acid nephrolithiasis, and in some patients, neurodevelopmental
-  abnormalities including hypotonia, ataxia, and postlingual hearing impairment.
-  This is mechanistically opposite to the PRPS1 deficiency spectrum (Arts
-  syndrome, CMTX5, DFN2) where loss-of-function mutations reduce enzyme activity.
+  Phosphoribosylpyrophosphate synthetase (PRS-I) superactivity is an
+  X-linked disorder of purine metabolism caused either by PRPS1
+  gain-of-function variants that disrupt allosteric regulation or by
+  increased PRPS1 transcription with PRS-I overexpression. Both mechanisms
+  increase phosphoribosylpyrophosphate (PRPP), purine nucleotide synthesis,
+  and uric acid production. The core biochemical phenotype is hyperuricemia
+  with hyperuricosuria, leading to uric acid crystalluria, nephrolithiasis,
+  and gout; severe disease can also include developmental delay or
+  intellectual disability, sensorineural hearing loss, hypotonia, and ataxia.
 category: Genetic
 parents:
 - Inborn Error of Purine Metabolism
@@ -3483,12 +4921,56 @@ inheritance:
     term:
       id: HP:0001417
       label: X-linked inheritance
-pathophysiology:
-- name: PRS-I Gain of Function
+has_subtypes:
+- name: Mild
+  display_name: PRS-I superactivity, mild phenotype
+  classification: clinical_phenotype
+  subtype_frequency: &#34;~75% of affected males&#34;
   description: &gt;-
-    Gain-of-function mutations in PRPS1 increase PRS-I enzyme activity,
-    accelerating the conversion of ribose-5-phosphate to
-    phosphoribosylpyrophosphate (PRPP).
+    Later-onset phenotype, typically presenting in the second or third decade
+    and usually limited to hyperuricemia and hyperuricosuria with urinary
+    crystalluria or stones and later gout if serum urate is not controlled.
+  evidence:
+  - reference: PMID:20301734
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      The mild phenotype (~75% of affected males) with onset in the second
+      or third decade of life is typically limited to these biochemical
+      findings, whereas the severe phenotype (~25% of affected males) with
+      onset in the first decade of life has in addition to these biochemical
+      findings variable combinations of developmental delay (DD) /
+      intellectual disability (ID), sensorineural hearing loss, hypotonia,
+      and ataxia.
+    explanation: &gt;-
+      GeneReviews defines the mild PRS-I superactivity phenotype and its
+      approximate proportion among affected males.
+- name: Severe
+  display_name: PRS-I superactivity, severe phenotype
+  classification: clinical_phenotype
+  subtype_frequency: &#34;~25% of affected males&#34;
+  description: &gt;-
+    Early-onset phenotype with hyperuricemia and hyperuricosuria plus
+    variable neurodevelopmental, auditory, hypotonia, and ataxia findings.
+  evidence:
+  - reference: PMID:20301734
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      whereas the severe phenotype (~25% of affected males) with onset in
+      the first decade of life has in addition to these biochemical findings
+      variable combinations of developmental delay (DD) / intellectual
+      disability (ID), sensorineural hearing loss, hypotonia, and ataxia.
+    explanation: &gt;-
+      GeneReviews defines the severe PRS-I superactivity phenotype and its
+      approximate proportion among affected males.
+pathophysiology:
+- name: PRS-I allosteric gain of function
+  description: &gt;-
+    PRPS1 missense variants can make PRS-I resistant to normal purine
+    nucleotide feedback inhibition and alter activation by inorganic
+    phosphate. This allosteric gain of function increases effective PRS-I
+    activity in patient cells and recombinant PRS1 models.
   genes:
   - preferred_term: PRPS1
     term:
@@ -3499,132 +4981,608 @@ pathophysiology:
     term:
       id: GO:0004749
       label: ribose phosphate diphosphokinase activity
+    modifier: INCREASED
   evidence:
-  - reference: PMID:23190330
+  - reference: PMID:7593598
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: IN_VITRO
     snippet: &gt;-
-      Gain of function mutations in PRPS1 cause a superactivity of the
-      PRS-I protein
+      Kinetic analysis of recombinant mutant PRS1s showed that widely
+      dispersed point mutations in the X chromosome-linked PRPS1 gene
+      encoding the PRS1 isoform result in alteration of the allosteric
+      mechanisms regulating both enzyme inhibition by purine nucleotides
+      and activation by inorganic phosphate.
     explanation: &gt;-
-      Confirms GOF mechanism for superactivity.
+      Shows that PRPS1 variants directly alter allosteric regulation of
+      PRS-I, the proximal gain-of-function mechanism in severe PRS-I
+      superactivity.
+  - reference: PMID:8253776
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      recombinant N. B. and S. M. PRS1s showed the purine nucleotide
+      feedback resistance phenotypes characteristic of PRS from patients&#39;
+      cells.
+    explanation: &gt;-
+      Recombinant PRS1 variants reproduce the feedback-resistance phenotype
+      measured in patient cells.
   downstream:
-  - target: Purine Overproduction
-- name: Purine Overproduction
+  - target: PRPP and purine nucleotide overproduction
+    description: &gt;-
+      Feedback-resistant PRS-I increases PRPP availability and de novo purine
+      nucleotide synthesis.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:7593598
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        The functional consequences of these mutations provide a tenable
+        basis for the enhanced production of phosphoribosylpyrophosphate,
+        purine nucleotides, and uric acid that are the biochemical hallmarks
+        of PRS superactivity.
+      explanation: &gt;-
+        Directly links allosteric PRS1 variants to enhanced PRPP, purine
+        nucleotide, and uric acid production.
+  - target: Neurodevelopmental and auditory involvement
+    description: &gt;-
+      Severe PRS-I superactivity with allosteric variants can include
+      neurodevelopmental and auditory findings through incompletely defined
+      downstream mechanisms.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:20301734
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        whereas the severe phenotype (~25% of affected males) with onset in
+        the first decade of life has in addition to these biochemical findings
+        variable combinations of developmental delay (DD) / intellectual
+        disability (ID), sensorineural hearing loss, hypotonia, and ataxia.
+      explanation: &gt;-
+        GeneReviews links the severe PRS-I superactivity phenotype to
+        neurodevelopmental, auditory, and motor findings.
+- name: PRPS1 transcriptional overactivity
   description: &gt;-
-    Excess PRPP drives purine nucleotide biosynthesis beyond metabolic
-    demand, leading to overproduction of purines and their degradation
-    product uric acid. Hyperuricemia causes urate crystal deposition in
-    joints (gout) and kidneys (nephrolithiasis).
+    In the mild overactivity-of-normal-PRS mechanism, patient cells have
+    increased PRPS1 transcription and PRS1 isoform expression despite normal
+    PRS-I allosteric regulation, increasing PRPP and purine synthesis.
+  genes:
+  - preferred_term: PRPS1
+    term:
+      id: hgnc:9462
+      label: PRPS1
+  evidence:
+  - reference: PMID:10066814
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      PRPS1 transcription was increased relative to GAPDH (3- to 4-fold
+      normal in fibroblasts; 1.9- to 2.4-fold in lymphoblasts) and PRPS2.
+    explanation: &gt;-
+      Patient fibroblasts and lymphoblasts show increased PRPS1
+      transcription.
+  - reference: PMID:10066814
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      accelerated PRPS1 transcription is the major aberration leading to
+      PRS1 overexpression.
+    explanation: &gt;-
+      Identifies PRPS1 transcriptional up-regulation as the primary
+      aberration in overactivity of structurally normal PRS-I.
+  downstream:
+  - target: PRPP and purine nucleotide overproduction
+    description: &gt;-
+      PRS1 overexpression increases PRPP and purine nucleotide synthesis in
+      intact patient cells.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:10066814
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        modulated relative increases in PRS activities at suboptimal Pi
+        concentration and in rates of PRPP and purine nucleotide synthesis in
+        intact patient fibroblasts indicate that despite an intact allosteric
+        mechanism of regulation of PRS activity, PRPS1 transcription is a
+        major determinant of PRPP and purine synthesis.
+      explanation: &gt;-
+        Links PRPS1 transcriptional overactivity to increased PRPP and purine
+        synthesis in patient fibroblasts.
+- name: PRPP and purine nucleotide overproduction
+  description: &gt;-
+    Excess PRS-I activity increases PRPP availability and drives de novo
+    purine nucleotide biosynthesis beyond metabolic demand, creating the
+    biochemical substrate for uric acid overproduction.
   biological_processes:
-  - preferred_term: Purine nucleotide biosynthesis
+  - preferred_term: purine nucleotide biosynthetic process
     term:
       id: GO:0006164
       label: purine nucleotide biosynthetic process
+    modifier: INCREASED
+  chemical_entities:
+  - preferred_term: phosphoribosyl pyrophosphate
+    term:
+      id: CHEBI:17111
+      label: 5-O-phosphono-alpha-D-ribofuranosyl diphosphate
+    modifier: INCREASED
   evidence:
-  - reference: PMID:26089585
+  - reference: PMID:7593598
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      The functional consequences of these mutations provide a tenable
+      basis for the enhanced production of phosphoribosylpyrophosphate,
+      purine nucleotides, and uric acid that are the biochemical hallmarks
+      of PRS superactivity.
+    explanation: &gt;-
+      Directly supports PRPP, purine nucleotide, and uric acid
+      overproduction as biochemical hallmarks of PRS-I superactivity.
+  - reference: PMID:10066814
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Phosphoribosylpyrophosphate (PRPP) synthetase (PRS) superactivity is
+      an X-linked disorder characterized by gout with overproduction of
+      purine nucleotides and uric acid.
+    explanation: &gt;-
+      Confirms purine nucleotide and uric acid overproduction in PRS-I
+      superactivity.
+  downstream:
+  - target: Urate overproduction and crystal disease
+    description: &gt;-
+      Increased purine nucleotide flux increases downstream uric acid
+      production.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:7593598
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        The functional consequences of these mutations provide a tenable
+        basis for the enhanced production of phosphoribosylpyrophosphate,
+        purine nucleotides, and uric acid that are the biochemical hallmarks
+        of PRS superactivity.
+      explanation: &gt;-
+        Directly ties increased PRPP and purine nucleotides to uric acid
+        overproduction.
+- name: Urate overproduction and crystal disease
+  description: &gt;-
+    Excess purine turnover increases uric acid production, causing
+    hyperuricemia and hyperuricosuria. Uric acid crystallization in urine,
+    kidneys, and joints drives crystalluria or stones followed by gouty
+    arthritis when serum urate is not controlled.
+  biological_processes:
+  - preferred_term: purine nucleobase catabolic process
+    term:
+      id: GO:0006145
+      label: purine nucleobase catabolic process
+    modifier: INCREASED
+  chemical_entities:
+  - preferred_term: uric acid
+    term:
+      id: CHEBI:27226
+      label: uric acid
+    modifier: INCREASED
+  evidence:
+  - reference: PMID:20301734
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Phosphoribosylpyrophosphate synthetase (PRS) superactivity comprises
+      two phenotypes, both characterized by hyperuricemia and hyperuricosuria.
+    explanation: &gt;-
+      GeneReviews identifies hyperuricemia and hyperuricosuria as shared
+      biochemical features of both PRS-I superactivity phenotypes.
+  - reference: PMID:30423175
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      The overexpression of PRPS1 results in PRS-I superactivity
-      resulting in purine overproduction. Patients with PRS-I
-      superactivity demonstrate uric acid overproduction, hypotonia,
-      ataxia, neurodevelopment abnormalities, and postlingual hearing
-      impairment.
+      We describe a 16-year-old African American female who developed
+      progressive tophi, nephrolithiasis and acute kidney failure due to
+      urate overproduction.
     explanation: &gt;-
-      Describes purine overproduction and its clinical consequences.
+      Human cohort/case evidence links urate overproduction to crystal
+      complications including tophi and nephrolithiasis.
+  downstream:
+  - target: Hyperuricemia
+    description: Serum urate rises because uric acid production exceeds clearance.
+    causal_link_type: DIRECT
+  - target: Hyperuricosuria
+    description: Urinary uric acid excretion rises with urate overproduction.
+    causal_link_type: DIRECT
+  - target: Gout
+    description: Persistent hyperuricemia promotes urate crystal arthritis.
+    causal_link_type: DIRECT
+  - target: Uric Acid Nephrolithiasis
+    description: Hyperuricosuria and uric acid crystalluria promote urinary stones.
+    causal_link_type: DIRECT
+  - target: Uric Acid Crystalluria
+    description: Urate overproduction can first manifest as urinary uric acid crystals.
+    causal_link_type: DIRECT
+  - target: Acute kidney injury
+    description: Severe urate crystal disease can cause acute kidney failure.
+    causal_link_type: DIRECT
+- name: Neurodevelopmental and auditory involvement
+  description: &gt;-
+    Severe PRS-I superactivity can involve the nervous system and hearing,
+    including developmental delay or intellectual disability, sensorineural
+    hearing loss, hypotonia, and ataxia. The connecting mechanism from purine
+    dysregulation to these features is not fully defined.
+  evidence:
+  - reference: PMID:20301734
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      whereas the severe phenotype (~25% of affected males) with onset in
+      the first decade of life has in addition to these biochemical findings
+      variable combinations of developmental delay (DD) / intellectual
+      disability (ID), sensorineural hearing loss, hypotonia, and ataxia.
+    explanation: &gt;-
+      GeneReviews lists the neurologic and auditory manifestations of severe
+      PRS-I superactivity.
+  - reference: PMID:26089585
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      The overexpression of PRPS1 results in PRS-I superactivity resulting
+      in purine overproduction. Patients with PRS-I superactivity demonstrate
+      uric acid overproduction, hypotonia, ataxia, neurodevelopment
+      abnormalities, and postlingual hearing impairment.
+    explanation: &gt;-
+      PRPS1 review summarizes neurological and hearing features reported in
+      PRS-I superactivity.
+  downstream:
+  - target: Neurodevelopmental Abnormality
+    description: Severe PRS-I superactivity can include developmental delay or intellectual disability.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+  - target: Sensorineural Hearing Impairment
+    description: Severe PRS-I superactivity can include sensorineural hearing loss.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+  - target: Hypotonia
+    description: Severe PRS-I superactivity can include hypotonia.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+  - target: Ataxia
+    description: Severe PRS-I superactivity can include ataxia.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
 phenotypes:
 - category: Metabolic
   name: Hyperuricemia
-  frequency: VERY_FREQUENT
   description: &gt;-
-    Elevated serum uric acid due to purine overproduction. The hallmark
-    biochemical finding.
+    Elevated serum urate from PRS-I-driven uric acid overproduction. This is
+    a defining biochemical feature in both mild and severe PRS-I
+    superactivity.
   phenotype_term:
     preferred_term: Hyperuricemia
     term:
       id: HP:0002149
       label: Hyperuricemia
   evidence:
-  - reference: PMID:26089585
+  - reference: PMID:20301734
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Phosphoribosylpyrophosphate synthetase (PRS) superactivity comprises
+      two phenotypes, both characterized by hyperuricemia and hyperuricosuria.
+    explanation: &gt;-
+      GeneReviews states that both PRS-I superactivity phenotypes are
+      characterized by hyperuricemia.
+  - reference: PMID:30423175
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      uric acid overproduction
+      Clinical findings in previously reported females with PRPS1
+      superactivity showed a high clinical penetrance of this disorder with
+      a mean serum urate level of 8.5 (4.1) mg/dl
     explanation: &gt;-
-      Hyperuricemia from purine overproduction.
+      Female PRPS1 superactivity cases had elevated mean serum urate.
+- category: Metabolic
+  name: Hyperuricosuria
+  description: &gt;-
+    Increased urinary uric acid excretion accompanies hyperuricemia and
+    contributes to uric acid crystalluria and urinary stones.
+  phenotype_term:
+    preferred_term: Hyperuricosuria
+    term:
+      id: HP:0003149
+      label: Hyperuricosuria
+  evidence:
+  - reference: PMID:20301734
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Phosphoribosylpyrophosphate synthetase (PRS) superactivity comprises
+      two phenotypes, both characterized by hyperuricemia and hyperuricosuria.
+    explanation: &gt;-
+      GeneReviews identifies hyperuricosuria as a core biochemical feature.
 - category: Musculoskeletal
   name: Gout
-  frequency: FREQUENT
   description: &gt;-
-    Recurrent gout from urate crystal deposition in joints.
+    Gouty arthritis develops when serum urate is not adequately controlled,
+    and can be severe or tophaceous in affected females and males.
   phenotype_term:
     preferred_term: Gout
     term:
       id: HP:0001997
       label: Gout
+  evidence:
+  - reference: PMID:20301734
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      In the mild phenotype, uric acid crystalluria or a urinary stone is
+      commonly the first clinical finding, followed later by gouty arthritis
+      if serum urate concentration is not controlled.
+    explanation: &gt;-
+      GeneReviews describes gouty arthritis as a downstream clinical feature
+      when serum urate is not controlled.
+  - reference: PMID:30423175
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Family history included a mother with tophaceous gout who developed
+      end-stage kidney disease due to nephrolithiasis and an affected sister
+      with polyarticular gout.
+    explanation: &gt;-
+      Human family data documents tophaceous and polyarticular gout in
+      PRPS1 superactivity.
 - category: Renal
   name: Uric Acid Nephrolithiasis
-  frequency: FREQUENT
   description: &gt;-
-    Uric acid kidney stones from excessive uric acid excretion.
+    Uric acid urinary stones and nephrolithiasis arise from increased
+    urinary uric acid excretion and crystalluria.
   phenotype_term:
     preferred_term: Uric acid nephrolithiasis
     term:
       id: HP:0000791
       label: Uric acid nephrolithiasis
+  evidence:
+  - reference: PMID:20301734
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      In the mild phenotype, uric acid crystalluria or a urinary stone is
+      commonly the first clinical finding, followed later by gouty arthritis
+      if serum urate concentration is not controlled.
+    explanation: &gt;-
+      GeneReviews identifies uric acid crystalluria or urinary stones as an
+      early clinical feature.
+  - reference: PMID:30423175
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      We describe a 16-year-old African American female who developed
+      progressive tophi, nephrolithiasis and acute kidney failure due to
+      urate overproduction.
+    explanation: &gt;-
+      Human PRPS1 superactivity case data directly links urate
+      overproduction to nephrolithiasis.
+- category: Renal
+  name: Uric Acid Crystalluria
+  subtype: Mild
+  description: &gt;-
+    Uric acid crystalluria can be the first clinical finding in the mild
+    phenotype, reflecting urinary uric acid supersaturation before overt gout.
+  phenotype_term:
+    preferred_term: Crystalluria
+    term:
+      id: HP:0020074
+      label: Crystalluria
+  evidence:
+  - reference: PMID:20301734
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      In the mild phenotype, uric acid crystalluria or a urinary stone is
+      commonly the first clinical finding, followed later by gouty arthritis
+      if serum urate concentration is not controlled.
+    explanation: &gt;-
+      GeneReviews identifies uric acid crystalluria as a common early
+      clinical finding in the mild phenotype.
+- category: Renal
+  name: Acute kidney injury
+  description: &gt;-
+    Severe urate overproduction with nephrolithiasis can precipitate acute
+    kidney failure.
+  phenotype_term:
+    preferred_term: Acute kidney injury
+    term:
+      id: HP:0001919
+      label: Acute kidney injury
+  evidence:
+  - reference: PMID:30423175
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      We describe a 16-year-old African American female who developed
+      progressive tophi, nephrolithiasis and acute kidney failure due to
+      urate overproduction.
+    explanation: &gt;-
+      Human PRPS1 superactivity case data documents acute kidney failure due
+      to urate overproduction.
+- category: Neurological
+  name: Neurodevelopmental Abnormality
+  subtype: Severe
+  description: &gt;-
+    Severe PRS-I superactivity can include developmental delay or
+    intellectual disability.
+  phenotype_term:
+    preferred_term: Neurodevelopmental abnormality
+    term:
+      id: HP:0012759
+      label: Neurodevelopmental abnormality
+  evidence:
+  - reference: PMID:20301734
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      whereas the severe phenotype (~25% of affected males) with onset in
+      the first decade of life has in addition to these biochemical findings
+      variable combinations of developmental delay (DD) / intellectual
+      disability (ID), sensorineural hearing loss, hypotonia, and ataxia.
+    explanation: &gt;-
+      GeneReviews lists developmental delay and intellectual disability
+      among severe PRS-I superactivity manifestations.
 - category: Neurological
   name: Ataxia
-  frequency: OCCASIONAL
+  subtype: Severe
   description: &gt;-
-    Cerebellar ataxia in some patients with PRS-I superactivity,
-    suggesting CNS effects of purine metabolic dysregulation.
+    Ataxia occurs in the severe phenotype as part of neurologic involvement.
   phenotype_term:
     preferred_term: Ataxia
     term:
       id: HP:0001251
       label: Ataxia
   evidence:
-  - reference: PMID:26089585
+  - reference: PMID:20301734
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
-      hypotonia, ataxia, neurodevelopment abnormalities, and postlingual
-      hearing impairment
+      whereas the severe phenotype (~25% of affected males) with onset in
+      the first decade of life has in addition to these biochemical findings
+      variable combinations of developmental delay (DD) / intellectual
+      disability (ID), sensorineural hearing loss, hypotonia, and ataxia.
     explanation: &gt;-
-      Ataxia listed among neurological features of superactivity.
+      GeneReviews lists ataxia among severe PRS-I superactivity
+      manifestations.
 - category: Neurological
   name: Hypotonia
-  frequency: OCCASIONAL
+  subtype: Severe
   description: &gt;-
-    Hypotonia in some patients with PRS-I superactivity, reflecting
-    CNS involvement from purine metabolic dysregulation.
+    Hypotonia occurs in the severe phenotype as part of neurologic
+    involvement.
   phenotype_term:
     preferred_term: Hypotonia
     term:
       id: HP:0001252
       label: Hypotonia
   evidence:
-  - reference: PMID:26089585
+  - reference: PMID:20301734
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
-      hypotonia, ataxia, neurodevelopment abnormalities, and postlingual
-      hearing impairment
+      whereas the severe phenotype (~25% of affected males) with onset in
+      the first decade of life has in addition to these biochemical findings
+      variable combinations of developmental delay (DD) / intellectual
+      disability (ID), sensorineural hearing loss, hypotonia, and ataxia.
     explanation: &gt;-
-      Hypotonia listed among neurological features of superactivity.
+      GeneReviews lists hypotonia among severe PRS-I superactivity
+      manifestations.
 - category: Hearing
-  name: Postlingual Hearing Impairment
-  frequency: OCCASIONAL
+  name: Sensorineural Hearing Impairment
+  subtype: Severe
   description: &gt;-
-    Postlingual hearing loss in some patients with PRS-I superactivity.
+    Sensorineural hearing loss is a severe-phenotype manifestation and may
+    be postlingual in PRS-I superactivity.
   phenotype_term:
     preferred_term: Sensorineural hearing impairment
     term:
       id: HP:0000407
       label: Sensorineural hearing impairment
+  evidence:
+  - reference: PMID:20301734
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      whereas the severe phenotype (~25% of affected males) with onset in
+      the first decade of life has in addition to these biochemical findings
+      variable combinations of developmental delay (DD) / intellectual
+      disability (ID), sensorineural hearing loss, hypotonia, and ataxia.
+    explanation: &gt;-
+      GeneReviews lists sensorineural hearing loss among severe PRS-I
+      superactivity manifestations.
+  - reference: PMID:26089585
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      The overexpression of PRPS1 results in PRS-I superactivity resulting
+      in purine overproduction. Patients with PRS-I superactivity demonstrate
+      uric acid overproduction, hypotonia, ataxia, neurodevelopment
+      abnormalities, and postlingual hearing impairment.
+    explanation: &gt;-
+      PRPS1 review lists postlingual hearing impairment among reported
+      features of PRS-I superactivity.
+biochemical:
+- name: Increased PRS-I activity or impaired allosteric regulation
+  presence: INCREASED
+  context: &gt;-
+    Enzyme testing can show high PRS-I activity or lack of allosteric
+    regulation; the severe variant mechanism impairs purine nucleotide
+    feedback inhibition.
+  evidence:
+  - reference: PMID:20301734
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      detection of high activity or lack of allosteric regulation of the
+      PRS-I enzyme (PRS-I enzyme assay) establishes the diagnosis.
+    explanation: &gt;-
+      GeneReviews identifies increased activity or impaired allosteric
+      regulation as diagnostic biochemical evidence.
+  - reference: PMID:7593598
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Kinetic analysis of recombinant mutant PRS1s showed that widely
+      dispersed point mutations in the X chromosome-linked PRPS1 gene
+      encoding the PRS1 isoform result in alteration of the allosteric
+      mechanisms regulating both enzyme inhibition by purine nucleotides
+      and activation by inorganic phosphate.
+    explanation: &gt;-
+      Functional assays define altered allosteric regulation as the
+      biochemical mechanism of gain-of-function variants.
+- name: Increased PRPP and purine nucleotide synthesis
+  presence: INCREASED
+  context: &gt;-
+    Patient cells can show increased PRPP and purine nucleotide synthesis,
+    reflecting enhanced entry of ribose into purine biosynthesis.
+  evidence:
+  - reference: PMID:10066814
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      modulated relative increases in PRS activities at suboptimal Pi
+      concentration and in rates of PRPP and purine nucleotide synthesis in
+      intact patient fibroblasts indicate that despite an intact allosteric
+      mechanism of regulation of PRS activity, PRPS1 transcription is a
+      major determinant of PRPP and purine synthesis.
+    explanation: &gt;-
+      Patient fibroblast data shows increased PRPP and purine nucleotide
+      synthesis downstream of PRPS1 transcriptional overactivity.
+- name: Elevated serum urate
+  presence: INCREASED
+  context: &gt;-
+    Serum urate is elevated from uric acid overproduction and is monitored
+    as a treatment target.
+  evidence:
+  - reference: PMID:30423175
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Clinical findings in previously reported females with PRPS1
+      superactivity showed a high clinical penetrance of this disorder with
+      a mean serum urate level of 8.5 (4.1) mg/dl
+    explanation: &gt;-
+      Female PRPS1 superactivity cases had elevated mean serum urate.
+- name: Increased urinary uric acid excretion
+  presence: INCREASED
+  context: &gt;-
+    Urinary uric acid excretion is increased and is used for screening and
+    treatment surveillance.
+  evidence:
+  - reference: PMID:20301734
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      In male relatives at risk: measurement of serum urate concentration
+      and 24-hour urinary uric acid excretion or spot urinary
+      urate-to-creatinine ratio.
+    explanation: &gt;-
+      GeneReviews recommends urinary uric acid measurement for screening
+      relatives at risk.
 genetic:
-- name: PRPS1 Gain-of-Function Variants
+- name: PRPS1 gain-of-function and overexpression mechanisms
   association: Pathogenic Variants
   gene_term:
     preferred_term: PRPS1
@@ -3639,38 +5597,164 @@ genetic:
         id: HP:0001417
         label: X-linked inheritance
   features: &gt;-
-    Gain-of-function mutations increasing PRS-I enzyme activity.
-    Primarily affects hemizygous males. Mechanistically opposite to
-    the PRPS1 deficiency spectrum.
+    Severe PRS-I superactivity is caused by PRPS1 pathogenic variants that
+    alter allosteric regulation. Mild PRS-I superactivity in affected males
+    can result from increased PRPS1 transcription with no detectable PRPS1
+    coding variant. PRPS1 variant-positive disease is inherited in an
+    X-linked manner, and heterozygous females can be clinically affected.
   evidence:
-  - reference: PMID:23190330
+  - reference: PMID:7593598
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: IN_VITRO
     snippet: &gt;-
-      Gain of function mutations in PRPS1 cause a superactivity of the
-      PRS-I protein whereas the loss-of-function mutations result in
-      X-linked nonsyndromic sensorineural deafness type 2 (DFN2), or
-      in syndromic deafness including Arts syndrome
+      each PRS1 cDNA contained a distinctive single base substitution
+      predicting a corresponding amino acid substitution in the PRS1 isoform.
     explanation: &gt;-
-      Distinguishes GOF (superactivity) from LOF (deficiency spectrum).
+      Identifies distinct PRPS1 missense variants in affected families.
+  - reference: PMID:10066814
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Study of the two X-linked PRS isoforms (PRS1 and PRS2) in cells from
+      certain affected individuals has shown selectively increased
+      concentrations of structurally normal PRS1 transcript and isoform,
+      suggesting that this form of the disorder involves pretranslational
+      dysregulation of PRPS1 expression and might be more appropriately
+      termed overactivity of normal PRS.
+    explanation: &gt;-
+      Supports the non-coding/transcriptional overactivity mechanism of
+      structurally normal PRS1 in a subset of affected individuals.
+  - reference: PMID:20301734
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      PRS superactivity caused by a pathogenic variant in PRPS1 is inherited
+      in an X-linked manner.
+    explanation: &gt;-
+      GeneReviews confirms X-linked inheritance for PRPS1 variant-positive
+      PRS-I superactivity.
+  - reference: CGGV:assertion_76dc3f8d-e1c9-4506-9381-d2b5ab3df300-2020-02-14T170000.000Z
+    reference_title: &#34;PRPS1 / phosphoribosylpyrophosphate synthetase superactivity (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;PRPS1 | HGNC:9462 | phosphoribosylpyrophosphate synthetase superactivity | MONDO:0010395 | XL | Limited&#34;
+    explanation: ClinGen classifies the PRPS1-phosphoribosylpyrophosphate synthetase superactivity gene-disease relationship as limited with X-linked inheritance.
+  variants:
+  - name: PRPS1 missense gain-of-function variants
+    description: &gt;-
+      Missense variants alter PRS-I allosteric regulation, including reduced
+      inhibition by purine nucleotides such as ADP/GDP.
+    evidence:
+    - reference: PMID:30423175
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Mutational analysis revealed a new c.520 G &gt; A (p.G174R) mutation in
+        the PRPS1 gene.
+      explanation: &gt;-
+        Human female PRPS1 superactivity cases had a PRPS1 variant.
+    - reference: PMID:30423175
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        The mutation resulted in decreased PRPS1 inhibition by ADP.
+      explanation: &gt;-
+        Functional testing showed reduced ADP inhibition of the PRPS1
+        p.G174R variant.
+    - reference: PMID:7593598
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        Kinetic analysis of recombinant mutant PRS1s showed that widely
+        dispersed point mutations in the X chromosome-linked PRPS1 gene
+        encoding the PRS1 isoform result in alteration of the allosteric
+        mechanisms regulating both enzyme inhibition by purine nucleotides
+        and activation by inorganic phosphate.
+      explanation: &gt;-
+        Recombinant PRS1 studies define the allosteric gain-of-function
+        effect of PRPS1 missense variants.
+  - name: PRPS1 transcriptional overactivity with structurally normal PRS1
+    description: &gt;-
+      Some affected males have increased PRPS1 transcription and PRS1
+      overexpression without a detectable PRPS1 coding variant.
+    evidence:
+    - reference: PMID:10066814
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        Neither PRPS1 amplification nor altered stability or processing of
+        PRS1 mRNA was identified, but PRPS1 transcription was increased
+        relative to GAPDH (3- to 4-fold normal in fibroblasts; 1.9- to
+        2.4-fold in lymphoblasts) and PRPS2.
+      explanation: &gt;-
+        Patient cells show increased PRPS1 transcription without gene
+        amplification or mRNA stability changes.
+    - reference: PMID:20301734
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        PRS superactivity caused by elevated PRPS1 mRNA levels is also
+        inherited in an X-linked manner; however, because the underlying
+        genetic alteration has not been characterized, the mode of
+        inheritance cannot be confirmed with certainty.
+      explanation: &gt;-
+        GeneReviews summarizes the elevated-PRPS1-mRNA mechanism and its
+        unresolved genetic basis.
 treatments:
 - name: Urate-Lowering Therapy
   description: &gt;-
-    Allopurinol or other xanthine oxidase inhibitors to reduce uric
-    acid production and prevent gout and nephrolithiasis.
+    Xanthine oxidase inhibitor therapy with allopurinol or febuxostat reduces
+    uric acid formation and helps control serum urate, urinary uric acid,
+    gout, and stone risk. High daily fluid intake and urine alkalinization
+    with potassium citrate are used as needed for urinary crystal prevention.
   treatment_term:
     preferred_term: Urate-lowering therapy
     term:
       id: MAXO:0000058
       label: pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: allopurinol
+      term:
+        id: CHEBI:40279
+        label: allopurinol
+    - preferred_term: febuxostat
+      term:
+        id: CHEBI:31596
+        label: febuxostat
+  evidence:
+  - reference: PMID:20301734
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      In all individuals, hyperuricemia and hyperuricosuria can be reduced
+      by treatment with allopurinol or febuxostat to reduce uric acid
+      formation and thus serum urate and urinary uric acid; high daily fluid
+      intake; and, as needed, potassium citrate to alkalinize the urine.
+    explanation: &gt;-
+      GeneReviews recommends allopurinol or febuxostat plus hydration and
+      urine alkalinization for the uric acid overproduction phenotype.
 - name: Genetic Counseling
   description: &gt;-
-    Genetic counseling regarding X-linked inheritance.
+    Genetic counseling addresses X-linked inheritance, reproductive risks,
+    heterozygote testing, and prenatal or preimplantation genetic testing when
+    the familial PRPS1 variant is known.
   treatment_term:
     preferred_term: Genetic counseling
     term:
       id: MAXO:0000079
       label: genetic counseling
+  evidence:
+  - reference: PMID:20301734
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      If a PRPS1 pathogenic variant has been identified in the proband,
+      heterozygote testing for at-risk female relatives, prenatal testing for
+      a pregnancy at increased risk, and preimplantation genetic testing are
+      possible.
+    explanation: &gt;-
+      GeneReviews supports genetic counseling and familial testing when the
+      PRPS1 variant is known.
 datasets:
 </pre>
             </div>
@@ -3727,7 +5811,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "PRPS1 Superactivity", "mondoId": "MONDO:0010395", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "PRPS1_Superactivity", "yamlRevision": "669573a3ede2"};
+        const OS_CONFIG = {"diseaseName": "PRPS1 Superactivity", "mondoId": "MONDO:0010395", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "PRPS1_Superactivity", "yamlRevision": "7ec8e952d118"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

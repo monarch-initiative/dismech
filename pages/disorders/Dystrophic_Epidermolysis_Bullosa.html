@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2649,11 +2802,18 @@
             
             <a class="stat-link" href="#references">
             <div class="stat-item">
-                <div class="stat-value">1</div>
+                <div class="stat-value">14</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
             
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -7566,7 +7726,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Dystrophic Epidermolysis Bullosa
 creation_date: &#39;2026-03-10T12:00:00Z&#39;
-updated_date: &#39;2026-04-26T05:52:16Z&#39;
+updated_date: &#39;2026-05-08T20:47:43Z&#39;
 category: Mendelian
 description: &gt;-
   Dystrophic epidermolysis bullosa (DEB) is caused by mutations in COL7A1
@@ -9045,6 +9205,188 @@ references:
   tags:
   - GeneReviews
   findings: []
+- reference: DOI:10.1001/jamadermatol.2023.5857
+  title: Estimated Spending on Beremagene Geperpavec for Dystrophic Epidermolysis Bullosa
+  found_in:
+  - Dystrophic_Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: ImportanceNew gene therapies can offer substantial benefits to patients, particularly those with rare diseases who have few therapeutic options.
+    supporting_text: ImportanceNew gene therapies can offer substantial benefits to patients, particularly those with rare diseases who have few therapeutic options.
+    evidence:
+    - reference: DOI:10.1001/jamadermatol.2023.5857
+      reference_title: Estimated Spending on Beremagene Geperpavec for Dystrophic Epidermolysis Bullosa
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: ImportanceNew gene therapies can offer substantial benefits to patients, particularly those with rare diseases who have few therapeutic options.
+      explanation: Deep research cited this publication as relevant literature for Dystrophic Epidermolysis Bullosa.
+- reference: DOI:10.1038/s41591-022-01737-y
+  title: &#39;In vivo topical gene therapy for recessive dystrophic epidermolysis bullosa: a phase 1 and 2 trial&#39;
+  found_in:
+  - Dystrophic_Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: Recessive dystrophic epidermolysis bullosa (RDEB) is a lifelong genodermatosis associated with blistering, wounding, and scarring caused by mutations in COL7A1, the gene encoding the anchoring fibril component, collagen VII (C7).
+    supporting_text: Recessive dystrophic epidermolysis bullosa (RDEB) is a lifelong genodermatosis associated with blistering, wounding, and scarring caused by mutations in COL7A1, the gene encoding the anchoring fibril component, collagen VII (C7).
+    evidence:
+    - reference: DOI:10.1038/s41591-022-01737-y
+      reference_title: &#39;In vivo topical gene therapy for recessive dystrophic epidermolysis bullosa: a phase 1 and 2 trial&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Recessive dystrophic epidermolysis bullosa (RDEB) is a lifelong genodermatosis associated with blistering, wounding, and scarring caused by mutations in COL7A1, the gene encoding the anchoring fibril component, collagen VII (C7).
+      explanation: Deep research cited this publication as relevant literature for Dystrophic Epidermolysis Bullosa.
+- reference: DOI:10.1055/s-0043-1763257
+  title: &#39;Fibrosis as a Risk Factor for Cutaneous Squamous Cell Carcinoma in Recessive Dystrophic Epidermolysis Bullosa: A Systematic Review&#39;
+  found_in:
+  - Dystrophic_Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: Recessive dystrophic epidermolysis bullosa (RDEB) is a severe subtype of epidermolysis bullosa caused by changes in collagen VII with a high risk of early development of cutaneous squamous cell carcinoma (cSCC).
+    supporting_text: Recessive dystrophic epidermolysis bullosa (RDEB) is a severe subtype of epidermolysis bullosa caused by changes in collagen VII with a high risk of early development of cutaneous squamous cell carcinoma (cSCC).
+    evidence:
+    - reference: DOI:10.1055/s-0043-1763257
+      reference_title: &#39;Fibrosis as a Risk Factor for Cutaneous Squamous Cell Carcinoma in Recessive Dystrophic Epidermolysis Bullosa: A Systematic Review&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Recessive dystrophic epidermolysis bullosa (RDEB) is a severe subtype of epidermolysis bullosa caused by changes in collagen VII with a high risk of early development of cutaneous squamous cell carcinoma (cSCC).
+      explanation: Deep research cited this publication as relevant literature for Dystrophic Epidermolysis Bullosa.
+- reference: DOI:10.1073/pnas.2401781121
+  title: Splice modulation strategy applied to deep intronic variants in &lt;i&gt;COL7A1&lt;/i&gt; causing recessive dystrophic epidermolysis bullosa
+  found_in:
+  - Dystrophic_Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: Splice modulation strategy applied to deep intronic variants in &lt;i&gt;COL7A1&lt;/i&gt; causing recessive dystrophic epidermolysis bullosa
+    supporting_text: Recessive dystrophic epidermolysis bullosa (RDEB) is a rare and most often severe genetic disease characterized by recurrent blistering and erosions of the skin and mucous membranes after minor trauma, leading to major local and systemic complications.
+    evidence:
+    - reference: DOI:10.1073/pnas.2401781121
+      reference_title: Splice modulation strategy applied to deep intronic variants in &lt;i&gt;COL7A1&lt;/i&gt; causing recessive dystrophic epidermolysis bullosa
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Recessive dystrophic epidermolysis bullosa (RDEB) is a rare and most often severe genetic disease characterized by recurrent blistering and erosions of the skin and mucous membranes after minor trauma, leading to major local and systemic complications.
+      explanation: Deep research cited this publication as relevant literature for Dystrophic Epidermolysis Bullosa.
+- reference: DOI:10.1186/s13023-024-03190-1
+  title: &#39;Therapies for cutaneous squamous cell carcinoma in recessive dystrophic epidermolysis bullosa: a systematic review of 157 cases&#39;
+  found_in:
+  - Dystrophic_Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: Invasive cutaneous squamous cell carcinomas (cSCC) are a leading cause of death in recessive dystrophic epidermolysis bullosa (RDEB), a rare blistering genodermatosis.
+    supporting_text: Invasive cutaneous squamous cell carcinomas (cSCC) are a leading cause of death in recessive dystrophic epidermolysis bullosa (RDEB), a rare blistering genodermatosis.
+    evidence:
+    - reference: DOI:10.1186/s13023-024-03190-1
+      reference_title: &#39;Therapies for cutaneous squamous cell carcinoma in recessive dystrophic epidermolysis bullosa: a systematic review of 157 cases&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Invasive cutaneous squamous cell carcinomas (cSCC) are a leading cause of death in recessive dystrophic epidermolysis bullosa (RDEB), a rare blistering genodermatosis.
+      explanation: Deep research cited this publication as relevant literature for Dystrophic Epidermolysis Bullosa.
+- reference: DOI:10.1371/journal.pone.0302991
+  title: &#39;Creation and characterization of novel rat model for recessive dystrophic epidermolysis bullosa: Frameshift mutation of the Col7a1 gene leads to severe blistered phenotype&#39;
+  found_in:
+  - Dystrophic_Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: Recessive dystrophic epidermolysis bullosa is a rare genodermatosis caused by a mutation of the Col7a1 gene.
+    supporting_text: Recessive dystrophic epidermolysis bullosa is a rare genodermatosis caused by a mutation of the Col7a1 gene.
+    evidence:
+    - reference: DOI:10.1371/journal.pone.0302991
+      reference_title: &#39;Creation and characterization of novel rat model for recessive dystrophic epidermolysis bullosa: Frameshift mutation of the Col7a1 gene leads to severe blistered phenotype&#39;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: Recessive dystrophic epidermolysis bullosa is a rare genodermatosis caused by a mutation of the Col7a1 gene.
+      explanation: Deep research cited this publication as relevant literature for Dystrophic Epidermolysis Bullosa.
+- reference: DOI:10.3390/cells11081365
+  title: &#39;Squamous Cell Carcinoma in Patients with Inherited Epidermolysis Bullosa: Review of Current Literature&#39;
+  found_in:
+  - Dystrophic_Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: &#39;Squamous Cell Carcinoma in Patients with Inherited Epidermolysis Bullosa: Review of Current Literature&#39;
+    supporting_text: Epidermolysis bullosa (EB) is a group of rare congenital diseases caused by mutations in structural proteins of the dermal/epidermal junction that are characterized by extreme epithelial fragility, which determines the formation of bullae and erosions either spontaneously or after local mechanical traumas.
+    evidence:
+    - reference: DOI:10.3390/cells11081365
+      reference_title: &#39;Squamous Cell Carcinoma in Patients with Inherited Epidermolysis Bullosa: Review of Current Literature&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Epidermolysis bullosa (EB) is a group of rare congenital diseases caused by mutations in structural proteins of the dermal/epidermal junction that are characterized by extreme epithelial fragility, which determines the formation of bullae and erosions either spontaneously or after local mechanical traumas.
+      explanation: Deep research cited this publication as relevant literature for Dystrophic Epidermolysis Bullosa.
+- reference: DOI:10.3390/healthcare12020261
+  title: &#39;Management of Skin Lesions in Patients with Epidermolysis Bullosa by Topical Treatment: Systematic Review and Meta-Analysis&#39;
+  found_in:
+  - Dystrophic_Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: Epidermolysis bullosa (EB) is the overarching term for a set of rare inherited skin fragility disorders that result from mutations in at least 20 different genes.
+    supporting_text: Epidermolysis bullosa (EB) is the overarching term for a set of rare inherited skin fragility disorders that result from mutations in at least 20 different genes.
+    evidence:
+    - reference: DOI:10.3390/healthcare12020261
+      reference_title: &#39;Management of Skin Lesions in Patients with Epidermolysis Bullosa by Topical Treatment: Systematic Review and Meta-Analysis&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Epidermolysis bullosa (EB) is the overarching term for a set of rare inherited skin fragility disorders that result from mutations in at least 20 different genes.
+      explanation: Deep research cited this publication as relevant literature for Dystrophic Epidermolysis Bullosa.
+- reference: DOI:10.3390/ijms20225707
+  title: &#39;Epidermolysis Bullosa-Associated Squamous Cell Carcinoma: From Pathogenesis to Therapeutic Perspectives&#39;
+  found_in:
+  - Dystrophic_Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: Epidermolysis bullosa (EB) is a heterogeneous group of inherited skin disorders determined by mutations in genes encoding for structural components of the cutaneous basement membrane zone.
+    supporting_text: Epidermolysis bullosa (EB) is a heterogeneous group of inherited skin disorders determined by mutations in genes encoding for structural components of the cutaneous basement membrane zone.
+    evidence:
+    - reference: DOI:10.3390/ijms20225707
+      reference_title: &#39;Epidermolysis Bullosa-Associated Squamous Cell Carcinoma: From Pathogenesis to Therapeutic Perspectives&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Epidermolysis bullosa (EB) is a heterogeneous group of inherited skin disorders determined by mutations in genes encoding for structural components of the cutaneous basement membrane zone.
+      explanation: Deep research cited this publication as relevant literature for Dystrophic Epidermolysis Bullosa.
+- reference: DOI:10.3390/ijms22105104
+  title: &#39;Impaired Wound Healing, Fibrosis, and Cancer: The Paradigm of Recessive Dystrophic Epidermolysis Bullosa&#39;
+  found_in:
+  - Dystrophic_Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: &#39;Impaired Wound Healing, Fibrosis, and Cancer: The Paradigm of Recessive Dystrophic Epidermolysis Bullosa&#39;
+    supporting_text: Recessive Dystrophic Epidermolysis Bullosa (RDEB) is a devastating skin blistering disease caused by mutations in the gene encoding type VII collagen (C7), leading to epidermal fragility, trauma-induced blistering, and long term, hard-to-heal wounds.
+    evidence:
+    - reference: DOI:10.3390/ijms22105104
+      reference_title: &#39;Impaired Wound Healing, Fibrosis, and Cancer: The Paradigm of Recessive Dystrophic Epidermolysis Bullosa&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Recessive Dystrophic Epidermolysis Bullosa (RDEB) is a devastating skin blistering disease caused by mutations in the gene encoding type VII collagen (C7), leading to epidermal fragility, trauma-induced blistering, and long term, hard-to-heal wounds.
+      explanation: Deep research cited this publication as relevant literature for Dystrophic Epidermolysis Bullosa.
+- reference: DOI:10.3390/ijms25020761
+  title: Splicing Modulation via Antisense Oligonucleotides in Recessive Dystrophic Epidermolysis Bullosa
+  found_in:
+  - Dystrophic_Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: Antisense oligonucleotides (ASOs) represent an emerging therapeutic platform for targeting genetic diseases by influencing various aspects of (pre-)mRNA biology, such as splicing, stability, and translation.
+    supporting_text: Antisense oligonucleotides (ASOs) represent an emerging therapeutic platform for targeting genetic diseases by influencing various aspects of (pre-)mRNA biology, such as splicing, stability, and translation.
+    evidence:
+    - reference: DOI:10.3390/ijms25020761
+      reference_title: Splicing Modulation via Antisense Oligonucleotides in Recessive Dystrophic Epidermolysis Bullosa
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Antisense oligonucleotides (ASOs) represent an emerging therapeutic platform for targeting genetic diseases by influencing various aspects of (pre-)mRNA biology, such as splicing, stability, and translation.
+      explanation: Deep research cited this publication as relevant literature for Dystrophic Epidermolysis Bullosa.
+- reference: DOI:10.3390/ijms25042243
+  title: Emerging Gene Therapeutics for Epidermolysis Bullosa under Development
+  found_in:
+  - Dystrophic_Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: The monogenetic disease epidermolysis bullosa (EB) is characterised by the formation of extended blisters and lesions on the patient’s skin upon minimal mechanical stress.
+    supporting_text: The monogenetic disease epidermolysis bullosa (EB) is characterised by the formation of extended blisters and lesions on the patient’s skin upon minimal mechanical stress.
+    evidence:
+    - reference: DOI:10.3390/ijms25042243
+      reference_title: Emerging Gene Therapeutics for Epidermolysis Bullosa under Development
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The monogenetic disease epidermolysis bullosa (EB) is characterised by the formation of extended blisters and lesions on the patient’s skin upon minimal mechanical stress.
+      explanation: Deep research cited this publication as relevant literature for Dystrophic Epidermolysis Bullosa.
+- reference: DOI:10.3390/ijms251910270
+  title: Current Status of Biomedical Products for Gene and Cell Therapy of Recessive Dystrophic Epidermolysis Bullosa
+  found_in:
+  - Dystrophic_Epidermolysis_Bullosa-deep-research-falcon.md
+  findings:
+  - statement: Current Status of Biomedical Products for Gene and Cell Therapy of Recessive Dystrophic Epidermolysis Bullosa
+    supporting_text: This detailed review describes innovative strategies and current products for gene and cell therapy at different stages of research and development to treat recessive dystrophic epidermolysis bullosa (RDEB) which is associated with the functional deficiency of collagen type VII alpha 1 (C7) caused by defects in the COL7A1 gene.
+    evidence:
+    - reference: DOI:10.3390/ijms251910270
+      reference_title: Current Status of Biomedical Products for Gene and Cell Therapy of Recessive Dystrophic Epidermolysis Bullosa
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: This detailed review describes innovative strategies and current products for gene and cell therapy at different stages of research and development to treat recessive dystrophic epidermolysis bullosa (RDEB) which is associated with the functional deficiency of collagen type VII alpha 1 (C7) caused by defects in the COL7A1 gene.
+      explanation: Deep research cited this publication as relevant literature for Dystrophic Epidermolysis Bullosa.
 </pre>
             </div>
         </div>
@@ -9060,7 +9402,7 @@ references:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">1</span>
+                    <span class="card-count">14</span>
                 </div>
                 
                 <div class="reference-entry">
@@ -9080,8 +9422,2191 @@ references:
                     
                 </div>
                 
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1001/jamadermatol.2023.5857" target="_blank">DOI:10.1001/jamadermatol.2023.5857</a>
+                            </div>
+                            
+                            <div class="reference-title">Estimated Spending on Beremagene Geperpavec for Dystrophic Epidermolysis Bullosa</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">ImportanceNew gene therapies can offer substantial benefits to patients, particularly those with rare diseases who have few therapeutic options.</div>
+            
+            
+            <div class="reference-finding-supporting">"ImportanceNew gene therapies can offer substantial benefits to patients, particularly those with rare diseases who have few therapeutic options."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1001/jamadermatol.2023.5857" target="_blank">DOI:10.1001/jamadermatol.2023.5857</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"ImportanceNew gene therapies can offer substantial benefits to patients, particularly those with rare diseases who have few therapeutic options."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Dystrophic Epidermolysis Bullosa.</div>
+                
             </div>
             
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1038/s41591-022-01737-y" target="_blank">DOI:10.1038/s41591-022-01737-y</a>
+                            </div>
+                            
+                            <div class="reference-title">In vivo topical gene therapy for recessive dystrophic epidermolysis bullosa: a phase 1 and 2 trial</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Recessive dystrophic epidermolysis bullosa (RDEB) is a lifelong genodermatosis associated with blistering, wounding, and scarring caused by mutations in COL7A1, the gene encoding the anchoring fibril component, collagen VII (C7).</div>
+            
+            
+            <div class="reference-finding-supporting">"Recessive dystrophic epidermolysis bullosa (RDEB) is a lifelong genodermatosis associated with blistering, wounding, and scarring caused by mutations in COL7A1, the gene encoding the anchoring fibril component, collagen VII (C7)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41591-022-01737-y" target="_blank">DOI:10.1038/s41591-022-01737-y</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Recessive dystrophic epidermolysis bullosa (RDEB) is a lifelong genodermatosis associated with blistering, wounding, and scarring caused by mutations in COL7A1, the gene encoding the anchoring fibril component, collagen VII (C7)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Dystrophic Epidermolysis Bullosa.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1055/s-0043-1763257" target="_blank">DOI:10.1055/s-0043-1763257</a>
+                            </div>
+                            
+                            <div class="reference-title">Fibrosis as a Risk Factor for Cutaneous Squamous Cell Carcinoma in Recessive Dystrophic Epidermolysis Bullosa: A Systematic Review</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Recessive dystrophic epidermolysis bullosa (RDEB) is a severe subtype of epidermolysis bullosa caused by changes in collagen VII with a high risk of early development of cutaneous squamous cell carcinoma (cSCC).</div>
+            
+            
+            <div class="reference-finding-supporting">"Recessive dystrophic epidermolysis bullosa (RDEB) is a severe subtype of epidermolysis bullosa caused by changes in collagen VII with a high risk of early development of cutaneous squamous cell carcinoma (cSCC)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1055/s-0043-1763257" target="_blank">DOI:10.1055/s-0043-1763257</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Recessive dystrophic epidermolysis bullosa (RDEB) is a severe subtype of epidermolysis bullosa caused by changes in collagen VII with a high risk of early development of cutaneous squamous cell carcinoma (cSCC)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Dystrophic Epidermolysis Bullosa.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1073/pnas.2401781121" target="_blank">DOI:10.1073/pnas.2401781121</a>
+                            </div>
+                            
+                            <div class="reference-title">Splice modulation strategy applied to deep intronic variants in &lt;i&gt;COL7A1&lt;/i&gt; causing recessive dystrophic epidermolysis bullosa</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Splice modulation strategy applied to deep intronic variants in &lt;i&gt;COL7A1&lt;/i&gt; causing recessive dystrophic epidermolysis bullosa</div>
+            
+            
+            <div class="reference-finding-supporting">"Recessive dystrophic epidermolysis bullosa (RDEB) is a rare and most often severe genetic disease characterized by recurrent blistering and erosions of the skin and mucous membranes after minor trauma, leading to major local and systemic complications."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1073/pnas.2401781121" target="_blank">DOI:10.1073/pnas.2401781121</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Recessive dystrophic epidermolysis bullosa (RDEB) is a rare and most often severe genetic disease characterized by recurrent blistering and erosions of the skin and mucous membranes after minor trauma, leading to major local and systemic complications."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Dystrophic Epidermolysis Bullosa.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1186/s13023-024-03190-1" target="_blank">DOI:10.1186/s13023-024-03190-1</a>
+                            </div>
+                            
+                            <div class="reference-title">Therapies for cutaneous squamous cell carcinoma in recessive dystrophic epidermolysis bullosa: a systematic review of 157 cases</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Invasive cutaneous squamous cell carcinomas (cSCC) are a leading cause of death in recessive dystrophic epidermolysis bullosa (RDEB), a rare blistering genodermatosis.</div>
+            
+            
+            <div class="reference-finding-supporting">"Invasive cutaneous squamous cell carcinomas (cSCC) are a leading cause of death in recessive dystrophic epidermolysis bullosa (RDEB), a rare blistering genodermatosis."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s13023-024-03190-1" target="_blank">DOI:10.1186/s13023-024-03190-1</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Invasive cutaneous squamous cell carcinomas (cSCC) are a leading cause of death in recessive dystrophic epidermolysis bullosa (RDEB), a rare blistering genodermatosis."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Dystrophic Epidermolysis Bullosa.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1371/journal.pone.0302991" target="_blank">DOI:10.1371/journal.pone.0302991</a>
+                            </div>
+                            
+                            <div class="reference-title">Creation and characterization of novel rat model for recessive dystrophic epidermolysis bullosa: Frameshift mutation of the Col7a1 gene leads to severe blistered phenotype</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Recessive dystrophic epidermolysis bullosa is a rare genodermatosis caused by a mutation of the Col7a1 gene.</div>
+            
+            
+            <div class="reference-finding-supporting">"Recessive dystrophic epidermolysis bullosa is a rare genodermatosis caused by a mutation of the Col7a1 gene."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pone.0302991" target="_blank">DOI:10.1371/journal.pone.0302991</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Recessive dystrophic epidermolysis bullosa is a rare genodermatosis caused by a mutation of the Col7a1 gene."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Dystrophic Epidermolysis Bullosa.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/cells11081365" target="_blank">DOI:10.3390/cells11081365</a>
+                            </div>
+                            
+                            <div class="reference-title">Squamous Cell Carcinoma in Patients with Inherited Epidermolysis Bullosa: Review of Current Literature</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Squamous Cell Carcinoma in Patients with Inherited Epidermolysis Bullosa: Review of Current Literature</div>
+            
+            
+            <div class="reference-finding-supporting">"Epidermolysis bullosa (EB) is a group of rare congenital diseases caused by mutations in structural proteins of the dermal/epidermal junction that are characterized by extreme epithelial fragility, which determines the formation of bullae and erosions either spontaneously or after local..."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cells11081365" target="_blank">DOI:10.3390/cells11081365</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Epidermolysis bullosa (EB) is a group of rare congenital diseases caused by mutations in structural proteins of the dermal/epidermal junction that are characterized by extreme epithelial fragility, which determines the formation of bullae and erosions either spontaneously or after local..."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Dystrophic Epidermolysis Bullosa.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/healthcare12020261" target="_blank">DOI:10.3390/healthcare12020261</a>
+                            </div>
+                            
+                            <div class="reference-title">Management of Skin Lesions in Patients with Epidermolysis Bullosa by Topical Treatment: Systematic Review and Meta-Analysis</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Epidermolysis bullosa (EB) is the overarching term for a set of rare inherited skin fragility disorders that result from mutations in at least 20 different genes.</div>
+            
+            
+            <div class="reference-finding-supporting">"Epidermolysis bullosa (EB) is the overarching term for a set of rare inherited skin fragility disorders that result from mutations in at least 20 different genes."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/healthcare12020261" target="_blank">DOI:10.3390/healthcare12020261</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Epidermolysis bullosa (EB) is the overarching term for a set of rare inherited skin fragility disorders that result from mutations in at least 20 different genes."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Dystrophic Epidermolysis Bullosa.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/ijms20225707" target="_blank">DOI:10.3390/ijms20225707</a>
+                            </div>
+                            
+                            <div class="reference-title">Epidermolysis Bullosa-Associated Squamous Cell Carcinoma: From Pathogenesis to Therapeutic Perspectives</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Epidermolysis bullosa (EB) is a heterogeneous group of inherited skin disorders determined by mutations in genes encoding for structural components of the cutaneous basement membrane zone.</div>
+            
+            
+            <div class="reference-finding-supporting">"Epidermolysis bullosa (EB) is a heterogeneous group of inherited skin disorders determined by mutations in genes encoding for structural components of the cutaneous basement membrane zone."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/ijms20225707" target="_blank">DOI:10.3390/ijms20225707</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Epidermolysis bullosa (EB) is a heterogeneous group of inherited skin disorders determined by mutations in genes encoding for structural components of the cutaneous basement membrane zone."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Dystrophic Epidermolysis Bullosa.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/ijms22105104" target="_blank">DOI:10.3390/ijms22105104</a>
+                            </div>
+                            
+                            <div class="reference-title">Impaired Wound Healing, Fibrosis, and Cancer: The Paradigm of Recessive Dystrophic Epidermolysis Bullosa</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Impaired Wound Healing, Fibrosis, and Cancer: The Paradigm of Recessive Dystrophic Epidermolysis Bullosa</div>
+            
+            
+            <div class="reference-finding-supporting">"Recessive Dystrophic Epidermolysis Bullosa (RDEB) is a devastating skin blistering disease caused by mutations in the gene encoding type VII collagen (C7), leading to epidermal fragility, trauma-induced blistering, and long term, hard-to-heal wounds."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/ijms22105104" target="_blank">DOI:10.3390/ijms22105104</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Recessive Dystrophic Epidermolysis Bullosa (RDEB) is a devastating skin blistering disease caused by mutations in the gene encoding type VII collagen (C7), leading to epidermal fragility, trauma-induced blistering, and long term, hard-to-heal wounds."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Dystrophic Epidermolysis Bullosa.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/ijms25020761" target="_blank">DOI:10.3390/ijms25020761</a>
+                            </div>
+                            
+                            <div class="reference-title">Splicing Modulation via Antisense Oligonucleotides in Recessive Dystrophic Epidermolysis Bullosa</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Antisense oligonucleotides (ASOs) represent an emerging therapeutic platform for targeting genetic diseases by influencing various aspects of (pre-)mRNA biology, such as splicing, stability, and translation.</div>
+            
+            
+            <div class="reference-finding-supporting">"Antisense oligonucleotides (ASOs) represent an emerging therapeutic platform for targeting genetic diseases by influencing various aspects of (pre-)mRNA biology, such as splicing, stability, and translation."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/ijms25020761" target="_blank">DOI:10.3390/ijms25020761</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Antisense oligonucleotides (ASOs) represent an emerging therapeutic platform for targeting genetic diseases by influencing various aspects of (pre-)mRNA biology, such as splicing, stability, and translation."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Dystrophic Epidermolysis Bullosa.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/ijms25042243" target="_blank">DOI:10.3390/ijms25042243</a>
+                            </div>
+                            
+                            <div class="reference-title">Emerging Gene Therapeutics for Epidermolysis Bullosa under Development</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The monogenetic disease epidermolysis bullosa (EB) is characterised by the formation of extended blisters and lesions on the patient’s skin upon minimal mechanical stress.</div>
+            
+            
+            <div class="reference-finding-supporting">"The monogenetic disease epidermolysis bullosa (EB) is characterised by the formation of extended blisters and lesions on the patient’s skin upon minimal mechanical stress."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/ijms25042243" target="_blank">DOI:10.3390/ijms25042243</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The monogenetic disease epidermolysis bullosa (EB) is characterised by the formation of extended blisters and lesions on the patient’s skin upon minimal mechanical stress."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Dystrophic Epidermolysis Bullosa.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/ijms251910270" target="_blank">DOI:10.3390/ijms251910270</a>
+                            </div>
+                            
+                            <div class="reference-title">Current Status of Biomedical Products for Gene and Cell Therapy of Recessive Dystrophic Epidermolysis Bullosa</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Current Status of Biomedical Products for Gene and Cell Therapy of Recessive Dystrophic Epidermolysis Bullosa</div>
+            
+            
+            <div class="reference-finding-supporting">"This detailed review describes innovative strategies and current products for gene and cell therapy at different stages of research and development to treat recessive dystrophic epidermolysis bullosa (RDEB) which is associated with the functional deficiency of collagen type VII alpha 1 (C7)..."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/ijms251910270" target="_blank">DOI:10.3390/ijms251910270</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"This detailed review describes innovative strategies and current products for gene and cell therapy at different stages of research and development to treat recessive dystrophic epidermolysis bullosa (RDEB) which is associated with the functional deficiency of collagen type VII alpha 1 (C7)..."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Dystrophic Epidermolysis Bullosa.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">Disease Characteristics Research Template</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">88 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-08T13:43:36.197959</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
+<p>Provide detailed information focusing on:
+1. Key concepts and definitions with current understanding
+2. Recent developments and latest research (prioritize 2023-2024 sources)
+3. Current applications and real-world implementations
+4. Expert opinions and analysis from authoritative sources
+5. Relevant statistics and data from recent studies</p>
+<p>Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
+Always prioritize recent, authoritative sources and provide specific citations for all major claims.</p>
+<h1>Disease Characteristics Research Template</h1>
+<h2>Target Disease</h2>
+<ul>
+<li><strong>Disease Name:</strong> Dystrophic Epidermolysis Bullosa</li>
+<li><strong>MONDO ID:</strong>  (if available)</li>
+<li><strong>Category:</strong> Mendelian</li>
+</ul>
+<h2>Research Objectives</h2>
+<p>Please provide a comprehensive research report on <strong>Dystrophic Epidermolysis Bullosa</strong> covering all of the
+disease characteristics listed below. This report will be used to populate a disease knowledge
+base entry. Be thorough and cite primary literature (PMID preferred) for all claims.</p>
+<p>For each section, <strong>suggested databases/resources</strong> are listed. These are the first places
+you should search for information on each topic.</p>
+<hr />
+<h3>1. Disease Information</h3>
+<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, ICD-10/ICD-11, MeSH, PubMed</p>
+</blockquote>
+<ul>
+<li>What is the disease? Provide a concise overview.</li>
+<li>What are the key identifiers? (OMIM, Orphanet, ICD-10/ICD-11, MeSH, Mondo)</li>
+<li>What are the common synonyms and alternative names?</li>
+<li>Is the information derived from individual patients (e.g., EHR) or aggregated disease-level resources?</li>
+</ul>
+<h3>2. Etiology</h3>
+<ul>
+<li><strong>Disease Causal Factors</strong>: What are the primary causes? (genetic, environmental, infectious, mechanistic)</li>
+<li><strong>Risk Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, UpToDate, clinical guidelines, ClinVar, ClinGen, GWAS Catalog, PheGenI, CTD, CDC, WHO, epidemiological databases</p>
+</blockquote>
+</li>
+<li>Genetic risk factors (causal variants, susceptibility loci, modifier genes)</li>
+<li>Environmental risk factors (toxins, lifestyle, occupational exposures, age, sex, family history)</li>
+<li><strong>Protective Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, clinical trial databases, GWAS Catalog, gnomAD, WHO, CDC, nutrition databases</p>
+</blockquote>
+</li>
+<li>Genetic protective factors (protective variants, modifier alleles)</li>
+<li>Environmental protective factors (diet, lifestyle, exposures that reduce risk)</li>
+<li><strong>Gene-Environment Interactions</strong>: How do genetic and environmental factors interact to influence disease?<blockquote>
+<p><strong>Search first:</strong> CTD, PubMed, PheGenI, GxE databases</p>
+</blockquote>
+</li>
+</ul>
+<h3>3. Phenotypes</h3>
+<blockquote>
+<p><strong>Search first:</strong> HPO (Human Phenotype Ontology), OMIM, Orphanet, PubMed, clinicaltrials.gov, MedDRA, SNOMED CT, DECIPHER, LOINC</p>
+</blockquote>
+<p>For each phenotype, provide:
+- <strong>Phenotype type</strong>: symptoms, clinical signs, physical manifestations, behavioral changes, or laboratory abnormalities</p>
+<blockquote>
+<p>For symptoms/signs: HPO, OMIM, Orphanet, PubMed
+For behavioral changes: HPO, DSM, RDoC (Research Domain Criteria), PubMed
+For laboratory abnormalities: LOINC, SNOMED CT, LabTests Online, PubMed
+- <strong>Phenotype characteristics</strong>:
+<strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed
+  - Age of symptom onset (neonatal, childhood, adult-onset, late-onset)
+  - Symptom severity (mild, moderate, severe, variable)
+  - Symptom progression (stable, progressive, episodic, fluctuating)
+  - Frequency among affected individuals (percentage or qualitative)
+- <strong>Quality of life impact</strong>: Effects on daily functioning and well-being (per-phenotype when possible)
+<strong>Search first:</strong> EQ-5D database, SF-36, WHO QOL databases, PubMed
+- Suggest HPO (Human Phenotype Ontology) terms for each phenotype</p>
+</blockquote>
+<h3>4. Genetic/Molecular Information</h3>
+<ul>
+<li><strong>Causal Genes</strong>: Gene mutations or chromosomal abnormalities responsible for disease (gene symbols, OMIM IDs)<blockquote>
+<p><strong>Search first:</strong> OMIM, ClinVar, HGMD, Ensembl, NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Pathogenic Variants</strong>:</li>
+<li>Affected genes (gene symbols, HGNC IDs)
+    &gt; <strong>Search first:</strong> OMIM, NCBI Gene, Ensembl, HGNC, UniProt, GeneCards</li>
+<li>Variant classification (pathogenic, likely pathogenic, VUS per ACMG/AMP guidelines)
+    &gt; <strong>Search first:</strong> ClinVar, ClinGen, ACMG/AMP guidelines, VarSome</li>
+<li>Variant type/class (missense, frameshift, nonsense, splice-site, structural)</li>
+<li>Allele frequency in population databases
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, ExAC, TOPMed, dbSNP</li>
+<li>Somatic vs germline origin
+    &gt; <strong>Search first:</strong> COSMIC (somatic), ClinVar, ICGC, TCGA</li>
+<li>Functional consequences (loss of function, gain of function, dominant negative)</li>
+<li><strong>Modifier Genes</strong>: Genes that modify disease severity or expression</li>
+<li><strong>Epigenetic Information</strong>: DNA methylation, histone modifications, chromatin changes affecting disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Chromosomal Abnormalities</strong>: Large-scale genetic changes (aneuploidy, translocations, inversions)<blockquote>
+<p><strong>Search first:</strong> DECIPHER, ClinVar, ECARUCA, UCSC Genome Browser</p>
+</blockquote>
+</li>
+</ul>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Environmental Factors</strong>: Non-genetic contributing factors (toxins, radiation, pollution, occupational exposure)<blockquote>
+<p><strong>Search first:</strong> CTD (Comparative Toxicogenomics Database), TOXNET, PubMed, EPA databases</p>
+</blockquote>
+</li>
+<li><strong>Lifestyle Factors</strong>: Behavioral factors (smoking, diet, exercise, alcohol consumption)<blockquote>
+<p><strong>Search first:</strong> CDC databases, WHO, PubMed, NHANES</p>
+</blockquote>
+</li>
+<li><strong>Infectious Agents</strong>: If applicable, pathogens causing or triggering disease (bacteria, viruses, fungi, parasites)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON</p>
+</blockquote>
+</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<ul>
+<li><strong>Molecular Pathways</strong>: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)<blockquote>
+<p><strong>Search first:</strong> KEGG, Reactome, WikiPathways, PathBank, BioCyc</p>
+</blockquote>
+</li>
+<li><strong>Cellular Processes</strong>: Cell-level mechanisms (apoptosis, autophagy, cell cycle dysregulation, inflammation, etc.)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (GO), Reactome, KEGG, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Protein Dysfunction</strong>: How protein structure or function is altered (misfolding, aggregation, loss of function, gain of function)<blockquote>
+<p><strong>Search first:</strong> UniProt, PDB (Protein Data Bank), InterPro, Pfam, AlphaFold</p>
+</blockquote>
+</li>
+<li><strong>Metabolic Changes</strong>: Alterations in metabolic processes (energy metabolism, lipid metabolism, amino acid metabolism)<blockquote>
+<p><strong>Search first:</strong> KEGG, BioCyc, HMDB (Human Metabolome Database), BRENDA</p>
+</blockquote>
+</li>
+<li><strong>Immune System Involvement</strong>: Role of immune response (autoimmunity, immunodeficiency, chronic inflammation)<blockquote>
+<p><strong>Search first:</strong> ImmPort, Immunome Database, IEDB, Gene Ontology</p>
+</blockquote>
+</li>
+<li><strong>Tissue Damage Mechanisms</strong>: How tissues/ are injured (oxidative stress, ischemia, fibrosis, necrosis)<blockquote>
+<p><strong>Search first:</strong> PubMed, Gene Ontology, Reactome</p>
+</blockquote>
+</li>
+<li><strong>Biochemical Abnormalities</strong>: Specific molecular defects (enzyme deficiencies, receptor dysfunction, ion channel defects)<blockquote>
+<p><strong>Search first:</strong> BRENDA, UniProt, KEGG, OMIM, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Epigenetic Changes</strong>: DNA methylation, histone modifications affecting gene expression in disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Molecular Profiling</strong> (if available):</li>
+<li>Transcriptomics/gene expression changes
+    &gt; <strong>Search first:</strong> GEO (Gene Expression Omnibus), ArrayExpress, GTEx, Human Cell Atlas, SRA</li>
+<li>Proteomics findings
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, Human Protein Atlas, STRING, BioGRID</li>
+<li>Metabolomics signatures
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB, METLIN</li>
+<li>Lipidomics alterations
+    &gt; <strong>Search first:</strong> LIPID MAPS, SwissLipids, LipidHome, Metabolomics Workbench</li>
+<li>Genomic structural features
+    &gt; <strong>Search first:</strong> UCSC Genome Browser, Ensembl, NCBI, dbVar, DGV</li>
+<li><strong>Advanced Technologies</strong> (if applicable):</li>
+<li>Single-cell analysis findings (cell-type specific mechanisms, cellular heterogeneity)
+    &gt; <strong>Search first:</strong> Human Cell Atlas, Single Cell Portal, GEO, CELLxGENE</li>
+<li>Spatial transcriptomics findings
+    &gt; <strong>Search first:</strong> GEO, Spatial Research, Vizgen, 10x Genomics data</li>
+<li>Multi-omics integration results
+    &gt; <strong>Search first:</strong> TCGA, ICGC, cBioPortal, LinkedOmics, PubMed</li>
+<li>Functional genomics screens (CRISPR, RNAi)
+    &gt; <strong>Search first:</strong> DepMap, GenomeRNAi, PubMed, BioGRID ORCS</li>
+</ul>
+<p>For each mechanism, describe:
+- The causal chain from initial trigger to clinical manifestation
+- Which mechanisms are upstream vs downstream
+- What cell types and biological processes are involved
+- Suggest GO terms for biological processes and CL terms for cell types</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ Level</strong>:</li>
+<li>Primary organs directly affected</li>
+<li>Secondary organ involvement (complications, secondary effects)</li>
+<li>Body systems involved (cardiovascular, nervous, digestive, respiratory, endocrine, etc.)<blockquote>
+<p><strong>Search first:</strong> Uberon, FMA (Foundational Model of Anatomy), OMIM, HPO, ICD-11, MeSH, SNOMED CT</p>
+</blockquote>
+</li>
+<li><strong>Tissue and Cell Level</strong>:</li>
+<li>Specific tissue types affected (epithelial, connective, muscle, nervous)</li>
+<li>Specific cell populations targeted (with Cell Ontology terms)<blockquote>
+<p><strong>Search first:</strong> Uberon, Human Protein Atlas, Cell Ontology, Human Cell Atlas, CellMarker, PanglaoDB</p>
+</blockquote>
+</li>
+<li><strong>Subcellular Level</strong>:</li>
+<li>Cellular compartments involved (mitochondria, nucleus, ER, lysosomes) (with GO Cellular Component terms)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (Cellular Component), UniProt, Human Protein Atlas</p>
+</blockquote>
+</li>
+<li><strong>Localization</strong>:</li>
+<li>Specific anatomical sites (with UBERON terms)
+    &gt; <strong>Search first:</strong> FMA, Uberon, NeuroNames (for brain), SNOMED CT</li>
+<li>Lateralization (unilateral, bilateral, asymmetric)
+    &gt; <strong>Search first:</strong> HPO, clinical literature, imaging databases</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset</strong>:</li>
+<li>Typical age of onset (congenital, pediatric, adult, geriatric)</li>
+<li>Onset pattern (acute, subacute, chronic, insidious)<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Progression</strong>:</li>
+<li>Disease stages (early, intermediate, advanced, end-stage)
+    &gt; <strong>Search first:</strong> Cancer Staging Manual (AJCC), WHO classifications, PubMed</li>
+<li>Progression rate (rapid, slow, variable)</li>
+<li>Disease course pattern (episodic, relapsing-remitting, progressive, stable)</li>
+<li>Disease duration (self-limited, chronic lifelong)<blockquote>
+<p><strong>Search first:</strong> Disease registries, longitudinal cohort databases, natural history studies, PubMed, Orphanet, OMIM</p>
+</blockquote>
+</li>
+<li><strong>Patterns</strong>:</li>
+<li>Remission patterns (spontaneous, treatment-induced)
+    &gt; <strong>Search first:</strong> Clinical trial databases, disease registries, PubMed</li>
+<li>Critical periods (time windows of vulnerability or opportunity for intervention)
+    &gt; <strong>Search first:</strong> PubMed, developmental biology databases, clinical guidelines</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology</strong>:</li>
+<li>Prevalence (cases per 100,000 at given time)</li>
+<li>Incidence (new cases per 100,000 per year)<blockquote>
+<p><strong>Search first:</strong> Orphanet, CDC, WHO, GBD (Global Burden of Disease), national registries, SEER, disease registries</p>
+</blockquote>
+</li>
+<li><strong>For Genetic Etiology</strong>:</li>
+<li>Inheritance pattern (AD, AR, X-linked, mitochondrial, multifactorial, polygenic)
+    &gt; <strong>Search first:</strong> OMIM, Orphanet, ClinVar, GTR (Genetic Testing Registry)</li>
+<li>Penetrance (complete, incomplete, age-dependent)
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, PubMed, ClinGen</li>
+<li>Expressivity (variable, consistent)
+    &gt; <strong>Search first:</strong> OMIM, ClinVar, PubMed</li>
+<li>Genetic anticipation (increasing severity in successive generations)
+    &gt; <strong>Search first:</strong> OMIM, PubMed (especially for repeat expansion disorders)</li>
+<li>Germline mosaicism
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, genetic counseling literature, PubMed</li>
+<li>Founder effects (population-specific mutations)
+    &gt; <strong>Search first:</strong> gnomAD, population genetics databases, PubMed</li>
+<li>Consanguinity role
+    &gt; <strong>Search first:</strong> OMIM, population studies, genetic counseling resources</li>
+<li>Carrier frequency
+    &gt; <strong>Search first:</strong> gnomAD, carrier screening databases, GeneReviews, GTR</li>
+<li><strong>Population Demographics</strong>:</li>
+<li>Affected populations (ethnic or demographic groups with higher prevalence)
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, PAGE Study, PubMed, population registries</li>
+<li>Geographic distribution (endemic areas, regional variation)
+    &gt; <strong>Search first:</strong> WHO, CDC, GBD, Orphanet, geographic epidemiology databases</li>
+<li>Geographic distribution of specific variants</li>
+<li>Sex ratio (male:female)
+    &gt; <strong>Search first:</strong> Disease registries, OMIM, PubMed, epidemiological databases</li>
+<li>Age distribution of affected individuals
+    &gt; <strong>Search first:</strong> CDC, disease registries, SEER, Orphanet</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Clinical Tests</strong>:</li>
+<li>Laboratory tests (blood, urine, tissue chemistry, specific enzyme assays)
+    &gt; <strong>Search first:</strong> LOINC, LabTests Online, PubMed</li>
+<li>Biomarkers (proteins, metabolites, genetic markers, circulating biomarkers)
+    &gt; <strong>Search first:</strong> FDA Biomarker List, BEST (Biomarkers, EndpointS, and other Tools), PubMed</li>
+<li>Imaging studies (X-ray, CT, MRI, PET, ultrasound)
+    &gt; <strong>Search first:</strong> RadLex, DICOM, Radiopaedia, imaging databases</li>
+<li>Functional tests (pulmonary function, cardiac stress tests)
+    &gt; <strong>Search first:</strong> LOINC, clinical guidelines, PubMed</li>
+<li>Electrophysiology (EEG, EMG, ECG, nerve conduction studies)
+    &gt; <strong>Search first:</strong> LOINC, clinical neurophysiology databases, PubMed</li>
+<li>Biopsy findings (histopathology, immunohistochemistry)
+    &gt; <strong>Search first:</strong> SNOMED CT, College of American Pathologists resources, PubMed</li>
+<li>Pathology findings (microscopic examination)
+    &gt; <strong>Search first:</strong> SNOMED CT, Digital Pathology databases, PubMed</li>
+<li><strong>Genetic Testing</strong>:<blockquote>
+<p><strong>Search first:</strong> GTR (Genetic Testing Registry), GeneReviews, ClinGen</p>
+</blockquote>
+</li>
+<li>Overview of recommended genetic testing approach</li>
+<li>Whole genome sequencing (WGS) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, GEL (Genomics England), gnomAD</li>
+<li>Whole exome sequencing (WES) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneMatcher</li>
+<li>Gene panels (which panels, which genes)
+    &gt; <strong>Search first:</strong> GTR, ClinVar, laboratory-specific databases</li>
+<li>Single gene testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneReviews</li>
+<li>Chromosomal microarray (CMA)
+    &gt; <strong>Search first:</strong> DECIPHER, ClinVar, dbVar, ECARUCA</li>
+<li>Karyotyping
+    &gt; <strong>Search first:</strong> Chromosome Abnormality Database, ClinVar, cytogenetics resources</li>
+<li>FISH
+    &gt; <strong>Search first:</strong> ClinVar, cytogenetics databases, PubMed</li>
+<li>Mitochondrial DNA testing
+    &gt; <strong>Search first:</strong> MITOMAP, MSeqDR, ClinVar, GTR</li>
+<li>Repeat expansion testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, repeat expansion databases, PubMed</li>
+<li><strong>Omics-Based Diagnostics</strong> (if applicable):</li>
+<li>RNA sequencing / transcriptomics
+    &gt; <strong>Search first:</strong> GEO, ArrayExpress, GTEx, RNA-seq databases</li>
+<li>Proteomics
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, FDA Biomarker database</li>
+<li>Metabolomics
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB</li>
+<li>Epigenomics
+    &gt; <strong>Search first:</strong> GEO, ENCODE, Roadmap Epigenomics, MethBase</li>
+<li>Liquid biopsy
+    &gt; <strong>Search first:</strong> COSMIC, ClinVar, liquid biopsy databases, PubMed</li>
+<li><strong>Clinical Criteria</strong>:</li>
+<li>Standardized diagnostic criteria (DSM, ICD, society guidelines)
+    &gt; <strong>Search first:</strong> DSM-5, ICD-11, clinical society guidelines, UpToDate</li>
+<li>Differential diagnosis (other conditions to rule out, with distinguishing features)
+    &gt; <strong>Search first:</strong> DynaMed, UpToDate, clinical decision support systems</li>
+<li><strong>Screening</strong>:</li>
+<li>Screening methods for asymptomatic individuals (newborn screening, carrier screening, cascade screening)
+    &gt; <strong>Search first:</strong> ACMG recommendations, CDC newborn screening, GTR</li>
+</ul>
+<h3>11. Outcome/Prognosis</h3>
+<ul>
+<li><strong>Survival and Mortality</strong>:</li>
+<li>Survival rate (5-year, 10-year, overall)
+    &gt; <strong>Search first:</strong> SEER, cancer registries, disease-specific registries, PubMed</li>
+<li>Life expectancy (with and without treatment if applicable)
+    &gt; <strong>Search first:</strong> Orphanet, disease registries, actuarial databases, PubMed</li>
+<li>Mortality rate
+    &gt; <strong>Search first:</strong> CDC, WHO, GBD, national mortality databases</li>
+<li>Disease-specific mortality (deaths directly attributable to disease)
+    &gt; <strong>Search first:</strong> Disease registries, CDC Wonder, GBD, PubMed</li>
+<li><strong>Morbidity and Function</strong>:</li>
+<li>Morbidity (disease-related disability and health impacts)
+    &gt; <strong>Search first:</strong> GBD, WHO, disability databases, PubMed</li>
+<li>Disability outcomes (long-term functional impairments)
+    &gt; <strong>Search first:</strong> ICF (International Classification of Functioning), disability registries</li>
+<li>Quality of life measures (EQ-5D, SF-36, PROMIS, disease-specific tools)
+    &gt; <strong>Search first:</strong> EQ-5D database, SF-36, PROMIS, PubMed</li>
+<li><strong>Disease Course</strong>:</li>
+<li>Complications (secondary problems: infections, organ failure, etc.)
+    &gt; <strong>Search first:</strong> ICD codes, disease registries, clinical databases, PubMed</li>
+<li>Recovery potential (likelihood and extent of recovery, with vs without treatment)
+    &gt; <strong>Search first:</strong> Natural history studies, rehabilitation databases, PubMed</li>
+<li><strong>Prediction</strong>:</li>
+<li>Prognostic factors (age, disease severity, biomarkers, treatment response)
+    &gt; <strong>Search first:</strong> Prognostic models databases, clinical calculators, PubMed</li>
+<li>Prognostic biomarkers (molecular markers predicting disease course)
+    &gt; <strong>Search first:</strong> FDA Biomarker database, PubMed, cancer prognostic databases</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Pharmacotherapy</strong>:</li>
+<li>Pharmacological treatments (drug names, drug classes, mechanisms of action)
+    &gt; <strong>Search first:</strong> DrugBank, RxNorm, ATC classification, DailyMed, FDA databases</li>
+<li>Pharmacogenomics (how genetic variants affect drug metabolism, efficacy, toxicity)
+    &gt; <strong>Search first:</strong> PharmGKB, CPIC (Clinical Pharmacogenetics), FDA Table of PGx Biomarkers</li>
+<li><strong>Advanced Therapeutics</strong>:</li>
+<li>Gene therapy (viral vectors, CRISPR, gene replacement, gene editing)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA gene therapy database, ASGCT resources</li>
+<li>Cell therapy (stem cell transplant, CAR-T, cellular therapeutics)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA cell therapy database, FACT standards</li>
+<li>RNA-based therapies (ASOs, siRNA, mRNA therapies)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA approvals, PubMed</li>
+<li>Targeted therapies (treatments directed at specific molecular targets)
+    &gt; <strong>Search first:</strong> My Cancer Genome, OncoKB, ClinicalTrials.gov, FDA approvals</li>
+<li>Immunotherapies (checkpoint inhibitors, monoclonal antibodies)
+    &gt; <strong>Search first:</strong> Cancer Immunotherapy Database, FDA approvals, ClinicalTrials.gov</li>
+<li><strong>Surgical and Interventional</strong>:</li>
+<li>Surgical interventions (types of surgery, timing, outcomes)
+    &gt; <strong>Search first:</strong> CPT codes, surgical registries, clinical guidelines, PubMed</li>
+<li><strong>Supportive and Rehabilitative</strong>:</li>
+<li>Supportive care (symptom management, pain control, nutrition)
+    &gt; <strong>Search first:</strong> Clinical guidelines, Cochrane Library, PubMed</li>
+<li>Rehabilitation (physical therapy, occupational therapy, speech therapy)
+    &gt; <strong>Search first:</strong> Rehabilitation medicine databases, clinical guidelines, PubMed</li>
+<li><strong>Experimental</strong>:</li>
+<li>Experimental treatments in clinical trials (with NCT identifiers if available)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, EU Clinical Trials Register, WHO ICTRP</li>
+<li><strong>Treatment Outcomes</strong>:</li>
+<li>Treatment response rates
+    &gt; <strong>Search first:</strong> Clinical trial databases, FDA reviews, systematic reviews, PubMed</li>
+<li>Side effects and adverse events
+    &gt; <strong>Search first:</strong> FDA Adverse Event Reporting System (FAERS), MedWatch, PubMed</li>
+<li><strong>Treatment Strategy</strong>:</li>
+<li>Treatment algorithms (clinical pathways, decision trees)
+    &gt; <strong>Search first:</strong> Clinical practice guidelines, NCCN Guidelines, UpToDate</li>
+<li>Combination therapies
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, treatment guidelines, PubMed</li>
+<li>Personalized medicine approaches (genotype-guided treatment)
+    &gt; <strong>Search first:</strong> My Cancer Genome, CIViC, PharmGKB, precision medicine databases</li>
+</ul>
+<p>For each treatment, suggest MAXO (Medical Action Ontology) terms where applicable.</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Prevention Levels</strong>:</li>
+<li>Primary prevention (preventing disease occurrence: vaccination, risk factor modification)
+    &gt; <strong>Search first:</strong> CDC, WHO, USPSTF recommendations, Cochrane Library</li>
+<li>Secondary prevention (early detection and treatment: screening programs, early intervention)
+    &gt; <strong>Search first:</strong> USPSTF, CDC screening guidelines, WHO</li>
+<li>Tertiary prevention (preventing complications in those with disease)
+    &gt; <strong>Search first:</strong> Clinical guidelines, disease management protocols, PubMed</li>
+<li><strong>Immunization</strong>: Vaccine strategies (if applicable)<blockquote>
+<p><strong>Search first:</strong> CDC vaccine schedules, WHO immunization, FDA vaccine database</p>
+</blockquote>
+</li>
+<li><strong>Screening and Early Detection</strong>:</li>
+<li>Screening programs (population-based: newborn screening, cancer screening)
+    &gt; <strong>Search first:</strong> CDC screening programs, USPSTF, cancer screening databases</li>
+<li>Genetic screening (carrier screening, preimplantation genetic diagnosis, prenatal testing)
+    &gt; <strong>Search first:</strong> ACMG recommendations, ACOG guidelines, GTR</li>
+<li>Risk stratification (identifying high-risk individuals for targeted prevention)
+    &gt; <strong>Search first:</strong> Risk prediction models, clinical calculators, PubMed</li>
+<li><strong>Behavioral Interventions</strong>: Lifestyle modifications to reduce risk<blockquote>
+<p><strong>Search first:</strong> CDC, WHO, behavioral intervention databases, Cochrane Library</p>
+</blockquote>
+</li>
+<li><strong>Counseling</strong>: Genetic counseling (risk assessment, family planning guidance)<blockquote>
+<p><strong>Search first:</strong> NSGC resources, ACMG guidelines, GeneReviews</p>
+</blockquote>
+</li>
+<li><strong>Public Health</strong>:</li>
+<li>Public health interventions (sanitation, vector control, health education)
+    &gt; <strong>Search first:</strong> CDC, WHO, public health databases, PubMed</li>
+<li>Environmental interventions (reducing environmental risk factors)
+    &gt; <strong>Search first:</strong> EPA databases, WHO environmental health, PubMed</li>
+<li><strong>Prophylaxis</strong>: Preventive medications or procedures<blockquote>
+<p><strong>Search first:</strong> Clinical guidelines, FDA approvals, PubMed</p>
+</blockquote>
+</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy</strong>: Species affected (with NCBI Taxon identifiers)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy</p>
+</blockquote>
+</li>
+<li><strong>Breed</strong>: Specific breeds affected (with VBO identifiers if applicable)<blockquote>
+<p><strong>Search first:</strong> VBO (Vertebrate Breed Ontology)</p>
+</blockquote>
+</li>
+<li><strong>Gene</strong>: Orthologous genes in other species (with NCBI Gene IDs)<blockquote>
+<p><strong>Search first:</strong> NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Natural Disease</strong>:</li>
+<li>Naturally occurring disease in other species (companion animals, wildlife)
+    &gt; <strong>Search first:</strong> OMIA (Online Mendelian Inheritance in Animals), VetCompass, PubMed</li>
+<li>Veterinary relevance and importance in animal health
+    &gt; <strong>Search first:</strong> OMIA, veterinary databases, PubMed</li>
+<li><strong>Comparative Biology</strong>:</li>
+<li>Comparative pathology (similarities and differences across species)
+    &gt; <strong>Search first:</strong> OMIA, comparative pathology databases, PubMed</li>
+<li>Evolutionary conservation of disease mechanisms
+    &gt; <strong>Search first:</strong> HomoloGene, OrthoMCL, Alliance of Genome Resources</li>
+<li><strong>Transmission</strong> (if applicable):</li>
+<li>Zoonotic potential
+    &gt; <strong>Search first:</strong> CDC zoonotic diseases, WHO zoonoses, GIDEON</li>
+<li>Cross-species susceptibility
+    &gt; <strong>Search first:</strong> NCBI Taxonomy, veterinary databases, PubMed</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Model Types</strong>:</li>
+<li>Model organism type (mammalian, invertebrate, cellular, in vitro)
+    &gt; <strong>Search first:</strong> Alliance of Genome Resources, model organism databases</li>
+<li>Specific model systems (mouse, rat, zebrafish, Drosophila, C. elegans, yeast, cell lines, organoids, iPSCs)
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, SGD, ATCC, Cellosaurus</li>
+<li>Induced models (drug treatment, surgical intervention, environmental manipulation)
+    &gt; <strong>Search first:</strong> MGI, model organism databases, PubMed</li>
+<li><strong>Genetic Models</strong>:</li>
+<li>Types available (knockout, knock-in, transgenic, conditional, humanized)
+    &gt; <strong>Search first:</strong> MGI, IMPC, KOMP, EuMMCR, IMSR</li>
+<li><strong>Model Characteristics</strong>:</li>
+<li>Phenotype recapitulation (how well model reproduces human disease features)
+    &gt; <strong>Search first:</strong> Model organism databases, comparative studies, PubMed</li>
+<li>Model limitations (aspects of human disease not captured)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed, review articles</li>
+<li><strong>Applications</strong>:</li>
+<li>Research applications (what aspects of disease can be studied)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed</li>
+<li><strong>Resources</strong>:</li>
+<li>Model databases
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, IMSR, EMMA, MMRRC</li>
+</ul>
+<hr />
+<h2>Citation Requirements</h2>
+<ul>
+<li>Cite primary literature (PMID preferred) for all mechanistic and clinical claims</li>
+<li>Prioritize recent reviews and landmark papers</li>
+<li>Include direct quotes from abstracts where possible to support key statements</li>
+<li>Distinguish evidence source types: human clinical, model organism, in vitro, computational</li>
+</ul>
+<h2>Output Format</h2>
+<p>Structure your response as a comprehensive narrative organized by the sections above.
+For each section, provide:
+- Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
+- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, MAXO, MONDO) where applicable
+- Evidence citations with PMIDs
+- Direct quotes from abstracts to support key claims
+- Clear indication when information is not available or not applicable for this disease</p>
+<p>This report will be used to populate a disease knowledge base entry with:
+- Pathophysiology descriptions with causal chains
+- Gene/protein annotations (HGNC, GO terms)
+- Phenotype associations (HP terms) with frequencies
+- Cell type involvement (CL terms)
+- Anatomical locations (UBERON terms)
+- Chemical entities (CHEBI terms)
+- Treatment annotations (MAXO terms)
+- Evidence items with PMIDs and exact abstract quotes
+- Epidemiology, prognosis, diagnostic, and prevention information
+- Animal model descriptions with phenotype recapitulation details</p>
+<h1>Dystrophic Epidermolysis Bullosa (DEB) — Disease Characteristics Research Report (2026-05-08)</h1>
+<h2>Target disease</h2>
+<p><strong>Disease:</strong> Dystrophic epidermolysis bullosa (DEB) (Mendelian mechanobullous genodermatosis).</p>
+<p><strong>Note on identifiers (OMIM/Orphanet/ICD/MeSH/MONDO):</strong> In this tool run, curated database identifier pages were not retrieved directly. The report therefore focuses on evidence-backed clinical/genetic characterization from the peer‑reviewed literature and ClinicalTrials.gov records; identifier fields are flagged as <strong>not captured in retrieved evidence</strong>.</p>
+<hr />
+<h2>1. Disease information</h2>
+<h3>Overview and definition</h3>
+<p>DEB is a major subtype of epidermolysis bullosa (EB), a group of inherited disorders with <strong>skin and mucosal membrane blistering induced by mechanical trauma</strong>. In DEB, pathogenic variants in <strong>COL7A1</strong> impair <strong>type VII collagen (C7)</strong> and thereby anchoring fibrils at the dermal–epidermal junction, causing separation <strong>below the lamina densa (upper dermis/sub‑lamina densa)</strong> (hou2023innovationsinthe pages 1-2, bischof2024emerginggenetherapeutics pages 1-2, zorina2024currentstatusof pages 1-2).</p>
+<p>Recent review language defining the core concept: DEB is “caused by inherited pathogenic variants in the <strong>COL7A1</strong> gene, which encodes type VII collagen, the major component of <strong>anchoring fibrils</strong> which maintain adhesion between the outer epidermis and underlying dermis.” (Hou et al., 2023-06; URL: https://doi.org/10.2147/TCRM.S386923) (hou2023innovationsinthe pages 1-2).</p>
+<h3>Subtypes / classification</h3>
+<p>DEB is subclassified by inheritance into:
+- <strong>Dominant DEB (DDEB)</strong> (often milder).
+- <strong>Recessive DEB (RDEB)</strong> (often severe with extensive blistering, chronic wounds, fibrosis/scarring and high cancer risk). (hou2023innovationsinthe pages 1-2)</p>
+<h3>Synonyms / alternative names (from literature usage)</h3>
+<ul>
+<li>Dystrophic epidermolysis bullosa (DEB)</li>
+<li>Dominant dystrophic epidermolysis bullosa (DDEB)</li>
+<li>Recessive dystrophic epidermolysis bullosa (RDEB)</li>
+<li>RDEB generalized severe / generalized intermediate (terminology used in registry cohorts) (kim2018epidemiologyandoutcome pages 3-4, kim2018epidemiologyandoutcome pages 1-2)</li>
+</ul>
+<h3>Evidence source type</h3>
+<p>The information above is derived primarily from <strong>aggregated disease-level resources in peer‑reviewed reviews</strong>, and <strong>registry/cohort studies</strong> for outcomes (hou2023innovationsinthe pages 1-2, bischof2024emerginggenetherapeutics pages 1-2, robertson2021cutaneoussquamouscell pages 3-3, kim2018epidemiologyandoutcome pages 1-2).</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>Disease causal factors</h3>
+<p><strong>Primary cause:</strong> germline pathogenic variants in <strong>COL7A1</strong> causing reduced/absent functional type VII collagen (C7), leading to loss/dysfunction of anchoring fibrils and mechanical fragility with sub‑lamina densa blistering (hou2023innovationsinthe pages 1-2, zorina2024currentstatusof pages 1-2).</p>
+<p><strong>Dominant vs recessive molecular patterns (current understanding):</strong> Reviews emphasize that DDEB commonly involves <strong>glycine substitutions in the C7 triple helix</strong>, while RDEB is frequently driven by <strong>loss-of-function</strong> variants (nonsense/frameshift/splice) that reduce/abolish C7 (hou2023innovationsinthe pages 2-5, zorina2024currentstatusof pages 1-2).</p>
+<h3>Risk factors</h3>
+<p>Because DEB is monogenic, “risk factors” are predominantly genetic:
+- <strong>Family history / carrier status</strong> (autosomal dominant or autosomal recessive inheritance, depending on subtype). (hou2023innovationsinthe pages 1-2, shehata2024geneticimplicationsand pages 7-8)
+- <strong>Consanguinity</strong> can increase the frequency of autosomal recessive EB/DEB in some populations (reported in a Saudi cohort). (Shehata et al., 2024-08; https://doi.org/10.7759/cureus.66678) (shehata2024geneticimplicationsand pages 7-7)</p>
+<h3>Protective factors</h3>
+<p>No validated protective genetic variants or environmental protective factors were identified in the retrieved evidence.</p>
+<h3>Gene–environment interactions</h3>
+<p>DEB blistering is mechanically provoked; environmental friction/trauma triggers lesions on a genetically fragile dermal–epidermal junction, but formal GxE interaction studies were not identified in this run.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>Core clinical phenotype spectrum</h3>
+<p>Across reviews and cohorts, DEB/RDEB is characterized by:
+- <strong>Trauma-induced blistering and erosions</strong> of skin and mucosae (hou2023innovationsinthe pages 1-2, azevedo2023fibrosisasa pages 1-2)
+- <strong>Chronic nonhealing wounds</strong> with recurrent breakdown (hou2023innovationsinthe pages 1-2, tartaglia2021impairedwoundhealing pages 1-2)
+- <strong>Scarring and fibrosis</strong> (including progressive deformity such as “mitten” deformities in severe RDEB due to scarring) (zorina2024currentstatusof pages 1-2)
+- <strong>Systemic complications</strong> (commonly cited in reviews): anemia, malnutrition, osteoporosis, failure to thrive, strictures (danescu2024treatmentofepidermolysis pages 1-4, hou2023innovationsinthe pages 1-2)
+- <strong>Pain and pruritus</strong> are prominent symptoms; supportive management remains central (stone2024creationandcharacterization pages 1-2)
+- <strong>Cutaneous squamous cell carcinoma (cSCC)</strong>: high-risk complication particularly in severe generalized RDEB (hou2023innovationsinthe pages 1-2, robertson2021cutaneoussquamouscell pages 3-3)</p>
+<p>A mechanistic systematic review frames the wound-to-fibrosis-to-cancer phenotype chain: “The alteration in col VII expression leads to the formation of recurrent bullae… subsequent events are deficient healing associated with an intense inflammatory process resulting in the development of chronic wounds… creating a vicious cycle… [that] contribute[s] to a microenvironment favorable to epithelial carcinogenesis.” (de Azevedo et al., 2023-02; https://doi.org/10.1055/s-0043-1763257) (azevedo2023fibrosisasa pages 4-5).</p>
+<h3>Age of onset and progression (typical)</h3>
+<p>DEB is generally <strong>congenital/early onset</strong>, with lifelong mechanobullous disease. Disease course is typically <strong>chronic and progressive</strong> in severe RDEB with cumulative scarring/fibrosis and increasing risk of cSCC in early adulthood (hou2023innovationsinthe pages 1-2, robertson2021cutaneoussquamouscell pages 3-3).</p>
+<h3>Quality-of-life impact</h3>
+<p>Retrieved evidence emphasizes substantial daily burden and “extremely poor quality of life” in RDEB (e.g., systemic involvement and early death described in preclinical therapeutic work), but this run did not retrieve quantitative QOLEB/EBDASI/QoL instrument summary statistics (hou2023innovationsinthe pages 1-2, paboncarrasco2024managementofskin pages 6-7). This is a gap for knowledge-base fields requiring numeric QoL values.</p>
+<h3>Suggested HPO terms (examples; non-exhaustive)</h3>
+<ul>
+<li>Skin blistering: <strong>HP:0032123</strong> (Blistering of the skin)</li>
+<li>Skin erosions: <strong>HP:0001058</strong> (Skin erosion)</li>
+<li>Skin fragility: <strong>HP:0001035</strong> (Fragile skin)</li>
+<li>Abnormal scarring: <strong>HP:0100699</strong> (Abnormal scar)</li>
+<li>Cutaneous squamous cell carcinoma: <strong>HP:0006732</strong> (Squamous cell carcinoma)</li>
+<li>Nail dystrophy: <strong>HP:0008404</strong> (Nail dystrophy)</li>
+<li>Pruritus: <strong>HP:0000989</strong> (Pruritus)</li>
+<li>Pain: <strong>HP:0012531</strong> (Pain)</li>
+<li>Anemia: <strong>HP:0001903</strong> (Anemia)</li>
+<li>Failure to thrive: <strong>HP:0001508</strong> (Failure to thrive)</li>
+<li>Esophageal stricture: <strong>HP:0002043</strong> (Esophageal stricture)</li>
+</ul>
+<hr />
+<h2>4. Genetic / molecular information</h2>
+<h3>Causal gene(s)</h3>
+<ul>
+<li><strong>COL7A1</strong> (type VII collagen α1 chain) is the causal gene for DEB, encoding C7 that forms anchoring fibrils at the dermal–epidermal junction/basement membrane zone (hou2023innovationsinthe pages 1-2, zorina2024currentstatusof pages 1-2).</li>
+</ul>
+<h3>Pathogenic variant classes and consequences</h3>
+<ul>
+<li><strong>Loss-of-function (RDEB):</strong> reduced/absent C7 leading to absent/insufficient anchoring fibrils; sub‑lamina densa cleavage and severe blistering and chronic wounds (zorina2024currentstatusof pages 1-2, azevedo2023fibrosisasa pages 1-2).</li>
+<li><strong>Dominant-negative / structural (DDEB):</strong> glycine substitutions in the triple helix domain are highlighted as common dominant patterns in reviews (hou2023innovationsinthe pages 2-5).</li>
+<li><strong>Splice variants and deep intronic variants:</strong> 2024 work demonstrates deep intronic loss‑of‑function variants causing aberrant splicing can be corrected in patient keratinocytes/fibroblasts via antisense oligonucleotides (ASOs), restoring normal splicing to &gt;94% and C7 protein up to ~56% of normal (Pironon et al., 2024-08; https://doi.org/10.1073/pnas.2401781121) (pironon2024splicemodulationstrategy pages 1-2, pironon2024splicemodulationstrategy pages 4-6).</li>
+</ul>
+<h3>Recent developments (2023–2024) in variant-targeted correction</h3>
+<ul>
+<li><strong>Splice modulation / ASO splicing enhancement:</strong> Hainzl et al. (2024-01; https://doi.org/10.3390/ijms25020761) screened 2′‑MOE ASOs in RDEB cells with c.425A&gt;G and identified candidates increasing correctly spliced COL7A1 transcripts (ddPCR ~3.8–4.2-fold for leading ASOs), with increased full‑length C7 in RDEB skin equivalents (hainzl2024splicingmodulationvia pages 7-10, hainzl2024splicingmodulationvia pages 1-2).</li>
+<li><strong>Exon skipping:</strong> A DEB treatment review describes exon-skipping logic (“Of the 118 exons in COL7A1, 80 of these could be skipped in frame”) and notes topical exon‑73 ASO trial NCT03605069 had low uptake/limited efficacy; follow-on PTW‑002 is in clinical testing (NCT05529134) (hou2023innovationsinthe pages 6-8).</li>
+</ul>
+<h3>Modifier genes / epigenetics / chromosomal abnormalities</h3>
+<p>Evidence for specific modifier genes and epigenetic signatures was not directly retrieved in this run (although some cohort papers mention modifiers in passing). This should be filled from curated genetics resources or dedicated modifier studies.</p>
+<hr />
+<h2>5. Environmental information</h2>
+<p>DEB is primarily genetic. Environmental contributors are mainly <strong>mechanical trauma/friction</strong> triggering blistering. No toxin/pollution/infectious etiology was identified in retrieved evidence.</p>
+<hr />
+<h2>6. Mechanism / pathophysiology</h2>
+<h3>Causal chain (from trigger to clinical manifestations)</h3>
+<ol>
+<li><strong>Germline COL7A1 variants → reduced/abnormal C7</strong> (hou2023innovationsinthe pages 1-2, zorina2024currentstatusof pages 1-2).</li>
+<li><strong>C7 deficiency → impaired anchoring fibrils → skin cleavage below lamina densa</strong> causing mechanical fragility and blistering (azevedo2023fibrosisasa pages 1-2, condorelli2019epidermolysisbullosaassociatedsquamous pages 8-10).</li>
+<li><strong>Recurrent wounding</strong> with chronic nonhealing ulcers, often with bacterial colonization that perpetuates inflammation (condorelli2019epidermolysisbullosaassociatedsquamous pages 8-10, azevedo2023fibrosisasa pages 4-5).</li>
+<li><strong>Fibrosis amplification loop:</strong> inflammatory infiltrates and myofibroblasts produce TGF‑β1, sustaining a self‑renewing fibrotic process and ECM stiffening; fibroblasts can acquire CAF‑like transcriptional features (condorelli2019epidermolysisbullosaassociatedsquamous pages 8-10, condorelli2019epidermolysisbullosaassociatedsquamous pages 6-8).</li>
+<li><strong>Carcinogenesis:</strong> chronic wounds + inflammation + fibrosis create a permissive tumor microenvironment; RDEB cSCC often arises in chronic wound/scar sites rather than UV-driven pathways (azevedo2023fibrosisasa pages 4-5, robertson2021cutaneoussquamouscell pages 1-2).</li>
+</ol>
+<p>Mechanistic quote emphasizing signaling beyond structural failure: “absent expression of wild-type C7 in RDEB dermal fibroblasts… leads to increased TGFβ signaling and a disruption to ECM protein organization and composition that is tumor-promoting.” (Tartaglia et al., 2021-05; https://doi.org/10.3390/ijms22105104) (tartaglia2021impairedwoundhealing pages 2-4).</p>
+<h3>Upstream vs downstream</h3>
+<ul>
+<li><strong>Upstream:</strong> COL7A1 loss/dysfunction; anchoring fibril failure (hou2023innovationsinthe pages 1-2, zorina2024currentstatusof pages 1-2)</li>
+<li><strong>Downstream:</strong> chronic inflammation, TGF‑β signaling, myofibroblast differentiation, ECM remodeling and stiffness, impaired re‑epithelialization, tumor microenvironment and cSCC (condorelli2019epidermolysisbullosaassociatedsquamous pages 6-8, tartaglia2021impairedwoundhealing pages 2-4).</li>
+</ul>
+<h3>Cell types involved (suggested CL terms)</h3>
+<ul>
+<li>Basal keratinocyte (<strong>CL:0000312</strong>; keratinocyte)</li>
+<li>Dermal fibroblast (<strong>CL:0000057</strong>; fibroblast)</li>
+<li>Myofibroblast (<strong>CL:0000186</strong>; myofibroblast)</li>
+<li>Macrophage (<strong>CL:0000235</strong>) and neutrophil/granulocyte (<strong>CL:0000775</strong>) in chronic wound inflammation (tartaglia2021impairedwoundhealing pages 2-4)</li>
+</ul>
+<h3>Molecular pathways / GO term suggestions</h3>
+<ul>
+<li>TGF‑β signaling pathway (<strong>GO:0007179</strong>)</li>
+<li>Extracellular matrix organization (<strong>GO:0030198</strong>)</li>
+<li>Wound healing (<strong>GO:0042060</strong>)</li>
+<li>Inflammatory response (<strong>GO:0006954</strong>)</li>
+<li>Epithelial to mesenchymal transition (<strong>GO:0001837</strong>) (discussed in RDEB-SCC context) (condorelli2019epidermolysisbullosaassociatedsquamous pages 8-10)</li>
+</ul>
+<hr />
+<h2>7. Anatomical structures affected</h2>
+<h3>Organ/tissue level</h3>
+<ul>
+<li><strong>Skin</strong> (primary) and <strong>mucous membranes</strong> (hou2023innovationsinthe pages 1-2, azevedo2023fibrosisasa pages 1-2)</li>
+<li><strong>Basement membrane zone / dermal–epidermal junction</strong> (structural locus of failure) (zorina2024currentstatusof pages 1-2)</li>
+</ul>
+<p>Suggested UBERON terms
+- Skin: <strong>UBERON:0002097</strong>
+- Epidermis: <strong>UBERON:0001003</strong>
+- Dermis: <strong>UBERON:0002067</strong>
+- Basement membrane: <strong>UBERON:0003725</strong></p>
+<p>Subcellular / molecular localization (suggested GO CC)
+- Extracellular matrix: <strong>GO:0031012</strong>
+- Basement membrane: <strong>GO:0005604</strong></p>
+<hr />
+<h2>8. Temporal development</h2>
+<ul>
+<li><strong>Onset:</strong> typically congenital/early life, given monogenic structural defect (hou2023innovationsinthe pages 1-2, zorina2024currentstatusof pages 1-2).</li>
+<li><strong>Course:</strong> chronic lifelong; severe RDEB is progressive with cumulative scarring/fibrosis and increasing cSCC risk in early adulthood (hou2023innovationsinthe pages 1-2, robertson2021cutaneoussquamouscell pages 3-3).</li>
+<li><strong>Critical period:</strong> adolescence/early adulthood for rising cSCC risk, motivating early surveillance (kim2018epidemiologyandoutcome pages 5-6, bonamonte2022squamouscellcarcinoma pages 6-8).</li>
+</ul>
+<hr />
+<h2>9. Inheritance and population</h2>
+<h3>Inheritance patterns</h3>
+<ul>
+<li><strong>Autosomal dominant</strong> (DDEB) and <strong>autosomal recessive</strong> (RDEB) (hou2023innovationsinthe pages 1-2, nikolova2024autosomalrecessivetype pages 2-4).</li>
+</ul>
+<h3>Epidemiology (recent summarized estimates)</h3>
+<ul>
+<li>EB incidence ~40–60 per 1,000,000 live births; prevalence ~20–30 per 1,000,000 in some countries (England/Wales, Netherlands) (Bischof et al., 2024-02; https://doi.org/10.3390/ijms25042243) (bischof2024emerginggenetherapeutics pages 1-2).</li>
+<li>DEB may represent ~30% of EB cases (Hou et al., 2023-06; https://doi.org/10.2147/TCRM.S386923) (hou2023innovationsinthe pages 1-2).</li>
+</ul>
+<h3>High-impact complication epidemiology: RDEB-associated cSCC</h3>
+<p>RDEB carries extremely high age-dependent cSCC risk and poor survival:
+- In the US National EB Registry estimates summarized in a London cohort paper: cumulative risk of ≥1 SCC in severe RDEB ~7.5% by age 20, 67.8% by 35, 90.1% by 55, with SCC-related death risk ~38.7% by 35 and ~70% by 45 (robertson2021cutaneoussquamouscell pages 3-3).
+- Australasian registry: cumulative risk of SCC by age 35 was 76.1% in RDEB generalized severe vs 10% in generalized intermediate; median survival after first SCC 4 years (severe) and 5 years (intermediate) (Kim et al., 2018-01; https://doi.org/10.2340/00015555-2781) (kim2018epidemiologyandoutcome pages 3-4, kim2018epidemiologyandoutcome pages 1-2).</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>Recommended diagnostic approach (evidence-backed components)</h3>
+<p>EB/DEB classification is anchored to the <strong>level of skin cleavage</strong> and confirmation by a combination of:
+- <strong>Immunofluorescence antigen mapping (IFM)</strong> on skin biopsy
+- <strong>Transmission electron microscopy (TEM/EM)</strong> to localize cleavage plane and anchoring fibril defects
+- <strong>Molecular testing</strong> (NGS gene panels/WES) for COL7A1 variants interpreted under ACMG criteria (montaudie2016inheritedepidermolysisbullosa pages 1-2, nikolova2024autosomalrecessivetype pages 1-2, nikolova2024autosomalrecessivetype pages 2-4).</p>
+<p>A case-based diagnostic statement: the “most effective diagnostic approach… combines TEM and immunofluorescence antigen mapping… together with DNA mutational analysis,” and NGS is described as preferable for cost-effective multi-variant screening (Nikolova et al., 2024-09; https://doi.org/10.3892/br.2024.1855) (nikolova2024autosomalrecessivetype pages 1-2).</p>
+<p>Real-world implementation example (referral center workflow): In a Romanian ERN-Skin affiliated center, patients received clinical assessment with IFM/TEM and molecular testing when available (molecular testing performed in 29/56; IFM in 5; TEM in 10), illustrating staged diagnosis constrained by access/logistics (Suru et al., 2024-05; https://doi.org/10.7759/cureus.61160) (suru2024descriptivestudyof pages 2-4).</p>
+<h3>Genetic testing approaches</h3>
+<ul>
+<li><strong>NGS panels</strong> (multi-gene EB panels) (shehata2024geneticimplicationsand pages 7-7, nikolova2024autosomalrecessivetype pages 1-2)</li>
+<li><strong>WES</strong> (noted in pediatric case literature) (ali2024epidermolysisbullosatwo pages 12-13)</li>
+</ul>
+<h3>Differential diagnosis</h3>
+<p>Not comprehensively captured in the retrieved evidence; would typically include other EB subtypes (EBS, JEB, Kindler EB) and other blistering disorders, but specific evidence-backed differential criteria were not retrieved here.</p>
+<hr />
+<h2>11. Outcomes / prognosis</h2>
+<h3>Prognosis dominated by severe RDEB complications, especially cSCC</h3>
+<p>A 28-year London retrospective study reported for severe RDEB: metastatic disease in 16/31 (52%), SCC-associated mortality 64.5%, and <strong>median survival after first SCC 2.4 years</strong> (Robertson et al., 2021-07; https://doi.org/10.2340/00015555-3875) (robertson2021cutaneoussquamouscell pages 1-2, robertson2021cutaneoussquamouscell pages 3-3).</p>
+<p>Systematic review synthesis (2024): in 157 RDEB-cSCC cases, median age at diagnosis was 30 years (range 6–68.4), and among cases with survival data, median survival after first cSCC varied with treatments (e.g., surgery only ~2 years; immunotherapy ~4.6 years; anti‑EGFR therapy ~4.0 years), noting small sample sizes (Hwang et al., 2024-05; https://doi.org/10.1186/s13023-024-03190-1) (hwang2024therapiesforcutaneous pages 1-3).</p>
+<hr />
+<h2>12. Treatment</h2>
+<h3>Current applications / real-world implementations (supportive and multidisciplinary)</h3>
+<p>Current best practice remains <strong>multidisciplinary supportive care</strong>, prioritizing wound care, infection prevention/management, pain and itch control, nutrition, and treatment of complications (danescu2024treatmentofepidermolysis pages 1-4, shehata2024geneticimplicationsand pages 7-8).</p>
+<h3>FDA-approved causal/molecular therapy (major 2023 milestone)</h3>
+<p><strong>Beremagene geperpavec (B‑VEC; VYJUVEK)</strong> is an in vivo topical gene therapy using a non‑replicating HSV‑1 vector delivering COL7A1 to promote C7 expression and anchoring fibril assembly.</p>
+<p>Evidence from the phase 1/2 trial report emphasizes safety and molecular correction: in a randomized, placebo-controlled phase 1/2 trial (NCT03536143), “No grade 2 or above B‑VEC-related adverse events or vector shedding… were noted,” and primary/secondary objectives including “C7 expression” and “anchoring fibril assembly” and wound-closure outcomes were met (Gurevich et al., 2022-03; https://doi.org/10.1038/s41591-022-01737-y) (gurevich2022invivotopical pages 1-2).</p>
+<p>Quantitative efficacy (from 2024 therapy review summarizing trials):
+- Phase 1/2 (NCT03536143): 10/12 (83%) B‑VEC wounds closed vs 1/7 (14%) placebo at 12 weeks (koutsoukos2024highlightsofgene pages 5-7).
+- Phase 3: complete wound healing reported as 67% B‑VEC vs 22% placebo, and 71% vs 20% at 3 months in summary sources (koutsoukos2024highlightsofgene pages 5-7, paboncarrasco2024managementofskin pages 6-7).</p>
+<p><strong>Mechanistic tissue restoration evidence from figures/tables:</strong> Gurevich et al. include tabulated wound closure endpoints and images showing restored C7 at the dermal–epidermal junction and mature anchoring fibrils after therapy (gurevich2022invivotopical media 3ae5ad4d, gurevich2022invivotopical media 80fb8fb9).</p>
+<h3>Other advanced therapeutics (2023–2024 research emphasis)</h3>
+<ul>
+<li><strong>Ex vivo gene-corrected epidermal grafts (EB‑101):</strong> Review synthesis reports durable wound closure at multi-year follow-up for gene-corrected autologous keratinocyte grafts (hou2023innovationsinthe pages 2-5).</li>
+<li><strong>Splice modulation / exon skipping (ASOs):</strong> active 2024 preclinical work (Hainzl 2024; Pironon 2024) demonstrating restoration of correct COL7A1 splicing and partial C7 rescue, including deep intronic variant targeting (pironon2024splicemodulationstrategy pages 1-2, hainzl2024splicingmodulationvia pages 1-2).</li>
+<li><strong>Readthrough therapy:</strong> IV gentamicin open-label pilot in nonsense-variant RDEB increased C7 at the DEJ and reported &gt;85% closure of monitored wounds at 1 and 3 months in three participants (Woodley et al., 2024-02; https://doi.org/10.1093/bjd/ljae063) (danescu2024treatmentofepidermolysis pages 1-4).</li>
+</ul>
+<h3>Clinical trials (examples; not exhaustive)</h3>
+<ul>
+<li>B‑VEC phase 1/2: <strong>NCT03536143</strong> (NCT03536143 chunk 1)</li>
+<li>Exon 73 ASO programs: <strong>NCT03605069</strong> (terminated) and <strong>NCT05529134</strong> (PTW‑002) (pironon2024splicemodulationstrategy pages 6-7, hou2023innovationsinthe pages 6-8)</li>
+<li>EB‑101 phase 3 (ex vivo gene therapy): <strong>NCT04227106</strong> (retrieved in trials list)</li>
+</ul>
+<h3>MAXO suggestions (selected)</h3>
+<ul>
+<li>Topical gene therapy: <strong>MAXO:0000123</strong> (Gene therapy; general)</li>
+<li>Skin wound care: <strong>MAXO:0000756</strong> (Wound care)</li>
+<li>Pain management: <strong>MAXO:0000747</strong> (Pain management)</li>
+<li>Genetic counseling: <strong>MAXO:0000079</strong> (Genetic counseling)</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<h3>Primary prevention (disease occurrence)</h3>
+<p>Because DEB is genetic, primary prevention is via <strong>reproductive risk management</strong>:
+- After identifying a causal variant in an affected individual, “biological parents and siblings should undergo carrier status testing… following genetic counseling guidelines.” (Shehata et al., 2024-08; https://doi.org/10.7759/cureus.66678) (shehata2024geneticimplicationsand pages 7-8).</p>
+<h3>Secondary prevention (early detection)</h3>
+<p><strong>cSCC surveillance</strong> is a critical prevention strategy in severe RDEB.
+- Review guidance: full skin exam every <strong>3–6 months from age 10</strong> for the highest-risk RDEB patients, with shorter intervals for those with prior cSCC (Bonamonte et al., 2022-04; https://doi.org/10.3390/cells11081365) (bonamonte2022squamouscellcarcinoma pages 6-8).
+- Registry guidance: “Regular skin checks at least every <strong>3 months</strong> are… vital,” with biopsy triggers for persistent ulcers/hyperkeratosis and a goal of rapid excision of biopsy-proven SCC (Kim et al., 2018-01; https://doi.org/10.2340/00015555-2781) (kim2018epidemiologyandoutcome pages 5-6).</p>
+<h3>Tertiary prevention (complication prevention)</h3>
+<ul>
+<li>Multidisciplinary specialized EB centers integrating dermatology, genetics, pain management, nutrition, and wound care are advocated to reduce complication burden (shehata2024geneticimplicationsand pages 7-8).</li>
+</ul>
+<hr />
+<h2>14. Other species / natural disease</h2>
+<p>Naturally occurring DEB/RDEB-like disease has been reported in multiple species including <strong>dogs, cats, cattle, sheep, goats, and ostriches</strong>, with limited utility of some animal cases for therapy testing (Stone et al., 2024-05; https://doi.org/10.1371/journal.pone.0302991) (stone2024creationandcharacterization pages 1-2).</p>
+<hr />
+<h2>15. Model organisms</h2>
+<h3>In vivo genetic models</h3>
+<ul>
+<li><strong>Mouse models:</strong> Col7a1 knockout mice show severe blistering and early death; hypomorphic mice (~10% Col7a1 expression) recapitulate blistering, nail dystrophy, mitten deformities but do not capture patient-specific compound heterozygosity well (takaki2022generationofa pages 1-2).</li>
+<li><strong>Patient-mutation compound heterozygous mouse models:</strong> CRISPR/i‑GONAD enabled creation of a mouse model carrying patient-derived compound heterozygous mutations, supporting genotype-relevant studies and including single-cell transcriptomics readouts (Takaki et al., 2022-06; https://doi.org/10.1038/s41374-022-00735-5) (takaki2022generationofa pages 1-2).</li>
+<li><strong>New rat model (2024):</strong> a Lewis rat Col7a1del8/del8 model (8-bp deletion causing a premature stop) shows severe postnatal blistering with absent anchoring fibrils, offering larger surface area for topical/transfusion therapy testing but limited survival (median ~3 days) (stone2024creationandcharacterization pages 7-9, stone2024creationandcharacterization pages 9-10).</li>
+</ul>
+<h3>Human cell and xenograft models</h3>
+<ul>
+<li><strong>iPSC-derived skin equivalents / xenografts:</strong> gene-corrected iPS-derived skin constructs grafted onto immunodeficient mice restored collagen VII expression and anchoring fibrils (koutsoukos2024highlightsofgene pages 5-7).</li>
+</ul>
+<hr />
+<h2>Recent quantitative statistics (quick reference)</h2>
+<p>The following table consolidates key epidemiology, cSCC outcomes, and B‑VEC efficacy endpoints with URLs and publication dates.</p>
+<table>
+<thead>
+<tr>
+<th>Finding/Metric</th>
+<th>Population/Subtype</th>
+<th style="text-align: right;">Value</th>
+<th>Study type</th>
+<th>Source (authors/year)</th>
+<th>Publication date/month</th>
+<th>URL/DOI</th>
+<th>Evidence citation id</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>EB incidence</td>
+<td>EB overall</td>
+<td style="text-align: right;">~19.6 per 1,000,000 live-born infants</td>
+<td>Review</td>
+<td>Shehata et al. 2024</td>
+<td>2024-08</td>
+<td>https://doi.org/10.7759/cureus.66678</td>
+<td>(shehata2024geneticimplicationsand pages 1-4)</td>
+</tr>
+<tr>
+<td>EB incidence</td>
+<td>EB overall</td>
+<td style="text-align: right;">~40–60 per 1,000,000 live births</td>
+<td>Review</td>
+<td>Bischof et al. 2024</td>
+<td>2024-02</td>
+<td>https://doi.org/10.3390/ijms25042243</td>
+<td>(bischof2024emerginggenetherapeutics pages 1-2)</td>
+</tr>
+<tr>
+<td>EB prevalence</td>
+<td>EB overall</td>
+<td style="text-align: right;">~20–30 per 1,000,000 people (England/Wales, Netherlands)</td>
+<td>Review</td>
+<td>Bischof et al. 2024</td>
+<td>2024-02</td>
+<td>https://doi.org/10.3390/ijms25042243</td>
+<td>(bischof2024emerginggenetherapeutics pages 1-2)</td>
+</tr>
+<tr>
+<td>EB prevalence</td>
+<td>EB overall (USA)</td>
+<td style="text-align: right;">8.22 per 1,000,000</td>
+<td>Review</td>
+<td>Bonamonte et al. 2022</td>
+<td>2022-04</td>
+<td>https://doi.org/10.3390/cells11081365</td>
+<td>(bonamonte2022squamouscellcarcinoma pages 1-2)</td>
+</tr>
+<tr>
+<td>DEB prevalence</td>
+<td>DEB overall</td>
+<td style="text-align: right;">~6 per 1,000,000 in USA/Spain; up to 20 per 1,000,000 in Scotland</td>
+<td>Review</td>
+<td>Bonamonte et al. 2022</td>
+<td>2022-04</td>
+<td>https://doi.org/10.3390/cells11081365</td>
+<td>(bonamonte2022squamouscellcarcinoma pages 1-2)</td>
+</tr>
+<tr>
+<td>DEB proportion among EB</td>
+<td>DEB among all EB cases</td>
+<td style="text-align: right;">~30%</td>
+<td>Review</td>
+<td>Hou et al. 2023</td>
+<td>2023-06</td>
+<td>https://doi.org/10.2147/TCRM.S386923</td>
+<td>(hou2023innovationsinthe pages 1-2)</td>
+</tr>
+<tr>
+<td>DEB proportion among EB</td>
+<td>Saudi cohort of EB patients</td>
+<td style="text-align: right;">42.9% (12/28)</td>
+<td>Retrospective cohort</td>
+<td>Shehata et al. 2024</td>
+<td>2024-08</td>
+<td>https://doi.org/10.7759/cureus.66678</td>
+<td>(shehata2024geneticimplicationsand pages 7-7)</td>
+</tr>
+<tr>
+<td>DEB proportion among EB</td>
+<td>Romanian referral-center cohort</td>
+<td style="text-align: right;">55.4% (31/56)</td>
+<td>Retrospective cohort</td>
+<td>Suru et al. 2024</td>
+<td>2024-05</td>
+<td>https://doi.org/10.7759/cureus.61160</td>
+<td>(suru2024descriptivestudyof pages 2-4)</td>
+</tr>
+<tr>
+<td>cSCC cumulative risk by age</td>
+<td>RDEB-severe / RDEB-HS</td>
+<td style="text-align: right;">7.5% by age 20; 67.8% by 35; 80.2% by 45; 90.1% by 55</td>
+<td>Registry/cohort data summarized in retrospective study</td>
+<td>Robertson et al. 2021</td>
+<td>2021-07</td>
+<td>https://doi.org/10.2340/00015555-3875</td>
+<td>(robertson2021cutaneoussquamouscell pages 3-3)</td>
+</tr>
+<tr>
+<td>cSCC cumulative risk by age</td>
+<td>RDEB-severe / RDEB-HS</td>
+<td style="text-align: right;">7.5% by age 20; 52% by 30; 80% by 45</td>
+<td>Systematic review citing cohort/registry estimates</td>
+<td>Hwang et al. 2024</td>
+<td>2024-05</td>
+<td>https://doi.org/10.1186/s13023-024-03190-1</td>
+<td>(hwang2024therapiesforcutaneous pages 1-3)</td>
+</tr>
+<tr>
+<td>cSCC cumulative risk by age</td>
+<td>RDEB-generalized severe</td>
+<td style="text-align: right;">26.3% by age 20; 76.1% by 35</td>
+<td>Registry cohort</td>
+<td>Kim et al. 2018</td>
+<td>2018-01</td>
+<td>https://doi.org/10.2340/00015555-2781</td>
+<td>(kim2018epidemiologyandoutcome pages 3-4, kim2018epidemiologyandoutcome pages 1-2)</td>
+</tr>
+<tr>
+<td>cSCC cumulative risk by age</td>
+<td>RDEB-generalized intermediate</td>
+<td style="text-align: right;">10% by age 35; 66.7% by 65</td>
+<td>Registry cohort</td>
+<td>Kim et al. 2018</td>
+<td>2018-01</td>
+<td>https://doi.org/10.2340/00015555-2781</td>
+<td>(kim2018epidemiologyandoutcome pages 3-4)</td>
+</tr>
+<tr>
+<td>cSCC-related death cumulative risk by age</td>
+<td>RDEB-severe / RDEB-HS</td>
+<td style="text-align: right;">38.7% by age 35; 70.0% by 45; 78.7% by 55</td>
+<td>Registry/cohort data summarized in retrospective study</td>
+<td>Robertson et al. 2021</td>
+<td>2021-07</td>
+<td>https://doi.org/10.2340/00015555-3875</td>
+<td>(robertson2021cutaneoussquamouscell pages 3-3)</td>
+</tr>
+<tr>
+<td>cSCC-related death cumulative risk by age</td>
+<td>RDEB-generalized severe</td>
+<td style="text-align: right;">30% by age 25; 84.4% by age 34</td>
+<td>Registry cohort</td>
+<td>Kim et al. 2018</td>
+<td>2018-01</td>
+<td>https://doi.org/10.2340/00015555-2781</td>
+<td>(kim2018epidemiologyandoutcome pages 3-4)</td>
+</tr>
+<tr>
+<td>Median age at first cSCC</td>
+<td>EB overall in London cohort</td>
+<td style="text-align: right;">32.8 years</td>
+<td>Retrospective cohort</td>
+<td>Robertson et al. 2021</td>
+<td>2021-07</td>
+<td>https://doi.org/10.2340/00015555-3875</td>
+<td>(robertson2021cutaneoussquamouscell pages 3-3)</td>
+</tr>
+<tr>
+<td>Median age at first cSCC</td>
+<td>RDEB-severe</td>
+<td style="text-align: right;">29.5 years (range 13–52)</td>
+<td>Retrospective cohort</td>
+<td>Robertson et al. 2021</td>
+<td>2021-07</td>
+<td>https://doi.org/10.2340/00015555-3875</td>
+<td>(robertson2021cutaneoussquamouscell pages 3-3, robertson2021cutaneoussquamouscell pages 1-2)</td>
+</tr>
+<tr>
+<td>Median age at cSCC diagnosis</td>
+<td>RDEB cSCC cases</td>
+<td style="text-align: right;">30 years (range 6–68.4)</td>
+<td>Systematic review</td>
+<td>Hwang et al. 2024</td>
+<td>2024-05</td>
+<td>https://doi.org/10.1186/s13023-024-03190-1</td>
+<td>(hwang2024therapiesforcutaneous pages 1-3)</td>
+</tr>
+<tr>
+<td>Median age at first cSCC</td>
+<td>Australasian RDEB cohort</td>
+<td style="text-align: right;">30 years (earliest 16, latest 62)</td>
+<td>Registry cohort</td>
+<td>Kim et al. 2018</td>
+<td>2018-01</td>
+<td>https://doi.org/10.2340/00015555-2781</td>
+<td>(kim2018epidemiologyandoutcome pages 1-2)</td>
+</tr>
+<tr>
+<td>Metastatic rate</td>
+<td>EB patients with cSCC overall (London cohort)</td>
+<td style="text-align: right;">17/44 (39%)</td>
+<td>Retrospective cohort</td>
+<td>Robertson et al. 2021</td>
+<td>2021-07</td>
+<td>https://doi.org/10.2340/00015555-3875</td>
+<td>(robertson2021cutaneoussquamouscell pages 3-3)</td>
+</tr>
+<tr>
+<td>Metastatic rate</td>
+<td>RDEB-severe with cSCC (London cohort)</td>
+<td style="text-align: right;">16/31 (52%)</td>
+<td>Retrospective cohort</td>
+<td>Robertson et al. 2021</td>
+<td>2021-07</td>
+<td>https://doi.org/10.2340/00015555-3875</td>
+<td>(robertson2021cutaneoussquamouscell pages 3-3)</td>
+</tr>
+<tr>
+<td>Metastatic rate</td>
+<td>EB-cSCC patients (Dutch registry)</td>
+<td style="text-align: right;">11/22 (50%) developed metastases; all 11 died</td>
+<td>Registry cohort</td>
+<td>Harrs et al. 2022</td>
+<td>2022-11</td>
+<td>https://doi.org/10.1111/bjd.21769</td>
+<td>(harrs2022theaggressivebehaviour pages 1-1)</td>
+</tr>
+<tr>
+<td>SCC-associated mortality</td>
+<td>EB patients with cSCC overall (London cohort)</td>
+<td style="text-align: right;">25/44 (57%) died</td>
+<td>Retrospective cohort</td>
+<td>Robertson et al. 2021</td>
+<td>2021-07</td>
+<td>https://doi.org/10.2340/00015555-3875</td>
+<td>(robertson2021cutaneoussquamouscell pages 3-3)</td>
+</tr>
+<tr>
+<td>SCC-associated mortality</td>
+<td>RDEB-severe with cSCC (London cohort)</td>
+<td style="text-align: right;">21/31 (68%) died; 20/21 deaths SCC-related</td>
+<td>Retrospective cohort</td>
+<td>Robertson et al. 2021</td>
+<td>2021-07</td>
+<td>https://doi.org/10.2340/00015555-3875</td>
+<td>(robertson2021cutaneoussquamouscell pages 3-3)</td>
+</tr>
+<tr>
+<td>Median survival after first cSCC</td>
+<td>EB overall (London cohort)</td>
+<td style="text-align: right;">2.1 years</td>
+<td>Retrospective cohort</td>
+<td>Robertson et al. 2021</td>
+<td>2021-07</td>
+<td>https://doi.org/10.2340/00015555-3875</td>
+<td>(robertson2021cutaneoussquamouscell pages 3-3)</td>
+</tr>
+<tr>
+<td>Median survival after first cSCC</td>
+<td>RDEB-severe (London cohort)</td>
+<td style="text-align: right;">2.4 years (range 0.5–12.6)</td>
+<td>Retrospective cohort</td>
+<td>Robertson et al. 2021</td>
+<td>2021-07</td>
+<td>https://doi.org/10.2340/00015555-3875</td>
+<td>(robertson2021cutaneoussquamouscell pages 1-2)</td>
+</tr>
+<tr>
+<td>Median survival after first cSCC</td>
+<td>RDEB-generalized severe</td>
+<td style="text-align: right;">4 years</td>
+<td>Registry cohort</td>
+<td>Kim et al. 2018</td>
+<td>2018-01</td>
+<td>https://doi.org/10.2340/00015555-2781</td>
+<td>(kim2018epidemiologyandoutcome pages 3-4, kim2018epidemiologyandoutcome pages 1-2)</td>
+</tr>
+<tr>
+<td>Median survival after first cSCC</td>
+<td>RDEB-generalized intermediate</td>
+<td style="text-align: right;">5 years</td>
+<td>Registry cohort</td>
+<td>Kim et al. 2018</td>
+<td>2018-01</td>
+<td>https://doi.org/10.2340/00015555-2781</td>
+<td>(kim2018epidemiologyandoutcome pages 3-4)</td>
+</tr>
+<tr>
+<td>Median survival after first cSCC</td>
+<td>RDEB-severe (Dutch registry)</td>
+<td style="text-align: right;">41 months</td>
+<td>Registry cohort</td>
+<td>Harrs et al. 2022</td>
+<td>2022-11</td>
+<td>https://doi.org/10.1111/bjd.21769</td>
+<td>(harrs2022theaggressivebehaviour pages 1-1)</td>
+</tr>
+<tr>
+<td>B-VEC phase 1/2 wound closure at 12 weeks</td>
+<td>RDEB wounds treated in NCT03536143</td>
+<td style="text-align: right;">10/12 (83%) wounds closed with B-VEC vs 1/7 (14%) placebo</td>
+<td>Randomized placebo-controlled phase 1/2 trial</td>
+<td>Gurevich et al. 2022 / summarized by Koutsoukos et al. 2024</td>
+<td>2022-03 / 2024-08</td>
+<td>https://doi.org/10.1038/s41591-022-01737-y ; https://doi.org/10.1007/s13555-024-01239-4</td>
+<td>(koutsoukos2024highlightsofgene pages 5-7, gurevich2022invivotopical pages 1-2, gurevich2022invivotopical media 3ae5ad4d)</td>
+</tr>
+<tr>
+<td>B-VEC phase 1/2 median time to closure</td>
+<td>RDEB wounds treated in NCT03536143</td>
+<td style="text-align: right;">13.5 days vs 22.5 days placebo</td>
+<td>Randomized placebo-controlled phase 1/2 trial</td>
+<td>Koutsoukos et al. 2024</td>
+<td>2024-08</td>
+<td>https://doi.org/10.1007/s13555-024-01239-4</td>
+<td>(koutsoukos2024highlightsofgene pages 5-7)</td>
+</tr>
+<tr>
+<td>B-VEC phase 1/2 median duration of closure</td>
+<td>RDEB wounds treated in NCT03536143</td>
+<td style="text-align: right;">103.0 days vs 16.5 days placebo</td>
+<td>Randomized placebo-controlled phase 1/2 trial</td>
+<td>Koutsoukos et al. 2024</td>
+<td>2024-08</td>
+<td>https://doi.org/10.1007/s13555-024-01239-4</td>
+<td>(koutsoukos2024highlightsofgene pages 5-7)</td>
+</tr>
+<tr>
+<td>B-VEC phase 1/2 responder analysis</td>
+<td>RDEB wounds treated in NCT03536143</td>
+<td style="text-align: right;">79% B-VEC responders vs 0% placebo; P=0.0026</td>
+<td>Randomized placebo-controlled phase 1/2 trial</td>
+<td>Gurevich et al. 2022</td>
+<td>2022-03</td>
+<td>https://doi.org/10.1038/s41591-022-01737-y</td>
+<td>(gurevich2022invivotopical media 3ae5ad4d)</td>
+</tr>
+<tr>
+<td>B-VEC phase 3 complete wound healing</td>
+<td>DEB patients aged ≥6 months</td>
+<td style="text-align: right;">67% of B-VEC-treated wounds healed vs 22% placebo</td>
+<td>Phase 3 double-blind intrapatient randomized placebo-controlled trial</td>
+<td>Koutsoukos et al. 2024</td>
+<td>2024-08</td>
+<td>https://doi.org/10.1007/s13555-024-01239-4</td>
+<td>(koutsoukos2024highlightsofgene pages 5-7)</td>
+</tr>
+<tr>
+<td>B-VEC phase 3 complete wound healing at 3 months</td>
+<td>DEB patients aged ≥6 months</td>
+<td style="text-align: right;">71% with B-VEC vs 20% placebo</td>
+<td>Phase 3 double-blind intrapatient randomized placebo-controlled trial</td>
+<td>Koutsoukos et al. 2024 / Pabón-Carrasco et al. 2024</td>
+<td>2024-08 / 2024-01</td>
+<td>https://doi.org/10.1007/s13555-024-01239-4 ; https://doi.org/10.3390/healthcare12020261</td>
+<td>(koutsoukos2024highlightsofgene pages 5-7, paboncarrasco2024managementofskin pages 6-7)</td>
+</tr>
+<tr>
+<td>B-VEC phase 3 pain during dressing changes</td>
+<td>DEB patients in phase 3 trial</td>
+<td style="text-align: right;">Mean change to week 22: −0.88 with B-VEC vs −0.71 placebo</td>
+<td>Phase 3 double-blind intrapatient randomized placebo-controlled trial</td>
+<td>Pabón-Carrasco et al. 2024</td>
+<td>2024-01</td>
+<td>https://doi.org/10.3390/healthcare12020261</td>
+<td>(paboncarrasco2024managementofskin pages 6-7)</td>
+</tr>
+<tr>
+<td>B-VEC regulatory milestone</td>
+<td>DDEB and RDEB / DEB wounds</td>
+<td style="text-align: right;">FDA approval May 2023; first topical gene therapy approved for DEB wounds</td>
+<td>Regulatory summary/review</td>
+<td>Koutsoukos et al. 2024; Raymakers et al. 2024</td>
+<td>2024-08 / 2024-03</td>
+<td>https://doi.org/10.1007/s13555-024-01239-4 ; https://doi.org/10.1001/jamadermatol.2023.5857</td>
+<td>(koutsoukos2024highlightsofgene pages 5-7)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table compiles key quantitative epidemiology, cSCC outcome data, and B-VEC trial efficacy metrics for dystrophic epidermolysis bullosa from recent reviews, cohort studies, and trials. It is useful as a quick-reference evidence summary for disease burden, prognosis, and emerging therapy performance.</em></p>
+<hr />
+<h2>Key figures/tables supporting B‑VEC molecular correction (visual evidence)</h2>
+<ul>
+<li>Wound closure endpoint table and longitudinal wound area reduction plots: (gurevich2022invivotopical media 3ae5ad4d)</li>
+<li>Restored collagen VII immunofluorescence at the dermal–epidermal junction: (gurevich2022invivotopical media 80fb8fb9)</li>
+<li>Anchoring fibril assembly by immunoelectron microscopy: (gurevich2022invivotopical media 2ab3990c)</li>
+</ul>
+<hr />
+<h2>Limitations of this report (evidence not retrieved in this run)</h2>
+<ul>
+<li>Curated identifier mappings (OMIM, Orphanet, ICD‑10/ICD‑11, MeSH, MONDO) were not retrieved via the available tools in this session.</li>
+<li>Quantitative, instrument-based quality-of-life statistics (QOLEB, SF‑36, EQ‑5D) were not retrieved.</li>
+<li>Differential diagnosis criteria were not comprehensively retrieved.</li>
+</ul>
+<p>These gaps should be filled by targeted retrieval from GeneReviews/OMIM/Orphanet/HPO/MeSH and EB consensus guideline documents.</p>
+<p>References</p>
+<ol>
+<li>
+<p>(hou2023innovationsinthe pages 1-2): Ping-Chen Hou, Nathalie del Agua, Su M Lwin, Chao-Kai Hsu, and John A McGrath. Innovations in the treatment of dystrophic epidermolysis bullosa (deb): current landscape and prospects. Therapeutics and Clinical Risk Management, 19:455-473, Jun 2023. URL: https://doi.org/10.2147/tcrm.s386923, doi:10.2147/tcrm.s386923. This article has 58 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(bischof2024emerginggenetherapeutics pages 1-2): Johannes Bischof, Markus Hierl, and Ulrich Koller. Emerging gene therapeutics for epidermolysis bullosa under development. International Journal of Molecular Sciences, 25:2243, Feb 2024. URL: https://doi.org/10.3390/ijms25042243, doi:10.3390/ijms25042243. This article has 37 citations.</p>
+</li>
+<li>
+<p>(zorina2024currentstatusof pages 1-2): Alla Zorina, Vadim Zorin, Artur Isaev, Dmitry Kudlay, Natalia Manturova, Andrei Ustugov, and Pavel Kopnin. Current status of biomedical products for gene and cell therapy of recessive dystrophic epidermolysis bullosa. International Journal of Molecular Sciences, 25:10270, Sep 2024. URL: https://doi.org/10.3390/ijms251910270, doi:10.3390/ijms251910270. This article has 5 citations.</p>
+</li>
+<li>
+<p>(kim2018epidemiologyandoutcome pages 3-4): Minhee Kim, Minmin Li, Lizbeth R. A. INTONG-WHEELER, K. Tran, D. Marucci, and D. Murrell. Epidemiology and outcome of squamous cell carcinoma in epidermolysis bullosa in australia and new zealand. Acta dermato-venereologica, 98 1:70-76, Jan 2018. URL: https://doi.org/10.2340/00015555-2781, doi:10.2340/00015555-2781. This article has 64 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(kim2018epidemiologyandoutcome pages 1-2): Minhee Kim, Minmin Li, Lizbeth R. A. INTONG-WHEELER, K. Tran, D. Marucci, and D. Murrell. Epidemiology and outcome of squamous cell carcinoma in epidermolysis bullosa in australia and new zealand. Acta dermato-venereologica, 98 1:70-76, Jan 2018. URL: https://doi.org/10.2340/00015555-2781, doi:10.2340/00015555-2781. This article has 64 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(robertson2021cutaneoussquamouscell pages 3-3): S. Robertson, E. Orrin, M. Lakhan, G. O’Sullivan, J. Felton, A. Robson, D. Greenblatt, C. Bernardis, J. McGrath, Anna E. Martinez, and J. Mellerio. Cutaneous squamous cell carcinoma in epidermolysis bullosa: a 28-year retrospective study. Acta Dermato-Venereologica, 101:adv00523, Jul 2021. URL: https://doi.org/10.2340/00015555-3875, doi:10.2340/00015555-3875. This article has 55 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(hou2023innovationsinthe pages 2-5): Ping-Chen Hou, Nathalie del Agua, Su M Lwin, Chao-Kai Hsu, and John A McGrath. Innovations in the treatment of dystrophic epidermolysis bullosa (deb): current landscape and prospects. Therapeutics and Clinical Risk Management, 19:455-473, Jun 2023. URL: https://doi.org/10.2147/tcrm.s386923, doi:10.2147/tcrm.s386923. This article has 58 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(shehata2024geneticimplicationsand pages 7-8): Nancy A Shehata, Noor A Shaik, and Husna Irfan Thalib. Genetic implications and management of epidermolysis bullosa in the saudi arabian population. Cureus, Aug 2024. URL: https://doi.org/10.7759/cureus.66678, doi:10.7759/cureus.66678. This article has 4 citations.</p>
+</li>
+<li>
+<p>(shehata2024geneticimplicationsand pages 7-7): Nancy A Shehata, Noor A Shaik, and Husna Irfan Thalib. Genetic implications and management of epidermolysis bullosa in the saudi arabian population. Cureus, Aug 2024. URL: https://doi.org/10.7759/cureus.66678, doi:10.7759/cureus.66678. This article has 4 citations.</p>
+</li>
+<li>
+<p>(azevedo2023fibrosisasa pages 1-2): Brenda Lamônica Rodrigues de Azevedo, Gabriel Marim Roni, Rosalie Matuk Fuentes Torrelio, and Letícia Nogueira da Gama-de-Souza. Fibrosis as a risk factor for cutaneous squamous cell carcinoma in recessive dystrophic epidermolysis bullosa: a systematic review. Journal of Pediatric Genetics, 12:097-104, Feb 2023. URL: https://doi.org/10.1055/s-0043-1763257, doi:10.1055/s-0043-1763257. This article has 5 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(tartaglia2021impairedwoundhealing pages 1-2): Grace Tartaglia, Qingqing Cao, Zachary M. Padron, and Andrew P. South. Impaired wound healing, fibrosis, and cancer: the paradigm of recessive dystrophic epidermolysis bullosa. International Journal of Molecular Sciences, 22:5104, May 2021. URL: https://doi.org/10.3390/ijms22105104, doi:10.3390/ijms22105104. This article has 53 citations.</p>
+</li>
+<li>
+<p>(danescu2024treatmentofepidermolysis pages 1-4): Sorina Danescu, Mircea Negrutiu, and Cristina Has. Treatment of epidermolysis bullosa and future directions: a review. Dermatology and Therapy, 14:2059-2075, Aug 2024. URL: https://doi.org/10.1007/s13555-024-01227-8, doi:10.1007/s13555-024-01227-8. This article has 14 citations.</p>
+</li>
+<li>
+<p>(stone2024creationandcharacterization pages 1-2): William Stone, Chloe Strege, William Miller, Aron M. Geurts, Michael Grzybowski, Megan Riddle, Christopher Lees, Cindy Eide, Douglas R. Keene, Sara F. Tufa, Davis Seelig, John McGrath, and Jakub Tolar. Creation and characterization of novel rat model for recessive dystrophic epidermolysis bullosa: frameshift mutation of the col7a1 gene leads to severe blistered phenotype. PLOS ONE, 19:e0302991, May 2024. URL: https://doi.org/10.1371/journal.pone.0302991, doi:10.1371/journal.pone.0302991. This article has 2 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(azevedo2023fibrosisasa pages 4-5): Brenda Lamônica Rodrigues de Azevedo, Gabriel Marim Roni, Rosalie Matuk Fuentes Torrelio, and Letícia Nogueira da Gama-de-Souza. Fibrosis as a risk factor for cutaneous squamous cell carcinoma in recessive dystrophic epidermolysis bullosa: a systematic review. Journal of Pediatric Genetics, 12:097-104, Feb 2023. URL: https://doi.org/10.1055/s-0043-1763257, doi:10.1055/s-0043-1763257. This article has 5 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(paboncarrasco2024managementofskin pages 6-7): Manuel Pabón-Carrasco, Rocio Caceres-Matos, Marta Roche-Campos, Maria Antonia Hurtado-Guapo, Mercedes Ortiz-Romero, Luis M. Gordillo-Fernández, Daniel Pabón-Carrasco, and Aurora Castro-Méndez. Management of skin lesions in patients with epidermolysis bullosa by topical treatment: systematic review and meta-analysis. Healthcare, 12:261, Jan 2024. URL: https://doi.org/10.3390/healthcare12020261, doi:10.3390/healthcare12020261. This article has 10 citations.</p>
+</li>
+<li>
+<p>(pironon2024splicemodulationstrategy pages 1-2): Nathalie Pironon, Emmanuelle Bourrat, Catherine Prost, Mei Chen, David T. Woodley, Matthias Titeux, and Alain Hovnanian. Splice modulation strategy applied to deep intronic variants in col7a1 causing recessive dystrophic epidermolysis bullosa. Proceedings of the National Academy of Sciences of the United States of America, Aug 2024. URL: https://doi.org/10.1073/pnas.2401781121, doi:10.1073/pnas.2401781121. This article has 7 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(pironon2024splicemodulationstrategy pages 4-6): Nathalie Pironon, Emmanuelle Bourrat, Catherine Prost, Mei Chen, David T. Woodley, Matthias Titeux, and Alain Hovnanian. Splice modulation strategy applied to deep intronic variants in col7a1 causing recessive dystrophic epidermolysis bullosa. Proceedings of the National Academy of Sciences of the United States of America, Aug 2024. URL: https://doi.org/10.1073/pnas.2401781121, doi:10.1073/pnas.2401781121. This article has 7 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(hainzl2024splicingmodulationvia pages 7-10): Stefan Hainzl, Lisa Trattner, Bernadette Liemberger, Johannes Bischof, Thomas Kocher, Michael Ablinger, Alexander Nyström, Astrid Obermayer, Alfred Klausegger, Christina Guttmann-Gruber, Verena Wally, Johann W. Bauer, Josefina Piñón Hofbauer, and Ulrich Koller. Splicing modulation via antisense oligonucleotides in recessive dystrophic epidermolysis bullosa. International Journal of Molecular Sciences, 25:761, Jan 2024. URL: https://doi.org/10.3390/ijms25020761, doi:10.3390/ijms25020761. This article has 7 citations.</p>
+</li>
+<li>
+<p>(hainzl2024splicingmodulationvia pages 1-2): Stefan Hainzl, Lisa Trattner, Bernadette Liemberger, Johannes Bischof, Thomas Kocher, Michael Ablinger, Alexander Nyström, Astrid Obermayer, Alfred Klausegger, Christina Guttmann-Gruber, Verena Wally, Johann W. Bauer, Josefina Piñón Hofbauer, and Ulrich Koller. Splicing modulation via antisense oligonucleotides in recessive dystrophic epidermolysis bullosa. International Journal of Molecular Sciences, 25:761, Jan 2024. URL: https://doi.org/10.3390/ijms25020761, doi:10.3390/ijms25020761. This article has 7 citations.</p>
+</li>
+<li>
+<p>(hou2023innovationsinthe pages 6-8): Ping-Chen Hou, Nathalie del Agua, Su M Lwin, Chao-Kai Hsu, and John A McGrath. Innovations in the treatment of dystrophic epidermolysis bullosa (deb): current landscape and prospects. Therapeutics and Clinical Risk Management, 19:455-473, Jun 2023. URL: https://doi.org/10.2147/tcrm.s386923, doi:10.2147/tcrm.s386923. This article has 58 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(condorelli2019epidermolysisbullosaassociatedsquamous pages 8-10): Angelo Giuseppe Condorelli, Elena Dellambra, Elena Logli, Giovanna Zambruno, and Daniele Castiglia. Epidermolysis bullosa-associated squamous cell carcinoma: from pathogenesis to therapeutic perspectives. International Journal of Molecular Sciences, 20:5707, Nov 2019. URL: https://doi.org/10.3390/ijms20225707, doi:10.3390/ijms20225707. This article has 147 citations.</p>
+</li>
+<li>
+<p>(condorelli2019epidermolysisbullosaassociatedsquamous pages 6-8): Angelo Giuseppe Condorelli, Elena Dellambra, Elena Logli, Giovanna Zambruno, and Daniele Castiglia. Epidermolysis bullosa-associated squamous cell carcinoma: from pathogenesis to therapeutic perspectives. International Journal of Molecular Sciences, 20:5707, Nov 2019. URL: https://doi.org/10.3390/ijms20225707, doi:10.3390/ijms20225707. This article has 147 citations.</p>
+</li>
+<li>
+<p>(robertson2021cutaneoussquamouscell pages 1-2): S. Robertson, E. Orrin, M. Lakhan, G. O’Sullivan, J. Felton, A. Robson, D. Greenblatt, C. Bernardis, J. McGrath, Anna E. Martinez, and J. Mellerio. Cutaneous squamous cell carcinoma in epidermolysis bullosa: a 28-year retrospective study. Acta Dermato-Venereologica, 101:adv00523, Jul 2021. URL: https://doi.org/10.2340/00015555-3875, doi:10.2340/00015555-3875. This article has 55 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(tartaglia2021impairedwoundhealing pages 2-4): Grace Tartaglia, Qingqing Cao, Zachary M. Padron, and Andrew P. South. Impaired wound healing, fibrosis, and cancer: the paradigm of recessive dystrophic epidermolysis bullosa. International Journal of Molecular Sciences, 22:5104, May 2021. URL: https://doi.org/10.3390/ijms22105104, doi:10.3390/ijms22105104. This article has 53 citations.</p>
+</li>
+<li>
+<p>(kim2018epidemiologyandoutcome pages 5-6): Minhee Kim, Minmin Li, Lizbeth R. A. INTONG-WHEELER, K. Tran, D. Marucci, and D. Murrell. Epidemiology and outcome of squamous cell carcinoma in epidermolysis bullosa in australia and new zealand. Acta dermato-venereologica, 98 1:70-76, Jan 2018. URL: https://doi.org/10.2340/00015555-2781, doi:10.2340/00015555-2781. This article has 64 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(bonamonte2022squamouscellcarcinoma pages 6-8): Domenico Bonamonte, Angela Filoni, Aurora De Marco, Lucia Lospalluti, Eleonora Nacchiero, Valentina Ronghi, Anna Colagrande, Giuseppe Giudice, and Gerardo Cazzato. Squamous cell carcinoma in patients with inherited epidermolysis bullosa: review of current literature. Cells, 11:1365, Apr 2022. URL: https://doi.org/10.3390/cells11081365, doi:10.3390/cells11081365. This article has 49 citations.</p>
+</li>
+<li>
+<p>(nikolova2024autosomalrecessivetype pages 2-4): Slavena Nikolova, Zornitsa Kamburova, Preslav Vasilev, Katya Kovacheva, and Ivelina Yordanova. Autosomal recessive type of dystrophic epidermolysis bullosa with a novel variant in the col7a1 gene. Biomedical Reports, Sep 2024. URL: https://doi.org/10.3892/br.2024.1855, doi:10.3892/br.2024.1855. This article has 1 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(montaudie2016inheritedepidermolysisbullosa pages 1-2): H. Montaudié, C. Chiaverini, Emilie Sbidian, A. Charlesworth, and Jean-Philippe Lacour. Inherited epidermolysis bullosa and squamous cell carcinoma: a systematic review of 117 cases. Orphanet Journal of Rare Diseases, Aug 2016. URL: https://doi.org/10.1186/s13023-016-0489-9, doi:10.1186/s13023-016-0489-9. This article has 135 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(nikolova2024autosomalrecessivetype pages 1-2): Slavena Nikolova, Zornitsa Kamburova, Preslav Vasilev, Katya Kovacheva, and Ivelina Yordanova. Autosomal recessive type of dystrophic epidermolysis bullosa with a novel variant in the col7a1 gene. Biomedical Reports, Sep 2024. URL: https://doi.org/10.3892/br.2024.1855, doi:10.3892/br.2024.1855. This article has 1 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(suru2024descriptivestudyof pages 2-4): Alina Suru, Alexandru Cătălin Pâslaru, George Sorin Țiplica, and Carmen Maria Sălăvăstru. Descriptive study of the clinical and molecular features of epidermolysis bullosa patients in a romanian european reference network-skin affiliated reference center. Cureus, May 2024. URL: https://doi.org/10.7759/cureus.61160, doi:10.7759/cureus.61160. This article has 1 citations.</p>
+</li>
+<li>
+<p>(ali2024epidermolysisbullosatwo pages 12-13): Fatma Mabrouk Ali, Jieyu Zhou, Mingyan Wang, Qiuxia Wang, Lulu Sun, Mansour Maulid Mshenga, and Hongyan Lu. Epidermolysis bullosa: two rare case reports of col7a1 and ebs-gen sev krt14 variants with review of literature. BMC Pediatrics, Apr 2024. URL: https://doi.org/10.1186/s12887-024-04715-0, doi:10.1186/s12887-024-04715-0. This article has 3 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(hwang2024therapiesforcutaneous pages 1-3): Austin Hwang, Andie Kwon, Corinne H. Miller, Antonia Reimer-Taschenbrecker, and Amy S. Paller. Therapies for cutaneous squamous cell carcinoma in recessive dystrophic epidermolysis bullosa: a systematic review of 157 cases. Orphanet Journal of Rare Diseases, May 2024. URL: https://doi.org/10.1186/s13023-024-03190-1, doi:10.1186/s13023-024-03190-1. This article has 13 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(gurevich2022invivotopical pages 1-2): Irina Gurevich, Pooja Agarwal, PeiPei Zhang, John A. Dolorito, Stacie Oliver, Henry Liu, Nicholas Reitze, Nikhil Sarma, Isin Sinem Bagci, Kunju Sridhar, Visesha Kakarla, Vamsi K. Yenamandra, Mark O’Malley, Marco Prisco, Sara F. Tufa, Douglas R. Keene, Andrew P. South, Suma M. Krishnan, and M. Peter Marinkovich. In vivo topical gene therapy for recessive dystrophic epidermolysis bullosa: a phase 1 and 2 trial. Nature Medicine, 28:780-788, Mar 2022. URL: https://doi.org/10.1038/s41591-022-01737-y, doi:10.1038/s41591-022-01737-y. This article has 181 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(koutsoukos2024highlightsofgene pages 5-7): Stefanos A. Koutsoukos and Ganna Bilousova. Highlights of gene and cell therapy for epidermolysis bullosa and ichthyosis. Dermatology and Therapy, 14:2379-2392, Aug 2024. URL: https://doi.org/10.1007/s13555-024-01239-4, doi:10.1007/s13555-024-01239-4. This article has 5 citations.</p>
+</li>
+<li>
+<p>(gurevich2022invivotopical media 3ae5ad4d): Irina Gurevich, Pooja Agarwal, PeiPei Zhang, John A. Dolorito, Stacie Oliver, Henry Liu, Nicholas Reitze, Nikhil Sarma, Isin Sinem Bagci, Kunju Sridhar, Visesha Kakarla, Vamsi K. Yenamandra, Mark O’Malley, Marco Prisco, Sara F. Tufa, Douglas R. Keene, Andrew P. South, Suma M. Krishnan, and M. Peter Marinkovich. In vivo topical gene therapy for recessive dystrophic epidermolysis bullosa: a phase 1 and 2 trial. Nature Medicine, 28:780-788, Mar 2022. URL: https://doi.org/10.1038/s41591-022-01737-y, doi:10.1038/s41591-022-01737-y. This article has 181 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(gurevich2022invivotopical media 80fb8fb9): Irina Gurevich, Pooja Agarwal, PeiPei Zhang, John A. Dolorito, Stacie Oliver, Henry Liu, Nicholas Reitze, Nikhil Sarma, Isin Sinem Bagci, Kunju Sridhar, Visesha Kakarla, Vamsi K. Yenamandra, Mark O’Malley, Marco Prisco, Sara F. Tufa, Douglas R. Keene, Andrew P. South, Suma M. Krishnan, and M. Peter Marinkovich. In vivo topical gene therapy for recessive dystrophic epidermolysis bullosa: a phase 1 and 2 trial. Nature Medicine, 28:780-788, Mar 2022. URL: https://doi.org/10.1038/s41591-022-01737-y, doi:10.1038/s41591-022-01737-y. This article has 181 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(NCT03536143 chunk 1):  A Phase I/II Study of KB103, a Topical HSV1-COL7, on DEB Patients. Krystal Biotech, Inc.. 2018. ClinicalTrials.gov Identifier: NCT03536143</p>
+</li>
+<li>
+<p>(pironon2024splicemodulationstrategy pages 6-7): Nathalie Pironon, Emmanuelle Bourrat, Catherine Prost, Mei Chen, David T. Woodley, Matthias Titeux, and Alain Hovnanian. Splice modulation strategy applied to deep intronic variants in col7a1 causing recessive dystrophic epidermolysis bullosa. Proceedings of the National Academy of Sciences of the United States of America, Aug 2024. URL: https://doi.org/10.1073/pnas.2401781121, doi:10.1073/pnas.2401781121. This article has 7 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(takaki2022generationofa pages 1-2): Satoshi Takaki, Takashi Shimbo, Kentaro Ikegami, Tomomi Kitayama, Yukari Yamamoto, Sho Yamazaki, Shiho Mori, and Katsuto Tamai. Generation of a recessive dystrophic epidermolysis bullosa mouse model with patient-derived compound heterozygous mutations. Laboratory Investigation, 102:574-580, Jun 2022. URL: https://doi.org/10.1038/s41374-022-00735-5, doi:10.1038/s41374-022-00735-5. This article has 10 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(stone2024creationandcharacterization pages 7-9): William Stone, Chloe Strege, William Miller, Aron M. Geurts, Michael Grzybowski, Megan Riddle, Christopher Lees, Cindy Eide, Douglas R. Keene, Sara F. Tufa, Davis Seelig, John McGrath, and Jakub Tolar. Creation and characterization of novel rat model for recessive dystrophic epidermolysis bullosa: frameshift mutation of the col7a1 gene leads to severe blistered phenotype. PLOS ONE, 19:e0302991, May 2024. URL: https://doi.org/10.1371/journal.pone.0302991, doi:10.1371/journal.pone.0302991. This article has 2 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(stone2024creationandcharacterization pages 9-10): William Stone, Chloe Strege, William Miller, Aron M. Geurts, Michael Grzybowski, Megan Riddle, Christopher Lees, Cindy Eide, Douglas R. Keene, Sara F. Tufa, Davis Seelig, John McGrath, and Jakub Tolar. Creation and characterization of novel rat model for recessive dystrophic epidermolysis bullosa: frameshift mutation of the col7a1 gene leads to severe blistered phenotype. PLOS ONE, 19:e0302991, May 2024. URL: https://doi.org/10.1371/journal.pone.0302991, doi:10.1371/journal.pone.0302991. This article has 2 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(shehata2024geneticimplicationsand pages 1-4): Nancy A Shehata, Noor A Shaik, and Husna Irfan Thalib. Genetic implications and management of epidermolysis bullosa in the saudi arabian population. Cureus, Aug 2024. URL: https://doi.org/10.7759/cureus.66678, doi:10.7759/cureus.66678. This article has 4 citations.</p>
+</li>
+<li>
+<p>(bonamonte2022squamouscellcarcinoma pages 1-2): Domenico Bonamonte, Angela Filoni, Aurora De Marco, Lucia Lospalluti, Eleonora Nacchiero, Valentina Ronghi, Anna Colagrande, Giuseppe Giudice, and Gerardo Cazzato. Squamous cell carcinoma in patients with inherited epidermolysis bullosa: review of current literature. Cells, 11:1365, Apr 2022. URL: https://doi.org/10.3390/cells11081365, doi:10.3390/cells11081365. This article has 49 citations.</p>
+</li>
+<li>
+<p>(harrs2022theaggressivebehaviour pages 1-1): Clara Harrs, Peter C. van den Akker, Rosalie Baardman, José C. Duipmans, Barbara Horváth, Marloes S. van Kester, Henny H. Lemmink, Emoke Rácz, Marieke C. Bolling, and Gilles F.H. Diercks. The aggressive behaviour of squamous cell carcinoma in epidermolysis bullosa: analysis of clinical outcomes and tumour characteristics in the dutch eb registry. British Journal of Dermatology, 187:824-826, Nov 2022. URL: https://doi.org/10.1111/bjd.21769, doi:10.1111/bjd.21769. This article has 13 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(gurevich2022invivotopical media 2ab3990c): Irina Gurevich, Pooja Agarwal, PeiPei Zhang, John A. Dolorito, Stacie Oliver, Henry Liu, Nicholas Reitze, Nikhil Sarma, Isin Sinem Bagci, Kunju Sridhar, Visesha Kakarla, Vamsi K. Yenamandra, Mark O’Malley, Marco Prisco, Sara F. Tufa, Douglas R. Keene, Andrew P. South, Suma M. Krishnan, and M. Peter Marinkovich. In vivo topical gene therapy for recessive dystrophic epidermolysis bullosa: a phase 1 and 2 trial. Nature Medicine, 28:780-788, Mar 2022. URL: https://doi.org/10.1038/s41591-022-01737-y, doi:10.1038/s41591-022-01737-y. This article has 181 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
             
         </div>
         
@@ -9134,7 +11659,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Dystrophic Epidermolysis Bullosa", "mondoId": "MONDO:0006543", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dystrophic_Epidermolysis_Bullosa", "yamlRevision": "d585fb396802"};
+        const OS_CONFIG = {"diseaseName": "Dystrophic Epidermolysis Bullosa", "mondoId": "MONDO:0006543", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dystrophic_Epidermolysis_Bullosa", "yamlRevision": "3c39f02da51c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2635,6 +2788,20 @@
             
             
             
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-value">6</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -5160,6 +5327,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5899,7 +6067,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Bird Fancier&#39;s Lung
 creation_date: &#39;2026-01-30T23:42:47Z&#39;
-updated_date: &#39;2026-04-22T20:53:03Z&#39;
+updated_date: &#39;2026-05-08T16:21:17Z&#39;
 category: Respiratory Disease
 parents:
 - Respiratory Disease
@@ -6851,11 +7019,902 @@ datasets:
     snippet: &#34;Single-cell 5&#39; RNA sequencing was conducted on peripheral blood mononuclear cells and BAL cells obtained from 45 patients with FHP, 63 patients with idiopathic pulmonary fibrosis (IPF), 4 patients with nonfibrotic hypersensitivity pneumonitis, and 36 healthy control subjects in the United States and Mexico.&#34;
     explanation: The abstract documents single-cell sequencing of PBMC and BAL cells from fibrotic HP, IPF, and controls, aligning with the dataset.
   notes: GEO record linked to AJRCCM 2024 single-cell study profiling PBMC and BAL.
+references:
+- reference: DOI:10.1371/journal.pone.0273544
+  title: Impact of number and type of identified antigen on transplant-free survival in hypersensitivity pneumonitis
+  found_in:
+  - Bird_Fanciers_Lung-deep-research-falcon.md
+  findings:
+  - statement: Identification of inciting antigen can affect diagnostic confidence, quality of life, and prognosis in patients with HP.
+    supporting_text: Identification of inciting antigen can affect diagnostic confidence, quality of life, and prognosis in patients with HP.
+    evidence:
+    - reference: DOI:10.1371/journal.pone.0273544
+      reference_title: Impact of number and type of identified antigen on transplant-free survival in hypersensitivity pneumonitis
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Identification of inciting antigen can affect diagnostic confidence, quality of life, and prognosis in patients with HP.
+      explanation: Deep research cited this publication as relevant literature for Bird Fanciers Lung.
+- reference: DOI:10.21203/rs.3.rs-5418767/v1
+  title: Evaluation of clinical and radiological features of patients diagnosed with hypersensitivity pneumonia
+  found_in:
+  - Bird_Fanciers_Lung-deep-research-falcon.md
+  findings:
+  - statement: Hypersensitivity pneumonitis (HP) is an inflammatory fibrotic disease that affects the lung parenchyma and small airways.
+    supporting_text: Hypersensitivity pneumonitis (HP) is an inflammatory fibrotic disease that affects the lung parenchyma and small airways.
+    evidence:
+    - reference: DOI:10.21203/rs.3.rs-5418767/v1
+      reference_title: Evaluation of clinical and radiological features of patients diagnosed with hypersensitivity pneumonia
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Hypersensitivity pneumonitis (HP) is an inflammatory fibrotic disease that affects the lung parenchyma and small airways.
+      explanation: Deep research cited this publication as relevant literature for Bird Fanciers Lung.
+- reference: DOI:10.3390/diagnostics15243137
+  title: &#39;Fibrotic Patterns and Diagnostic Correlates in Hypersensitivity Pneumonitis: Clinical, Radiologic, and Hematologic Insights&#39;
+  found_in:
+  - Bird_Fanciers_Lung-deep-research-falcon.md
+  findings:
+  - statement: Hypersensitivity pneumonitis (HP) is an interstitial lung disease characterized by immune-mediated inflammation and variable degrees of fibrosis.
+    supporting_text: Hypersensitivity pneumonitis (HP) is an interstitial lung disease characterized by immune-mediated inflammation and variable degrees of fibrosis.
+    evidence:
+    - reference: DOI:10.3390/diagnostics15243137
+      reference_title: &#39;Fibrotic Patterns and Diagnostic Correlates in Hypersensitivity Pneumonitis: Clinical, Radiologic, and Hematologic Insights&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Hypersensitivity pneumonitis (HP) is an interstitial lung disease characterized by immune-mediated inflammation and variable degrees of fibrosis.
+      explanation: Deep research cited this publication as relevant literature for Bird Fanciers Lung.
+- reference: DOI:10.3390/ijtm4020025
+  title: &#39;The Role of Serum IgG Precipitins against Six Typical Organic Antigens Involved in Hypersensitivity Pneumonitis: A 10-Year Retrospective Study of a Referral Interstitial Lung Disease Centre&#39;
+  found_in:
+  - Bird_Fanciers_Lung-deep-research-falcon.md
+  findings:
+  - statement: Hypersensitivity pneumonitis (HP) represents the third common interstitial lung disease caused by an exaggerated immune response following the inhalation of organic and/or chemical environmental antigens.
+    supporting_text: Hypersensitivity pneumonitis (HP) represents the third common interstitial lung disease caused by an exaggerated immune response following the inhalation of organic and/or chemical environmental antigens.
+    evidence:
+    - reference: DOI:10.3390/ijtm4020025
+      reference_title: &#39;The Role of Serum IgG Precipitins against Six Typical Organic Antigens Involved in Hypersensitivity Pneumonitis: A 10-Year Retrospective Study of a Referral Interstitial Lung Disease Centre&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Hypersensitivity pneumonitis (HP) represents the third common interstitial lung disease caused by an exaggerated immune response following the inhalation of organic and/or chemical environmental antigens.
+      explanation: Deep research cited this publication as relevant literature for Bird Fanciers Lung.
+- reference: DOI:10.3390/jcm13175074
+  title: Does a Type of Inciting Antigen Correlate with the Presence of Lung Fibrosis in Patients with Hypersensitivity Pneumonitis?
+  found_in:
+  - Bird_Fanciers_Lung-deep-research-falcon.md
+  findings:
+  - statement: Hypersensitivity pneumonitis (HP) is an interstitial inflammatory lung disease that develops as a result of exposition to various, mostly organic antigens.
+    supporting_text: Hypersensitivity pneumonitis (HP) is an interstitial inflammatory lung disease that develops as a result of exposition to various, mostly organic antigens.
+    evidence:
+    - reference: DOI:10.3390/jcm13175074
+      reference_title: Does a Type of Inciting Antigen Correlate with the Presence of Lung Fibrosis in Patients with Hypersensitivity Pneumonitis?
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Hypersensitivity pneumonitis (HP) is an interstitial inflammatory lung disease that develops as a result of exposition to various, mostly organic antigens.
+      explanation: Deep research cited this publication as relevant literature for Bird Fanciers Lung.
+- reference: DOI:10.3390/jcm8010014
+  title: &#39;Effects of Corticosteroid Treatment and Antigen Avoidance in a Large Hypersensitivity Pneumonitis Cohort: A Single-Centre Cohort Study&#39;
+  found_in:
+  - Bird_Fanciers_Lung-deep-research-falcon.md
+  findings:
+  - statement: Although the third most frequent interstitial lung disease, hypersensitivity pneumonitis (HP) remains an enigmatic disease without clear diagnostic and therapeutic guidelines.
+    supporting_text: Although the third most frequent interstitial lung disease, hypersensitivity pneumonitis (HP) remains an enigmatic disease without clear diagnostic and therapeutic guidelines.
+    evidence:
+    - reference: DOI:10.3390/jcm8010014
+      reference_title: &#39;Effects of Corticosteroid Treatment and Antigen Avoidance in a Large Hypersensitivity Pneumonitis Cohort: A Single-Centre Cohort Study&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Although the third most frequent interstitial lung disease, hypersensitivity pneumonitis (HP) remains an enigmatic disease without clear diagnostic and therapeutic guidelines.
+      explanation: Deep research cited this publication as relevant literature for Bird Fanciers Lung.
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
+        
+        <div class="card reference-card" id="references-deep-research">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+            
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">6</span>
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1371/journal.pone.0273544" target="_blank">DOI:10.1371/journal.pone.0273544</a>
+                            </div>
+                            
+                            <div class="reference-title">Impact of number and type of identified antigen on transplant-free survival in hypersensitivity pneumonitis</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Identification of inciting antigen can affect diagnostic confidence, quality of life, and prognosis in patients with HP.</div>
+            
+            
+            <div class="reference-finding-supporting">"Identification of inciting antigen can affect diagnostic confidence, quality of life, and prognosis in patients with HP."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pone.0273544" target="_blank">DOI:10.1371/journal.pone.0273544</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Identification of inciting antigen can affect diagnostic confidence, quality of life, and prognosis in patients with HP."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Bird Fanciers Lung.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.21203/rs.3.rs-5418767/v1" target="_blank">DOI:10.21203/rs.3.rs-5418767/v1</a>
+                            </div>
+                            
+                            <div class="reference-title">Evaluation of clinical and radiological features of patients diagnosed with hypersensitivity pneumonia</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Hypersensitivity pneumonitis (HP) is an inflammatory fibrotic disease that affects the lung parenchyma and small airways.</div>
+            
+            
+            <div class="reference-finding-supporting">"Hypersensitivity pneumonitis (HP) is an inflammatory fibrotic disease that affects the lung parenchyma and small airways."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.21203/rs.3.rs-5418767/v1" target="_blank">DOI:10.21203/rs.3.rs-5418767/v1</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Hypersensitivity pneumonitis (HP) is an inflammatory fibrotic disease that affects the lung parenchyma and small airways."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Bird Fanciers Lung.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/diagnostics15243137" target="_blank">DOI:10.3390/diagnostics15243137</a>
+                            </div>
+                            
+                            <div class="reference-title">Fibrotic Patterns and Diagnostic Correlates in Hypersensitivity Pneumonitis: Clinical, Radiologic, and Hematologic Insights</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Hypersensitivity pneumonitis (HP) is an interstitial lung disease characterized by immune-mediated inflammation and variable degrees of fibrosis.</div>
+            
+            
+            <div class="reference-finding-supporting">"Hypersensitivity pneumonitis (HP) is an interstitial lung disease characterized by immune-mediated inflammation and variable degrees of fibrosis."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/diagnostics15243137" target="_blank">DOI:10.3390/diagnostics15243137</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Hypersensitivity pneumonitis (HP) is an interstitial lung disease characterized by immune-mediated inflammation and variable degrees of fibrosis."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Bird Fanciers Lung.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/ijtm4020025" target="_blank">DOI:10.3390/ijtm4020025</a>
+                            </div>
+                            
+                            <div class="reference-title">The Role of Serum IgG Precipitins against Six Typical Organic Antigens Involved in Hypersensitivity Pneumonitis: A 10-Year Retrospective Study of a Referral Interstitial Lung Disease Centre</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Hypersensitivity pneumonitis (HP) represents the third common interstitial lung disease caused by an exaggerated immune response following the inhalation of organic and/or chemical environmental antigens.</div>
+            
+            
+            <div class="reference-finding-supporting">"Hypersensitivity pneumonitis (HP) represents the third common interstitial lung disease caused by an exaggerated immune response following the inhalation of organic and/or chemical environmental antigens."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/ijtm4020025" target="_blank">DOI:10.3390/ijtm4020025</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Hypersensitivity pneumonitis (HP) represents the third common interstitial lung disease caused by an exaggerated immune response following the inhalation of organic and/or chemical environmental antigens."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Bird Fanciers Lung.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/jcm13175074" target="_blank">DOI:10.3390/jcm13175074</a>
+                            </div>
+                            
+                            <div class="reference-title">Does a Type of Inciting Antigen Correlate with the Presence of Lung Fibrosis in Patients with Hypersensitivity Pneumonitis?</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Hypersensitivity pneumonitis (HP) is an interstitial inflammatory lung disease that develops as a result of exposition to various, mostly organic antigens.</div>
+            
+            
+            <div class="reference-finding-supporting">"Hypersensitivity pneumonitis (HP) is an interstitial inflammatory lung disease that develops as a result of exposition to various, mostly organic antigens."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/jcm13175074" target="_blank">DOI:10.3390/jcm13175074</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Hypersensitivity pneumonitis (HP) is an interstitial inflammatory lung disease that develops as a result of exposition to various, mostly organic antigens."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Bird Fanciers Lung.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/jcm8010014" target="_blank">DOI:10.3390/jcm8010014</a>
+                            </div>
+                            
+                            <div class="reference-title">Effects of Corticosteroid Treatment and Antigen Avoidance in a Large Hypersensitivity Pneumonitis Cohort: A Single-Centre Cohort Study</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Although the third most frequent interstitial lung disease, hypersensitivity pneumonitis (HP) remains an enigmatic disease without clear diagnostic and therapeutic guidelines.</div>
+            
+            
+            <div class="reference-finding-supporting">"Although the third most frequent interstitial lung disease, hypersensitivity pneumonitis (HP) remains an enigmatic disease without clear diagnostic and therapeutic guidelines."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/jcm8010014" target="_blank">DOI:10.3390/jcm8010014</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Although the third most frequent interstitial lung disease, hypersensitivity pneumonitis (HP) remains an enigmatic disease without clear diagnostic and therapeutic guidelines."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Bird Fanciers Lung.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">Bird Fancier’s Lung (BFL) / Avian Hypersensitivity Pneumonitis (HP): Disease Characteristics Research Report</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">32 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-08T08:54:21.443720</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <h1>Bird Fancier’s Lung (BFL) / Avian Hypersensitivity Pneumonitis (HP): Disease Characteristics Research Report</h1>
+<h2>Executive summary (current understanding)</h2>
+<p>Bird fancier’s lung (BFL) is a form of hypersensitivity pneumonitis (HP)—an immune-mediated interstitial lung disease triggered by inhalation of avian-derived antigens (e.g., from live birds, feathers, droppings, and feather-containing bedding). Contemporary practice frameworks classify HP into <strong>non-fibrotic</strong> and <strong>fibrotic</strong> phenotypes based primarily on HRCT and/or pathology, because fibrosis strongly influences prognosis and treatment response. Recent (2023–2024) research emphasizes (i) structured exposure assessment, (ii) integration of HRCT + BAL lymphocytosis + serology (antigen-specific IgG/“precipitins”), and (iii) longitudinal monitoring approaches such as serial anti-pigeon IgG testing to infer ongoing exposure and track lung-function decline in fibrotic avian HP. (deutsch2024doesatype pages 2-4, akkurt2024evaluationofclinical pages 1-4, okuda2024longitudinalchangesin pages 1-2)</p>
+<h2>1. Disease information</h2>
+<h3>1.1 Overview/definition</h3>
+<p>HP is described as “an interstitial inflammatory lung disease that develops as a result of exposition to various, mostly organic antigens” and can be subdivided into fibrotic and non-fibrotic forms. (deutsch2024doesatype pages 2-4)</p>
+<p>BFL specifically refers to HP caused by exposure to bird-related antigens. In a high-confidence HP cohort, <strong>avian antigen</strong> exposure was operationalized as “regular exposure to a live bird or feather products,” reflecting real-world BFL exposure settings (bird ownership, bird breeding, feather bedding/down products). (kypreos2022impactofnumber pages 1-2)</p>
+<h3>1.2 Key identifiers (ICD/MeSH/MONDO/Orphanet)</h3>
+<p>The present tool-based literature retrieval did not return authoritative ontology/coding records (e.g., MeSH descriptor page, ICD-10/ICD-11 entry, MONDO, Orphanet) that can be directly cited. Therefore, standardized identifiers are <strong>not populated here</strong> to avoid uncited claims.</p>
+<h3>1.3 Synonyms / alternative names</h3>
+<p>Within the retrieved clinical/review literature, BFL is used in the context of “avian” HP and “bird-related” HP, and “feather” exposure is treated as a clinically important inciting antigen category. (kypreos2022impactofnumber pages 1-2)</p>
+<h3>1.4 Evidence sources</h3>
+<p>This report primarily reflects <strong>aggregated disease-level</strong> evidence from retrospective cohorts and diagnostic-method papers (with some prospective/longitudinal follow-up), rather than individual EHR case reports. (deutsch2024doesatype pages 2-4, akkurt2024evaluationofclinical pages 1-4, okuda2024longitudinalchangesin pages 1-2)</p>
+<h2>2. Etiology</h2>
+<h3>2.1 Disease causal factors</h3>
+<p><strong>Primary causal factor:</strong> inhalation exposure to bird-related antigens (live birds, feathers/down products, droppings; sometimes quantified indirectly by antigen-specific IgG). Avian exposure is among the most prevalent HP exposures in contemporary cohorts. (deutsch2024doesatype pages 2-4, akkurt2024evaluationofclinical pages 1-4)</p>
+<p><strong>Recent cohort evidence (2024):</strong> In a 2019–2023 HP cohort (n=66), avian antigen exposure was one of the most prevalent exposures and was more common among fibrotic HP than non-fibrotic HP in univariate comparisons (70% vs 40%). (deutsch2024doesatype pages 9-10)</p>
+<h3>2.2 Risk factors</h3>
+<h4>Environmental/occupational risk factors</h4>
+<ul>
+<li>Bird/bird-product exposure dominates identified exposures in some real-world ILD-center populations: in a 2020–2024 HP cohort (n=100), 65% had identifiable exposure, and “86.4% of all known exposures were caused by exposure to birds and bird products.” (akkurt2024evaluationofclinical pages 1-4)</li>
+<li>Co-exposures may contribute to fibrotic phenotype in HP broadly; in the 2019–2023 cohort, avian exposure and coal/biomass heating were more prevalent among fibrotic HP than non-fibrotic HP, but <strong>older age</strong> was the only independent predictor of fibrotic HP in multivariable analysis. (deutsch2024doesatype pages 9-10)</li>
+</ul>
+<h4>Genetic susceptibility (host factors)</h4>
+<p>Multiple sources emphasize that host susceptibility modifies who develops fibrotic HP, but the retrieved evidence did <strong>not</strong> provide validated single-gene causal variants specific to BFL. For example, the 2024 cohort paper notes “genetic susceptibility… may influence the fibrotic process,” but does not specify causal genes/variants. (deutsch2024doesatype pages 9-10)</p>
+<h3>2.3 Protective factors</h3>
+<p>Direct, well-quantified protective factors (genetic or environmental) specific to BFL were not identified in the retrieved evidence.</p>
+<h3>2.4 Gene–environment interactions</h3>
+<p>The retrieved evidence supports a <strong>gene/environment framework</strong> (susceptible host + antigen exposure) but does not provide specific gene–environment interaction loci for BFL. (deutsch2024doesatype pages 9-10)</p>
+<h2>3. Phenotypes (clinical presentation)</h2>
+<h3>3.1 Core clinical phenotypes (with suggested HPO terms)</h3>
+<p>The retrieved studies primarily characterize HP/BFL via exposure history, lung imaging, BAL profile, and lung-function decline rather than symptom prevalence counts. Key disease manifestations that can be mapped to HPO include:</p>
+<ul>
+<li>Dyspnea/shortness of breath (HP:0002094) (inferred as a core ILD manifestation; outcomes include SOBQ in trials) (NCT02496182 chunk 1)</li>
+<li>Cough (HP:0012735) (typical ILD symptom; not quantified in retrieved excerpts)</li>
+<li>Reduced forced vital capacity / restrictive physiology (HP:0033280 “Abnormal lung function test” / or use LOINC mapping for FVC) (okuda2024longitudinalchangesin pages 1-2)</li>
+<li>Reduced diffusing capacity / DLCO abnormality (HP:0002091 “Decreased diffusing capacity of lung for carbon monoxide”) (sadeleer2018effectsofcorticosteroid pages 6-8)</li>
+<li>Imaging phenotypes consistent with HP:</li>
+<li>Ground-glass opacities (HPO does not directly encode CT patterns; use radiology ontology in implementation)</li>
+<li>Centrilobular nodules</li>
+<li>Air trapping / mosaic attenuation / “three-density sign”</li>
+<li>Fibrosis features: reticulation, traction bronchiectasis, honeycombing, reduced lung volumes (deutsch2024doesatype pages 2-4, akkurt2024evaluationofclinical pages 1-4)</li>
+</ul>
+<h3>3.2 Phenotype characteristics: fibrotic vs non-fibrotic</h3>
+<p>Modern cohorts apply a phenotype split that is prognostically meaningful:
+- In a 2018 cohort (n=202), fibrotic HP had substantially worse prognosis with <strong>median survival 9.2 years</strong>, while non-fibrotic HP had “excellent survival” (median not reached). (sadeleer2018effectsofcorticosteroid pages 1-3, sadeleer2018effectsofcorticosteroid pages 3-6)</p>
+<h3>3.3 Frequency and real-world distributions from recent studies</h3>
+<ul>
+<li>HRCT findings (2020–2024 cohort, n=100): reticulation 87%, ground-glass opacities 84.7%, centrilobular nodules 75%, and fibrotic features 40%. (akkurt2024evaluationofclinical pages 1-4)</li>
+</ul>
+<h3>3.4 Quality of life (QoL) impact</h3>
+<p>QoL impairment is inferred from use of validated QoL and dyspnea measures in chronic HP trials (e.g., SGRQ, SOBQ, EQ-5D). (NCT02496182 chunk 1)</p>
+<h2>4. Genetic / molecular information</h2>
+<h3>4.1 Causal genes</h3>
+<p>No monogenic causal genes for BFL were supported by the retrieved evidence.</p>
+<h3>4.2 Biomarkers and molecular tests (2023–2024 emphasis)</h3>
+<h4>Antigen-specific IgG (“precipitins”)</h4>
+<p><strong>Key concept:</strong> antigen-specific IgG supports exposure/sensitization assessment but is not sufficient alone to confirm or exclude HP.</p>
+<p><strong>2024 development—longitudinal serology:</strong> A 2024 longitudinal cohort of <strong>fibrotic avian HP</strong> (n=28) found that annual changes in anti-pigeon IgG correlate with changes in FVC: ELISA r = −0.6221 (p&lt;0.001) and ImmunoCAP r = −0.4302 (p=0.022); multiple regression retained significant associations (p=0.012 and p=0.015). The abstract states: “the annual changes in serum IgG antibody titers… correlated with FVC changes.” (okuda2024longitudinalchangesin pages 1-2)</p>
+<p><strong>2024 diagnostic serology cutoffs:</strong> A 10-year retrospective study (54 HP cases; 1516 controls) using a population-derived 97.5th percentile control cutoff reported that 30/54 (56%) HP patients had ≥1 positive IgG precipitin; pigeon-dropping IgG was the most frequent positive, and cutoff values were explicitly reported (e.g., pigeon droppings 62.4 mg/L). (intra2024theroleof pages 1-2, intra2024theroleof pages 5-6)</p>
+<h2>5. Environmental information</h2>
+<h3>5.1 Environmental determinants and exposure sources</h3>
+<p>BFL/avian HP exposures include:
+- Live birds and bird breeding/keeping, with sustained exposure duration in many patients (e.g., 19/28 had kept birds &gt;6 months in one fibrotic avian HP cohort). (okuda2024longitudinalchangesin pages 1-2)
+- Feather/down products (e.g., feather bedding); these are clinically relevant enough that “feather exposure should be considered an inciting antigen in patients with ILD.” (kypreos2022impactofnumber pages 1-2)</p>
+<h3>5.2 Lifestyle factors</h3>
+<p>Smoking and other lifestyle factors were not systematically extractable from the cited evidence snippets; thus, they are not summarized with statistics here.</p>
+<h3>5.3 Infectious agents</h3>
+<p>No specific infectious agent etiology is supported; BFL is characterized as an immune response to inhaled antigens rather than infection. (deutsch2024doesatype pages 2-4)</p>
+<h2>6. Mechanism / pathophysiology</h2>
+<h3>6.1 Current mechanistic model (causal chain)</h3>
+<p>1) Repeated inhalation of bird-related antigens → 2) immune sensitization and immune-mediated alveolitis (often with BAL lymphocytosis) → 3) granulomatous/interstitial inflammation and small-airway involvement → 4) in some individuals, progression to lung fibrosis (fibrotic HP) with worsening restrictive physiology and impaired gas exchange. This broad chain is consistent with modern descriptions that HP is “characterized by immune-mediated inflammation and variable degrees of fibrosis.” (akkurt2024evaluationofclinical pages 1-4)</p>
+<h3>6.2 Immune system involvement and key processes (ontology suggestions)</h3>
+<p>Suggested GO biological process terms (implementation suggestions):
+- GO:0006954 inflammatory response
+- GO:0002250 adaptive immune response
+- GO:0006950 response to stress
+- GO:0042110 T cell activation
+- GO:0001817 regulation of cytokine production
+- GO:0043062 extracellular matrix organization (fibrotic phenotype)</p>
+<p>Suggested Cell Ontology (CL) cell types:
+- CL:0000583 alveolar macrophage
+- CL:0000084 T cell
+- CL:0000236 B cell
+- CL:0000542 lymphocyte
+- CL:0000182 neutrophil (noting exploratory blood-count associations with HRCT fibrosis features in a 2020–2024 cohort) (akkurt2024evaluationofclinical pages 1-4)</p>
+<h3>6.3 Recent mechanistic/biomarker angle: exposure persistence and serology</h3>
+<p>Serial anti-pigeon IgG change plausibly reflects ongoing/recurrent antigen exposure and is statistically linked to annual FVC decline in fibrotic avian HP, providing a mechanistically grounded monitoring concept (antigen exposure burden ↔ immune response intensity ↔ disease progression). (okuda2024longitudinalchangesin pages 1-2, okuda2024longitudinalchangesin pages 7-8)</p>
+<h2>7. Anatomical structures affected</h2>
+<h3>7.1 Organ and tissue level (UBERON suggestions)</h3>
+<p>Primary: lung (UBERON:0002048), pulmonary alveolus (UBERON:0002299), bronchiole/small airways (UBERON:0002180).</p>
+<p>The clinical characterization explicitly describes involvement of “lung parenchyma and small airways.” (akkurt2024evaluationofclinical pages 1-4)</p>
+<h2>8. Temporal development</h2>
+<h3>8.1 Onset and course</h3>
+<p>HP includes non-fibrotic and fibrotic phenotypes with different clinical trajectories. Fibrotic disease course is associated with chronicity and worse outcomes, while non-fibrotic HP may show physiologic improvement with corticosteroids and exposure avoidance. (sadeleer2018effectsofcorticosteroid pages 1-3, sadeleer2018effectsofcorticosteroid pages 3-6)</p>
+<h2>9. Inheritance and population</h2>
+<h3>9.1 Epidemiology</h3>
+<p>The retrieved evidence base did not contain population-level incidence/prevalence rates specific to BFL (e.g., cases per 100,000). Therefore epidemiologic rates are not provided here.</p>
+<h3>9.2 Population demographics and distributions (from available cohorts)</h3>
+<ul>
+<li>Example cohort demographics for fibrotic avian HP (Japan, 2024): mean age 64.5 years, mean FVC 85.3% predicted. (okuda2024longitudinalchangesin pages 1-2)</li>
+<li>Sex distribution varies by cohort; one HP cohort had “equal sex distribution.” (akkurt2025fibroticpatternsand pages 12-12)</li>
+</ul>
+<h2>10. Diagnostics</h2>
+<h3>10.1 Key diagnostic concepts (current practice)</h3>
+<p>Diagnosis is integrative, typically combining:
+- <strong>Exposure assessment</strong> (semi-structured questionnaires) (deutsch2024doesatype pages 2-4)
+- <strong>HRCT pattern classification</strong> (fibrotic vs non-fibrotic features and small-airway signs) (deutsch2024doesatype pages 2-4)
+- <strong>BAL cellular analysis</strong> (lymphocytosis as supportive evidence) (deutsch2024doesatype pages 2-4)
+- <strong>Serology</strong> (antigen-specific IgG/precipitins for relevant antigens) (deutsch2024doesatype pages 2-4, intra2024theroleof pages 1-2)
+- <strong>Histopathology</strong> in selected cases (e.g., surgical lung biopsy or cryobiopsy) (okuda2024longitudinalchangesin pages 1-2)
+- <strong>Inhalation challenge testing</strong> in specialized settings (e.g., pasteurized pigeon egg solution protocol in a fibrotic avian HP cohort) (okuda2024longitudinalchangesin pages 2-4)</p>
+<h3>10.2 Recent diagnostic data points</h3>
+<ul>
+<li>BAL lymphocytosis: in the 2019–2023 cohort, median BAL lymphocytes were 38.8% (IQR 26.9–52.6). (deutsch2024doesatype pages 2-4)</li>
+<li>HRCT: fibrotic HP definition included reticular opacities, traction bronchiectasis, reduced lung volume, honeycombing, plus small-airway findings (centrilobular nodules, ground-glass, air trapping, three-density sign). (deutsch2024doesatype pages 2-4)</li>
+<li>Serology cutoffs (example panel, 2024): pigeon droppings IgG cutoff 62.4 mg/L (97.5th percentile controls) and other antigen cutoffs (Penicillium 71.0 mg/L; Aspergillus fumigatus 61.8 mg/L; Alternaria 35.3 mg/L; Aspergillus niger 44.3 mg/L; Micropolyspora faeni 20.5 mg/L). (intra2024theroleof pages 5-6)</li>
+</ul>
+<h3>10.3 Differential diagnosis</h3>
+<p>The retrieved excerpts did not provide a structured differential diagnosis list. In practice, major differentials for fibrotic HP include idiopathic pulmonary fibrosis and connective tissue disease–associated ILD; however, these statements are not expanded here without direct supporting excerpts.</p>
+<h2>11. Outcome / prognosis</h2>
+<h3>11.1 Prognostic strata: fibrotic vs non-fibrotic</h3>
+<p>Fibrosis is a major determinant of prognosis:
+- In a 2018 cohort, fibrotic HP median survival was 9.2 years and fibrotic vs non-fibrotic HP carried HR 4.35 (95% CI 2.22–8.33). (sadeleer2018effectsofcorticosteroid pages 3-6)</p>
+<h3>11.2 Antigen identification and outcomes (real-world prognostic implications)</h3>
+<ul>
+<li>In a high-confidence chronic HP cohort (n=136), identification of an inciting antigen by clinical history was independently associated with better transplant-free survival (HR 0.39, 95% CI 0.17–0.89). Median transplant-free survival was 4.89 years with no antigen identified vs 12.8 years with one identified antigen; feather exposure had HR 0.30 vs no antigen (95% CI 0.10–0.96). (kypreos2022impactofnumber pages 4-5, kypreos2022impactofnumber pages 5-7)</li>
+</ul>
+<h2>12. Treatment</h2>
+<h3>12.1 Core management principle: exposure remediation/avoidance</h3>
+<p>Exposure avoidance is a cornerstone intervention:
+- In non-fibrotic HP, avoidance was associated with improved lung-function trajectory (FVC from −0.24%/month to +0.92%/month, p=0.016; DLCO from −0.23%/month to +0.37%/month with an immediate +4.0% increase, p=0.04). (sadeleer2018effectsofcorticosteroid pages 6-8)</p>
+<p>Suggested MAXO terms (implementation suggestions):
+- MAXO:0000527 “avoidance of allergen exposure” (or nearest available allergen/antigen avoidance term)
+- MAXO:0000499 “environmental intervention”</p>
+<h3>12.2 Corticosteroids and immunosuppression</h3>
+<ul>
+<li>In the same large cohort, corticosteroids improved physiology in non-fibrotic HP (e.g., FVC from −0.35%/month to +0.84%/month after steroids, p&lt;0.001) but showed no physiologic benefit in fibrotic HP and no survival benefit overall. (sadeleer2018effectsofcorticosteroid pages 3-6)</li>
+</ul>
+<p>Suggested MAXO terms:
+- systemic glucocorticoid therapy
+- immunosuppressive therapy (e.g., azathioprine in some trial protocols) (NCT02496182 chunk 1)</p>
+<h3>12.3 Antifibrotics and clinical trials (real-world implementation and ongoing evidence)</h3>
+<p>Because fibrotic HP can behave like progressive pulmonary fibrosis, antifibrotic strategies have been studied in HP-specific and broader PPF settings.</p>
+<p><strong>Pirfenidone trials in chronic/fibrotic HP (ClinicalTrials.gov):</strong>
+- NCT02958917 (posted 2017; terminated during COVID-19): randomized, double-blind trial in fibrotic HP; pirfenidone 2403 mg/day vs placebo for 52 weeks; primary endpoint = change in % predicted FVC at week 52; key inclusion included multidisciplinary-consensus fibrotic HP, age 18–80, FVC ≥40%, DLCO ≥30%. URL: https://clinicaltrials.gov/study/NCT02958917 (NCT02958917 chunk 1, NCT02958917 chunk 2)
+- NCT04675619 (start 2019; completed): progressive chronic HP with &gt;10% fibrosis on HRCT and absolute FVC decline &gt;5% in prior 6 months; pirfenidone + standard care vs standard care; endpoints included FVC and 6MWD at 6 months. URL: https://clinicaltrials.gov/study/NCT04675619 (NCT04675619 chunk 1)</p>
+<p>Suggested MAXO terms:
+- antifibrotic therapy
+- pirfenidone treatment</p>
+<h2>13. Prevention</h2>
+<p>Primary prevention is largely exposure-based: minimizing/avoiding inhalation of bird-derived antigens and feather/down exposure in susceptible individuals or in settings where symptoms have occurred. Prognostic evidence supports that identifying an inciting antigen is associated with improved transplant-free survival, reinforcing prevention via exposure identification/remediation. (kypreos2022impactofnumber pages 5-7)</p>
+<h2>14. Other species / natural disease</h2>
+<p>No tool-retrieved evidence in this run addressed naturally occurring BFL-like disease in non-human species or zoonotic transmission.</p>
+<h2>15. Model organisms</h2>
+<p>No tool-retrieved evidence in this run described specific model organisms for BFL/avian HP. (General HP models exist in the literature, but are not summarized here without direct citations.)</p>
+<h2>Recent developments (2023–2024) highlighted</h2>
+<p>1) <strong>Longitudinal serology as disease monitoring in fibrotic avian HP:</strong> serial anti-pigeon IgG (ELISA/ImmunoCAP) correlates with FVC decline (Okuda 2024). (okuda2024longitudinalchangesin pages 1-2, okuda2024longitudinalchangesin pages 2-4)
+2) <strong>Population-derived precipitin cutoffs and antigen-panel optimization:</strong> large control dataset used to define 97.5th percentile cutoffs for common antigens including pigeon droppings (Intra 2024). (intra2024theroleof pages 1-2, intra2024theroleof pages 5-6)
+3) <strong>Modern cohort quantification of exposure patterns and HRCT findings:</strong> bird/bird-product exposures dominate identified exposures in a tertiary cohort and HRCT frequencies are quantified (Akkurt 2024). (akkurt2024evaluationofclinical pages 1-4)</p>
+<h2>Structured evidence table</h2>
+<p>The following table summarizes high-yield, tool-retrieved evidence most relevant to a BFL knowledge-base entry.</p>
+<table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>Key finding</th>
+<th>Study (author year journal)</th>
+<th>Population/design</th>
+<th>URL/DOI</th>
+<th>Citation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Exposure</td>
+<td>In a 2024 HP cohort, 94% reported at least one exposure; avian exposure was more common in fibrotic vs non-fibrotic HP (70% vs 40%, p=0.03), though older age was the only independent predictor of fibrosis.</td>
+<td>Deutsch et al. 2024, <em>Journal of Clinical Medicine</em></td>
+<td>Retrospective cohort, 66 HP patients diagnosed 2019-2023</td>
+<td>https://doi.org/10.3390/jcm13175074</td>
+<td>(deutsch2024doesatype pages 2-4)</td>
+</tr>
+<tr>
+<td>Exposure</td>
+<td>In a 2024 tertiary-center HP cohort, 65% had identifiable exposure and 86.4% of known exposures were birds/bird products.</td>
+<td>Akkurt et al. 2024, preprint</td>
+<td>Retrospective cross-sectional study, 100 HP patients (2020-2024)</td>
+<td>https://doi.org/10.21203/rs.3.rs-5418767/v1</td>
+<td>(akkurt2024evaluationofclinical pages 1-4)</td>
+</tr>
+<tr>
+<td>Diagnosis</td>
+<td>Median BAL lymphocyte proportion was 38.8% (IQR 26.9-52.6) in the 2024 cohort; fibrotic HP was classified by CT fibrosis (reticulation, traction bronchiectasis, reduced volume, honeycombing) plus small-airway findings.</td>
+<td>Deutsch et al. 2024, <em>Journal of Clinical Medicine</em></td>
+<td>Retrospective cohort, 66 HP patients</td>
+<td>https://doi.org/10.3390/jcm13175074</td>
+<td>(deutsch2024doesatype pages 2-4)</td>
+</tr>
+<tr>
+<td>Diagnosis</td>
+<td>Common HRCT findings in HP were reticulation 87%, ground-glass opacities 84.7%, and centrilobular nodules 75%; fibrotic features were present in 40%.</td>
+<td>Akkurt et al. 2024, preprint</td>
+<td>Retrospective cross-sectional study, 100 HP patients</td>
+<td>https://doi.org/10.21203/rs.3.rs-5418767/v1</td>
+<td>(akkurt2024evaluationofclinical pages 1-4)</td>
+</tr>
+<tr>
+<td>Biomarkers</td>
+<td>Serial anti-pigeon IgG correlated with lung-function decline in fibrotic avian HP: annual IgG change vs relative FVC change, ELISA r=-0.6221 (p&lt;0.001), ImmunoCAP r=-0.4302 (p=0.022); multiple regression remained significant (p=0.012 and p=0.015).</td>
+<td>Okuda et al. 2024, <em>BMC Pulmonary Medicine</em></td>
+<td>Longitudinal cohort, 28 fibrotic avian HP patients</td>
+<td>https://doi.org/10.1186/s12890-024-03063-0</td>
+<td>(okuda2024longitudinalchangesin pages 1-2, okuda2024longitudinalchangesin pages 2-4)</td>
+</tr>
+<tr>
+<td>Biomarkers</td>
+<td>Using 97.5th-percentile control cutoffs, 30/54 HP patients (56%) had ≥1 positive precipitin; pigeon-dropping IgG was the most frequent positive, with 23/30 positive cases showing elevated pigeon-dropping IgG.</td>
+<td>Intra et al. 2024, <em>International Journal of Translational Medicine</em></td>
+<td>10-year retrospective study; 54 HP cases, 1516 controls</td>
+<td>https://doi.org/10.3390/ijtm4020025</td>
+<td>(intra2024theroleof pages 4-5, intra2024theroleof pages 1-2, intra2024theroleof pages 5-6)</td>
+</tr>
+<tr>
+<td>Prognosis</td>
+<td>Identification of an inciting antigen independently predicted better transplant-free survival (HR 0.39, 95% CI 0.17-0.89, p=0.025). No-antigen group had median transplant-free survival 4.89 years vs 12.8 years for one identified antigen; feather exposure HR 0.30 vs no antigen (95% CI 0.10-0.96, p=0.043).</td>
+<td>Kypreos et al. 2022, <em>PLoS ONE</em></td>
+<td>Retrospective cohort, 136 high/definite chronic HP patients</td>
+<td>https://doi.org/10.1371/journal.pone.0273544</td>
+<td>(kypreos2022impactofnumber pages 4-5, kypreos2022impactofnumber pages 5-7)</td>
+</tr>
+<tr>
+<td>Prognosis</td>
+<td>Fibrotic HP had markedly worse outcomes than non-fibrotic HP: median survival 9.2 years in fibrotic HP, while median survival was not reached in non-fibrotic HP; HR for fibrotic vs non-fibrotic HP 4.35 (95% CI 2.22-8.33, p&lt;0.001).</td>
+<td>De Sadeleer et al. 2018, <em>Journal of Clinical Medicine</em></td>
+<td>Single-center cohort, 202 HP patients (109 fibrotic, 93 non-fibrotic)</td>
+<td>https://doi.org/10.3390/jcm8010014</td>
+<td>(sadeleer2018effectsofcorticosteroid pages 1-3, sadeleer2018effectsofcorticosteroid pages 3-6)</td>
+</tr>
+<tr>
+<td>Treatment</td>
+<td>Corticosteroids improved physiology in non-fibrotic HP but not fibrotic HP; in non-fibrotic HP, FVC changed from -0.35%/month pre-treatment to +0.84%/month after steroid initiation (p&lt;0.001). No survival benefit from corticosteroids was observed.</td>
+<td>De Sadeleer et al. 2018, <em>Journal of Clinical Medicine</em></td>
+<td>Single-center cohort, 202 HP patients</td>
+<td>https://doi.org/10.3390/jcm8010014</td>
+<td>(sadeleer2018effectsofcorticosteroid pages 1-3, sadeleer2018effectsofcorticosteroid pages 3-6)</td>
+</tr>
+<tr>
+<td>Treatment</td>
+<td>Exposure avoidance improved lung function in non-fibrotic HP: FVC trajectory changed from -0.24%/month to +0.92%/month (p=0.016), and DLCO from -0.23%/month to +0.37%/month with an immediate +4.0% increase (p=0.04). In fibrotic HP, FVC improved numerically to +0.28%/month but was not significant (p=0.15).</td>
+<td>De Sadeleer et al. 2018, <em>Journal of Clinical Medicine</em></td>
+<td>Single-center cohort, exposure avoidance analysis</td>
+<td>https://doi.org/10.3390/jcm8010014</td>
+<td>(sadeleer2018effectsofcorticosteroid pages 6-8)</td>
+</tr>
+<tr>
+<td>Trials</td>
+<td>Pirfenidone trial in progressive chronic HP: adults with &gt;10% fibrosis on HRCT and absolute FVC decline &gt;5% in prior 6 months despite conventional therapy; randomized 1:1, n=40; endpoints included FVC and 6MWD at 6 months.</td>
+<td>NCT04675619</td>
+<td>Phase 2, randomized, open-label interventional trial</td>
+<td>https://clinicaltrials.gov/study/NCT04675619</td>
+<td>(NCT04675619 chunk 1)</td>
+</tr>
+<tr>
+<td>Trials</td>
+<td>Pirfenidone trial in fibrotic HP: pirfenidone 2403 mg/day vs placebo for 52 weeks; primary endpoint was change in % predicted FVC at week 52; included multidisciplinary-consensus FHP, age 18-80, FVC ≥40%, DLCO ≥30%; trial terminated during COVID-19.</td>
+<td>NCT02958917</td>
+<td>Phase 2, randomized, double-blind, placebo-controlled trial</td>
+<td>https://clinicaltrials.gov/study/NCT02958917</td>
+<td>(NCT02958917 chunk 1, NCT02958917 chunk 2)</td>
+</tr>
+<tr>
+<td>Trials</td>
+<td>Earlier chronic HP pirfenidone study tested pirfenidone added to prednisone + azathioprine; estimated enrollment 60; primary endpoint FVC at 26 and 52 weeks, with HRCT, 6MWD, QoL, echocardiographic PASP, and oxygen desaturation as secondary outcomes.</td>
+<td>NCT02496182</td>
+<td>Phase 2/3, randomized, quadruple-masked trial</td>
+<td>https://clinicaltrials.gov/study/NCT02496182</td>
+<td>(NCT02496182 chunk 1, NCT02496182 chunk 2)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table compiles compact, high-yield recent evidence and key comparator studies relevant to bird fancier's lung/avian hypersensitivity pneumonitis. It highlights exposure patterns, diagnostic performance, prognostic markers, treatment effects, and active/interpretable clinical trial designs for rapid knowledge-base use.</em></p>
+<h2>Notes on evidence limitations</h2>
+<ul>
+<li>Several knowledge-base fields (ICD/MeSH/MONDO/Orphanet identifiers; population prevalence/incidence; specific genetic variants; animal models) could not be populated with citable evidence using the retrieved document set.</li>
+<li>Some retrieved items are preprints (e.g., Akkurt 2024) and should be treated as non–peer-reviewed until formally published. (akkurt2024evaluationofclinical pages 1-4)</li>
+</ul>
+<p>References</p>
+<ol>
+<li>
+<p>(deutsch2024doesatype pages 2-4): Kamila Deutsch, Katarzyna B. Lewandowska, Agata Kowalik, Iwona Bartoszuk, Piotr Radwan-Röhrenschef, Małgorzata Sobiecka, Małgorzata Dybowska, Witold Z. Tomkowski, and Monika Szturmowicz. Does a type of inciting antigen correlate with the presence of lung fibrosis in patients with hypersensitivity pneumonitis? Journal of Clinical Medicine, 13:5074, Aug 2024. URL: https://doi.org/10.3390/jcm13175074, doi:10.3390/jcm13175074. This article has 2 citations.</p>
+</li>
+<li>
+<p>(akkurt2024evaluationofclinical pages 1-4): ESMA SEVIL AKKURT, BERNA AKINCI OZYUREK, KEREM ENSARIOGLU, TUGCE SAHIN OZDEMIREL, OZLEM DUVENCI BIRBEN, HAKAN ERTURK, and TUNAHAN DOLMUS. Evaluation of clinical and radiological features of patients diagnosed with hypersensitivity pneumonia. Nov 2024. URL: https://doi.org/10.21203/rs.3.rs-5418767/v1, doi:10.21203/rs.3.rs-5418767/v1.</p>
+</li>
+<li>
+<p>(okuda2024longitudinalchangesin pages 1-2): Ryo Okuda, Tamiko Takemura, Toshihiro Misumi, Akimasa Sekine, Eri Hagiwara, and Takashi Ogura. Longitudinal changes in serum immunoglobulin g testing in patients with fibrotic avian hypersensitivity pneumonitis. BMC Pulmonary Medicine, May 2024. URL: https://doi.org/10.1186/s12890-024-03063-0, doi:10.1186/s12890-024-03063-0. This article has 0 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(kypreos2022impactofnumber pages 1-2): Margaret Kypreos, Kiran Batra, Craig S. Glazer, and Traci N. Adams. Impact of number and type of identified antigen on transplant-free survival in hypersensitivity pneumonitis. PLoS ONE, 17:e0273544, Sep 2022. URL: https://doi.org/10.1371/journal.pone.0273544, doi:10.1371/journal.pone.0273544. This article has 12 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(deutsch2024doesatype pages 9-10): Kamila Deutsch, Katarzyna B. Lewandowska, Agata Kowalik, Iwona Bartoszuk, Piotr Radwan-Röhrenschef, Małgorzata Sobiecka, Małgorzata Dybowska, Witold Z. Tomkowski, and Monika Szturmowicz. Does a type of inciting antigen correlate with the presence of lung fibrosis in patients with hypersensitivity pneumonitis? Journal of Clinical Medicine, 13:5074, Aug 2024. URL: https://doi.org/10.3390/jcm13175074, doi:10.3390/jcm13175074. This article has 2 citations.</p>
+</li>
+<li>
+<p>(NCT02496182 chunk 1):  Pirfenidone in the Chronic Hypersensitivity Pneumonitis Treatment. Grupo Medifarma, S. A. de C. V.. 2015. ClinicalTrials.gov Identifier: NCT02496182</p>
+</li>
+<li>
+<p>(sadeleer2018effectsofcorticosteroid pages 6-8): Laurens J. De Sadeleer, Frederik Hermans, Els De Dycker, Jonas Yserbyt, Johny A. Verschakelen, Eric K. Verbeken, Geert M. Verleden, and Wim A. Wuyts. Effects of corticosteroid treatment and antigen avoidance in a large hypersensitivity pneumonitis cohort: a single-centre cohort study. Journal of Clinical Medicine, 8:14, Dec 2018. URL: https://doi.org/10.3390/jcm8010014, doi:10.3390/jcm8010014. This article has 183 citations.</p>
+</li>
+<li>
+<p>(sadeleer2018effectsofcorticosteroid pages 1-3): Laurens J. De Sadeleer, Frederik Hermans, Els De Dycker, Jonas Yserbyt, Johny A. Verschakelen, Eric K. Verbeken, Geert M. Verleden, and Wim A. Wuyts. Effects of corticosteroid treatment and antigen avoidance in a large hypersensitivity pneumonitis cohort: a single-centre cohort study. Journal of Clinical Medicine, 8:14, Dec 2018. URL: https://doi.org/10.3390/jcm8010014, doi:10.3390/jcm8010014. This article has 183 citations.</p>
+</li>
+<li>
+<p>(sadeleer2018effectsofcorticosteroid pages 3-6): Laurens J. De Sadeleer, Frederik Hermans, Els De Dycker, Jonas Yserbyt, Johny A. Verschakelen, Eric K. Verbeken, Geert M. Verleden, and Wim A. Wuyts. Effects of corticosteroid treatment and antigen avoidance in a large hypersensitivity pneumonitis cohort: a single-centre cohort study. Journal of Clinical Medicine, 8:14, Dec 2018. URL: https://doi.org/10.3390/jcm8010014, doi:10.3390/jcm8010014. This article has 183 citations.</p>
+</li>
+<li>
+<p>(intra2024theroleof pages 1-2): Jari Intra, Alice Biffi, Francesca Basta, Cristina Delfini, Nicoletta Novati, Elisa Zucchetti, Fabrizio Luppi, and Marco Casati. The role of serum igg precipitins against six typical organic antigens involved in hypersensitivity pneumonitis: a 10-year retrospective study of a referral interstitial lung disease centre. International Journal of Translational Medicine, 4:381-386, Jun 2024. URL: https://doi.org/10.3390/ijtm4020025, doi:10.3390/ijtm4020025. This article has 5 citations.</p>
+</li>
+<li>
+<p>(intra2024theroleof pages 5-6): Jari Intra, Alice Biffi, Francesca Basta, Cristina Delfini, Nicoletta Novati, Elisa Zucchetti, Fabrizio Luppi, and Marco Casati. The role of serum igg precipitins against six typical organic antigens involved in hypersensitivity pneumonitis: a 10-year retrospective study of a referral interstitial lung disease centre. International Journal of Translational Medicine, 4:381-386, Jun 2024. URL: https://doi.org/10.3390/ijtm4020025, doi:10.3390/ijtm4020025. This article has 5 citations.</p>
+</li>
+<li>
+<p>(okuda2024longitudinalchangesin pages 7-8): Ryo Okuda, Tamiko Takemura, Toshihiro Misumi, Akimasa Sekine, Eri Hagiwara, and Takashi Ogura. Longitudinal changes in serum immunoglobulin g testing in patients with fibrotic avian hypersensitivity pneumonitis. BMC Pulmonary Medicine, May 2024. URL: https://doi.org/10.1186/s12890-024-03063-0, doi:10.1186/s12890-024-03063-0. This article has 0 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(akkurt2025fibroticpatternsand pages 12-12): Esma Sevil Akkurt, Berna Akıncı Ozyurek, Kerem Ensarioglu, Tugce Sahin Ozdemirel, Ozlem Duvenci Birben, Hakan Erturk, and Tunahan Dolmus. Fibrotic patterns and diagnostic correlates in hypersensitivity pneumonitis: clinical, radiologic, and hematologic insights. Diagnostics, 15:3137, Dec 2025. URL: https://doi.org/10.3390/diagnostics15243137, doi:10.3390/diagnostics15243137. This article has 0 citations.</p>
+</li>
+<li>
+<p>(okuda2024longitudinalchangesin pages 2-4): Ryo Okuda, Tamiko Takemura, Toshihiro Misumi, Akimasa Sekine, Eri Hagiwara, and Takashi Ogura. Longitudinal changes in serum immunoglobulin g testing in patients with fibrotic avian hypersensitivity pneumonitis. BMC Pulmonary Medicine, May 2024. URL: https://doi.org/10.1186/s12890-024-03063-0, doi:10.1186/s12890-024-03063-0. This article has 0 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(kypreos2022impactofnumber pages 4-5): Margaret Kypreos, Kiran Batra, Craig S. Glazer, and Traci N. Adams. Impact of number and type of identified antigen on transplant-free survival in hypersensitivity pneumonitis. PLoS ONE, 17:e0273544, Sep 2022. URL: https://doi.org/10.1371/journal.pone.0273544, doi:10.1371/journal.pone.0273544. This article has 12 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(kypreos2022impactofnumber pages 5-7): Margaret Kypreos, Kiran Batra, Craig S. Glazer, and Traci N. Adams. Impact of number and type of identified antigen on transplant-free survival in hypersensitivity pneumonitis. PLoS ONE, 17:e0273544, Sep 2022. URL: https://doi.org/10.1371/journal.pone.0273544, doi:10.1371/journal.pone.0273544. This article has 12 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(NCT02958917 chunk 1): Evans Fernandez Perez. Study of Efficacy and Safety of Pirfenidone in Patients With Fibrotic Hypersensitivity Pneumonitis. Evans Fernandez Perez. 2017. ClinicalTrials.gov Identifier: NCT02958917</p>
+</li>
+<li>
+<p>(NCT02958917 chunk 2): Evans Fernandez Perez. Study of Efficacy and Safety of Pirfenidone in Patients With Fibrotic Hypersensitivity Pneumonitis. Evans Fernandez Perez. 2017. ClinicalTrials.gov Identifier: NCT02958917</p>
+</li>
+<li>
+<p>(NCT04675619 chunk 1): Eman Shebl. Evaluation of the Efficacy of Pirfenidone in Progressive Chronic Hypersensitivity Pneumonitis. Zagazig University. 2019. ClinicalTrials.gov Identifier: NCT04675619</p>
+</li>
+<li>
+<p>(intra2024theroleof pages 4-5): Jari Intra, Alice Biffi, Francesca Basta, Cristina Delfini, Nicoletta Novati, Elisa Zucchetti, Fabrizio Luppi, and Marco Casati. The role of serum igg precipitins against six typical organic antigens involved in hypersensitivity pneumonitis: a 10-year retrospective study of a referral interstitial lung disease centre. International Journal of Translational Medicine, 4:381-386, Jun 2024. URL: https://doi.org/10.3390/ijtm4020025, doi:10.3390/ijtm4020025. This article has 5 citations.</p>
+</li>
+<li>
+<p>(NCT02496182 chunk 2):  Pirfenidone in the Chronic Hypersensitivity Pneumonitis Treatment. Grupo Medifarma, S. A. de C. V.. 2015. ClinicalTrials.gov Identifier: NCT02496182</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </div>
         
 
         <footer class="page-footer">
@@ -6906,7 +7965,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Bird Fancier\u0027s Lung", "mondoId": "MONDO:0005668", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Bird_Fancier\u0027s_Lung", "yamlRevision": "4e80c8dc8ba9"};
+        const OS_CONFIG = {"diseaseName": "Bird Fancier\u0027s Lung", "mondoId": "MONDO:0005668", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Bird_Fancier\u0027s_Lung", "yamlRevision": "8dd7eb959343"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

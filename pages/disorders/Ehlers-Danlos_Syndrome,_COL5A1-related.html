@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -3266,7 +3419,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Atrophic Scarring\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Formation of thin, widened scars with a papyraceous or cigarette-paper appearance, typically over bony prominences.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\"}}, {\"id\": \"COL5A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"association\": \"Pathogenic Variants\", \"variant_count\": 3}}, {\"id\": \"Chronic Joint Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent pain in multiple joints resulting from joint instability, subluxations, and degenerative changes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002829\"}}, {\"id\": \"Collagen Type V Abnormalities\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in the COL5A1 gene lead to defective collagen type V synthesis and assembly.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"collagen fibril organization\", \"collagen biosynthetic process\"]}}, {\"id\": \"Connective Tissue Fragility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Abnormal collagen type V leads to weakened connective tissues throughout the body.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"fibroblast\", \"dermal fibroblast\"], \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Delayed Wound Healing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prolonged time for wounds to heal with impaired re-epithelialization and abnormal granulation tissue formation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001030\"}}, {\"id\": \"Easy Bruising\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased susceptibility to bruising from minor trauma due to fragile blood vessels and connective tissue.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\"}}, {\"id\": \"Frameshift Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Insertions or deletions causing a shift in the reading frame and often resulting in a premature stop codon.\"}, {\"id\": \"Gastroesophageal Reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Backflow of stomach contents into the esophagus, possibly related to laxity of the lower esophageal sphincter.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002020\"}}, {\"id\": \"Joint Hypermobility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormally increased range of motion in multiple joints due to lax connective tissue.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001382\"}}, {\"id\": \"Missense Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Single nucleotide changes resulting in altered amino acid sequence.\"}, {\"id\": \"Mitral Valve Prolapse\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormal bulging of the mitral valve leaflets into the left atrium during systole due to connective tissue laxity.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001634\"}}, {\"id\": \"Molluscoid Pseudotumors\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fleshy, scar-associated lesions that develop over pressure points and areas of repeated trauma.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000993\"}}, {\"id\": \"Myopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nearsightedness, a refractive error where distant objects appear blurred.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000545\"}}, {\"id\": \"Recurrent Joint Dislocations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Repeated episodes of joints becoming displaced from their normal positions.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001373\"}}, {\"id\": \"Skin Hyperextensibility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Skin that can be stretched beyond the normal range and returns to its original position when released.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\"}}, {\"id\": \"Splice Site Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Changes affecting mRNA splicing and leading to exon skipping or intronic retention.\"}, {\"id\": \"Tissue Injury and Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fragile tissues are prone to damage, leading to manifestations like joint dislocations, skin hyperextensibility, and poor wound healing. Impaired wound healing involves altered mechanosensitive integrin signaling and defective re-epithelialization.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"wound healing\", \"signal transduction\", \"integrin-mediated signaling pathway\"], \"locations\": [\"skin of body\", \"tendon\", \"corneal stroma\"]}}], \"edges\": [{\"source\": \"Collagen Type V Abnormalities\", \"target\": \"Connective Tissue Fragility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Connective Tissue Fragility\", \"target\": \"Tissue Injury and Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Connective Tissue Fragility\", \"target\": \"Joint Hypermobility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Connective Tissue Fragility\", \"target\": \"Skin Hyperextensibility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Connective Tissue Fragility\", \"target\": \"Easy Bruising\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Connective Tissue Fragility\", \"target\": \"Mitral Valve Prolapse\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Connective Tissue Fragility\", \"target\": \"Myopia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue Injury and Dysfunction\", \"target\": \"Recurrent Joint Dislocations\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue Injury and Dysfunction\", \"target\": \"Chronic Joint Pain\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue Injury and Dysfunction\", \"target\": \"Delayed Wound Healing\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue Injury and Dysfunction\", \"target\": \"Atrophic Scarring\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue Injury and Dysfunction\", \"target\": \"Molluscoid Pseudotumors\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue Injury and Dysfunction\", \"target\": \"Gastroesophageal Reflux\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Joint Hypermobility\", \"target\": \"Recurrent Joint Dislocations\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Joint Hypermobility\", \"target\": \"Chronic Joint Pain\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Missense Mutations\", \"target\": \"COL5A1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Splice Site Mutations\", \"target\": \"COL5A1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Frameshift Mutations\", \"target\": \"COL5A1\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Atrophic Scarring\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Formation of thin, widened scars with a papyraceous or cigarette-paper appearance, typically over bony prominences.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\"}}, {\"id\": \"COL5A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"association\": \"Pathogenic Variants\", \"variant_count\": 3}}, {\"id\": \"Chronic Joint Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent pain in multiple joints resulting from joint instability, subluxations, and degenerative changes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002829\"}}, {\"id\": \"Collagen Type V Abnormalities\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in the COL5A1 gene lead to defective collagen type V synthesis and assembly.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"collagen fibril organization\", \"collagen biosynthetic process\"]}}, {\"id\": \"Connective Tissue Fragility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Abnormal collagen type V leads to weakened connective tissues throughout the body.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"fibroblast\", \"dermal fibroblast\"], \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Delayed Wound Healing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prolonged time for wounds to heal with impaired re-epithelialization and abnormal granulation tissue formation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001030\"}}, {\"id\": \"Easy Bruising\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased susceptibility to bruising from minor trauma due to fragile blood vessels and connective tissue.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\"}}, {\"id\": \"Frameshift Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Insertions or deletions causing a shift in the reading frame and often resulting in a premature stop codon.\"}, {\"id\": \"Gastroesophageal Reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Backflow of stomach contents into the esophagus, possibly related to laxity of the lower esophageal sphincter.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002020\"}}, {\"id\": \"Joint Hypermobility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormally increased range of motion in multiple joints due to lax connective tissue.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001382\"}}, {\"id\": \"Missense Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Single nucleotide changes resulting in altered amino acid sequence.\"}, {\"id\": \"Mitral Valve Prolapse\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormal bulging of the mitral valve leaflets into the left atrium during systole due to connective tissue laxity.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001634\"}}, {\"id\": \"Molluscoid Pseudotumors\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fleshy, scar-associated lesions that develop over pressure points and areas of repeated trauma.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000993\"}}, {\"id\": \"Myopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nearsightedness, a refractive error where distant objects appear blurred.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000545\"}}, {\"id\": \"Recurrent Joint Dislocations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Repeated episodes of joints becoming displaced from their normal positions.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001373\"}}, {\"id\": \"Skin Hyperextensibility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Skin that can be stretched beyond the normal range and returns to its original position when released.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\"}}, {\"id\": \"Splice Site Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Changes affecting mRNA splicing and leading to exon skipping or intronic retention.\"}, {\"id\": \"Tissue Injury and Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fragile tissues are prone to damage, leading to manifestations like joint dislocations, skin hyperextensibility, and poor wound healing. Impaired wound healing involves altered mechanosensitive integrin signaling and defective re-epithelialization.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"wound healing\", \"signal transduction\", \"integrin-mediated signaling pathway\"], \"locations\": [\"skin of body\", \"tendon\", \"corneal stroma\"]}}], \"edges\": [{\"source\": \"Collagen Type V Abnormalities\", \"target\": \"Connective Tissue Fragility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Connective Tissue Fragility\", \"target\": \"Tissue Injury and Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Connective Tissue Fragility\", \"target\": \"Joint Hypermobility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Connective Tissue Fragility\", \"target\": \"Skin Hyperextensibility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Connective Tissue Fragility\", \"target\": \"Easy Bruising\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Connective Tissue Fragility\", \"target\": \"Mitral Valve Prolapse\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Connective Tissue Fragility\", \"target\": \"Myopia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue Injury and Dysfunction\", \"target\": \"Recurrent Joint Dislocations\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue Injury and Dysfunction\", \"target\": \"Chronic Joint Pain\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue Injury and Dysfunction\", \"target\": \"Delayed Wound Healing\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue Injury and Dysfunction\", \"target\": \"Atrophic Scarring\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue Injury and Dysfunction\", \"target\": \"Molluscoid Pseudotumors\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue Injury and Dysfunction\", \"target\": \"Gastroesophageal Reflux\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Joint Hypermobility\", \"target\": \"Recurrent Joint Dislocations\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Joint Hypermobility\", \"target\": \"Chronic Joint Pain\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Missense Mutations\", \"target\": \"COL5A1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Splice Site Mutations\", \"target\": \"COL5A1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Frameshift Mutations\", \"target\": \"COL5A1\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4149,7 +4302,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (4 references)
+            Show evidence (5 references)
         </summary>
         <div class="evidence-list">
             
@@ -4208,7 +4361,7 @@
             </div>
             
             
-            <div class="evidence-more">+ 1 more reference</div>
+            <div class="evidence-more">+ 2 more references</div>
             
         </div>
     </details>
@@ -4796,6 +4949,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5332,6 +5486,12 @@ genetic:
     supports: NO_EVIDENCE
     snippet: Mutations in the majority of the 20 known collagen genes have not yet been identified.
     explanation: This reference doesn&#39;t support the existence of frameshift mutations in COL5A1, making the specific part of the statement regarding frameshift mutations unsubstantiated.
+  - reference: CGGV:assertion_3133eacb-2ef9-4463-8031-11d10f0e91b9-2021-03-24T151331.225Z
+    reference_title: &#34;COL5A1 / Ehlers-Danlos syndrome, classic type (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;COL5A1 | HGNC:2209 | Ehlers-Danlos syndrome, classic type | MONDO:0007522 | AD | Definitive&#34;
+    explanation: ClinGen classifies the COL5A1-Ehlers-Danlos syndrome, classic type gene-disease relationship as definitive with autosomal dominant inheritance.
 environmental:
 - name: Physical Trauma
   description: External mechanical forces including falls, impacts, and repetitive strain that stress the weakened connective tissue.
@@ -5723,7 +5883,7 @@ COL5A1-related cEDS is driven by type V collagen deficiency or structural dysfun
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Ehlers-Danlos Syndrome, COL5A1-related", "mondoId": "MONDO:0007522", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Ehlers-Danlos_Syndrome,_COL5A1-related", "yamlRevision": "e2226ca472ed"};
+        const OS_CONFIG = {"diseaseName": "Ehlers-Danlos Syndrome, COL5A1-related", "mondoId": "MONDO:0007522", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Ehlers-Danlos_Syndrome,_COL5A1-related", "yamlRevision": "e008f3f49606"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

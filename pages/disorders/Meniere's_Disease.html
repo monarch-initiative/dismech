@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2619,6 +2772,20 @@
             
             
             
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-value">19</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -2910,7 +3077,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Up-regulated expression of interferon-γ, interleukin-6 and tumor necrosis factor-α in the endolymphatic sac."</div>
+                <div class="evidence-snippet">"Significant differences were identified in the expression levels of interferon-γ (IFN-γ) (P &lt; 0.001), interleukin (IL)-6 (P = 0.008) and tumor necrosis factor-α (TNF-α) (P = 0.036) in the luminal fluid of the ES comparing between the MD and AN groups."</div>
                 
                 
                 <div class="evidence-explanation">Study documents elevated pro-inflammatory cytokines (IFN-γ, IL-6, TNF-α) in MD endolymphatic sac tissue</div>
@@ -2928,7 +3095,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Carriers of the risk genotype may develop an NF-κB-mediated inflammatory response in MD."</div>
+                <div class="evidence-snippet">"Taken together; these findings suggest that the carriers of the risk genotype may develop an NF-κB-mediated inflammatory response in MD."</div>
                 
                 
                 <div class="evidence-explanation">Demonstrates TWEAK-FN14-NF-κB pathway activation as key inflammatory mechanism in MD</div>
@@ -3245,7 +3412,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"MD, an inner ear disorder characterized by episodes of vertigo associated with hearing loss and tinnitus"</div>
+                <div class="evidence-snippet">"Meniere&#39;s disease (MD), an inner ear disorder characterized by episodes of vertigo associated with hearing loss and tinnitus."</div>
                 
                 
                 <div class="evidence-explanation">Confirms hearing loss as cardinal MD manifestation in large epidemiological study</div>
@@ -3652,7 +3819,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"The very common use in Europe of histaminergic agents."</div>
+                <div class="evidence-snippet">"and the very common use in Europe of histaminergic agents."</div>
                 
                 
                 <div class="evidence-explanation">Documents histaminergic agent (betahistine) use as standard therapy in Europe</div>
@@ -3746,7 +3913,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Transtympanic injection, as a quick, easy, well-tolerated, ambulatory and cost-effective technique."</div>
+                <div class="evidence-snippet">"we propose the instillation of gentamicin by transtympanic injection, as a quick, easy, well-tolerated, ambulatory and cost-effective technique."</div>
                 
                 
                 <div class="evidence-explanation">Confirms intratympanic approach as practical, well-tolerated treatment modality</div>
@@ -3893,7 +4060,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Meniere&#39;s Disease
 creation_date: &#39;2026-01-09T07:15:51Z&#39;
-updated_date: &#39;2026-02-27T21:53:01Z&#39;
+updated_date: &#39;2026-05-09T19:42:12Z&#39;
 category: Complex
 disease_term:
   preferred_term: Meniere disease
@@ -3918,10 +4085,14 @@ pathophysiology:
     explanation: &#34;This review confirms endolymphatic hydrops as the pathologic correlate of Meniere&#39;s disease.&#34;
 - name: Ion Transport Dysfunction
   description: &gt;
-    Abnormal regulation of fluid and ion homeostasis in the inner ear, particularly involving
-    potassium transport in the stria vascularis and endolymphatic sac, contributes to endolymph
-    accumulation and hydrops formation. Dysregulation of Na+/K+-ATPase, NKCC1, and K+ channels
-    disrupts the electrochemical gradients required for normal endolymphatic fluid balance.
+    Abnormal regulation of fluid and ion homeostasis in the inner ear, particularly
+    involving
+    potassium transport in the stria vascularis and endolymphatic sac, contributes
+    to endolymph
+    accumulation and hydrops formation. Dysregulation of Na+/K+-ATPase, NKCC1, and
+    K+ channels
+    disrupts the electrochemical gradients required for normal endolymphatic fluid
+    balance.
   biological_processes:
   - preferred_term: potassium ion transport
     term:
@@ -3946,9 +4117,12 @@ pathophysiology:
   description: &gt;
     Elevated inflammatory markers and autoantibodies have been found in some patients,
     suggesting that immune-mediated inner ear damage may contribute to disease
-    pathogenesis in a subset of cases. Local (inner ear/endolymphatic sac) and systemic immune
-    activation includes cytokine signaling and NF-κB pathway engagement. TWEAK-FN14 receptor
-    signaling and dysregulated Fcγ receptor polymorphisms contribute to immune complex-mediated injury.
+    pathogenesis in a subset of cases. Local (inner ear/endolymphatic sac) and systemic
+    immune
+    activation includes cytokine signaling and NF-κB pathway engagement. TWEAK-FN14
+    receptor
+    signaling and dysregulated Fcγ receptor polymorphisms contribute to immune complex-mediated
+    injury.
   biological_processes:
   - preferred_term: inflammatory response
     term:
@@ -3966,12 +4140,12 @@ pathophysiology:
   - reference: PMID:35280304
     reference_title: &#34;Up-Regulated Expression of Interferon-Gamma, Interleukin-6 and Tumor Necrosis Factor-Alpha in the Endolymphatic Sac of Meniere&#39;s Disease Suggesting the Local Inflammatory Response Underlies the Mechanism of This Disease.&#34;
     supports: SUPPORT
-    snippet: &#34;Up-regulated expression of interferon-γ, interleukin-6 and tumor necrosis factor-α in the endolymphatic sac.&#34;
+    snippet: &#34;Significant differences were identified in the expression levels of interferon-γ (IFN-γ) (P &lt; 0.001), interleukin (IL)-6 (P = 0.008) and tumor necrosis factor-α (TNF-α) (P = 0.036) in the luminal fluid of the ES comparing between the MD and AN groups.&#34;
     explanation: &#34;Study documents elevated pro-inflammatory cytokines (IFN-γ, IL-6, TNF-α) in MD endolymphatic sac tissue&#34;
   - reference: PMID:29326686
     reference_title: &#34;Regulation of Fn14 Receptor and NF-κB Underlies Inflammation in Meniere&#39;s Disease.&#34;
     supports: SUPPORT
-    snippet: &#34;Carriers of the risk genotype may develop an NF-κB-mediated inflammatory response in MD.&#34;
+    snippet: &#34;Taken together; these findings suggest that the carriers of the risk genotype may develop an NF-κB-mediated inflammatory response in MD.&#34;
     explanation: &#34;Demonstrates TWEAK-FN14-NF-κB pathway activation as key inflammatory mechanism in MD&#34;
   - reference: PMID:22053211
     reference_title: &#34;High prevalence of systemic autoimmune diseases in patients with Menière&#39;s disease.&#34;
@@ -3981,14 +4155,16 @@ pathophysiology:
   - reference: PMID:21208440
     reference_title: &#34;Polymorphisms of CD16A and CD32 Fcγ receptors and circulating immune complexes in Ménière&#39;s disease: a case-control study.&#34;
     supports: SUPPORT
-    snippet: &#34;Polymorphisms of CD16A and CD32 Fcγ receptors and circulating immune complexes in Ménière&#39;s disease.&#34;
+    snippet: &#34;The inner ear damage in Ménière&#39;s disease (MD) could be mediated by an immune response driven by CIC.&#34;
     explanation: &#34;Case-control study identifies Fcγ receptor polymorphisms and immune complex dysregulation in MD&#34;
 
 - name: Blood-Labyrinth Barrier Dysfunction and Oxidative Stress
   description: &gt;
-    The blood-labyrinth barrier (BLB) maintains inner-ear homeostasis through tight junctions between
+    The blood-labyrinth barrier (BLB) maintains inner-ear homeostasis through tight
+    junctions between
     endothelial cells and pericytes. In MD, increased vascular permeability and oxidative/nitrosative
-    stress damage the BLB, leading to edema and epithelial dysfunction. Elevated iNOS and nitrotyrosine
+    stress damage the BLB, leading to edema and epithelial dysfunction. Elevated iNOS
+    and nitrotyrosine
     levels indicate oxidative stress-mediated cascading cellular injury.
   biological_processes:
   - preferred_term: response to oxidative stress
@@ -4049,7 +4225,7 @@ phenotypes:
   - reference: PMID:22053211
     reference_title: &#34;High prevalence of systemic autoimmune diseases in patients with Menière&#39;s disease.&#34;
     supports: SUPPORT
-    snippet: &#34;MD, an inner ear disorder characterized by episodes of vertigo associated with hearing loss and tinnitus&#34;
+    snippet: &#34;Meniere&#39;s disease (MD), an inner ear disorder characterized by episodes of vertigo associated with hearing loss and tinnitus.&#34;
     explanation: &#34;Confirms hearing loss as cardinal MD manifestation in large epidemiological study&#34;
 
 - name: Tinnitus
@@ -4152,7 +4328,7 @@ treatments:
   - reference: PMID:11465871
     reference_title: &#34;Menière&#39;s disease: pathophysiology and treatment.&#34;
     supports: SUPPORT
-    snippet: &#34;The very common use in Europe of histaminergic agents.&#34;
+    snippet: and the very common use in Europe of histaminergic agents.
     explanation: &#34;Documents histaminergic agent (betahistine) use as standard therapy in Europe&#34;
 
 - name: Intratympanic Injections
@@ -4174,7 +4350,7 @@ treatments:
   - reference: PMID:12590850
     reference_title: &#34;Treatment of Ménière&#39;s disease by intratympanic gentamicin application.&#34;
     supports: SUPPORT
-    snippet: &#34;Transtympanic injection, as a quick, easy, well-tolerated, ambulatory and cost-effective technique.&#34;
+    snippet: &#34;we propose the instillation of gentamicin by transtympanic injection, as a quick, easy, well-tolerated, ambulatory and cost-effective technique.&#34;
     explanation: &#34;Confirms intratympanic approach as practical, well-tolerated treatment modality&#34;
 
 - name: Vestibular Rehabilitation
@@ -4199,11 +4375,2574 @@ treatments:
       id: MAXO:0000004
       label: surgical procedure
 datasets:
+references:
+- reference: DOI:10.1007/s00330-023-09651-8
+  title: &#39;Delayed post gadolinium MRI descriptors for Meniere’s disease: a systematic review and meta-analysis&#39;
+  found_in:
+  - Menieres_Disease-deep-research-falcon.md
+  findings:
+  - statement: Delayed post-gadolinium magnetic resonance imaging (MRI) detects changes of endolymphatic hydrops (EH) within the inner ear in Meniere’s disease (MD).
+    supporting_text: Delayed post-gadolinium magnetic resonance imaging (MRI) detects changes of endolymphatic hydrops (EH) within the inner ear in Meniere’s disease (MD).
+    evidence:
+    - reference: DOI:10.1007/s00330-023-09651-8
+      reference_title: &#39;Delayed post gadolinium MRI descriptors for Meniere’s disease: a systematic review and meta-analysis&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Delayed post-gadolinium magnetic resonance imaging (MRI) detects changes of endolymphatic hydrops (EH) within the inner ear in Meniere’s disease (MD).
+      explanation: Deep research cited this publication as relevant literature for Menieres Disease.
+- reference: DOI:10.1007/s00330-024-10587-w
+  title: Assessing the optimal MRI descriptors to diagnose Ménière’s disease and the added value of analysing the vestibular aqueduct
+  found_in:
+  - Menieres_Disease-deep-research-falcon.md
+  findings:
+  - statement: To evaluate the diagnostic performance and reliability of MRI descriptors used for the detection of Ménière’s disease (MD) on delayed post-gadolinium MRI.
+    supporting_text: To evaluate the diagnostic performance and reliability of MRI descriptors used for the detection of Ménière’s disease (MD) on delayed post-gadolinium MRI.
+    evidence:
+    - reference: DOI:10.1007/s00330-024-10587-w
+      reference_title: Assessing the optimal MRI descriptors to diagnose Ménière’s disease and the added value of analysing the vestibular aqueduct
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: To evaluate the diagnostic performance and reliability of MRI descriptors used for the detection of Ménière’s disease (MD) on delayed post-gadolinium MRI.
+      explanation: Deep research cited this publication as relevant literature for Menieres Disease.
+- reference: DOI:10.1007/s00405-023-07899-w
+  title: Endolymphatic hydrops imaging and correlation with clinical characteristics, audiovestibular function and mental impairment in patients with Meniere’s disease
+  found_in:
+  - Menieres_Disease-deep-research-falcon.md
+  findings:
+  - statement: MR imaging was used to visualize the vestibular and cochlear endolymphatic hydrops in patients with Meniere’s disease (MD).
+    supporting_text: MR imaging was used to visualize the vestibular and cochlear endolymphatic hydrops in patients with Meniere’s disease (MD).
+    evidence:
+    - reference: DOI:10.1007/s00405-023-07899-w
+      reference_title: Endolymphatic hydrops imaging and correlation with clinical characteristics, audiovestibular function and mental impairment in patients with Meniere’s disease
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: MR imaging was used to visualize the vestibular and cochlear endolymphatic hydrops in patients with Meniere’s disease (MD).
+      explanation: Deep research cited this publication as relevant literature for Menieres Disease.
+- reference: DOI:10.1007/s10162-023-00896-0
+  title: Types of Inheritance and Genes Associated with Familial Meniere Disease
+  found_in:
+  - Menieres_Disease-deep-research-falcon.md
+  findings:
+  - statement: Meniere disease (MD) is a rare disorder of the inner ear defined by sensorineural hearing loss (SNHL) associated with episodes of vertigo and tinnitus.
+    supporting_text: Meniere disease (MD) is a rare disorder of the inner ear defined by sensorineural hearing loss (SNHL) associated with episodes of vertigo and tinnitus.
+    evidence:
+    - reference: DOI:10.1007/s10162-023-00896-0
+      reference_title: Types of Inheritance and Genes Associated with Familial Meniere Disease
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Meniere disease (MD) is a rare disorder of the inner ear defined by sensorineural hearing loss (SNHL) associated with episodes of vertigo and tinnitus.
+      explanation: Deep research cited this publication as relevant literature for Menieres Disease.
+- reference: DOI:10.1007/s11033-022-08149-8
+  title: Genetic advances in Meniere Disease
+  found_in:
+  - Menieres_Disease-deep-research-falcon.md
+  findings:
+  - statement: Meniere Disease (MD) is an idiopathic inner ear disease with complex etiology and pathogenesis, which is still unclear.
+    supporting_text: Meniere Disease (MD) is an idiopathic inner ear disease with complex etiology and pathogenesis, which is still unclear.
+    evidence:
+    - reference: DOI:10.1007/s11033-022-08149-8
+      reference_title: Genetic advances in Meniere Disease
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Meniere Disease (MD) is an idiopathic inner ear disease with complex etiology and pathogenesis, which is still unclear.
+      explanation: Deep research cited this publication as relevant literature for Menieres Disease.
+- reference: DOI:10.1177/0194599816628524
+  title: 2015 Equilibrium Committee Amendment to the 1995 AAO‐HNS Guidelines for the Definition of Ménière’s Disease
+  found_in:
+  - Menieres_Disease-deep-research-falcon.md
+  findings:
+  - statement: Ménière’s disease is a disorder of the inner ear that causes attacks of vertigo and hearing loss, tinnitus, aural fullness in the involved ear.
+    supporting_text: Ménière’s disease is a disorder of the inner ear that causes attacks of vertigo and hearing loss, tinnitus, aural fullness in the involved ear.
+    evidence:
+    - reference: DOI:10.1177/0194599816628524
+      reference_title: 2015 Equilibrium Committee Amendment to the 1995 AAO‐HNS Guidelines for the Definition of Ménière’s Disease
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Ménière’s disease is a disorder of the inner ear that causes attacks of vertigo and hearing loss, tinnitus, aural fullness in the involved ear.
+      explanation: Deep research cited this publication as relevant literature for Menieres Disease.
+- reference: DOI:10.1177/0194599820909438
+  title: &#39;Clinical Practice Guideline: Ménière’s Disease&#39;
+  found_in:
+  - Menieres_Disease-deep-research-falcon.md
+  findings:
+  - statement: &#39;Clinical Practice Guideline: Ménière’s Disease&#39;
+    supporting_text: Ménière’s disease (MD) is a clinical condition defined by spontaneous vertigo attacks (each lasting 20 minutes to 12 hours) with documented low‐ to midfrequency sensorineural hearing loss in the affected ear before, during, or after one of the episodes of vertigo.
+    evidence:
+    - reference: DOI:10.1177/0194599820909438
+      reference_title: &#39;Clinical Practice Guideline: Ménière’s Disease&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Ménière’s disease (MD) is a clinical condition defined by spontaneous vertigo attacks (each lasting 20 minutes to 12 hours) with documented low‐ to midfrequency sensorineural hearing loss in the affected ear before, during, or after one of the episodes of vertigo.
+      explanation: Deep research cited this publication as relevant literature for Menieres Disease.
+- reference: DOI:10.1177/0194599820909439
+  title: &#39;Clinical Practice Guideline: Ménière’s Disease Executive Summary&#39;
+  found_in:
+  - Menieres_Disease-deep-research-falcon.md
+  findings:
+  - statement: &#39;Clinical Practice Guideline: Ménière’s Disease Executive Summary&#39;
+    supporting_text: Ménière’s disease (MD) is a clinical condition defined by spontaneous vertigo attacks (each lasting 20 minutes to 12 hours) with documented low‐ to midfrequency sensorineural hearing loss in the affected ear before, during, or after one of the episodes of vertigo.
+    evidence:
+    - reference: DOI:10.1177/0194599820909439
+      reference_title: &#39;Clinical Practice Guideline: Ménière’s Disease Executive Summary&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Ménière’s disease (MD) is a clinical condition defined by spontaneous vertigo attacks (each lasting 20 minutes to 12 hours) with documented low‐ to midfrequency sensorineural hearing loss in the affected ear before, during, or after one of the episodes of vertigo.
+      explanation: Deep research cited this publication as relevant literature for Menieres Disease.
+- reference: DOI:10.1177/19160216241250350
+  title: &#39;Potential Application of Hydrops MR Imaging: A Systematic Review&#39;
+  found_in:
+  - Menieres_Disease-deep-research-falcon.md
+  findings:
+  - statement: Diagnostic dilemma between clinical Meniere’s disease and radiological endolymphatic hydrops (EH) has emerged since the introduction of hydrops magnetic resonance imaging (MRI).
+    supporting_text: Diagnostic dilemma between clinical Meniere’s disease and radiological endolymphatic hydrops (EH) has emerged since the introduction of hydrops magnetic resonance imaging (MRI).
+    evidence:
+    - reference: DOI:10.1177/19160216241250350
+      reference_title: &#39;Potential Application of Hydrops MR Imaging: A Systematic Review&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Diagnostic dilemma between clinical Meniere’s disease and radiological endolymphatic hydrops (EH) has emerged since the introduction of hydrops magnetic resonance imaging (MRI).
+      explanation: Deep research cited this publication as relevant literature for Menieres Disease.
+- reference: DOI:10.3233/ves-150549
+  title: Diagnostic criteria for Menière&#39;s disease
+  found_in:
+  - Menieres_Disease-deep-research-falcon.md
+  findings:
+  - statement: Diagnostic criteria for Menière&#39;s disease
+    supporting_text: This paper presents diagnostic criteria for Menière&#39;s disease jointly formulated by the Classification Committee of the Bárány Society, The Japan Society for Equilibrium Research, the European Academy of Otology and Neurotology (EAONO), the Equilibrium Committee of the American Academy of Otolaryngology-Head and Neck Surgery (AAO-HNS) and the Korean Balance Society.
+    evidence:
+    - reference: DOI:10.3233/ves-150549
+      reference_title: Diagnostic criteria for Menière&#39;s disease
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: This paper presents diagnostic criteria for Menière&#39;s disease jointly formulated by the Classification Committee of the Bárány Society, The Japan Society for Equilibrium Research, the European Academy of Otology and Neurotology (EAONO), the Equilibrium Committee of the American Academy of Otolaryngology-Head and Neck Surgery (AAO-HNS) and the Korean Balance Society.
+      explanation: Deep research cited this publication as relevant literature for Menieres Disease.
+- reference: DOI:10.3389/fneur.2016.00182
+  title: Clinical Subgroups in Bilateral Meniere Disease
+  found_in:
+  - Menieres_Disease-deep-research-falcon.md
+  findings:
+  - statement: Clinical Subgroups in Bilateral Meniere Disease
+    supporting_text: Clinical Subgroups in Bilateral Meniere Disease
+- reference: DOI:10.3389/fneur.2024.1469276
+  title: &#39;The evolution of intractable Ménière’s disease: attacks resolve over time&#39;
+  found_in:
+  - Menieres_Disease-deep-research-falcon.md
+  findings:
+  - statement: Knowledge of the natural and temporal course of a disease is important when deciding if an intervention is appropriate.
+    supporting_text: Knowledge of the natural and temporal course of a disease is important when deciding if an intervention is appropriate.
+    evidence:
+    - reference: DOI:10.3389/fneur.2024.1469276
+      reference_title: &#39;The evolution of intractable Ménière’s disease: attacks resolve over time&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Knowledge of the natural and temporal course of a disease is important when deciding if an intervention is appropriate.
+      explanation: Deep research cited this publication as relevant literature for Menieres Disease.
+- reference: DOI:10.3389/fneur.2024.1471010
+  title: &#39;Comparative efficacy of intratympanic gentamicin and intratympanic corticosteroid in the treatment of Meniere’s disease: a systematic review and meta-analysis&#39;
+  found_in:
+  - Menieres_Disease-deep-research-falcon.md
+  findings:
+  - statement: We aimed to evaluate the efficacy of gentamicin compared to corticosteroids for the treatment of Meniere’s disease.MethodsAn extensive search was conducted in PubMed, Embase, and Web of Science until May 2024.
+    supporting_text: We aimed to evaluate the efficacy of gentamicin compared to corticosteroids for the treatment of Meniere’s disease.MethodsAn extensive search was conducted in PubMed, Embase, and Web of Science until May 2024.
+    evidence:
+    - reference: DOI:10.3389/fneur.2024.1471010
+      reference_title: &#39;Comparative efficacy of intratympanic gentamicin and intratympanic corticosteroid in the treatment of Meniere’s disease: a systematic review and meta-analysis&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: We aimed to evaluate the efficacy of gentamicin compared to corticosteroids for the treatment of Meniere’s disease.MethodsAn extensive search was conducted in PubMed, Embase, and Web of Science until May 2024.
+      explanation: Deep research cited this publication as relevant literature for Menieres Disease.
+- reference: DOI:10.3389/fneur.2024.1477282
+  title: Is endolymphatic hydrops, as detected in MRI, a truly cochleocentric finding?
+  found_in:
+  - Menieres_Disease-deep-research-falcon.md
+  findings:
+  - statement: The most common histopathological finding in Ménière’s disease (MD) is endolymphatic hydrops (EH), which involves the dilation of the membranous labyrinth.
+    supporting_text: The most common histopathological finding in Ménière’s disease (MD) is endolymphatic hydrops (EH), which involves the dilation of the membranous labyrinth.
+    evidence:
+    - reference: DOI:10.3389/fneur.2024.1477282
+      reference_title: Is endolymphatic hydrops, as detected in MRI, a truly cochleocentric finding?
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The most common histopathological finding in Ménière’s disease (MD) is endolymphatic hydrops (EH), which involves the dilation of the membranous labyrinth.
+      explanation: Deep research cited this publication as relevant literature for Menieres Disease.
+- reference: DOI:10.3389/fneur.2024.1496384
+  title: &#34;Changes in symptom pattern in Meniere&#39;s disease by duration: the need for comprehensive management&#34;
+  found_in:
+  - Menieres_Disease-deep-research-falcon.md
+  findings:
+  - statement: &#34;Changes in symptom pattern in Meniere&#39;s disease by duration: the need for comprehensive management&#34;
+    supporting_text: This retrospective study aimed to analyze the symptom profile of Meniere&#39;s disease (MD) patients, particularly focusing on the cessation of episodic vertigo and the disease&#39;s longitudinal course and the impact of major symptoms on quality of life (QoL).MethodsThe study employed a cross-sectional design and was conducted on 365 out of 560 individuals with definite MD from the Finnish Vestibular and Meniere Federation, utilizing an internet-based questionnaire.
+    evidence:
+    - reference: DOI:10.3389/fneur.2024.1496384
+      reference_title: &#34;Changes in symptom pattern in Meniere&#39;s disease by duration: the need for comprehensive management&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: This retrospective study aimed to analyze the symptom profile of Meniere&#39;s disease (MD) patients, particularly focusing on the cessation of episodic vertigo and the disease&#39;s longitudinal course and the impact of major symptoms on quality of life (QoL).MethodsThe study employed a cross-sectional design and was conducted on 365 out of 560 individuals with definite MD from the Finnish Vestibular and Meniere Federation, utilizing an internet-based questionnaire.
+      explanation: Deep research cited this publication as relevant literature for Menieres Disease.
+- reference: DOI:10.3390/audiolres14010019
+  title: Association of Head Injury, Neck Injury or Acoustic Trauma on Phenotype of Ménière’s Disease
+  found_in:
+  - Menieres_Disease-deep-research-falcon.md
+  findings:
+  - statement: The aim of the present study was to investigate adverse effects of head injury, neck trauma, and chronic noise exposure on the complaint profile in people with Ménière’s disease (MD).
+    supporting_text: The aim of the present study was to investigate adverse effects of head injury, neck trauma, and chronic noise exposure on the complaint profile in people with Ménière’s disease (MD).
+    evidence:
+    - reference: DOI:10.3390/audiolres14010019
+      reference_title: Association of Head Injury, Neck Injury or Acoustic Trauma on Phenotype of Ménière’s Disease
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The aim of the present study was to investigate adverse effects of head injury, neck trauma, and chronic noise exposure on the complaint profile in people with Ménière’s disease (MD).
+      explanation: Deep research cited this publication as relevant literature for Menieres Disease.
+- reference: DOI:10.3390/brainsci14040369
+  title: Selective Vestibular Neurectomy through the Presigmoid Retrolabyrinthine Approach in the Treatment of Meniere’s Disease
+  found_in:
+  - Menieres_Disease-deep-research-falcon.md
+  findings:
+  - statement: Meniere’s disease (MD) is a disabling disease, especially in patients who are refractory to medical therapy.
+    supporting_text: Meniere’s disease (MD) is a disabling disease, especially in patients who are refractory to medical therapy.
+    evidence:
+    - reference: DOI:10.3390/brainsci14040369
+      reference_title: Selective Vestibular Neurectomy through the Presigmoid Retrolabyrinthine Approach in the Treatment of Meniere’s Disease
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Meniere’s disease (MD) is a disabling disease, especially in patients who are refractory to medical therapy.
+      explanation: Deep research cited this publication as relevant literature for Menieres Disease.
+- reference: DOI:10.3390/microorganisms12102047
+  title: &#39;Epidemiological Evidence for Upper Respiratory Infections as a Potential Risk Factor for Meniere’s Disease: A Korean National Health Sample Cohort Study&#39;
+  found_in:
+  - Menieres_Disease-deep-research-falcon.md
+  findings:
+  - statement: Meniere’s disease (MD) is a chronic inner ear disorder characterized by tinnitus, ear fullness, episodic vertigo, and fluctuating hearing loss, which significantly impacts quality of life and poses management challenges.
+    supporting_text: Meniere’s disease (MD) is a chronic inner ear disorder characterized by tinnitus, ear fullness, episodic vertigo, and fluctuating hearing loss, which significantly impacts quality of life and poses management challenges.
+    evidence:
+    - reference: DOI:10.3390/microorganisms12102047
+      reference_title: &#39;Epidemiological Evidence for Upper Respiratory Infections as a Potential Risk Factor for Meniere’s Disease: A Korean National Health Sample Cohort Study&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Meniere’s disease (MD) is a chronic inner ear disorder characterized by tinnitus, ear fullness, episodic vertigo, and fluctuating hearing loss, which significantly impacts quality of life and poses management challenges.
+      explanation: Deep research cited this publication as relevant literature for Menieres Disease.
+- reference: DOI:10.7874/jao.2020.00115
+  title: &#39;Experimental Animal Models for Meniere’s Disease: A Mini-Review&#39;
+  found_in:
+  - Menieres_Disease-deep-research-falcon.md
+  findings:
+  - statement: Several novel animal models that represent the pathophysiological process of endolymphatic hydrops (ELH) of Meniere’s disease (MD) have been developed.
+    supporting_text: Several novel animal models that represent the pathophysiological process of endolymphatic hydrops (ELH) of Meniere’s disease (MD) have been developed.
+    evidence:
+    - reference: DOI:10.7874/jao.2020.00115
+      reference_title: &#39;Experimental Animal Models for Meniere’s Disease: A Mini-Review&#39;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: Several novel animal models that represent the pathophysiological process of endolymphatic hydrops (ELH) of Meniere’s disease (MD) have been developed.
+      explanation: Deep research cited this publication as relevant literature for Menieres Disease.
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
+        
+        <div class="card reference-card" id="references-deep-research">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+            
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">19</span>
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s00330-023-09651-8" target="_blank">DOI:10.1007/s00330-023-09651-8</a>
+                            </div>
+                            
+                            <div class="reference-title">Delayed post gadolinium MRI descriptors for Meniere’s disease: a systematic review and meta-analysis</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Delayed post-gadolinium magnetic resonance imaging (MRI) detects changes of endolymphatic hydrops (EH) within the inner ear in Meniere’s disease (MD).</div>
+            
+            
+            <div class="reference-finding-supporting">"Delayed post-gadolinium magnetic resonance imaging (MRI) detects changes of endolymphatic hydrops (EH) within the inner ear in Meniere’s disease (MD)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s00330-023-09651-8" target="_blank">DOI:10.1007/s00330-023-09651-8</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Delayed post-gadolinium magnetic resonance imaging (MRI) detects changes of endolymphatic hydrops (EH) within the inner ear in Meniere’s disease (MD)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Menieres Disease.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s00330-024-10587-w" target="_blank">DOI:10.1007/s00330-024-10587-w</a>
+                            </div>
+                            
+                            <div class="reference-title">Assessing the optimal MRI descriptors to diagnose Ménière’s disease and the added value of analysing the vestibular aqueduct</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">To evaluate the diagnostic performance and reliability of MRI descriptors used for the detection of Ménière’s disease (MD) on delayed post-gadolinium MRI.</div>
+            
+            
+            <div class="reference-finding-supporting">"To evaluate the diagnostic performance and reliability of MRI descriptors used for the detection of Ménière’s disease (MD) on delayed post-gadolinium MRI."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s00330-024-10587-w" target="_blank">DOI:10.1007/s00330-024-10587-w</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"To evaluate the diagnostic performance and reliability of MRI descriptors used for the detection of Ménière’s disease (MD) on delayed post-gadolinium MRI."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Menieres Disease.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s00405-023-07899-w" target="_blank">DOI:10.1007/s00405-023-07899-w</a>
+                            </div>
+                            
+                            <div class="reference-title">Endolymphatic hydrops imaging and correlation with clinical characteristics, audiovestibular function and mental impairment in patients with Meniere’s disease</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">MR imaging was used to visualize the vestibular and cochlear endolymphatic hydrops in patients with Meniere’s disease (MD).</div>
+            
+            
+            <div class="reference-finding-supporting">"MR imaging was used to visualize the vestibular and cochlear endolymphatic hydrops in patients with Meniere’s disease (MD)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s00405-023-07899-w" target="_blank">DOI:10.1007/s00405-023-07899-w</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"MR imaging was used to visualize the vestibular and cochlear endolymphatic hydrops in patients with Meniere’s disease (MD)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Menieres Disease.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s10162-023-00896-0" target="_blank">DOI:10.1007/s10162-023-00896-0</a>
+                            </div>
+                            
+                            <div class="reference-title">Types of Inheritance and Genes Associated with Familial Meniere Disease</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Meniere disease (MD) is a rare disorder of the inner ear defined by sensorineural hearing loss (SNHL) associated with episodes of vertigo and tinnitus.</div>
+            
+            
+            <div class="reference-finding-supporting">"Meniere disease (MD) is a rare disorder of the inner ear defined by sensorineural hearing loss (SNHL) associated with episodes of vertigo and tinnitus."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s10162-023-00896-0" target="_blank">DOI:10.1007/s10162-023-00896-0</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Meniere disease (MD) is a rare disorder of the inner ear defined by sensorineural hearing loss (SNHL) associated with episodes of vertigo and tinnitus."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Menieres Disease.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s11033-022-08149-8" target="_blank">DOI:10.1007/s11033-022-08149-8</a>
+                            </div>
+                            
+                            <div class="reference-title">Genetic advances in Meniere Disease</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Meniere Disease (MD) is an idiopathic inner ear disease with complex etiology and pathogenesis, which is still unclear.</div>
+            
+            
+            <div class="reference-finding-supporting">"Meniere Disease (MD) is an idiopathic inner ear disease with complex etiology and pathogenesis, which is still unclear."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s11033-022-08149-8" target="_blank">DOI:10.1007/s11033-022-08149-8</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Meniere Disease (MD) is an idiopathic inner ear disease with complex etiology and pathogenesis, which is still unclear."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Menieres Disease.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1177/0194599816628524" target="_blank">DOI:10.1177/0194599816628524</a>
+                            </div>
+                            
+                            <div class="reference-title">2015 Equilibrium Committee Amendment to the 1995 AAO‐HNS Guidelines for the Definition of Ménière’s Disease</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Ménière’s disease is a disorder of the inner ear that causes attacks of vertigo and hearing loss, tinnitus, aural fullness in the involved ear.</div>
+            
+            
+            <div class="reference-finding-supporting">"Ménière’s disease is a disorder of the inner ear that causes attacks of vertigo and hearing loss, tinnitus, aural fullness in the involved ear."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1177/0194599816628524" target="_blank">DOI:10.1177/0194599816628524</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Ménière’s disease is a disorder of the inner ear that causes attacks of vertigo and hearing loss, tinnitus, aural fullness in the involved ear."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Menieres Disease.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1177/0194599820909438" target="_blank">DOI:10.1177/0194599820909438</a>
+                            </div>
+                            
+                            <div class="reference-title">Clinical Practice Guideline: Ménière’s Disease</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Clinical Practice Guideline: Ménière’s Disease</div>
+            
+            
+            <div class="reference-finding-supporting">"Ménière’s disease (MD) is a clinical condition defined by spontaneous vertigo attacks (each lasting 20 minutes to 12 hours) with documented low‐ to midfrequency sensorineural hearing loss in the affected ear before, during, or after one of the episodes of vertigo."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1177/0194599820909438" target="_blank">DOI:10.1177/0194599820909438</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Ménière’s disease (MD) is a clinical condition defined by spontaneous vertigo attacks (each lasting 20 minutes to 12 hours) with documented low‐ to midfrequency sensorineural hearing loss in the affected ear before, during, or after one of the episodes of vertigo."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Menieres Disease.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1177/0194599820909439" target="_blank">DOI:10.1177/0194599820909439</a>
+                            </div>
+                            
+                            <div class="reference-title">Clinical Practice Guideline: Ménière’s Disease Executive Summary</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Clinical Practice Guideline: Ménière’s Disease Executive Summary</div>
+            
+            
+            <div class="reference-finding-supporting">"Ménière’s disease (MD) is a clinical condition defined by spontaneous vertigo attacks (each lasting 20 minutes to 12 hours) with documented low‐ to midfrequency sensorineural hearing loss in the affected ear before, during, or after one of the episodes of vertigo."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1177/0194599820909439" target="_blank">DOI:10.1177/0194599820909439</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Ménière’s disease (MD) is a clinical condition defined by spontaneous vertigo attacks (each lasting 20 minutes to 12 hours) with documented low‐ to midfrequency sensorineural hearing loss in the affected ear before, during, or after one of the episodes of vertigo."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Menieres Disease.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1177/19160216241250350" target="_blank">DOI:10.1177/19160216241250350</a>
+                            </div>
+                            
+                            <div class="reference-title">Potential Application of Hydrops MR Imaging: A Systematic Review</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Diagnostic dilemma between clinical Meniere’s disease and radiological endolymphatic hydrops (EH) has emerged since the introduction of hydrops magnetic resonance imaging (MRI).</div>
+            
+            
+            <div class="reference-finding-supporting">"Diagnostic dilemma between clinical Meniere’s disease and radiological endolymphatic hydrops (EH) has emerged since the introduction of hydrops magnetic resonance imaging (MRI)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1177/19160216241250350" target="_blank">DOI:10.1177/19160216241250350</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Diagnostic dilemma between clinical Meniere’s disease and radiological endolymphatic hydrops (EH) has emerged since the introduction of hydrops magnetic resonance imaging (MRI)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Menieres Disease.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3233/ves-150549" target="_blank">DOI:10.3233/ves-150549</a>
+                            </div>
+                            
+                            <div class="reference-title">Diagnostic criteria for Menière&#39;s disease</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Diagnostic criteria for Menière&#39;s disease</div>
+            
+            
+            <div class="reference-finding-supporting">"This paper presents diagnostic criteria for Menière&#39;s disease jointly formulated by the Classification Committee of the Bárány Society, The Japan Society for Equilibrium Research, the European Academy of Otology and Neurotology (EAONO), the Equilibrium Committee of the American Academy of..."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3233/ves-150549" target="_blank">DOI:10.3233/ves-150549</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"This paper presents diagnostic criteria for Menière&#39;s disease jointly formulated by the Classification Committee of the Bárány Society, The Japan Society for Equilibrium Research, the European Academy of Otology and Neurotology (EAONO), the Equilibrium Committee of the American Academy of..."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Menieres Disease.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3389/fneur.2016.00182" target="_blank">DOI:10.3389/fneur.2016.00182</a>
+                            </div>
+                            
+                            <div class="reference-title">Clinical Subgroups in Bilateral Meniere Disease</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Clinical Subgroups in Bilateral Meniere Disease</div>
+            
+            
+            <div class="reference-finding-supporting">"Clinical Subgroups in Bilateral Meniere Disease"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3389/fneur.2024.1469276" target="_blank">DOI:10.3389/fneur.2024.1469276</a>
+                            </div>
+                            
+                            <div class="reference-title">The evolution of intractable Ménière’s disease: attacks resolve over time</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Knowledge of the natural and temporal course of a disease is important when deciding if an intervention is appropriate.</div>
+            
+            
+            <div class="reference-finding-supporting">"Knowledge of the natural and temporal course of a disease is important when deciding if an intervention is appropriate."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fneur.2024.1469276" target="_blank">DOI:10.3389/fneur.2024.1469276</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Knowledge of the natural and temporal course of a disease is important when deciding if an intervention is appropriate."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Menieres Disease.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3389/fneur.2024.1471010" target="_blank">DOI:10.3389/fneur.2024.1471010</a>
+                            </div>
+                            
+                            <div class="reference-title">Comparative efficacy of intratympanic gentamicin and intratympanic corticosteroid in the treatment of Meniere’s disease: a systematic review and meta-analysis</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">We aimed to evaluate the efficacy of gentamicin compared to corticosteroids for the treatment of Meniere’s disease.MethodsAn extensive search was conducted in PubMed, Embase, and Web of Science until May 2024.</div>
+            
+            
+            <div class="reference-finding-supporting">"We aimed to evaluate the efficacy of gentamicin compared to corticosteroids for the treatment of Meniere’s disease.MethodsAn extensive search was conducted in PubMed, Embase, and Web of Science until May 2024."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fneur.2024.1471010" target="_blank">DOI:10.3389/fneur.2024.1471010</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"We aimed to evaluate the efficacy of gentamicin compared to corticosteroids for the treatment of Meniere’s disease.MethodsAn extensive search was conducted in PubMed, Embase, and Web of Science until May 2024."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Menieres Disease.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3389/fneur.2024.1477282" target="_blank">DOI:10.3389/fneur.2024.1477282</a>
+                            </div>
+                            
+                            <div class="reference-title">Is endolymphatic hydrops, as detected in MRI, a truly cochleocentric finding?</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The most common histopathological finding in Ménière’s disease (MD) is endolymphatic hydrops (EH), which involves the dilation of the membranous labyrinth.</div>
+            
+            
+            <div class="reference-finding-supporting">"The most common histopathological finding in Ménière’s disease (MD) is endolymphatic hydrops (EH), which involves the dilation of the membranous labyrinth."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fneur.2024.1477282" target="_blank">DOI:10.3389/fneur.2024.1477282</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The most common histopathological finding in Ménière’s disease (MD) is endolymphatic hydrops (EH), which involves the dilation of the membranous labyrinth."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Menieres Disease.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3389/fneur.2024.1496384" target="_blank">DOI:10.3389/fneur.2024.1496384</a>
+                            </div>
+                            
+                            <div class="reference-title">Changes in symptom pattern in Meniere&#39;s disease by duration: the need for comprehensive management</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Changes in symptom pattern in Meniere&#39;s disease by duration: the need for comprehensive management</div>
+            
+            
+            <div class="reference-finding-supporting">"This retrospective study aimed to analyze the symptom profile of Meniere&#39;s disease (MD) patients, particularly focusing on the cessation of episodic vertigo and the disease&#39;s longitudinal course and the impact of major symptoms on quality of life (QoL).MethodsThe study employed a cross-sectional..."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fneur.2024.1496384" target="_blank">DOI:10.3389/fneur.2024.1496384</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"This retrospective study aimed to analyze the symptom profile of Meniere&#39;s disease (MD) patients, particularly focusing on the cessation of episodic vertigo and the disease&#39;s longitudinal course and the impact of major symptoms on quality of life (QoL).MethodsThe study employed a cross-sectional..."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Menieres Disease.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/audiolres14010019" target="_blank">DOI:10.3390/audiolres14010019</a>
+                            </div>
+                            
+                            <div class="reference-title">Association of Head Injury, Neck Injury or Acoustic Trauma on Phenotype of Ménière’s Disease</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The aim of the present study was to investigate adverse effects of head injury, neck trauma, and chronic noise exposure on the complaint profile in people with Ménière’s disease (MD).</div>
+            
+            
+            <div class="reference-finding-supporting">"The aim of the present study was to investigate adverse effects of head injury, neck trauma, and chronic noise exposure on the complaint profile in people with Ménière’s disease (MD)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/audiolres14010019" target="_blank">DOI:10.3390/audiolres14010019</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The aim of the present study was to investigate adverse effects of head injury, neck trauma, and chronic noise exposure on the complaint profile in people with Ménière’s disease (MD)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Menieres Disease.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/brainsci14040369" target="_blank">DOI:10.3390/brainsci14040369</a>
+                            </div>
+                            
+                            <div class="reference-title">Selective Vestibular Neurectomy through the Presigmoid Retrolabyrinthine Approach in the Treatment of Meniere’s Disease</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Meniere’s disease (MD) is a disabling disease, especially in patients who are refractory to medical therapy.</div>
+            
+            
+            <div class="reference-finding-supporting">"Meniere’s disease (MD) is a disabling disease, especially in patients who are refractory to medical therapy."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/brainsci14040369" target="_blank">DOI:10.3390/brainsci14040369</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Meniere’s disease (MD) is a disabling disease, especially in patients who are refractory to medical therapy."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Menieres Disease.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/microorganisms12102047" target="_blank">DOI:10.3390/microorganisms12102047</a>
+                            </div>
+                            
+                            <div class="reference-title">Epidemiological Evidence for Upper Respiratory Infections as a Potential Risk Factor for Meniere’s Disease: A Korean National Health Sample Cohort Study</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Meniere’s disease (MD) is a chronic inner ear disorder characterized by tinnitus, ear fullness, episodic vertigo, and fluctuating hearing loss, which significantly impacts quality of life and poses management challenges.</div>
+            
+            
+            <div class="reference-finding-supporting">"Meniere’s disease (MD) is a chronic inner ear disorder characterized by tinnitus, ear fullness, episodic vertigo, and fluctuating hearing loss, which significantly impacts quality of life and poses management challenges."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/microorganisms12102047" target="_blank">DOI:10.3390/microorganisms12102047</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Meniere’s disease (MD) is a chronic inner ear disorder characterized by tinnitus, ear fullness, episodic vertigo, and fluctuating hearing loss, which significantly impacts quality of life and poses management challenges."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Menieres Disease.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.7874/jao.2020.00115" target="_blank">DOI:10.7874/jao.2020.00115</a>
+                            </div>
+                            
+                            <div class="reference-title">Experimental Animal Models for Meniere’s Disease: A Mini-Review</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Several novel animal models that represent the pathophysiological process of endolymphatic hydrops (ELH) of Meniere’s disease (MD) have been developed.</div>
+            
+            
+            <div class="reference-finding-supporting">"Several novel animal models that represent the pathophysiological process of endolymphatic hydrops (ELH) of Meniere’s disease (MD) have been developed."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.7874/jao.2020.00115" target="_blank">DOI:10.7874/jao.2020.00115</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Several novel animal models that represent the pathophysiological process of endolymphatic hydrops (ELH) of Meniere’s disease (MD) have been developed."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Menieres Disease.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">Disease Characteristics Research Template</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">62 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-09T12:24:46.046377</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
+<p>Provide detailed information focusing on:
+1. Key concepts and definitions with current understanding
+2. Recent developments and latest research (prioritize 2023-2024 sources)
+3. Current applications and real-world implementations
+4. Expert opinions and analysis from authoritative sources
+5. Relevant statistics and data from recent studies</p>
+<p>Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
+Always prioritize recent, authoritative sources and provide specific citations for all major claims.</p>
+<h1>Disease Characteristics Research Template</h1>
+<h2>Target Disease</h2>
+<ul>
+<li><strong>Disease Name:</strong> Meniere's Disease</li>
+<li><strong>MONDO ID:</strong>  (if available)</li>
+<li><strong>Category:</strong> Complex</li>
+</ul>
+<h2>Research Objectives</h2>
+<p>Please provide a comprehensive research report on <strong>Meniere's Disease</strong> covering all of the
+disease characteristics listed below. This report will be used to populate a disease knowledge
+base entry. Be thorough and cite primary literature (PMID preferred) for all claims.</p>
+<p>For each section, <strong>suggested databases/resources</strong> are listed. These are the first places
+you should search for information on each topic.</p>
+<hr />
+<h3>1. Disease Information</h3>
+<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, ICD-10/ICD-11, MeSH, PubMed</p>
+</blockquote>
+<ul>
+<li>What is the disease? Provide a concise overview.</li>
+<li>What are the key identifiers? (OMIM, Orphanet, ICD-10/ICD-11, MeSH, Mondo)</li>
+<li>What are the common synonyms and alternative names?</li>
+<li>Is the information derived from individual patients (e.g., EHR) or aggregated disease-level resources?</li>
+</ul>
+<h3>2. Etiology</h3>
+<ul>
+<li><strong>Disease Causal Factors</strong>: What are the primary causes? (genetic, environmental, infectious, mechanistic)</li>
+<li><strong>Risk Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, UpToDate, clinical guidelines, ClinVar, ClinGen, GWAS Catalog, PheGenI, CTD, CDC, WHO, epidemiological databases</p>
+</blockquote>
+</li>
+<li>Genetic risk factors (causal variants, susceptibility loci, modifier genes)</li>
+<li>Environmental risk factors (toxins, lifestyle, occupational exposures, age, sex, family history)</li>
+<li><strong>Protective Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, clinical trial databases, GWAS Catalog, gnomAD, WHO, CDC, nutrition databases</p>
+</blockquote>
+</li>
+<li>Genetic protective factors (protective variants, modifier alleles)</li>
+<li>Environmental protective factors (diet, lifestyle, exposures that reduce risk)</li>
+<li><strong>Gene-Environment Interactions</strong>: How do genetic and environmental factors interact to influence disease?<blockquote>
+<p><strong>Search first:</strong> CTD, PubMed, PheGenI, GxE databases</p>
+</blockquote>
+</li>
+</ul>
+<h3>3. Phenotypes</h3>
+<blockquote>
+<p><strong>Search first:</strong> HPO (Human Phenotype Ontology), OMIM, Orphanet, PubMed, clinicaltrials.gov, MedDRA, SNOMED CT, DECIPHER, LOINC</p>
+</blockquote>
+<p>For each phenotype, provide:
+- <strong>Phenotype type</strong>: symptoms, clinical signs, physical manifestations, behavioral changes, or laboratory abnormalities</p>
+<blockquote>
+<p>For symptoms/signs: HPO, OMIM, Orphanet, PubMed
+For behavioral changes: HPO, DSM, RDoC (Research Domain Criteria), PubMed
+For laboratory abnormalities: LOINC, SNOMED CT, LabTests Online, PubMed
+- <strong>Phenotype characteristics</strong>:
+<strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed
+  - Age of symptom onset (neonatal, childhood, adult-onset, late-onset)
+  - Symptom severity (mild, moderate, severe, variable)
+  - Symptom progression (stable, progressive, episodic, fluctuating)
+  - Frequency among affected individuals (percentage or qualitative)
+- <strong>Quality of life impact</strong>: Effects on daily functioning and well-being (per-phenotype when possible)
+<strong>Search first:</strong> EQ-5D database, SF-36, WHO QOL databases, PubMed
+- Suggest HPO (Human Phenotype Ontology) terms for each phenotype</p>
+</blockquote>
+<h3>4. Genetic/Molecular Information</h3>
+<ul>
+<li><strong>Causal Genes</strong>: Gene mutations or chromosomal abnormalities responsible for disease (gene symbols, OMIM IDs)<blockquote>
+<p><strong>Search first:</strong> OMIM, ClinVar, HGMD, Ensembl, NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Pathogenic Variants</strong>:</li>
+<li>Affected genes (gene symbols, HGNC IDs)
+    &gt; <strong>Search first:</strong> OMIM, NCBI Gene, Ensembl, HGNC, UniProt, GeneCards</li>
+<li>Variant classification (pathogenic, likely pathogenic, VUS per ACMG/AMP guidelines)
+    &gt; <strong>Search first:</strong> ClinVar, ClinGen, ACMG/AMP guidelines, VarSome</li>
+<li>Variant type/class (missense, frameshift, nonsense, splice-site, structural)</li>
+<li>Allele frequency in population databases
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, ExAC, TOPMed, dbSNP</li>
+<li>Somatic vs germline origin
+    &gt; <strong>Search first:</strong> COSMIC (somatic), ClinVar, ICGC, TCGA</li>
+<li>Functional consequences (loss of function, gain of function, dominant negative)</li>
+<li><strong>Modifier Genes</strong>: Genes that modify disease severity or expression</li>
+<li><strong>Epigenetic Information</strong>: DNA methylation, histone modifications, chromatin changes affecting disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Chromosomal Abnormalities</strong>: Large-scale genetic changes (aneuploidy, translocations, inversions)<blockquote>
+<p><strong>Search first:</strong> DECIPHER, ClinVar, ECARUCA, UCSC Genome Browser</p>
+</blockquote>
+</li>
+</ul>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Environmental Factors</strong>: Non-genetic contributing factors (toxins, radiation, pollution, occupational exposure)<blockquote>
+<p><strong>Search first:</strong> CTD (Comparative Toxicogenomics Database), TOXNET, PubMed, EPA databases</p>
+</blockquote>
+</li>
+<li><strong>Lifestyle Factors</strong>: Behavioral factors (smoking, diet, exercise, alcohol consumption)<blockquote>
+<p><strong>Search first:</strong> CDC databases, WHO, PubMed, NHANES</p>
+</blockquote>
+</li>
+<li><strong>Infectious Agents</strong>: If applicable, pathogens causing or triggering disease (bacteria, viruses, fungi, parasites)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON</p>
+</blockquote>
+</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<ul>
+<li><strong>Molecular Pathways</strong>: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)<blockquote>
+<p><strong>Search first:</strong> KEGG, Reactome, WikiPathways, PathBank, BioCyc</p>
+</blockquote>
+</li>
+<li><strong>Cellular Processes</strong>: Cell-level mechanisms (apoptosis, autophagy, cell cycle dysregulation, inflammation, etc.)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (GO), Reactome, KEGG, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Protein Dysfunction</strong>: How protein structure or function is altered (misfolding, aggregation, loss of function, gain of function)<blockquote>
+<p><strong>Search first:</strong> UniProt, PDB (Protein Data Bank), InterPro, Pfam, AlphaFold</p>
+</blockquote>
+</li>
+<li><strong>Metabolic Changes</strong>: Alterations in metabolic processes (energy metabolism, lipid metabolism, amino acid metabolism)<blockquote>
+<p><strong>Search first:</strong> KEGG, BioCyc, HMDB (Human Metabolome Database), BRENDA</p>
+</blockquote>
+</li>
+<li><strong>Immune System Involvement</strong>: Role of immune response (autoimmunity, immunodeficiency, chronic inflammation)<blockquote>
+<p><strong>Search first:</strong> ImmPort, Immunome Database, IEDB, Gene Ontology</p>
+</blockquote>
+</li>
+<li><strong>Tissue Damage Mechanisms</strong>: How tissues/ are injured (oxidative stress, ischemia, fibrosis, necrosis)<blockquote>
+<p><strong>Search first:</strong> PubMed, Gene Ontology, Reactome</p>
+</blockquote>
+</li>
+<li><strong>Biochemical Abnormalities</strong>: Specific molecular defects (enzyme deficiencies, receptor dysfunction, ion channel defects)<blockquote>
+<p><strong>Search first:</strong> BRENDA, UniProt, KEGG, OMIM, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Epigenetic Changes</strong>: DNA methylation, histone modifications affecting gene expression in disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Molecular Profiling</strong> (if available):</li>
+<li>Transcriptomics/gene expression changes
+    &gt; <strong>Search first:</strong> GEO (Gene Expression Omnibus), ArrayExpress, GTEx, Human Cell Atlas, SRA</li>
+<li>Proteomics findings
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, Human Protein Atlas, STRING, BioGRID</li>
+<li>Metabolomics signatures
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB, METLIN</li>
+<li>Lipidomics alterations
+    &gt; <strong>Search first:</strong> LIPID MAPS, SwissLipids, LipidHome, Metabolomics Workbench</li>
+<li>Genomic structural features
+    &gt; <strong>Search first:</strong> UCSC Genome Browser, Ensembl, NCBI, dbVar, DGV</li>
+<li><strong>Advanced Technologies</strong> (if applicable):</li>
+<li>Single-cell analysis findings (cell-type specific mechanisms, cellular heterogeneity)
+    &gt; <strong>Search first:</strong> Human Cell Atlas, Single Cell Portal, GEO, CELLxGENE</li>
+<li>Spatial transcriptomics findings
+    &gt; <strong>Search first:</strong> GEO, Spatial Research, Vizgen, 10x Genomics data</li>
+<li>Multi-omics integration results
+    &gt; <strong>Search first:</strong> TCGA, ICGC, cBioPortal, LinkedOmics, PubMed</li>
+<li>Functional genomics screens (CRISPR, RNAi)
+    &gt; <strong>Search first:</strong> DepMap, GenomeRNAi, PubMed, BioGRID ORCS</li>
+</ul>
+<p>For each mechanism, describe:
+- The causal chain from initial trigger to clinical manifestation
+- Which mechanisms are upstream vs downstream
+- What cell types and biological processes are involved
+- Suggest GO terms for biological processes and CL terms for cell types</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ Level</strong>:</li>
+<li>Primary organs directly affected</li>
+<li>Secondary organ involvement (complications, secondary effects)</li>
+<li>Body systems involved (cardiovascular, nervous, digestive, respiratory, endocrine, etc.)<blockquote>
+<p><strong>Search first:</strong> Uberon, FMA (Foundational Model of Anatomy), OMIM, HPO, ICD-11, MeSH, SNOMED CT</p>
+</blockquote>
+</li>
+<li><strong>Tissue and Cell Level</strong>:</li>
+<li>Specific tissue types affected (epithelial, connective, muscle, nervous)</li>
+<li>Specific cell populations targeted (with Cell Ontology terms)<blockquote>
+<p><strong>Search first:</strong> Uberon, Human Protein Atlas, Cell Ontology, Human Cell Atlas, CellMarker, PanglaoDB</p>
+</blockquote>
+</li>
+<li><strong>Subcellular Level</strong>:</li>
+<li>Cellular compartments involved (mitochondria, nucleus, ER, lysosomes) (with GO Cellular Component terms)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (Cellular Component), UniProt, Human Protein Atlas</p>
+</blockquote>
+</li>
+<li><strong>Localization</strong>:</li>
+<li>Specific anatomical sites (with UBERON terms)
+    &gt; <strong>Search first:</strong> FMA, Uberon, NeuroNames (for brain), SNOMED CT</li>
+<li>Lateralization (unilateral, bilateral, asymmetric)
+    &gt; <strong>Search first:</strong> HPO, clinical literature, imaging databases</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset</strong>:</li>
+<li>Typical age of onset (congenital, pediatric, adult, geriatric)</li>
+<li>Onset pattern (acute, subacute, chronic, insidious)<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Progression</strong>:</li>
+<li>Disease stages (early, intermediate, advanced, end-stage)
+    &gt; <strong>Search first:</strong> Cancer Staging Manual (AJCC), WHO classifications, PubMed</li>
+<li>Progression rate (rapid, slow, variable)</li>
+<li>Disease course pattern (episodic, relapsing-remitting, progressive, stable)</li>
+<li>Disease duration (self-limited, chronic lifelong)<blockquote>
+<p><strong>Search first:</strong> Disease registries, longitudinal cohort databases, natural history studies, PubMed, Orphanet, OMIM</p>
+</blockquote>
+</li>
+<li><strong>Patterns</strong>:</li>
+<li>Remission patterns (spontaneous, treatment-induced)
+    &gt; <strong>Search first:</strong> Clinical trial databases, disease registries, PubMed</li>
+<li>Critical periods (time windows of vulnerability or opportunity for intervention)
+    &gt; <strong>Search first:</strong> PubMed, developmental biology databases, clinical guidelines</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology</strong>:</li>
+<li>Prevalence (cases per 100,000 at given time)</li>
+<li>Incidence (new cases per 100,000 per year)<blockquote>
+<p><strong>Search first:</strong> Orphanet, CDC, WHO, GBD (Global Burden of Disease), national registries, SEER, disease registries</p>
+</blockquote>
+</li>
+<li><strong>For Genetic Etiology</strong>:</li>
+<li>Inheritance pattern (AD, AR, X-linked, mitochondrial, multifactorial, polygenic)
+    &gt; <strong>Search first:</strong> OMIM, Orphanet, ClinVar, GTR (Genetic Testing Registry)</li>
+<li>Penetrance (complete, incomplete, age-dependent)
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, PubMed, ClinGen</li>
+<li>Expressivity (variable, consistent)
+    &gt; <strong>Search first:</strong> OMIM, ClinVar, PubMed</li>
+<li>Genetic anticipation (increasing severity in successive generations)
+    &gt; <strong>Search first:</strong> OMIM, PubMed (especially for repeat expansion disorders)</li>
+<li>Germline mosaicism
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, genetic counseling literature, PubMed</li>
+<li>Founder effects (population-specific mutations)
+    &gt; <strong>Search first:</strong> gnomAD, population genetics databases, PubMed</li>
+<li>Consanguinity role
+    &gt; <strong>Search first:</strong> OMIM, population studies, genetic counseling resources</li>
+<li>Carrier frequency
+    &gt; <strong>Search first:</strong> gnomAD, carrier screening databases, GeneReviews, GTR</li>
+<li><strong>Population Demographics</strong>:</li>
+<li>Affected populations (ethnic or demographic groups with higher prevalence)
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, PAGE Study, PubMed, population registries</li>
+<li>Geographic distribution (endemic areas, regional variation)
+    &gt; <strong>Search first:</strong> WHO, CDC, GBD, Orphanet, geographic epidemiology databases</li>
+<li>Geographic distribution of specific variants</li>
+<li>Sex ratio (male:female)
+    &gt; <strong>Search first:</strong> Disease registries, OMIM, PubMed, epidemiological databases</li>
+<li>Age distribution of affected individuals
+    &gt; <strong>Search first:</strong> CDC, disease registries, SEER, Orphanet</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Clinical Tests</strong>:</li>
+<li>Laboratory tests (blood, urine, tissue chemistry, specific enzyme assays)
+    &gt; <strong>Search first:</strong> LOINC, LabTests Online, PubMed</li>
+<li>Biomarkers (proteins, metabolites, genetic markers, circulating biomarkers)
+    &gt; <strong>Search first:</strong> FDA Biomarker List, BEST (Biomarkers, EndpointS, and other Tools), PubMed</li>
+<li>Imaging studies (X-ray, CT, MRI, PET, ultrasound)
+    &gt; <strong>Search first:</strong> RadLex, DICOM, Radiopaedia, imaging databases</li>
+<li>Functional tests (pulmonary function, cardiac stress tests)
+    &gt; <strong>Search first:</strong> LOINC, clinical guidelines, PubMed</li>
+<li>Electrophysiology (EEG, EMG, ECG, nerve conduction studies)
+    &gt; <strong>Search first:</strong> LOINC, clinical neurophysiology databases, PubMed</li>
+<li>Biopsy findings (histopathology, immunohistochemistry)
+    &gt; <strong>Search first:</strong> SNOMED CT, College of American Pathologists resources, PubMed</li>
+<li>Pathology findings (microscopic examination)
+    &gt; <strong>Search first:</strong> SNOMED CT, Digital Pathology databases, PubMed</li>
+<li><strong>Genetic Testing</strong>:<blockquote>
+<p><strong>Search first:</strong> GTR (Genetic Testing Registry), GeneReviews, ClinGen</p>
+</blockquote>
+</li>
+<li>Overview of recommended genetic testing approach</li>
+<li>Whole genome sequencing (WGS) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, GEL (Genomics England), gnomAD</li>
+<li>Whole exome sequencing (WES) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneMatcher</li>
+<li>Gene panels (which panels, which genes)
+    &gt; <strong>Search first:</strong> GTR, ClinVar, laboratory-specific databases</li>
+<li>Single gene testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneReviews</li>
+<li>Chromosomal microarray (CMA)
+    &gt; <strong>Search first:</strong> DECIPHER, ClinVar, dbVar, ECARUCA</li>
+<li>Karyotyping
+    &gt; <strong>Search first:</strong> Chromosome Abnormality Database, ClinVar, cytogenetics resources</li>
+<li>FISH
+    &gt; <strong>Search first:</strong> ClinVar, cytogenetics databases, PubMed</li>
+<li>Mitochondrial DNA testing
+    &gt; <strong>Search first:</strong> MITOMAP, MSeqDR, ClinVar, GTR</li>
+<li>Repeat expansion testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, repeat expansion databases, PubMed</li>
+<li><strong>Omics-Based Diagnostics</strong> (if applicable):</li>
+<li>RNA sequencing / transcriptomics
+    &gt; <strong>Search first:</strong> GEO, ArrayExpress, GTEx, RNA-seq databases</li>
+<li>Proteomics
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, FDA Biomarker database</li>
+<li>Metabolomics
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB</li>
+<li>Epigenomics
+    &gt; <strong>Search first:</strong> GEO, ENCODE, Roadmap Epigenomics, MethBase</li>
+<li>Liquid biopsy
+    &gt; <strong>Search first:</strong> COSMIC, ClinVar, liquid biopsy databases, PubMed</li>
+<li><strong>Clinical Criteria</strong>:</li>
+<li>Standardized diagnostic criteria (DSM, ICD, society guidelines)
+    &gt; <strong>Search first:</strong> DSM-5, ICD-11, clinical society guidelines, UpToDate</li>
+<li>Differential diagnosis (other conditions to rule out, with distinguishing features)
+    &gt; <strong>Search first:</strong> DynaMed, UpToDate, clinical decision support systems</li>
+<li><strong>Screening</strong>:</li>
+<li>Screening methods for asymptomatic individuals (newborn screening, carrier screening, cascade screening)
+    &gt; <strong>Search first:</strong> ACMG recommendations, CDC newborn screening, GTR</li>
+</ul>
+<h3>11. Outcome/Prognosis</h3>
+<ul>
+<li><strong>Survival and Mortality</strong>:</li>
+<li>Survival rate (5-year, 10-year, overall)
+    &gt; <strong>Search first:</strong> SEER, cancer registries, disease-specific registries, PubMed</li>
+<li>Life expectancy (with and without treatment if applicable)
+    &gt; <strong>Search first:</strong> Orphanet, disease registries, actuarial databases, PubMed</li>
+<li>Mortality rate
+    &gt; <strong>Search first:</strong> CDC, WHO, GBD, national mortality databases</li>
+<li>Disease-specific mortality (deaths directly attributable to disease)
+    &gt; <strong>Search first:</strong> Disease registries, CDC Wonder, GBD, PubMed</li>
+<li><strong>Morbidity and Function</strong>:</li>
+<li>Morbidity (disease-related disability and health impacts)
+    &gt; <strong>Search first:</strong> GBD, WHO, disability databases, PubMed</li>
+<li>Disability outcomes (long-term functional impairments)
+    &gt; <strong>Search first:</strong> ICF (International Classification of Functioning), disability registries</li>
+<li>Quality of life measures (EQ-5D, SF-36, PROMIS, disease-specific tools)
+    &gt; <strong>Search first:</strong> EQ-5D database, SF-36, PROMIS, PubMed</li>
+<li><strong>Disease Course</strong>:</li>
+<li>Complications (secondary problems: infections, organ failure, etc.)
+    &gt; <strong>Search first:</strong> ICD codes, disease registries, clinical databases, PubMed</li>
+<li>Recovery potential (likelihood and extent of recovery, with vs without treatment)
+    &gt; <strong>Search first:</strong> Natural history studies, rehabilitation databases, PubMed</li>
+<li><strong>Prediction</strong>:</li>
+<li>Prognostic factors (age, disease severity, biomarkers, treatment response)
+    &gt; <strong>Search first:</strong> Prognostic models databases, clinical calculators, PubMed</li>
+<li>Prognostic biomarkers (molecular markers predicting disease course)
+    &gt; <strong>Search first:</strong> FDA Biomarker database, PubMed, cancer prognostic databases</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Pharmacotherapy</strong>:</li>
+<li>Pharmacological treatments (drug names, drug classes, mechanisms of action)
+    &gt; <strong>Search first:</strong> DrugBank, RxNorm, ATC classification, DailyMed, FDA databases</li>
+<li>Pharmacogenomics (how genetic variants affect drug metabolism, efficacy, toxicity)
+    &gt; <strong>Search first:</strong> PharmGKB, CPIC (Clinical Pharmacogenetics), FDA Table of PGx Biomarkers</li>
+<li><strong>Advanced Therapeutics</strong>:</li>
+<li>Gene therapy (viral vectors, CRISPR, gene replacement, gene editing)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA gene therapy database, ASGCT resources</li>
+<li>Cell therapy (stem cell transplant, CAR-T, cellular therapeutics)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA cell therapy database, FACT standards</li>
+<li>RNA-based therapies (ASOs, siRNA, mRNA therapies)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA approvals, PubMed</li>
+<li>Targeted therapies (treatments directed at specific molecular targets)
+    &gt; <strong>Search first:</strong> My Cancer Genome, OncoKB, ClinicalTrials.gov, FDA approvals</li>
+<li>Immunotherapies (checkpoint inhibitors, monoclonal antibodies)
+    &gt; <strong>Search first:</strong> Cancer Immunotherapy Database, FDA approvals, ClinicalTrials.gov</li>
+<li><strong>Surgical and Interventional</strong>:</li>
+<li>Surgical interventions (types of surgery, timing, outcomes)
+    &gt; <strong>Search first:</strong> CPT codes, surgical registries, clinical guidelines, PubMed</li>
+<li><strong>Supportive and Rehabilitative</strong>:</li>
+<li>Supportive care (symptom management, pain control, nutrition)
+    &gt; <strong>Search first:</strong> Clinical guidelines, Cochrane Library, PubMed</li>
+<li>Rehabilitation (physical therapy, occupational therapy, speech therapy)
+    &gt; <strong>Search first:</strong> Rehabilitation medicine databases, clinical guidelines, PubMed</li>
+<li><strong>Experimental</strong>:</li>
+<li>Experimental treatments in clinical trials (with NCT identifiers if available)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, EU Clinical Trials Register, WHO ICTRP</li>
+<li><strong>Treatment Outcomes</strong>:</li>
+<li>Treatment response rates
+    &gt; <strong>Search first:</strong> Clinical trial databases, FDA reviews, systematic reviews, PubMed</li>
+<li>Side effects and adverse events
+    &gt; <strong>Search first:</strong> FDA Adverse Event Reporting System (FAERS), MedWatch, PubMed</li>
+<li><strong>Treatment Strategy</strong>:</li>
+<li>Treatment algorithms (clinical pathways, decision trees)
+    &gt; <strong>Search first:</strong> Clinical practice guidelines, NCCN Guidelines, UpToDate</li>
+<li>Combination therapies
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, treatment guidelines, PubMed</li>
+<li>Personalized medicine approaches (genotype-guided treatment)
+    &gt; <strong>Search first:</strong> My Cancer Genome, CIViC, PharmGKB, precision medicine databases</li>
+</ul>
+<p>For each treatment, suggest MAXO (Medical Action Ontology) terms where applicable.</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Prevention Levels</strong>:</li>
+<li>Primary prevention (preventing disease occurrence: vaccination, risk factor modification)
+    &gt; <strong>Search first:</strong> CDC, WHO, USPSTF recommendations, Cochrane Library</li>
+<li>Secondary prevention (early detection and treatment: screening programs, early intervention)
+    &gt; <strong>Search first:</strong> USPSTF, CDC screening guidelines, WHO</li>
+<li>Tertiary prevention (preventing complications in those with disease)
+    &gt; <strong>Search first:</strong> Clinical guidelines, disease management protocols, PubMed</li>
+<li><strong>Immunization</strong>: Vaccine strategies (if applicable)<blockquote>
+<p><strong>Search first:</strong> CDC vaccine schedules, WHO immunization, FDA vaccine database</p>
+</blockquote>
+</li>
+<li><strong>Screening and Early Detection</strong>:</li>
+<li>Screening programs (population-based: newborn screening, cancer screening)
+    &gt; <strong>Search first:</strong> CDC screening programs, USPSTF, cancer screening databases</li>
+<li>Genetic screening (carrier screening, preimplantation genetic diagnosis, prenatal testing)
+    &gt; <strong>Search first:</strong> ACMG recommendations, ACOG guidelines, GTR</li>
+<li>Risk stratification (identifying high-risk individuals for targeted prevention)
+    &gt; <strong>Search first:</strong> Risk prediction models, clinical calculators, PubMed</li>
+<li><strong>Behavioral Interventions</strong>: Lifestyle modifications to reduce risk<blockquote>
+<p><strong>Search first:</strong> CDC, WHO, behavioral intervention databases, Cochrane Library</p>
+</blockquote>
+</li>
+<li><strong>Counseling</strong>: Genetic counseling (risk assessment, family planning guidance)<blockquote>
+<p><strong>Search first:</strong> NSGC resources, ACMG guidelines, GeneReviews</p>
+</blockquote>
+</li>
+<li><strong>Public Health</strong>:</li>
+<li>Public health interventions (sanitation, vector control, health education)
+    &gt; <strong>Search first:</strong> CDC, WHO, public health databases, PubMed</li>
+<li>Environmental interventions (reducing environmental risk factors)
+    &gt; <strong>Search first:</strong> EPA databases, WHO environmental health, PubMed</li>
+<li><strong>Prophylaxis</strong>: Preventive medications or procedures<blockquote>
+<p><strong>Search first:</strong> Clinical guidelines, FDA approvals, PubMed</p>
+</blockquote>
+</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy</strong>: Species affected (with NCBI Taxon identifiers)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy</p>
+</blockquote>
+</li>
+<li><strong>Breed</strong>: Specific breeds affected (with VBO identifiers if applicable)<blockquote>
+<p><strong>Search first:</strong> VBO (Vertebrate Breed Ontology)</p>
+</blockquote>
+</li>
+<li><strong>Gene</strong>: Orthologous genes in other species (with NCBI Gene IDs)<blockquote>
+<p><strong>Search first:</strong> NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Natural Disease</strong>:</li>
+<li>Naturally occurring disease in other species (companion animals, wildlife)
+    &gt; <strong>Search first:</strong> OMIA (Online Mendelian Inheritance in Animals), VetCompass, PubMed</li>
+<li>Veterinary relevance and importance in animal health
+    &gt; <strong>Search first:</strong> OMIA, veterinary databases, PubMed</li>
+<li><strong>Comparative Biology</strong>:</li>
+<li>Comparative pathology (similarities and differences across species)
+    &gt; <strong>Search first:</strong> OMIA, comparative pathology databases, PubMed</li>
+<li>Evolutionary conservation of disease mechanisms
+    &gt; <strong>Search first:</strong> HomoloGene, OrthoMCL, Alliance of Genome Resources</li>
+<li><strong>Transmission</strong> (if applicable):</li>
+<li>Zoonotic potential
+    &gt; <strong>Search first:</strong> CDC zoonotic diseases, WHO zoonoses, GIDEON</li>
+<li>Cross-species susceptibility
+    &gt; <strong>Search first:</strong> NCBI Taxonomy, veterinary databases, PubMed</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Model Types</strong>:</li>
+<li>Model organism type (mammalian, invertebrate, cellular, in vitro)
+    &gt; <strong>Search first:</strong> Alliance of Genome Resources, model organism databases</li>
+<li>Specific model systems (mouse, rat, zebrafish, Drosophila, C. elegans, yeast, cell lines, organoids, iPSCs)
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, SGD, ATCC, Cellosaurus</li>
+<li>Induced models (drug treatment, surgical intervention, environmental manipulation)
+    &gt; <strong>Search first:</strong> MGI, model organism databases, PubMed</li>
+<li><strong>Genetic Models</strong>:</li>
+<li>Types available (knockout, knock-in, transgenic, conditional, humanized)
+    &gt; <strong>Search first:</strong> MGI, IMPC, KOMP, EuMMCR, IMSR</li>
+<li><strong>Model Characteristics</strong>:</li>
+<li>Phenotype recapitulation (how well model reproduces human disease features)
+    &gt; <strong>Search first:</strong> Model organism databases, comparative studies, PubMed</li>
+<li>Model limitations (aspects of human disease not captured)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed, review articles</li>
+<li><strong>Applications</strong>:</li>
+<li>Research applications (what aspects of disease can be studied)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed</li>
+<li><strong>Resources</strong>:</li>
+<li>Model databases
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, IMSR, EMMA, MMRRC</li>
+</ul>
+<hr />
+<h2>Citation Requirements</h2>
+<ul>
+<li>Cite primary literature (PMID preferred) for all mechanistic and clinical claims</li>
+<li>Prioritize recent reviews and landmark papers</li>
+<li>Include direct quotes from abstracts where possible to support key statements</li>
+<li>Distinguish evidence source types: human clinical, model organism, in vitro, computational</li>
+</ul>
+<h2>Output Format</h2>
+<p>Structure your response as a comprehensive narrative organized by the sections above.
+For each section, provide:
+- Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
+- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, MAXO, MONDO) where applicable
+- Evidence citations with PMIDs
+- Direct quotes from abstracts to support key claims
+- Clear indication when information is not available or not applicable for this disease</p>
+<p>This report will be used to populate a disease knowledge base entry with:
+- Pathophysiology descriptions with causal chains
+- Gene/protein annotations (HGNC, GO terms)
+- Phenotype associations (HP terms) with frequencies
+- Cell type involvement (CL terms)
+- Anatomical locations (UBERON terms)
+- Chemical entities (CHEBI terms)
+- Treatment annotations (MAXO terms)
+- Evidence items with PMIDs and exact abstract quotes
+- Epidemiology, prognosis, diagnostic, and prevention information
+- Animal model descriptions with phenotype recapitulation details</p>
+<h1>Ménière’s Disease (MD) — Disease Characteristics Research Report (Complex)</h1>
+<h2>Executive summary</h2>
+<p>Ménière’s disease (MD) is a clinical inner-ear disorder characterized by recurrent spontaneous vertigo attacks together with fluctuating auditory symptoms (hearing loss, tinnitus, and/or aural fullness) and documented low- to mid-frequency sensorineural hearing loss (SNHL) in the affected ear for “definite” disease under contemporary international criteria. (basura2020clinicalpracticeguidelinea pages 9-10, lopezescamez2015diagnosticcriteriafor pages 2-4, basura2020clinicalpracticeguideline pages 1-2)</p>
+<p>Major 2023–2024 advances include (i) maturation of delayed post-gadolinium “hydrops MRI” with meta-analytic performance estimates and identification of high-yield imaging descriptors (notably saccular abnormality and perilymphatic enhancement), and (ii) expanding genetic evidence supporting heterogeneous inheritance in ~5–20% familial disease with enrichment of rare variants in genes involved in stereocilia and extracellular membranes. (connor2024assessingtheoptimal pages 1-3, connor2023delayedpostgadolinium pages 1-2, parraperez2023typesofinheritance pages 1-2)</p>
+<hr />
+<h2>1. Disease information</h2>
+<h3>1.1 Concise overview (current understanding)</h3>
+<p>MD is an episodic vestibulo-cochlear syndrome defined clinically by (a) spontaneous vertigo attacks (20 minutes to 12 hours for definite MD), (b) low- to mid-frequency SNHL documented in the affected ear, and (c) fluctuating aural symptoms (hearing loss, tinnitus, and/or aural fullness), with exclusion of alternative vestibular diagnoses. (lopezescamez2015diagnosticcriteriafor pages 2-4, basura2020clinicalpracticeguideline pages 1-2)</p>
+<h3>1.2 Key identifiers (what could be retrieved with tools)</h3>
+<ul>
+<li><strong>ICD-10</strong>: <strong>H81.0 / H810</strong> (“Meniere’s disease”) is explicitly used for case ascertainment in a Korean nationwide cohort study. (kwon2024epidemiologicalevidencefor pages 2-3)</li>
+<li><strong>ClinicalTrials.gov</strong> uses the condition label <strong>“Meniere Disease”</strong> in registered interventional studies, and shows associated MeSH/ontology ancestors for related concepts (e.g., Endolymphatic Hydrops). (NCT00802529 chunk 2)</li>
+</ul>
+<p><strong>Not retrieved from the current tool context:</strong> MONDO ID, Orphanet ID, OMIM ID, and the direct MeSH descriptor ID for “Ménière Disease” were not present in the retrieved full texts/snippets and could not be confirmed here without additional ontology/database calls beyond the provided tool outputs.</p>
+<h3>1.3 Synonyms / alternative names (from clinical usage and literature)</h3>
+<p>Commonly used variants include:
+* Ménière’s disease / Meniere disease / Morbus Ménière
+* Endolymphatic hydrops (often used as a pathologic correlate rather than a strict synonym)
+* Hydropic ear disease (broader category used in some classifications)
+These labels are referenced in the guideline/review framing (e.g., association with “inner ear fluid (endolymph) volume increases” and the term endolymphatic hydrops). (basura2020clinicalpracticeguidelinea pages 1-2, lopezescamez2015diagnosticcriteriafor pages 1-2)</p>
+<h3>1.4 Evidence source type</h3>
+<p>This entry is synthesized from <strong>aggregated disease-level resources</strong> (international diagnostic consensus and a clinical practice guideline) plus <strong>clinical observational cohorts</strong>, <strong>systematic reviews/meta-analyses</strong>, <strong>genetic reviews</strong>, and <strong>clinical trial registry records</strong>. (basura2020clinicalpracticeguideline pages 1-2, connor2023delayedpostgadolinium pages 1-2, parraperez2023typesofinheritance pages 1-2, NCT05851508 chunk 1)</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>2.1 Disease causal factors (current consensus)</h3>
+<p>MD remains etiologically heterogeneous and incompletely explained by a single mechanism. Consensus descriptions emphasize association with “inner ear fluid (endolymph) volume increases,” i.e., endolymphatic hydrops (EH), but note that etiology is “not completely clear.” (basura2020clinicalpracticeguidelinea pages 1-2)</p>
+<h3>2.2 Risk factors (recent human evidence prioritized)</h3>
+<h4>Infectious / inflammatory triggers</h4>
+<ul>
+<li><strong>Upper respiratory infection (URI) as a risk factor (2024):</strong> In a Korean National Health Insurance matched cohort (2002–2019; 19,721 MD cases; 78,884 controls), a URI within one year was associated with <strong>2.01-fold higher likelihood</strong> of MD (95% CI 1.91–2.11), and URI within two years with <strong>1.54-fold higher likelihood</strong> (95% CI 1.50–1.59). (kwon2024epidemiologicalevidencefor pages 1-2)</li>
+</ul>
+<h4>Trauma / exposure-related associations (phenotype modifiers)</h4>
+<ul>
+<li><strong>Head injury / neck injury / acoustic trauma (2024):</strong> In a Finnish registry study (n=912), <strong>19.2%</strong> reported prior traumatic brain injury, <strong>10.8%</strong> neck trauma, and <strong>25.4%</strong> occupational noise exposure; these exposures were associated with altered complaint profiles (e.g., more vestibular drop attacks or greater tinnitus/hyperacusis impact), though not with differences in vertigo frequency/duration/severity. (pyykko2024associationofhead pages 1-2)</li>
+</ul>
+<h4>Other comorbidity signals</h4>
+<ul>
+<li>MD epidemiology appears variable by region and population; the 2024 cohort paper notes wide ranges in reported incidence/prevalence (3–513 per 100,000 annually, depending on study/region/criteria) and demographic patterns (increasing incidence with age; higher in white females in 40s–50s in some reports). (kwon2024epidemiologicalevidencefor pages 1-2)</li>
+</ul>
+<h3>2.3 Genetic risk (familial MD and susceptibility)</h3>
+<p>Familial aggregation supports heritability, with <strong>familial MD estimated ~5–20% in European-descended cohorts and ~10% overall</strong> in the 2023 genetics review. (parraperez2023typesofinheritance pages 1-2)</p>
+<p>Key implicated genes in familial MD include <strong>OTOG, MYO7A, TECTA</strong> (frequently reported) and additional autosomal dominant family genes such as <strong>FAM136A, DTNA, PRKCB, COCH, DPT, SEMA3D, GUSB, SLC6A7</strong>. (parraperez2023typesofinheritance pages 2-4, parraperez2023typesofinheritance pages 4-5)</p>
+<h3>2.4 Protective factors</h3>
+<p>Protective genetic or environmental factors were not clearly established in the retrieved primary/secondary sources. One genetics review notes that some loci may be “protective or population-specific” in candidate-gene literature, but no clinically actionable protective factor was supported strongly enough in the available evidence to enumerate here. (dai2023geneticadvancesin pages 5-6)</p>
+<h3>2.5 Gene–environment interaction (current evidence status)</h3>
+<p>The 2023 familial genetics review explicitly frames MD as a disorder where diverse genetic architectures (AD/AR/multiallelic) and variable expressivity suggest interaction with modifiers, but direct gene–environment interaction effects were not quantified in the retrieved excerpts. (parraperez2023typesofinheritance pages 2-4)</p>
+<hr />
+<h2>3. Phenotypes (clinical features)</h2>
+<h3>3.1 Core phenotype (diagnostic)</h3>
+<p><strong>Definite MD</strong> (Bárány Society 2015 / AAO-HNSF adoption) requires:
+1) ≥2 spontaneous vertigo attacks, <strong>20 min to 12 h</strong>;
+2) documented low- to mid-frequency SNHL in the affected ear;
+3) fluctuating aural symptoms in the affected ear;
+4) not better accounted for by another vestibular diagnosis. (lopezescamez2015diagnosticcriteriafor pages 2-4, basura2020clinicalpracticeguideline pages 1-2)</p>
+<p><strong>Probable MD</strong> broadens to vertigo/dizziness episodes <strong>20 min to 24 h</strong> with fluctuating aural symptoms, excluding other causes. (goebel20162015equilibriumcommittee pages 2-2, basura2020clinicalpracticeguideline pages 1-2)</p>
+<p>A guideline-captured diagnostic criteria table is available as an extracted figure for reference. (basura2020clinicalpracticeguideline media b1eac1f2)</p>
+<h3>3.2 Symptom spectrum, frequency, and longitudinal features (2024 data)</h3>
+<p>A large Finnish patient-organization cohort (definite MD; n=365) reported:
+* Simultaneous onset of hearing loss + vertigo + tinnitus in <strong>38%</strong>. (pyykko2024changesinsymptom pages 1-2)
+* <strong>Spontaneous remission</strong> from episodic vertigo in <strong>34%</strong> over the course of disease. (pyykko2024changesinsymptom pages 1-2)
+* <strong>Balance issues</strong> in <strong>65.5%</strong>. (pyykko2024changesinsymptom pages 1-2)
+* <strong>Vestibular drop attacks</strong> in <strong>34%</strong>; <strong>severe falls</strong> in <strong>10%</strong>. (pyykko2024changesinsymptom pages 1-2)
+* <strong>Bilateral hearing loss</strong> developed long-term in <strong>34.5%</strong>, with higher risk associated with younger onset, migraine, and family history. (pyykko2024changesinsymptom pages 1-2)</p>
+<h3>3.3 Quality-of-life impact</h3>
+<ul>
+<li>The 2024 cohort above reports that quality of life was “significantly lower among participants with constant dizziness,” and identifies fatigue, depression, vestibular drop attacks, and hearing loss as contributors. (pyykko2024changesinsymptom pages 1-2)</li>
+<li>In a clinical MRI correlation study (n=70), anxiety and depression scales (SAS/SDS) correlated with dizziness handicap (DHI emotional and total scores), linking symptom burden and mental health in MD. (hu2023endolymphatichydropsimaging pages 1-2)</li>
+</ul>
+<h3>3.4 Suggested HPO terms (phenotype ontology mapping; for knowledge base)</h3>
+<p>Below are commonly appropriate HPO mappings for the core MD phenotype (term names shown; exact IDs should be validated against the current HPO release):
+* Vertigo; Episodic vertigo
+* Sensorineural hearing impairment (often low-frequency/fluctuating)
+* Tinnitus
+* Aural fullness / Ear fullness
+* Drop attacks (Tumarkin attacks)
+* Imbalance
+* Nausea (during attacks)</p>
+<p>(These mappings are ontology suggestions; they are consistent with the clinical criteria and cohort descriptions above.) (lopezescamez2015diagnosticcriteriafor pages 2-4, basura2020clinicalpracticeguideline pages 1-2, pyykko2024changesinsymptom pages 1-2)</p>
+<hr />
+<h2>4. Genetic / molecular information</h2>
+<h3>4.1 Causal genes vs susceptibility genes</h3>
+<p>MD is not generally monogenic in sporadic presentations; however, <strong>familial MD</strong> can show Mendelian or oligogenic patterns in some pedigrees, with multiple genes reported in association studies and sequencing reports aggregated in 2023–2024 reviews. (parraperez2023typesofinheritance pages 2-4, dai2023geneticadvancesin pages 1-2)</p>
+<h3>4.2 Inheritance patterns (familial MD)</h3>
+<p>Familial MD shows heterogeneous inheritance models, including:
+* <strong>Autosomal dominant</strong> families (e.g., reported with variants in FAM136A, DTNA, PRKCB, and others)
+* <strong>Autosomal recessive / compound recessive</strong> models (including multiallelic inheritance for OTOG in multiple families)
+* <strong>Digenic/multiallelic</strong> models and incomplete penetrance/variable expressivity
+These patterns are explicitly summarized in the 2023 JARO review. (parraperez2023typesofinheritance pages 2-4)</p>
+<h3>4.3 Key genes implicated (familial MD; 2023 synthesis)</h3>
+<p>Frequently implicated genes include:
+* <strong>OTOG, MYO7A, TECTA</strong> (most frequently found in familial MD per 2023 review) (parraperez2023typesofinheritance pages 1-2)
+* Additional reported AD-family genes: <strong>FAM136A, DTNA, PRKCB, COCH, DPT, SEMA3D, GUSB, SLC6A7</strong> (parraperez2023typesofinheritance pages 2-4)</p>
+<h3>4.4 Pathogenic variant types (examples from 2023 review)</h3>
+<p>The familial genetics review reports examples including <strong>frameshift deletions</strong> in TECTA producing truncated α-tectorin (classified as likely pathogenic in those reports) and multiple family-private variants with incomplete penetrance. (parraperez2023typesofinheritance pages 4-5)</p>
+<h3>4.5 Mechanistic hypothesis linking genes to phenotype (expert synthesis from authoritative review)</h3>
+<p>A prominent 2023 hypothesis emphasizes proteins of the <strong>tectorial membrane/otolithic membrane and stereocilia links</strong>, proposing that focal detachment and altered ionic homeostasis at the apical surface of sensory epithelia may trigger tinnitus fluctuations and early vertigo attacks, with progression leading to otolithic membrane herniation and vestibular test dissociations. (parraperez2023typesofinheritance pages 1-2)</p>
+<h3>4.6 Epigenetics</h3>
+<p>The familial genetics review notes epigenetic findings (e.g., WGBS) suggesting altered DNA methylation in hearing-loss genes as potential modifiers, but specific methylation biomarkers were not extractable as validated clinical markers from the available excerpts. (parraperez2023typesofinheritance pages 2-4)</p>
+<hr />
+<h2>5. Environmental information</h2>
+<h3>5.1 Environmental/lifestyle exposures associated with MD phenotype</h3>
+<ul>
+<li><strong>Occupational noise exposure</strong> (25.4% prevalence in a Finnish registry cohort) was associated with greater tinnitus/hyperacusis/hearing-loss impact. (pyykko2024associationofhead pages 1-2)</li>
+<li><strong>Head and neck trauma</strong> were common and associated with specific complaint clusters (e.g., vestibular drop attacks; strain-induced vertigo; hyperacusis), though causality is not established by the retrospective design. (pyykko2024associationofhead pages 1-2)</li>
+</ul>
+<h3>5.2 Infectious agents</h3>
+<p>URI history is epidemiologically linked to MD incidence in a large national cohort; the study frames viral infection as a plausible contributor among multifactorial causes, but it does not identify a single pathogen as causal. (kwon2024epidemiologicalevidencefor pages 1-2)</p>
+<hr />
+<h2>6. Mechanism / pathophysiology</h2>
+<h3>6.1 Core pathological correlate: endolymphatic hydrops</h3>
+<p>Consensus and reviews link MD to <strong>endolymphatic hydrops</strong> (dilation/expansion of the endolymphatic space), while acknowledging that EH alone may not fully explain symptom variability and chronic progression. (lopezescamez2015diagnosticcriteriafor pages 1-2, basura2020clinicalpracticeguidelinea pages 1-2)</p>
+<h3>6.2 Imaging-based mechanistic insights (2023–2024)</h3>
+<p>Hydrops MRI is increasingly used as an in vivo biomarker of EH and related blood–labyrinth barrier changes:
+* 2023 meta-analysis: combined <strong>increased perilymphatic enhancement (PLE) + EH</strong> was the best-performing descriptor combination with pooled sensitivity ~87% and specificity ~91% (subset). (connor2023delayedpostgadolinium pages 1-2)
+* 2024 diagnostic optimization study: <strong>saccular abnormality</strong> was the best individual predictor (DOR 292.6), and a multi-descriptor model (saccule + asymmetric cochlear PLE + incomplete vestibular aqueduct visualization) achieved sensitivity 84.4%, specificity 97.4%, AUC 0.938. (connor2024assessingtheoptimal pages 1-3)
+* A 2024 systematic review summarizes between-center variability and explicitly states: “<strong>sensitivity (69%-92%) and specificity (78%-96%)</strong>” vary by lab, reflecting selection and grading differences. (young2024potentialapplicationof pages 1-3)</p>
+<h3>6.3 Molecular pathways/cellular processes (evidence-supported themes)</h3>
+<p>Evidence-backed themes from genetics reviews and experimental model reviews include:
+* <strong>Ionic/fluid homeostasis</strong> in endolymph and extracellular membranes (e.g., implied by tectorial/otolithic membrane ionic homeostasis hypothesis). (parraperez2023typesofinheritance pages 1-2)
+* <strong>Immune/inflammatory involvement</strong> as a candidate contributor (reviews highlight immune loci and inflammatory signaling themes). (dai2023geneticadvancesin pages 6-7, dai2023geneticadvancesin pages 1-2)</p>
+<h3>6.4 Suggested ontology terms (mechanisms)</h3>
+<ul>
+<li><strong>GO Biological Process (suggestions):</strong> inner ear development/homeostasis; regulation of ion transport; mechanosensory behavior; inflammatory response.</li>
+<li><strong>Cell Ontology (CL) (suggestions):</strong> auditory hair cell; vestibular hair cell; supporting cells; endolymphatic sac epithelial cell.</li>
+</ul>
+<p>(These are ontology suggestions aligned to the mechanistic themes above; specific GO/CL IDs should be validated in the target ontology version.) (parraperez2023typesofinheritance pages 1-2, seo2020experimentalanimalmodels pages 1-2)</p>
+<hr />
+<h2>7. Anatomical structures affected</h2>
+<h3>7.1 Primary structures</h3>
+<p>MD affects the <strong>inner ear</strong> (labyrinth), involving both cochlear and vestibular organs, consistent with the core symptom triad and imaging/histopathologic correlate of EH. (basura2020clinicalpracticeguidelinea pages 1-2, connor2023delayedpostgadolinium pages 1-2)</p>
+<h3>7.2 Substructures highlighted by modern imaging</h3>
+<p>Hydrops MRI work emphasizes compartment-specific findings (cochlear vs vestibular EH), and descriptors such as <strong>saccular abnormality</strong> (inferior vestibule) and cochlear perilymphatic enhancement. (connor2024assessingtheoptimal pages 1-3, lineraalperi2024isendolymphatichydrops pages 1-2)</p>
+<h3>7.3 UBERON / GO CC suggestions</h3>
+<ul>
+<li><strong>UBERON (suggestions):</strong> inner ear; cochlea; vestibule; saccule; utricle; semicircular canal; endolymphatic sac/duct.</li>
+<li><strong>GO Cellular Component (suggestions):</strong> stereocilium; mechanosensory hair bundle; tectorial membrane; otolithic membrane.</li>
+</ul>
+<p>(These are ontology suggestions consistent with genetic and imaging emphases.) (connor2024assessingtheoptimal pages 1-3, parraperez2023typesofinheritance pages 1-2)</p>
+<hr />
+<h2>8. Temporal development</h2>
+<h3>8.1 Onset</h3>
+<p>A clinical practice guideline states onset is most common between <strong>40 and 60 years</strong>. (basura2020clinicalpracticeguidelinea pages 1-2)</p>
+<h3>8.2 Course and staging concepts</h3>
+<p>MD is episodic with remissions; the guideline describes attack frequency often around <strong>6–11 episodes/year</strong> with remissions that may last months to years, and that diagnosis can require longitudinal observation because manifestations evolve over time. (basura2020clinicalpracticeguidelinea pages 1-2)</p>
+<h3>8.3 Recent natural-history evidence (2024)</h3>
+<ul>
+<li>In a cohort of “intractable” unilateral definite MD (n=35), <strong>64%</strong> (21/33 with complete data) were free of vertigo attacks at follow-up after median disease duration 5.3 years, supporting attack resolution over time in many patients. (gerritsen2024theevolutionof pages 9-10)</li>
+<li>In a larger patient-organization cohort (n=365), <strong>34%</strong> reported spontaneous remission of episodic vertigo; however, balance problems and drop attacks could persist/worsen, supporting the need for comprehensive management beyond vertigo control alone. (pyykko2024changesinsymptom pages 1-2)</li>
+</ul>
+<hr />
+<h2>9. Inheritance and population</h2>
+<h3>9.1 Epidemiology (ranges and variability)</h3>
+<ul>
+<li>Guideline-cited prevalence: <strong>~50–200 per 100,000 adults</strong>. (basura2020clinicalpracticeguidelinea pages 1-2)</li>
+<li>A 2024 cohort paper summarizes wide reported incidence/prevalence variation across studies/regions and notes a South Korea increase from <strong>30.02 to 118.48 per 100,000 (2013–2017)</strong> (interpretation limited by coding/ascertainment). (kwon2024epidemiologicalevidencefor pages 1-2)</li>
+</ul>
+<h3>9.2 Bilateral involvement</h3>
+<p>Bilateral involvement frequency varies by definition and follow-up; an earlier large clinical review of bilateral MD notes reported ranges from <strong>5–50%</strong> depending on disease duration and other factors. (frejo2016clinicalsubgroupsin pages 1-2)</p>
+<h3>9.3 Familial proportion and inheritance</h3>
+<p>Familial MD accounts for <strong>~5–20%</strong> of cases in some cohorts (~10% overall) and can show AD/AR/multiallelic inheritance with incomplete penetrance. (parraperez2023typesofinheritance pages 1-2, parraperez2023typesofinheritance pages 2-4)</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>10.1 Clinical criteria (standard)</h3>
+<p>International diagnostic criteria define “definite” and “probable” MD using attack-duration thresholds, audiometric SNHL, fluctuating aural symptoms, and exclusion of alternative diagnoses. (lopezescamez2015diagnosticcriteriafor pages 2-4, basura2020clinicalpracticeguideline pages 1-2)</p>
+<p>A guideline-derived criteria table image is available. (basura2020clinicalpracticeguideline media b1eac1f2)</p>
+<h3>10.2 Audiology and vestibular testing</h3>
+<p>The diagnostic criteria require <strong>audiometric documentation</strong> of low- to mid-frequency SNHL in the affected ear for definite MD. (lopezescamez2015diagnosticcriteriafor pages 2-4)</p>
+<h3>10.3 Hydrops MRI (2023–2024) — “latest research” and implementation</h3>
+<p>Hydrops MRI has transitioned from research use toward practical clinical adjunctive diagnosis:
+* 2023 meta-analysis (66 studies; 3073 MD ears) identifies PLE + EH as best-performing pooled descriptor combination. (connor2023delayedpostgadolinium pages 1-2)
+* 2024 European Radiology study identifies a small set of high-yield descriptors (saccular abnormality, asymmetric cochlear PLE, vestibular aqueduct visualization) achieving high specificity (~97%). (connor2024assessingtheoptimal pages 1-3)
+* 2024 systematic review describes delayed IV gadolinium imaging and notes variability: “<strong>sensitivity (69%-92%) and specificity (78%-96%)</strong>.” (young2024potentialapplicationof pages 1-3)</p>
+<p><strong>Direct abstract quote (hydrops MRI performance variability):</strong> “The sensitivity (69%-92%) and specificity (78%-96%) values varied from each laboratory…” (young2024potentialapplicationof pages 1-3)</p>
+<h3>10.4 Differential diagnosis (high-level)</h3>
+<p>The Bárány criteria paper explicitly notes diagnostic complexity due to overlapping disorders and includes differentials such as autoimmune inner ear disease and genetic hearing loss conditions. (lopezescamez2015diagnosticcriteriafor pages 2-4)</p>
+<hr />
+<h2>11. Outcome / prognosis</h2>
+<h3>11.1 Symptom evolution</h3>
+<p>Recent evidence supports that vertigo attacks often diminish over time, including in refractory cohorts. (gerritsen2024theevolutionof pages 9-10, pyykko2024changesinsymptom pages 1-2)</p>
+<h3>11.2 Functional morbidity</h3>
+<p>Balance problems, drop attacks, hearing loss, and mental health symptoms can persist even when episodic vertigo remits and are key drivers of reduced quality of life. (pyykko2024changesinsymptom pages 1-2)</p>
+<hr />
+<h2>12. Treatment</h2>
+<h3>12.1 Treatment goals</h3>
+<p>Guidelines emphasize preventing/reducing vertigo, mitigating hearing loss/tinnitus/aural fullness, and improving quality of life. (basura2020clinicalpracticeguidelinea pages 1-2)</p>
+<h3>12.2 Intratympanic therapies (evidence prioritized)</h3>
+<p><strong>Gentamicin vs corticosteroids (2024 meta-analysis):</strong> Across 12 studies (n=694), intratympanic gentamicin achieved higher vertigo control (RR 1.36, 95% CI 1.13–1.65) while corticosteroids better preserved hearing (pure tone average WMD 4.41 favoring steroids). (wu2024comparativeefficacyof pages 1-2)</p>
+<h3>12.3 Surgical/interventional therapies</h3>
+<p><strong>Selective vestibular neurectomy (2024 series):</strong> In 23 refractory patients after failed endolymphatic sac surgery, micro-endoscopic selective vestibular neurectomy achieved ~90% vertigo control at up to 2 years and significant DHI improvement, with one CSF fistula reoperation and no definitive hearing loss/facial palsy reported in the series. (salvinelli2024selectivevestibularneurectomy pages 1-2)</p>
+<h3>12.4 Auditory rehabilitation</h3>
+<p>Cochlear implantation can improve multiple patient-reported outcomes (hearing, vertigo, tinnitus, QoL) in implanted MD patients in small retrospective cohorts (details available in retrieved abstract but not expanded in the current evidence snippets). (basura2020clinicalpracticeguidelinea pages 9-10)</p>
+<h3>12.5 Ongoing/registered clinical trials (real-world implementation)</h3>
+<ul>
+<li><strong>PREDMEN (NCT05851508)</strong>: Phase 3, multicenter, randomized, double-blind placebo-controlled trial (start 2023-10-01; planned n=148) of intratympanic methylprednisolone (62.5 mg/mL) vs saline; vertigo tracked daily via DizzyQuest app; outcomes include hearing measures, tinnitus instruments, EQ-5D, adverse events, and cost-effectiveness. (NCT05851508 chunk 1, NCT05851508 chunk 2)</li>
+<li><strong>NCT00802529</strong>: Completed randomized quadruple-masked Phase 2/3 trial (n=60) comparing transtympanic methylprednisolone vs gentamicin with 18–24 month vertigo endpoints and serial hearing measures. (NCT00802529 chunk 1)</li>
+</ul>
+<h3>12.6 MAXO term suggestions (treatment ontology)</h3>
+<ul>
+<li>Intratympanic drug administration (gentamicin; corticosteroid)</li>
+<li>Vestibular nerve section / vestibular neurectomy</li>
+<li>Cochlear implantation</li>
+<li>Lifestyle and dietary modification</li>
+</ul>
+<p>(These are ontology suggestions aligned to guideline and trial interventions.) (salvinelli2024selectivevestibularneurectomy pages 1-2, NCT05851508 chunk 1, wu2024comparativeefficacyof pages 1-2)</p>
+<hr />
+<h2>13. Prevention</h2>
+<p>No definitive primary prevention is established; however, modifiable exposure and comorbidity management may be relevant given associations with URIs and exposure-related phenotype modifiers.
+* URI–MD association suggests monitoring patients with recurrent URIs could be relevant for early recognition, though causal prevention is unproven. (kwon2024epidemiologicalevidencefor pages 1-2)
+* Avoidance/mitigation of occupational noise exposure and management after head/neck trauma may reduce symptom burden in susceptible individuals, but evidence is observational. (pyykko2024associationofhead pages 1-2)</p>
+<hr />
+<h2>14. Other species / natural disease</h2>
+<p>The retrieved evidence did not identify a naturally occurring, clinically defined “Ménière’s disease” entity in non-human species; instead, animal work models the <strong>endolymphatic hydrops</strong> phenotype as an experimental analog. (seo2020experimentalanimalmodels pages 1-2)</p>
+<hr />
+<h2>15. Model organisms</h2>
+<p>Animal models are primarily designed to induce or measure endolymphatic hydrops (ELH/EH) and related cochlear/vestibular dysfunction.</p>
+<h3>15.1 Model types and species</h3>
+<ul>
+<li><strong>Guinea pig</strong>: historically central for surgical endolymphatic sac ablation models and other hydrops induction methods. (seo2020experimentalanimalmodels pages 1-2)</li>
+<li><strong>Mouse/rat</strong>: used for systemic/hormonal induction (e.g., vasopressin-based models) and for molecular analyses, with interest in shifting from large-animal surgical models to smaller animals for omics-compatible workflows. (seo2020experimentalanimalmodels pages 1-2)</li>
+</ul>
+<h3>15.2 Induced models (examples)</h3>
+<p>A mini-review categorizes models into acute vs chronic ELH models and lists chronic induction via:
+* Surgical <strong>endolymphatic sac (ES) ablation</strong>
+* Systemic agents (e.g., <strong>vasopressin</strong>, aldosterone; inflammatory stimuli such as LPS)
+These models are explicitly described as representing the ELH pathophysiological process. (seo2020experimentalanimalmodels pages 1-2)</p>
+<h3>15.3 Model limitations</h3>
+<p>The mini-review notes that available animal models do not fully replicate the fluctuating/episodic clinical course of human MD, motivating ongoing model development. (seo2020experimentalanimalmodels pages 1-2)</p>
+<hr />
+<h2>Synthesis of recent (2023–2024) key evidence</h2>
+<p>The table below aggregates high-yield 2023–2024 evidence on diagnostics, genetics, epidemiology/risk, natural history, and treatment.</p>
+<table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>Citation (first author year)</th>
+<th>Publication date</th>
+<th>Study type</th>
+<th style="text-align: right;">N (if available)</th>
+<th>Key quantitative findings</th>
+<th>URL/DOI</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Diagnostics MRI</td>
+<td>Connor 2023 (connor2023delayedpostgadolinium pages 1-2, connor2023delayedpostgadolinium pages 8-9)</td>
+<td>May 2023</td>
+<td>Systematic review and meta-analysis</td>
+<td style="text-align: right;">66 studies; 3,073 ears with MD</td>
+<td>Delayed post-gadolinium MRI descriptors were pooled; the combination of increased perilymphatic enhancement (PLE) + endolymphatic hydrops (EH) showed sensitivity ~87% and specificity ~91% for MD diagnosis. Several descriptors had pooled specificities &gt;90%, including fused utricle/saccule (96%) and increased ipsilateral PLE (98%).</td>
+<td>https://doi.org/10.1007/s00330-023-09651-8</td>
+</tr>
+<tr>
+<td>Diagnostics MRI</td>
+<td>Connor 2024 (connor2024assessingtheoptimal pages 1-3)</td>
+<td>Feb 2024</td>
+<td>Retrospective single-center case-control MRI study</td>
+<td style="text-align: right;">227 patients; 96 definite MD ears vs 78 control ears</td>
+<td>Best individual MRI predictor was saccular abnormality with DOR 292.6. Combining saccular abnormality + asymmetric cochlear PLE + incomplete vestibular aqueduct visualization correctly classified 90.2% of cases; sensitivity 84.4%, specificity 97.4%, AUC 0.938.</td>
+<td>https://doi.org/10.1007/s00330-024-10587-w</td>
+</tr>
+<tr>
+<td>Diagnostics MRI</td>
+<td>Young 2024 (young2024potentialapplicationof pages 1-3, young2024potentialapplicationof pages 9-9)</td>
+<td>Jan 2024</td>
+<td>Systematic review</td>
+<td style="text-align: right;">80 relevant articles selected from 470 screened</td>
+<td>Across centers, hydrops MRI performance varied with sensitivity 69%–92% and specificity 78%–96%. Main current uses: differentiate EH from sudden SNHL, determine affected side, and confirm EH with concomitant disorders.</td>
+<td>https://doi.org/10.1177/19160216241250350</td>
+</tr>
+<tr>
+<td>Diagnostics MRI</td>
+<td>Linera-Alperi 2024 (lineraalperi2024isendolymphatichydrops pages 1-2)</td>
+<td>Dec 2024</td>
+<td>Retrospective longitudinal tertiary-center study</td>
+<td style="text-align: right;">137 unilateral MD patients</td>
+<td>40.15% classified as cochleocentric and 59.85% non-cochleocentric; vestibular EH was more severe in the non-cochleocentric group, supporting heterogeneity in hydropic patterns rather than a uniform cochleocentric progression model.</td>
+<td>https://doi.org/10.3389/fneur.2024.1477282</td>
+</tr>
+<tr>
+<td>Diagnostics MRI / Phenotype correlation</td>
+<td>Hu 2023 (hu2023endolymphatichydropsimaging pages 1-2)</td>
+<td>Feb 2023</td>
+<td>Clinical imaging correlation study</td>
+<td style="text-align: right;">70 unilateral MD patients</td>
+<td>Vestibular EH correlated positively with cochlear EH, hearing loss, VEMP, caloric test abnormalities, disease course, and vertigo duration; MRI also correlated with emotional burden measures (SAS/SDS via DHI emotional/total scores).</td>
+<td>https://doi.org/10.1007/s00405-023-07899-w</td>
+</tr>
+<tr>
+<td>Genetics</td>
+<td>Parra-Perez 2023 (parraperez2023typesofinheritance pages 1-2, parraperez2023typesofinheritance pages 2-4, parraperez2023typesofinheritance pages 4-5)</td>
+<td>Apr 2023</td>
+<td>Narrative review of familial MD genetics</td>
+<td style="text-align: right;">Not applicable</td>
+<td>Familial MD accounts for ~5%–20% of cases in European-descended cohorts and ~10% overall; key implicated genes include OTOG, MYO7A, TECTA, FAM136A, DTNA, PRKCB, COCH, DPT, and SEMA3D. Proposed inheritance includes AD, AR/compound recessive, digenic/multiallelic models, with incomplete penetrance and variable expressivity.</td>
+<td>https://doi.org/10.1007/s10162-023-00896-0</td>
+</tr>
+<tr>
+<td>Genetics</td>
+<td>Dai 2023 (dai2023geneticadvancesin pages 6-7, dai2023geneticadvancesin pages 1-2, dai2023geneticadvancesin pages 5-6)</td>
+<td>Dec 2023</td>
+<td>Review</td>
+<td style="text-align: right;">Not applicable</td>
+<td>Review highlights rare variants in OTOG reported in 33% of familial MD in one series; also summarizes immune-associated loci, 6p21.33 signal rs4947296, and candidate genes linked to ion/fluid homeostasis, inflammation, and stereocilia integrity.</td>
+<td>https://doi.org/10.1007/s11033-022-08149-8</td>
+</tr>
+<tr>
+<td>Epidemiology-Risk</td>
+<td>Kwon 2024 (kwon2024epidemiologicalevidencefor pages 1-2)</td>
+<td>Oct 2024</td>
+<td>Nationwide matched cohort study</td>
+<td style="text-align: right;">19,721 MD cases; 78,884 matched controls</td>
+<td>A URI within 1 year before index date was associated with a 2.01-fold greater likelihood of MD (95% CI 1.91–2.11); URI within 2 years remained associated (1.54-fold; 95% CI 1.50–1.59). Review text also notes wide regional epidemiologic variability (3–513 per 100,000 annually).</td>
+<td>https://doi.org/10.3390/microorganisms12102047</td>
+</tr>
+<tr>
+<td>Epidemiology-Risk</td>
+<td>Basura 2020 guideline (basura2020clinicalpracticeguidelinea pages 1-2)</td>
+<td>Apr 2020</td>
+<td>Clinical practice guideline</td>
+<td style="text-align: right;">Not applicable</td>
+<td>Commonly cited prevalence range is ~50–200 per 100,000 adults; onset is most common between ages 40 and 60 years; attack frequency is often ~6–11 episodes/year, with remissions that may last months to years.</td>
+<td>https://doi.org/10.1177/0194599820909438</td>
+</tr>
+<tr>
+<td>Natural history</td>
+<td>Gerritsen 2024 (gerritsen2024theevolutionof pages 9-10)</td>
+<td>Oct 2024</td>
+<td>Retrospective cohort</td>
+<td style="text-align: right;">35 intractable unilateral definite MD patients</td>
+<td>Of 33 patients with complete attack data, 21 (64%) were free of vertigo attacks at follow-up after a median disease duration of 5.3 years, supporting spontaneous reduction of attacks over time even in refractory cohorts.</td>
+<td>https://doi.org/10.3389/fneur.2024.1469276</td>
+</tr>
+<tr>
+<td>Natural history / QoL</td>
+<td>Pyykkö 2024 (basura2020clinicalpracticeguidelinea pages 1-2)</td>
+<td>Nov 2024</td>
+<td>Cross-sectional registry/questionnaire study</td>
+<td style="text-align: right;">365/560 surveyed definite MD patients</td>
+<td>Spontaneous remission from episodic vertigo occurred in 34%; bilateral hearing loss developed in 34.5% long term; 65.5% reported balance issues, 34% mild vestibular drop attacks, and 10% severe falls; QoL was worst with constant dizziness.</td>
+<td>https://doi.org/10.3389/fneur.2024.1496384</td>
+</tr>
+<tr>
+<td>Treatment</td>
+<td>Wu 2024 (wu2024comparativeefficacyof pages 1-2)</td>
+<td>Sep 2024</td>
+<td>Systematic review and meta-analysis</td>
+<td style="text-align: right;">12 studies; 694 patients</td>
+<td>Intratympanic gentamicin showed superior vertigo control versus corticosteroids overall (RR 1.36, 95% CI 1.13–1.65) and at 6 months (RR 1.69, 95% CI 1.28–2.24), while corticosteroids better preserved hearing/pure-tone average (WMD 4.41, 95% CI 3.31–5.52).</td>
+<td>https://doi.org/10.3389/fneur.2024.1471010</td>
+</tr>
+<tr>
+<td>Treatment</td>
+<td>Salvinelli 2024 (salvinelli2024selectivevestibularneurectomy pages 1-2)</td>
+<td>Apr 2024</td>
+<td>Retrospective surgical series</td>
+<td style="text-align: right;">23 patients</td>
+<td>Selective vestibular neurectomy after failed sac surgery achieved ~90% vertigo control at up to 2 years, with significant DHI improvement (p=0.001), no definitive facial palsy or hearing loss reported, and one CSF fistula requiring reoperation.</td>
+<td>https://doi.org/10.3390/brainsci14040369</td>
+</tr>
+<tr>
+<td>Treatment / Trial</td>
+<td>NCT05851508 PREDMEN (NCT05851508 chunk 1, NCT05851508 chunk 2)</td>
+<td>Trial start Oct 2023; estimated primary completion May 2026</td>
+<td>Multicenter randomized double-blind placebo-controlled phase 3 trial</td>
+<td style="text-align: right;">Planned 148 participants</td>
+<td>Two intratympanic methylprednisolone injections (62.5 mg/mL) vs saline placebo; primary outcome is control of vertigo spells tracked daily with the DizzyQuest app. Secondary outcomes include PTA, speech discrimination, THI/TFI, EQ-5D/EQ-VAS, adverse events, co-interventions, and cost-effectiveness.</td>
+<td>https://clinicaltrials.gov/study/NCT05851508</td>
+</tr>
+<tr>
+<td>Treatment / Trial</td>
+<td>NCT00802529 (NCT00802529 chunk 1, NCT00802529 chunk 2)</td>
+<td>Completed; primary completion May 2015</td>
+<td>Randomized quadruple-masked phase 2/3 trial</td>
+<td style="text-align: right;">60 participants</td>
+<td>Head-to-head transtympanic methylprednisolone vs gentamicin in refractory unilateral MD; primary endpoint was vertigo attacks at 18–24 months relative to 6-month baseline, with serial hearing and speech discrimination follow-up.</td>
+<td>https://clinicaltrials.gov/study/NCT00802529</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes high-yield recent clinical and research evidence on Ménière’s disease across diagnostics, genetics, epidemiology, natural history, and treatment. It prioritizes the most relevant 2023–2024 sources and key trial records for rapid knowledge-base curation.</em></p>
+<hr />
+<h2>Notes on citation requirements (PMID)</h2>
+<p>PMIDs were not consistently available in the retrieved text snippets and tool outputs; therefore, this report cites by internal evidence context IDs linked to peer-reviewed articles and trial registry records, each containing DOI/URL and publication month/year in the retrieved metadata.</p>
+<h2>URLs and publication dates (examples)</h2>
+<ul>
+<li>Basura et al., <strong>Apr 2020</strong>, Clinical Practice Guideline: Ménière’s Disease. https://doi.org/10.1177/0194599820909438 (basura2020clinicalpracticeguidelinea pages 9-10)</li>
+<li>Lopez-Escamez et al., <strong>Mar 2015</strong>, Bárány diagnostic criteria. https://doi.org/10.3233/ves-150549 (lopezescamez2015diagnosticcriteriafor pages 2-4)</li>
+<li>Connor et al., <strong>May 2023</strong>, delayed post-gadolinium MRI meta-analysis. https://doi.org/10.1007/s00330-023-09651-8 (connor2023delayedpostgadolinium pages 1-2)</li>
+<li>Connor et al., <strong>Feb 2024</strong>, optimal MRI descriptors (saccular abnormality). https://doi.org/10.1007/s00330-024-10587-w (connor2024assessingtheoptimal pages 1-3)</li>
+<li>Parra-Perez &amp; Lopez-Escamez, <strong>Apr 2023</strong>, familial MD genetics. https://doi.org/10.1007/s10162-023-00896-0 (parraperez2023typesofinheritance pages 1-2)</li>
+<li>Kwon et al., <strong>Oct 2024</strong>, URI risk cohort. https://doi.org/10.3390/microorganisms12102047 (kwon2024epidemiologicalevidencefor pages 1-2)</li>
+<li>Wu et al., <strong>Sep 2024</strong>, intratympanic gentamicin vs steroids meta-analysis. https://doi.org/10.3389/fneur.2024.1471010 (wu2024comparativeefficacyof pages 1-2)</li>
+<li>PREDMEN trial, <strong>start Oct 2023</strong>, NCT05851508. https://clinicaltrials.gov/study/NCT05851508 (NCT05851508 chunk 1)</li>
+</ul>
+<p>References</p>
+<ol>
+<li>
+<p>(basura2020clinicalpracticeguidelinea pages 9-10): Gregory J. Basura, Meredith E. Adams, Ashkan Monfared, Seth R. Schwartz, Patrick J. Antonelli, Robert Burkard, Matthew L. Bush, Julie Bykowski, Maria Colandrea, Jennifer Derebery, Elizabeth A. Kelly, Kevin A. Kerber, Charles F. Koopman, Amy Angie Kuch, Evie Marcolini, Brian J. McKinnon, Michael J. Ruckenstein, Carla V. Valenzuela, Alexis Vosooney, Sandra A. Walsh, Lorraine C. Nnacheta, Nui Dhepyasuwan, and Erin M. Buchanan. Clinical practice guideline: ménière’s disease. Otolaryngology–Head and Neck Surgery, 162:S1-S55, Apr 2020. URL: https://doi.org/10.1177/0194599820909438, doi:10.1177/0194599820909438. This article has 555 citations.</p>
+</li>
+<li>
+<p>(lopezescamez2015diagnosticcriteriafor pages 2-4): Jose A. Lopez-Escamez, John Carey, Won-Ho Chung, Joel A. Goebel, Måns Magnusson, Marco Mandalà, David E. Newman-Toker, Michael Strupp, Mamoru Suzuki, Franco Trabalzini, and Alexandre Bisdorff. Diagnostic criteria for menière's disease. Journal of Vestibular Research, 25:1-7, Mar 2015. URL: https://doi.org/10.3233/ves-150549, doi:10.3233/ves-150549. This article has 1866 citations.</p>
+</li>
+<li>
+<p>(basura2020clinicalpracticeguideline pages 1-2): Gregory J. Basura, Meredith E. Adams, Ashkan Monfared, Seth R. Schwartz, Patrick J. Antonelli, Robert Burkard, Matthew L. Bush, Julie Bykowski, Maria Colandrea, Jennifer Derebery, Elizabeth A. Kelly, Kevin A. Kerber, Charles F. Koopman, Amy Angie Kuch, Evie Marcolini, Brian J. McKinnon, Michael J. Ruckenstein, Carla V. Valenzuela, Alexis Vosooney, Sandra A. Walsh, Lorraine C. Nnacheta, Nui Dhepyasuwan, and Erin M. Buchanan. Clinical practice guideline: ménière’s disease executive summary. Otolaryngology–Head and Neck Surgery, 162:415-434, Apr 2020. URL: https://doi.org/10.1177/0194599820909439, doi:10.1177/0194599820909439. This article has 126 citations.</p>
+</li>
+<li>
+<p>(connor2024assessingtheoptimal pages 1-3): Steve Connor, Irumee Pai, Philip Touska, Sarah McElroy, Sebastien Ourselin, and Joseph V. Hajnal. Assessing the optimal mri descriptors to diagnose ménière’s disease and the added value of analysing the vestibular aqueduct. European Radiology, 34:6060-6071, Feb 2024. URL: https://doi.org/10.1007/s00330-024-10587-w, doi:10.1007/s00330-024-10587-w. This article has 17 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(connor2023delayedpostgadolinium pages 1-2): Steve Connor, Mariusz T. Grzeda, Babak Jamshidi, Sebastien Ourselin, Joseph V. Hajnal, and Irumee Pai. Delayed post gadolinium mri descriptors for meniere’s disease: a systematic review and meta-analysis. European Radiology, 33:7113-7135, May 2023. URL: https://doi.org/10.1007/s00330-023-09651-8, doi:10.1007/s00330-023-09651-8. This article has 33 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(parraperez2023typesofinheritance pages 1-2): Alberto M. Parra-Perez and Jose A. Lopez-Escamez. Types of inheritance and genes associated with familial meniere disease. JARO: Journal of the Association for Research in Otolaryngology, 24:269-279, Apr 2023. URL: https://doi.org/10.1007/s10162-023-00896-0, doi:10.1007/s10162-023-00896-0. This article has 48 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(kwon2024epidemiologicalevidencefor pages 2-3): Mi Jung Kwon, Ho Suk Kang, Joo-Hee Kim, Ji Hee Kim, Woo Jin Bang, Dae Myoung Yoo, Na-Eun Lee, Kyeong Min Han, Nan Young Kim, Hyo Geun Choi, Min-Jeong Kim, and Eun Soo Kim. Epidemiological evidence for upper respiratory infections as a potential risk factor for meniere’s disease: a korean national health sample cohort study. Microorganisms, 12:2047, Oct 2024. URL: https://doi.org/10.3390/microorganisms12102047, doi:10.3390/microorganisms12102047. This article has 2 citations.</p>
+</li>
+<li>
+<p>(NCT00802529 chunk 2):  Transtympanic Gentamicin vs. Steroids in Refractory Meniere's Disease. Imperial College London. 2009. ClinicalTrials.gov Identifier: NCT00802529</p>
+</li>
+<li>
+<p>(basura2020clinicalpracticeguidelinea pages 1-2): Gregory J. Basura, Meredith E. Adams, Ashkan Monfared, Seth R. Schwartz, Patrick J. Antonelli, Robert Burkard, Matthew L. Bush, Julie Bykowski, Maria Colandrea, Jennifer Derebery, Elizabeth A. Kelly, Kevin A. Kerber, Charles F. Koopman, Amy Angie Kuch, Evie Marcolini, Brian J. McKinnon, Michael J. Ruckenstein, Carla V. Valenzuela, Alexis Vosooney, Sandra A. Walsh, Lorraine C. Nnacheta, Nui Dhepyasuwan, and Erin M. Buchanan. Clinical practice guideline: ménière’s disease. Otolaryngology–Head and Neck Surgery, 162:S1-S55, Apr 2020. URL: https://doi.org/10.1177/0194599820909438, doi:10.1177/0194599820909438. This article has 555 citations.</p>
+</li>
+<li>
+<p>(lopezescamez2015diagnosticcriteriafor pages 1-2): Jose A. Lopez-Escamez, John Carey, Won-Ho Chung, Joel A. Goebel, Måns Magnusson, Marco Mandalà, David E. Newman-Toker, Michael Strupp, Mamoru Suzuki, Franco Trabalzini, and Alexandre Bisdorff. Diagnostic criteria for menière's disease. Journal of Vestibular Research, 25:1-7, Mar 2015. URL: https://doi.org/10.3233/ves-150549, doi:10.3233/ves-150549. This article has 1866 citations.</p>
+</li>
+<li>
+<p>(NCT05851508 chunk 1): Babette F van Esch, MD, PhD. The Effecttiveness of Intratympanic Methylprednisolon Injections Compared to Placebo in the Treatment of Vertigo Attacks in Meniere's Disease. Leiden University Medical Center. 2023. ClinicalTrials.gov Identifier: NCT05851508</p>
+</li>
+<li>
+<p>(kwon2024epidemiologicalevidencefor pages 1-2): Mi Jung Kwon, Ho Suk Kang, Joo-Hee Kim, Ji Hee Kim, Woo Jin Bang, Dae Myoung Yoo, Na-Eun Lee, Kyeong Min Han, Nan Young Kim, Hyo Geun Choi, Min-Jeong Kim, and Eun Soo Kim. Epidemiological evidence for upper respiratory infections as a potential risk factor for meniere’s disease: a korean national health sample cohort study. Microorganisms, 12:2047, Oct 2024. URL: https://doi.org/10.3390/microorganisms12102047, doi:10.3390/microorganisms12102047. This article has 2 citations.</p>
+</li>
+<li>
+<p>(pyykko2024associationofhead pages 1-2): Ilmari Pyykkö, Vinay Vinay, Artur Vetkas, Jing Zou, and Vinaya Manchaiah. Association of head injury, neck injury or acoustic trauma on phenotype of ménière’s disease. Audiology Research, 14:204-216, Feb 2024. URL: https://doi.org/10.3390/audiolres14010019, doi:10.3390/audiolres14010019. This article has 2 citations.</p>
+</li>
+<li>
+<p>(parraperez2023typesofinheritance pages 2-4): Alberto M. Parra-Perez and Jose A. Lopez-Escamez. Types of inheritance and genes associated with familial meniere disease. JARO: Journal of the Association for Research in Otolaryngology, 24:269-279, Apr 2023. URL: https://doi.org/10.1007/s10162-023-00896-0, doi:10.1007/s10162-023-00896-0. This article has 48 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(parraperez2023typesofinheritance pages 4-5): Alberto M. Parra-Perez and Jose A. Lopez-Escamez. Types of inheritance and genes associated with familial meniere disease. JARO: Journal of the Association for Research in Otolaryngology, 24:269-279, Apr 2023. URL: https://doi.org/10.1007/s10162-023-00896-0, doi:10.1007/s10162-023-00896-0. This article has 48 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(dai2023geneticadvancesin pages 5-6): Qingqing Dai, Lili Long, Hui Zhao, Ruikai Wang, Hong Zheng, and Maoli Duan. Genetic advances in meniere disease. Molecular Biology Reports, 50:2901-2908, Dec 2023. URL: https://doi.org/10.1007/s11033-022-08149-8, doi:10.1007/s11033-022-08149-8. This article has 25 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(goebel20162015equilibriumcommittee pages 2-2): Joel A Goebel. 2015 equilibrium committee amendment to the 1995 aao-hns guidelines for the definition of ménière’s disease. Otolaryngology–Head and Neck Surgery, 154:403-404, Feb 2016. URL: https://doi.org/10.1177/0194599816628524, doi:10.1177/0194599816628524. This article has 205 citations.</p>
+</li>
+<li>
+<p>(basura2020clinicalpracticeguideline media b1eac1f2): Gregory J. Basura, Meredith E. Adams, Ashkan Monfared, Seth R. Schwartz, Patrick J. Antonelli, Robert Burkard, Matthew L. Bush, Julie Bykowski, Maria Colandrea, Jennifer Derebery, Elizabeth A. Kelly, Kevin A. Kerber, Charles F. Koopman, Amy Angie Kuch, Evie Marcolini, Brian J. McKinnon, Michael J. Ruckenstein, Carla V. Valenzuela, Alexis Vosooney, Sandra A. Walsh, Lorraine C. Nnacheta, Nui Dhepyasuwan, and Erin M. Buchanan. Clinical practice guideline: ménière’s disease. Otolaryngology–Head and Neck Surgery, 162:S1-S55, Apr 2020. URL: https://doi.org/10.1177/0194599820909438, doi:10.1177/0194599820909438. This article has 555 citations.</p>
+</li>
+<li>
+<p>(pyykko2024changesinsymptom pages 1-2): Ilmari Pyykkö, Jing Zou, and Nora Vetkas. Changes in symptom pattern in meniere's disease by duration: the need for comprehensive management. Frontiers in Neurology, Nov 2024. URL: https://doi.org/10.3389/fneur.2024.1496384, doi:10.3389/fneur.2024.1496384. This article has 12 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(hu2023endolymphatichydropsimaging pages 1-2): Ying Hu, Yue Zhang, Xu Zhao, and Juan Li. Endolymphatic hydrops imaging and correlation with clinical characteristics, audiovestibular function and mental impairment in patients with meniere’s disease. European Archives of Oto-Rhino-Laryngology, 280:4027-4036, Feb 2023. URL: https://doi.org/10.1007/s00405-023-07899-w, doi:10.1007/s00405-023-07899-w. This article has 19 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(dai2023geneticadvancesin pages 1-2): Qingqing Dai, Lili Long, Hui Zhao, Ruikai Wang, Hong Zheng, and Maoli Duan. Genetic advances in meniere disease. Molecular Biology Reports, 50:2901-2908, Dec 2023. URL: https://doi.org/10.1007/s11033-022-08149-8, doi:10.1007/s11033-022-08149-8. This article has 25 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(young2024potentialapplicationof pages 1-3): Yi-Ho Young and Kao-Tsung Lin. Potential application of hydrops mr imaging: a systematic review. Journal of Otolaryngology - Head &amp; Neck Surgery, Jan 2024. URL: https://doi.org/10.1177/19160216241250350, doi:10.1177/19160216241250350. This article has 12 citations.</p>
+</li>
+<li>
+<p>(dai2023geneticadvancesin pages 6-7): Qingqing Dai, Lili Long, Hui Zhao, Ruikai Wang, Hong Zheng, and Maoli Duan. Genetic advances in meniere disease. Molecular Biology Reports, 50:2901-2908, Dec 2023. URL: https://doi.org/10.1007/s11033-022-08149-8, doi:10.1007/s11033-022-08149-8. This article has 25 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(seo2020experimentalanimalmodels pages 1-2): Young Joon Seo and Daniel Brown. Experimental animal models for meniere’s disease: a mini-review. Journal of Audiology and Otology, 24:53-60, Apr 2020. URL: https://doi.org/10.7874/jao.2020.00115, doi:10.7874/jao.2020.00115. This article has 28 citations.</p>
+</li>
+<li>
+<p>(lineraalperi2024isendolymphatichydrops pages 1-2): Marta Álvarez De Linera-Alperi, Pablo Dominguez, Melissa Blanco-Pareja, Pablo Menéndez Fernández-Miranda, Raquel Manrique-Huarte, Gloria Liaño, Nicolas Pérez-Fernández, and Víctor Suárez-Vega. Is endolymphatic hydrops, as detected in mri, a truly cochleocentric finding? Frontiers in Neurology, Dec 2024. URL: https://doi.org/10.3389/fneur.2024.1477282, doi:10.3389/fneur.2024.1477282. This article has 5 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(gerritsen2024theevolutionof pages 9-10): F. R. Gerritsen, A. A. Schenck, H. Locher, R. van de Berg, P. P. van Benthem, and H. M. Blom. The evolution of intractable ménière’s disease: attacks resolve over time. Frontiers in Neurology, Oct 2024. URL: https://doi.org/10.3389/fneur.2024.1469276, doi:10.3389/fneur.2024.1469276. This article has 4 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(frejo2016clinicalsubgroupsin pages 1-2): Lidia Frejo, Andres Soto-Varela, Sofía Santos-Perez, Ismael Aran, Angel Batuecas-Caletrio, Vanesa Perez-Guillen, Herminio Perez-Garrigues, Jesus Fraile, Eduardo Martin-Sanz, Maria C. Tapia, Gabriel Trinidad, Ana María García-Arumi, Rocío González-Aguado, Juan M. Espinosa-Sanchez, Pedro Marques, Paz Perez, Jesus Benitez, and Jose A. Lopez-Escamez. Clinical subgroups in bilateral meniere disease. Frontiers in Neurology, Oct 2016. URL: https://doi.org/10.3389/fneur.2016.00182, doi:10.3389/fneur.2016.00182. This article has 175 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(wu2024comparativeefficacyof pages 1-2): Xuanmei Wu, Jiacheng Shui, Chengyuan Liu, Xinyue Wu, Ying Yu, Hanyu Wang, and Cong Yan. Comparative efficacy of intratympanic gentamicin and intratympanic corticosteroid in the treatment of meniere’s disease: a systematic review and meta-analysis. Frontiers in Neurology, Sep 2024. URL: https://doi.org/10.3389/fneur.2024.1471010, doi:10.3389/fneur.2024.1471010. This article has 6 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(salvinelli2024selectivevestibularneurectomy pages 1-2): Fabrizio Salvinelli, Francesca Bonifacio, Mara Capece, Denis Aiudi, Alessio Iacoangeli, Fabio Greco, Maurizio Gladi, and Maurizio Iacoangeli. Selective vestibular neurectomy through the presigmoid retrolabyrinthine approach in the treatment of meniere’s disease. Brain Sciences, 14:369, Apr 2024. URL: https://doi.org/10.3390/brainsci14040369, doi:10.3390/brainsci14040369. This article has 3 citations.</p>
+</li>
+<li>
+<p>(NCT05851508 chunk 2): Babette F van Esch, MD, PhD. The Effecttiveness of Intratympanic Methylprednisolon Injections Compared to Placebo in the Treatment of Vertigo Attacks in Meniere's Disease. Leiden University Medical Center. 2023. ClinicalTrials.gov Identifier: NCT05851508</p>
+</li>
+<li>
+<p>(NCT00802529 chunk 1):  Transtympanic Gentamicin vs. Steroids in Refractory Meniere's Disease. Imperial College London. 2009. ClinicalTrials.gov Identifier: NCT00802529</p>
+</li>
+<li>
+<p>(connor2023delayedpostgadolinium pages 8-9): Steve Connor, Mariusz T. Grzeda, Babak Jamshidi, Sebastien Ourselin, Joseph V. Hajnal, and Irumee Pai. Delayed post gadolinium mri descriptors for meniere’s disease: a systematic review and meta-analysis. European Radiology, 33:7113-7135, May 2023. URL: https://doi.org/10.1007/s00330-023-09651-8, doi:10.1007/s00330-023-09651-8. This article has 33 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(young2024potentialapplicationof pages 9-9): Yi-Ho Young and Kao-Tsung Lin. Potential application of hydrops mr imaging: a systematic review. Journal of Otolaryngology - Head &amp; Neck Surgery, Jan 2024. URL: https://doi.org/10.1177/19160216241250350, doi:10.1177/19160216241250350. This article has 12 citations.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </div>
         
 
         <footer class="page-footer">
@@ -4254,7 +6993,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Meniere\u0027s Disease", "mondoId": "MONDO:0007972", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Meniere\u0027s_Disease", "yamlRevision": "3c4a09a7db24"};
+        const OS_CONFIG = {"diseaseName": "Meniere\u0027s Disease", "mondoId": "MONDO:0007972", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Meniere\u0027s_Disease", "yamlRevision": "f259dc9db585"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2415,7 +2568,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 6</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">mesothelial neoplasm</span>
@@ -2574,7 +2727,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">11</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -2629,6 +2782,20 @@
             
             
             
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-value">9</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -2905,20 +3072,6 @@
                 
 	                
 	                
-	                <div class="crosslink-block">
-	                    <div class="crosslink-title">Downstream</div>
-	                    <div class="crosslink-list">
-	                        
-	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">DNA Damage and Genomic Instability</span>
-	                            
-	                            <span class="crosslink-desc">ROS and direct fiber interaction cause DNA strand breaks and chromosomal abnormalities</span>
-	                            
-	                        </div>
-	                        
-	                    </div>
-	                </div>
-	                
 	                
     
     
@@ -3005,20 +3158,6 @@
                 
                 
 	                
-	                
-	                <div class="crosslink-block">
-	                    <div class="crosslink-title">Downstream</div>
-	                    <div class="crosslink-list">
-	                        
-	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Genomic Instability</span>
-	                            
-	                            <span class="crosslink-desc">Loss of BAP1-mediated DNA repair leads to accumulation of genetic alterations</span>
-	                            
-	                        </div>
-	                        
-	                    </div>
-	                </div>
 	                
 	                
     
@@ -3129,20 +3268,6 @@
                 
 	                
 	                
-	                <div class="crosslink-block">
-	                    <div class="crosslink-title">Downstream</div>
-	                    <div class="crosslink-list">
-	                        
-	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">YAP/TAZ Activation</span>
-	                            
-	                            <span class="crosslink-desc">Loss of merlin-mediated growth suppression activates pro-proliferative YAP signaling</span>
-	                            
-	                        </div>
-	                        
-	                    </div>
-	                </div>
-	                
 	                
     
     <details class="evidence-details">
@@ -3252,20 +3377,6 @@
                 
 	                
 	                
-	                <div class="crosslink-block">
-	                    <div class="crosslink-title">Downstream</div>
-	                    <div class="crosslink-list">
-	                        
-	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Cell Cycle Dysregulation</span>
-	                            
-	                            <span class="crosslink-desc">Loss of p16 allows uncontrolled CDK4/6-mediated cell cycle progression</span>
-	                            
-	                        </div>
-	                        
-	                    </div>
-	                </div>
-	                
 	                
     
     <details class="evidence-details">
@@ -3368,22 +3479,6 @@
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
-            <div class="graph-warning">
-                <strong>Referential integrity issues (4):</strong>
-                <ul>
-                    
-                    <li>Target &#39;DNA Damage and Genomic Instability&#39; (from &#39;Asbestos-Induced Mesothelial Injury&#39;) not found in named elements</li>
-                    
-                    <li>Target &#39;Genomic Instability&#39; (from &#39;BAP1 Tumor Suppressor Inactivation&#39;) not found in named elements</li>
-                    
-                    <li>Target &#39;YAP/TAZ Activation&#39; (from &#39;NF2/Merlin Inactivation&#39;) not found in named elements</li>
-                    
-                    <li>Target &#39;Cell Cycle Dysregulation&#39; (from &#39;CDKN2A/p16 Loss&#39;) not found in named elements</li>
-                    
-                    
-                </ul>
-            </div>
-            
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -3394,7 +3489,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Asbestos-Induced Mesothelial Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Asbestos fibers penetrate the mesothelium and induce a cycle of cell death and regeneration. The fibers generate reactive oxygen species (ROS) and reactive nitrogen species that damage DNA, proteins, and lipids. Chronic inflammation driven by frustrated phagocytosis of long fibers promotes ongoing tissue damage and malignant transformation.\", \"meta\": {\"cell_types\": [\"mesothelial cell\"], \"biological_processes\": [\"inflammatory response\", \"response to oxidative stress\"], \"locations\": [\"pleura\"]}}, {\"id\": \"BAP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Germline and Somatic Mutations\"}}, {\"id\": \"BAP1 Tumor Suppressor Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BAP1 (BRCA1-associated protein 1) is a nuclear deubiquitinase that regulates chromatin remodeling, DNA damage response, and cell cycle progression. BAP1 is one of the most frequently inactivated tumor suppressors in mesothelioma, affected through germline or somatic loss-of-function alterations that predispose to malignant transformation. BAP1 loss impairs chromatin regulation and global gene expression control.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"DNA damage response\"], \"molecular_functions\": [\"deubiquitinase activity\"], \"genes\": [\"BAP1\"]}}, {\"id\": \"CDKN2A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Homozygous Deletion\"}}, {\"id\": \"CDKN2A/p16 Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homozygous deletion of CDKN2A, encoding p16INK4a and p14ARF, is one of the most frequent genetic alterations in mesothelioma. Loss of p16 removes CDK4/6 inhibition, promoting cell cycle progression, while p14ARF loss compromises p53 stabilization.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"negative regulation of G1/S transition\"], \"genes\": [\"CDKN2A\"]}}, {\"id\": \"Cell Cycle Dysregulation\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"DNA Damage and Genomic Instability\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Genomic Instability\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"NF2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Somatic Mutations\"}}, {\"id\": \"NF2/Merlin Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The NF2 gene encoding merlin is frequently inactivated in mesothelioma. Merlin loss activates YAP/TAZ signaling through the Hippo pathway, promoting cell proliferation and inhibiting contact-dependent growth arrest.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Hippo signaling\"], \"genes\": [\"NF2\"]}}, {\"id\": \"YAP/TAZ Activation\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}], \"edges\": [{\"source\": \"Asbestos-Induced Mesothelial Injury\", \"target\": \"DNA Damage and Genomic Instability\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"BAP1 Tumor Suppressor Inactivation\", \"target\": \"Genomic Instability\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"NF2/Merlin Inactivation\", \"target\": \"YAP/TAZ Activation\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"CDKN2A/p16 Loss\", \"target\": \"Cell Cycle Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"BAP1\", \"target\": \"BAP1 Tumor Suppressor Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NF2\", \"target\": \"NF2/Merlin Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CDKN2A\", \"target\": \"CDKN2A/p16 Loss\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": [\"Cell Cycle Dysregulation\", \"DNA Damage and Genomic Instability\", \"Genomic Instability\", \"YAP/TAZ Activation\"]}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"BAP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Germline and Somatic Mutations\"}}, {\"id\": \"BAP1 Tumor Suppressor Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BAP1 (BRCA1-associated protein 1) is a nuclear deubiquitinase that regulates chromatin remodeling, DNA damage response, and cell cycle progression. BAP1 is one of the most frequently inactivated tumor suppressors in mesothelioma, affected through germline or somatic loss-of-function alterations that predispose to malignant transformation. BAP1 loss impairs chromatin regulation and global gene expression control.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"DNA damage response\"], \"molecular_functions\": [\"deubiquitinase activity\"], \"genes\": [\"BAP1\"]}}, {\"id\": \"CDKN2A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Homozygous Deletion\"}}, {\"id\": \"CDKN2A/p16 Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homozygous deletion of CDKN2A, encoding p16INK4a and p14ARF, is one of the most frequent genetic alterations in mesothelioma. Loss of p16 removes CDK4/6 inhibition, promoting cell cycle progression, while p14ARF loss compromises p53 stabilization.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"negative regulation of G1/S transition\"], \"genes\": [\"CDKN2A\"]}}, {\"id\": \"NF2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Somatic Mutations\"}}, {\"id\": \"NF2/Merlin Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The NF2 gene encoding merlin is frequently inactivated in mesothelioma. Merlin loss activates YAP/TAZ signaling through the Hippo pathway, promoting cell proliferation and inhibiting contact-dependent growth arrest.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Hippo signaling\"], \"genes\": [\"NF2\"]}}], \"edges\": [{\"source\": \"BAP1\", \"target\": \"BAP1 Tumor Suppressor Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NF2\", \"target\": \"NF2/Merlin Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CDKN2A\", \"target\": \"CDKN2A/p16 Loss\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3797,6 +3892,36 @@
                 
                 
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers15245787" target="_blank">DOI:10.3390/cancers15245787</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Recently, in first-line treatment, immunotherapy combining nivolumab with ipilimumab has been shown to be superior to chemotherapy in the CheckMate-743 study in terms of overall survival (18.1 months), leading to its approval by the FDA and EMA."</div>
+                
+                
+                <div class="evidence-explanation">This review summarizes CheckMate-743 survival benefit and regulatory approval for nivolumab plus ipilimumab in first-line malignant pleural mesothelioma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
             </div>
             
@@ -3978,6 +4103,7 @@
                 </div>
                 
                 
+                
     
     
             </div>
@@ -3987,6 +4113,7 @@
                     BAP1 Immunohistochemistry
                     
                 </div>
+                
                 
                 
     
@@ -4024,7 +4151,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Malignant Mesothelioma
 creation_date: &#39;2026-01-26T02:55:13Z&#39;
-updated_date: &#39;2026-04-22T20:13:21Z&#39;
+updated_date: &#39;2026-05-09T19:42:12Z&#39;
 description: &gt;-
   Malignant mesothelioma is an aggressive cancer arising from mesothelial cells
   lining the pleural, peritoneal, or pericardial cavities. It is strongly associated
@@ -4102,9 +4229,6 @@ pathophysiology:
     term:
       id: UBERON:0000977
       label: pleura
-  downstream:
-  - target: DNA Damage and Genomic Instability
-    description: ROS and direct fiber interaction cause DNA strand breaks and chromosomal abnormalities
 - name: BAP1 Tumor Suppressor Inactivation
   description: &gt;-
     BAP1 (BRCA1-associated protein 1) is a nuclear deubiquitinase that regulates
@@ -4149,9 +4273,6 @@ pathophysiology:
     term:
       id: GO:0006974
       label: DNA damage response
-  downstream:
-  - target: Genomic Instability
-    description: Loss of BAP1-mediated DNA repair leads to accumulation of genetic alterations
 - name: NF2/Merlin Inactivation
   description: &gt;-
     The NF2 gene encoding merlin is frequently inactivated in mesothelioma.
@@ -4188,9 +4309,6 @@ pathophysiology:
     term:
       id: GO:0035329
       label: hippo signaling
-  downstream:
-  - target: YAP/TAZ Activation
-    description: Loss of merlin-mediated growth suppression activates pro-proliferative YAP signaling
 - name: CDKN2A/p16 Loss
   description: &gt;-
     Homozygous deletion of CDKN2A, encoding p16INK4a and p14ARF, is one of the
@@ -4219,9 +4337,6 @@ pathophysiology:
     term:
       id: GO:2000134
       label: negative regulation of G1/S transition of mitotic cell cycle
-  downstream:
-  - target: Cell Cycle Dysregulation
-    description: Loss of p16 allows uncontrolled CDK4/6-mediated cell cycle progression
 histopathology:
 - name: Mesothelial Neoplasm
   finding_term:
@@ -4363,6 +4478,20 @@ treatments:
     term:
       id: NCIT:C15262
       label: Immunotherapy
+  evidence:
+  - reference: DOI:10.3390/cancers15245787
+    reference_title: &#34;Malignant Pleural Mesothelioma: An Update&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Recently, in first-line treatment, immunotherapy combining nivolumab with
+      ipilimumab has been shown to be superior to chemotherapy in the
+      CheckMate-743 study in terms of overall survival (18.1 months), leading to
+      its approval by the FDA and EMA.
+    explanation: &gt;-
+      This review summarizes CheckMate-743 survival benefit and regulatory
+      approval for nivolumab plus ipilimumab in first-line malignant pleural
+      mesothelioma.
 - name: Surgical Resection
   description: &gt;-
     Extended pleurectomy/decortication (EPD) or extrapleural pneumonectomy (EPP)
@@ -4395,11 +4524,1579 @@ classifications:
   harrisons_chapter:
   - classification_value: cancer
   - classification_value: solid tumor
+references:
+- reference: DOI:10.1200/jco-24-02425
+  title: &#39;Treatment of Pleural Mesothelioma: ASCO Guideline Update&#39;
+  found_in:
+  - Malignant_Mesothelioma-deep-research-falcon.md
+  findings:
+  - statement: ASCO Guidelines provide recommendations with comprehensive review and analyses of the relevant literature for each recommendation, following the guideline development process as outlined in the ASCO Guidelines Methodology Manual .
+    supporting_text: ASCO Guidelines provide recommendations with comprehensive review and analyses of the relevant literature for each recommendation, following the guideline development process as outlined in the ASCO Guidelines Methodology Manual .
+    evidence:
+    - reference: DOI:10.1200/jco-24-02425
+      reference_title: &#39;Treatment of Pleural Mesothelioma: ASCO Guideline Update&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: ASCO Guidelines provide recommendations with comprehensive review and analyses of the relevant literature for each recommendation, following the guideline development process as outlined in the ASCO Guidelines Methodology Manual .
+      explanation: Deep research cited this publication as relevant literature for Malignant Mesothelioma.
+- reference: DOI:10.3390/cancers15245787
+  title: Current State-of-the-Art Therapy for Malignant Pleural Mesothelioma and Future Options Centered on Immunotherapy
+  found_in:
+  - Malignant_Mesothelioma-deep-research-falcon.md
+  findings:
+  - statement: Malignant pleural mesothelioma (MPM) is a locally aggressive disease related to asbestos exposure with a median survival for untreated patients of 4–8 months.
+    supporting_text: Malignant pleural mesothelioma (MPM) is a locally aggressive disease related to asbestos exposure with a median survival for untreated patients of 4–8 months.
+    evidence:
+    - reference: DOI:10.3390/cancers15245787
+      reference_title: Current State-of-the-Art Therapy for Malignant Pleural Mesothelioma and Future Options Centered on Immunotherapy
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Malignant pleural mesothelioma (MPM) is a locally aggressive disease related to asbestos exposure with a median survival for untreated patients of 4–8 months.
+      explanation: Deep research cited this publication as relevant literature for Malignant Mesothelioma.
+- reference: DOI:10.3390/cancers15245808
+  title: The Current Treatment Landscape of Malignant Pleural Mesothelioma and Future Directions
+  found_in:
+  - Malignant_Mesothelioma-deep-research-falcon.md
+  findings:
+  - statement: The incidence of malignant pleural mesothelioma is expected to increase globally.
+    supporting_text: The incidence of malignant pleural mesothelioma is expected to increase globally.
+    evidence:
+    - reference: DOI:10.3390/cancers15245808
+      reference_title: The Current Treatment Landscape of Malignant Pleural Mesothelioma and Future Directions
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The incidence of malignant pleural mesothelioma is expected to increase globally.
+      explanation: Deep research cited this publication as relevant literature for Malignant Mesothelioma.
+- reference: DOI:10.3390/cancers17193199
+  title: &#39;Perioperative Treatments in Pleural Mesothelioma: State of the Art and Future Directions&#39;
+  found_in:
+  - Malignant_Mesothelioma-deep-research-falcon.md
+  findings:
+  - statement: Pleural Mesothelioma (PM) remains a challenging malignancy associated with asbestos exposure and characterized by poor prognosis.
+    supporting_text: Pleural Mesothelioma (PM) remains a challenging malignancy associated with asbestos exposure and characterized by poor prognosis.
+    evidence:
+    - reference: DOI:10.3390/cancers17193199
+      reference_title: &#39;Perioperative Treatments in Pleural Mesothelioma: State of the Art and Future Directions&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Pleural Mesothelioma (PM) remains a challenging malignancy associated with asbestos exposure and characterized by poor prognosis.
+      explanation: Deep research cited this publication as relevant literature for Malignant Mesothelioma.
+- reference: DOI:10.3390/diagnostics15111323
+  title: &#39;Molecular Insights into Pleural Mesothelioma: Unveiling Pathogenic Mechanisms and Therapeutic Opportunities&#39;
+  found_in:
+  - Malignant_Mesothelioma-deep-research-falcon.md
+  findings:
+  - statement: Pleural mesothelioma (PM) is a rare disease, which is going to be a global medical concern in the 21st century, because of its aggressiveness, late diagnosis, and insufficient therapies.
+    supporting_text: Pleural mesothelioma (PM) is a rare disease, which is going to be a global medical concern in the 21st century, because of its aggressiveness, late diagnosis, and insufficient therapies.
+    evidence:
+    - reference: DOI:10.3390/diagnostics15111323
+      reference_title: &#39;Molecular Insights into Pleural Mesothelioma: Unveiling Pathogenic Mechanisms and Therapeutic Opportunities&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Pleural mesothelioma (PM) is a rare disease, which is going to be a global medical concern in the 21st century, because of its aggressiveness, late diagnosis, and insufficient therapies.
+      explanation: Deep research cited this publication as relevant literature for Malignant Mesothelioma.
+- reference: DOI:10.3390/ijms251910861
+  title: &#39;Immunotherapy for Treatment of Pleural Mesothelioma: Current and Emerging Therapeutic Strategies&#39;
+  found_in:
+  - Malignant_Mesothelioma-deep-research-falcon.md
+  findings:
+  - statement: Pleural mesothelioma is a rare malignancy associated with asbestos exposure and very poor prognosis, with a 5-year overall survival of 12%.
+    supporting_text: Pleural mesothelioma is a rare malignancy associated with asbestos exposure and very poor prognosis, with a 5-year overall survival of 12%.
+    evidence:
+    - reference: DOI:10.3390/ijms251910861
+      reference_title: &#39;Immunotherapy for Treatment of Pleural Mesothelioma: Current and Emerging Therapeutic Strategies&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Pleural mesothelioma is a rare malignancy associated with asbestos exposure and very poor prognosis, with a 5-year overall survival of 12%.
+      explanation: Deep research cited this publication as relevant literature for Malignant Mesothelioma.
+- reference: DOI:10.3390/jcm13195837
+  title: &#39;Malignant Pleural Mesothelioma: A Comprehensive Review&#39;
+  found_in:
+  - Malignant_Mesothelioma-deep-research-falcon.md
+  findings:
+  - statement: Mesotheliomas are hyperplastic tumors that envelop the serosal membranes that safeguard the body’s external surfaces.
+    supporting_text: Mesotheliomas are hyperplastic tumors that envelop the serosal membranes that safeguard the body’s external surfaces.
+    evidence:
+    - reference: DOI:10.3390/jcm13195837
+      reference_title: &#39;Malignant Pleural Mesothelioma: A Comprehensive Review&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Mesotheliomas are hyperplastic tumors that envelop the serosal membranes that safeguard the body’s external surfaces.
+      explanation: Deep research cited this publication as relevant literature for Malignant Mesothelioma.
+- reference: DOI:10.5603/ocp.100725
+  title: Diagnosis and treatment of pleural mesothelioma. State of the art 2024
+  found_in:
+  - Malignant_Mesothelioma-deep-research-falcon.md
+  findings:
+  - statement: Diagnosis and treatment of pleural mesothelioma. State of the art 2024
+    supporting_text: Diagnosis and treatment of pleural mesothelioma. State of the art 2024
+- reference: DOI:10.6004/jnccn.2023.0045
+  title: &#39;Mesothelioma: Peritoneal, Version 2.2023, NCCN Clinical Practice Guidelines in Oncology&#39;
+  found_in:
+  - Malignant_Mesothelioma-deep-research-falcon.md
+  findings:
+  - statement: Mesothelioma is a rare cancer originating in mesothelial surfaces of the peritoneum, pleura, and other sites.
+    supporting_text: Mesothelioma is a rare cancer originating in mesothelial surfaces of the peritoneum, pleura, and other sites.
+    evidence:
+    - reference: DOI:10.6004/jnccn.2023.0045
+      reference_title: &#39;Mesothelioma: Peritoneal, Version 2.2023, NCCN Clinical Practice Guidelines in Oncology&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Mesothelioma is a rare cancer originating in mesothelial surfaces of the peritoneum, pleura, and other sites.
+      explanation: Deep research cited this publication as relevant literature for Malignant Mesothelioma.
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
+        
+        <div class="card reference-card" id="references-deep-research">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+            
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">9</span>
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1200/jco-24-02425" target="_blank">DOI:10.1200/jco-24-02425</a>
+                            </div>
+                            
+                            <div class="reference-title">Treatment of Pleural Mesothelioma: ASCO Guideline Update</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">ASCO Guidelines provide recommendations with comprehensive review and analyses of the relevant literature for each recommendation, following the guideline development process as outlined in the ASCO Guidelines Methodology Manual .</div>
+            
+            
+            <div class="reference-finding-supporting">"ASCO Guidelines provide recommendations with comprehensive review and analyses of the relevant literature for each recommendation, following the guideline development process as outlined in the ASCO Guidelines Methodology Manual ."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1200/jco-24-02425" target="_blank">DOI:10.1200/jco-24-02425</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"ASCO Guidelines provide recommendations with comprehensive review and analyses of the relevant literature for each recommendation, following the guideline development process as outlined in the ASCO Guidelines Methodology Manual ."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Malignant Mesothelioma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/cancers15245787" target="_blank">DOI:10.3390/cancers15245787</a>
+                            </div>
+                            
+                            <div class="reference-title">Current State-of-the-Art Therapy for Malignant Pleural Mesothelioma and Future Options Centered on Immunotherapy</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Malignant pleural mesothelioma (MPM) is a locally aggressive disease related to asbestos exposure with a median survival for untreated patients of 4–8 months.</div>
+            
+            
+            <div class="reference-finding-supporting">"Malignant pleural mesothelioma (MPM) is a locally aggressive disease related to asbestos exposure with a median survival for untreated patients of 4–8 months."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers15245787" target="_blank">DOI:10.3390/cancers15245787</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Malignant pleural mesothelioma (MPM) is a locally aggressive disease related to asbestos exposure with a median survival for untreated patients of 4–8 months."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Malignant Mesothelioma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/cancers15245808" target="_blank">DOI:10.3390/cancers15245808</a>
+                            </div>
+                            
+                            <div class="reference-title">The Current Treatment Landscape of Malignant Pleural Mesothelioma and Future Directions</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The incidence of malignant pleural mesothelioma is expected to increase globally.</div>
+            
+            
+            <div class="reference-finding-supporting">"The incidence of malignant pleural mesothelioma is expected to increase globally."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers15245808" target="_blank">DOI:10.3390/cancers15245808</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The incidence of malignant pleural mesothelioma is expected to increase globally."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Malignant Mesothelioma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/cancers17193199" target="_blank">DOI:10.3390/cancers17193199</a>
+                            </div>
+                            
+                            <div class="reference-title">Perioperative Treatments in Pleural Mesothelioma: State of the Art and Future Directions</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Pleural Mesothelioma (PM) remains a challenging malignancy associated with asbestos exposure and characterized by poor prognosis.</div>
+            
+            
+            <div class="reference-finding-supporting">"Pleural Mesothelioma (PM) remains a challenging malignancy associated with asbestos exposure and characterized by poor prognosis."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers17193199" target="_blank">DOI:10.3390/cancers17193199</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Pleural Mesothelioma (PM) remains a challenging malignancy associated with asbestos exposure and characterized by poor prognosis."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Malignant Mesothelioma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/diagnostics15111323" target="_blank">DOI:10.3390/diagnostics15111323</a>
+                            </div>
+                            
+                            <div class="reference-title">Molecular Insights into Pleural Mesothelioma: Unveiling Pathogenic Mechanisms and Therapeutic Opportunities</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Pleural mesothelioma (PM) is a rare disease, which is going to be a global medical concern in the 21st century, because of its aggressiveness, late diagnosis, and insufficient therapies.</div>
+            
+            
+            <div class="reference-finding-supporting">"Pleural mesothelioma (PM) is a rare disease, which is going to be a global medical concern in the 21st century, because of its aggressiveness, late diagnosis, and insufficient therapies."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/diagnostics15111323" target="_blank">DOI:10.3390/diagnostics15111323</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Pleural mesothelioma (PM) is a rare disease, which is going to be a global medical concern in the 21st century, because of its aggressiveness, late diagnosis, and insufficient therapies."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Malignant Mesothelioma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/ijms251910861" target="_blank">DOI:10.3390/ijms251910861</a>
+                            </div>
+                            
+                            <div class="reference-title">Immunotherapy for Treatment of Pleural Mesothelioma: Current and Emerging Therapeutic Strategies</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Pleural mesothelioma is a rare malignancy associated with asbestos exposure and very poor prognosis, with a 5-year overall survival of 12%.</div>
+            
+            
+            <div class="reference-finding-supporting">"Pleural mesothelioma is a rare malignancy associated with asbestos exposure and very poor prognosis, with a 5-year overall survival of 12%."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/ijms251910861" target="_blank">DOI:10.3390/ijms251910861</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Pleural mesothelioma is a rare malignancy associated with asbestos exposure and very poor prognosis, with a 5-year overall survival of 12%."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Malignant Mesothelioma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/jcm13195837" target="_blank">DOI:10.3390/jcm13195837</a>
+                            </div>
+                            
+                            <div class="reference-title">Malignant Pleural Mesothelioma: A Comprehensive Review</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Mesotheliomas are hyperplastic tumors that envelop the serosal membranes that safeguard the body’s external surfaces.</div>
+            
+            
+            <div class="reference-finding-supporting">"Mesotheliomas are hyperplastic tumors that envelop the serosal membranes that safeguard the body’s external surfaces."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/jcm13195837" target="_blank">DOI:10.3390/jcm13195837</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Mesotheliomas are hyperplastic tumors that envelop the serosal membranes that safeguard the body’s external surfaces."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Malignant Mesothelioma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.5603/ocp.100725" target="_blank">DOI:10.5603/ocp.100725</a>
+                            </div>
+                            
+                            <div class="reference-title">Diagnosis and treatment of pleural mesothelioma. State of the art 2024</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Diagnosis and treatment of pleural mesothelioma. State of the art 2024</div>
+            
+            
+            <div class="reference-finding-supporting">"Diagnosis and treatment of pleural mesothelioma. State of the art 2024"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.6004/jnccn.2023.0045" target="_blank">DOI:10.6004/jnccn.2023.0045</a>
+                            </div>
+                            
+                            <div class="reference-title">Mesothelioma: Peritoneal, Version 2.2023, NCCN Clinical Practice Guidelines in Oncology</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Mesothelioma is a rare cancer originating in mesothelial surfaces of the peritoneum, pleura, and other sites.</div>
+            
+            
+            <div class="reference-finding-supporting">"Mesothelioma is a rare cancer originating in mesothelial surfaces of the peritoneum, pleura, and other sites."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.6004/jnccn.2023.0045" target="_blank">DOI:10.6004/jnccn.2023.0045</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Mesothelioma is a rare cancer originating in mesothelial surfaces of the peritoneum, pleura, and other sites."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Malignant Mesothelioma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">1. Disease Information</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">29 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-09T11:54:45.275481</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <h2>1. Disease Information</h2>
+<h3>1.1 Definition and overview</h3>
+<ul>
+<li><strong>Definition:</strong> MM is a malignant tumor arising from mesothelial lining cells of serosal membranes (pleura most commonly; also peritoneum and other sites). (zahiu2025molecularinsightsinto pages 1-2, ettinger2023mesotheliomaperitonealversion pages 1-2)</li>
+<li><strong>Site distribution:</strong> Pleura is affected in <strong>~80–85%</strong> of cases; peritoneum is less common. (zahiu2025molecularinsightsinto pages 1-2)</li>
+<li><strong>Terminology evolution:</strong> NCCN notes that the term <strong>“malignant” is no longer used to classify mesotheliomas because all mesotheliomas are now defined as malignant</strong>. (ettinger2023mesotheliomaperitonealversion pages 1-2)</li>
+</ul>
+<h3>1.2 Key identifiers (ontology/coding)</h3>
+<p>The retrieved full texts did <strong>not</strong> contain MONDO/MeSH/ICD/Orphanet codes. These should be populated directly from those terminology resources.
+- <strong>MONDO:</strong> not found in retrieved sources (zahiu2025molecularinsightsinto pages 1-2, ettinger2023mesotheliomaperitonealversion pages 1-2)
+- <strong>MeSH:</strong> not found in retrieved sources (zahiu2025molecularinsightsinto pages 1-2, ettinger2023mesotheliomaperitonealversion pages 1-2)
+- <strong>ICD-10 / ICD-11:</strong> not found in retrieved sources (zahiu2025molecularinsightsinto pages 1-2, ettinger2023mesotheliomaperitonealversion pages 1-2)
+- <strong>Orphanet:</strong> not found in retrieved sources (zahiu2025molecularinsightsinto pages 1-2, ettinger2023mesotheliomaperitonealversion pages 1-2)</p>
+<h3>1.3 Synonyms / alternative names (common in practice)</h3>
+<ul>
+<li>“Malignant pleural mesothelioma (MPM)” (cedres2023currentstateofthearttherapy pages 1-2, jain2024malignantpleuralmesothelioma pages 1-2)</li>
+<li>“Pleural mesothelioma (PM)” (lewandowska2024diagnosisandtreatment pages 1-2)</li>
+<li>“Peritoneal mesothelioma (PeM)” (ettinger2023mesotheliomaperitonealversion pages 1-2)</li>
+</ul>
+<h3>1.4 Evidence provenance (patient-level vs aggregated)</h3>
+<ul>
+<li>The information summarized here is primarily from <strong>aggregated disease-level resources</strong>: narrative/systematic reviews and clinical practice guidelines, as well as registry-based epidemiology. (cedres2023currentstateofthearttherapy pages 1-2, chiec2024immunotherapyfortreatment pages 1-2, jain2024malignantpleuralmesothelioma pages 1-2, bertin2023thecurrenttreatment pages 1-2, lewandowska2024diagnosisandtreatment pages 1-2, ettinger2023mesotheliomaperitonealversion pages 1-2, OpenTargets Search: malignant mesothelioma,malignant pleural mesothelioma)</li>
+</ul>
+<hr />
+<h2>2. Etiology</h2>
+<h3>2.1 Primary causal factors</h3>
+<p><strong>Environmental/occupational exposure</strong>
+- Asbestos exposure is repeatedly identified as the dominant causal factor for pleural mesothelioma, with some reviews stating <strong>&gt;80%</strong> of pleural cases are linked to asbestos. (bertin2023thecurrenttreatment pages 1-2, cedres2023currentstateofthearttherapy pages 1-2)
+- A dose–response relationship is emphasized in pleural mesothelioma: cumulative exposure, duration, and long latency increase risk. (zahiu2025molecularinsightsinto pages 1-2)</p>
+<p><strong>Genetic predisposition</strong>
+- <strong>Germline BAP1</strong> pathogenic variants are highlighted as an important inherited risk factor; ASCO notes mesothelioma patients “often have germline mutations, most commonly in…BAP1,” supporting offering germline testing broadly. (kindler2025treatmentofpleural pages 2-3)</p>
+<h3>2.2 Risk factors (genetic + environmental)</h3>
+<ul>
+<li><strong>Environmental:</strong> inhalational asbestos exposure with latency often <strong>15–40 years</strong> (reported for pleural mesothelioma). (chiec2024immunotherapyfortreatment pages 1-2)</li>
+<li><strong>Demographic:</strong> male predominance (~70% male in one 2025 review summary; similar directionality in other sources). (zahiu2025molecularinsightsinto pages 1-2)</li>
+<li><strong>Histology and stage</strong> influence prognosis and are part of risk stratification rather than causal risk (epithelioid vs sarcomatoid). (chiec2024immunotherapyfortreatment pages 1-2, lewandowska2024diagnosisandtreatment pages 1-2)</li>
+</ul>
+<h3>2.3 Protective factors</h3>
+<p>No protective genetic or environmental factors were explicitly identified in the retrieved sources.</p>
+<h3>2.4 Gene–environment interaction</h3>
+<p>A clinically important interaction is suggested by the co-occurrence of strong environmental exposure (asbestos) with genetic susceptibility (BAP1). While detailed gene–environment quantitative interaction models were not present in the retrieved excerpts, the guideline-level emphasis on universal germline testing implies that inherited susceptibility can meaningfully alter risk and counseling, especially in asbestos-exposed populations. (kindler2025treatmentofpleural pages 2-3, lewandowska2024diagnosisandtreatment pages 1-2)</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>3.1 Key symptoms/signs (with suggested HPO mapping)</h3>
+<p>Common pleural presentations include dyspnea, pleural effusion, chest pain, cough, and weight loss. Jain et al. (2024) reports <strong>pleural effusion in ~90%</strong> of patients and lists dyspnea, chest pain, cough, weight loss, and chest wall masses as common presenting features. (jain2024malignantpleuralmesothelioma pages 1-2)</p>
+<table>
+<thead>
+<tr>
+<th>Phenotype (plain language)</th>
+<th>Suggested HPO term label</th>
+<th>HPO ID</th>
+<th>Frequency/notes</th>
+<th>Typical context (pleural vs peritoneal)</th>
+<th>Evidence type (human clinical/review)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Shortness of breath / dyspnea</td>
+<td>Dyspnea</td>
+<td></td>
+<td>Common presenting symptom; reported among common features and in one review as part of symptoms occurring in ~90% with pain</td>
+<td>Pleural</td>
+<td>Human clinical/review (jain2024malignantpleuralmesothelioma pages 1-2, tyagi2024germlinebap1mutation pages 14-17)</td>
+</tr>
+<tr>
+<td>Pleural effusion</td>
+<td>Pleural effusion</td>
+<td></td>
+<td>~90% of patients in one review; right-sided in ~60% in another source</td>
+<td>Pleural</td>
+<td>Human clinical/review (jain2024malignantpleuralmesothelioma pages 1-2, tyagi2024germlinebap1mutation pages 14-17)</td>
+</tr>
+<tr>
+<td>Chest pain / chest wall pain</td>
+<td>Chest pain</td>
+<td></td>
+<td>Common; grouped with dyspnea/pain among major presenting symptoms; adverse prognostic factor in one source</td>
+<td>Pleural</td>
+<td>Human clinical/review (jain2024malignantpleuralmesothelioma pages 1-2, tyagi2024germlinebap1mutation pages 14-17, tyagi2024germlinebap1mutation pages 11-14)</td>
+</tr>
+<tr>
+<td>Cough</td>
+<td>Cough</td>
+<td></td>
+<td>Common presenting symptom; can be unproductive in pleural mesothelioma</td>
+<td>Pleural</td>
+<td>Human clinical/review (jain2024malignantpleuralmesothelioma pages 1-2, tyagi2024germlinebap1mutation pages 11-14, tyagi2024germlinebap1mutation pages 14-17)</td>
+</tr>
+<tr>
+<td>Weight loss</td>
+<td>Weight loss</td>
+<td></td>
+<td>Common presenting feature</td>
+<td>Pleural</td>
+<td>Human clinical/review (jain2024malignantpleuralmesothelioma pages 1-2)</td>
+</tr>
+<tr>
+<td>Chest wall mass</td>
+<td>Thoracic mass</td>
+<td></td>
+<td>Reported as a presenting manifestation</td>
+<td>Pleural</td>
+<td>Human clinical/review (jain2024malignantpleuralmesothelioma pages 1-2)</td>
+</tr>
+<tr>
+<td>Abdominal distension</td>
+<td>Abdominal distension</td>
+<td></td>
+<td>Reported for peritoneal mesothelioma presentations</td>
+<td>Peritoneal</td>
+<td>Human clinical/review (tyagi2024germlinebap1mutation pages 14-17)</td>
+</tr>
+<tr>
+<td>Abdominal pain</td>
+<td>Abdominal pain</td>
+<td></td>
+<td>Reported for peritoneal mesothelioma presentations</td>
+<td>Peritoneal</td>
+<td>Human clinical/review (tyagi2024germlinebap1mutation pages 14-17)</td>
+</tr>
+<tr>
+<td>Disseminated malignant process at diagnosis</td>
+<td>Neoplasm of the pleura</td>
+<td></td>
+<td>Often disseminated at diagnosis because of long latency and late presentation</td>
+<td>Mainly pleural</td>
+<td>Human clinical/review (lewandowska2024diagnosisandtreatment pages 1-2)</td>
+</tr>
+<tr>
+<td>Poor performance status / functional decline</td>
+<td>Reduced performance status</td>
+<td></td>
+<td>Reported as a negative prognostic feature rather than a diagnostic symptom</td>
+<td>Pleural/peritoneal</td>
+<td>Human clinical/review (lewandowska2024diagnosisandtreatment pages 1-2, tyagi2024germlinebap1mutation pages 11-14)</td>
+</tr>
+<tr>
+<td>Hyperleukocytosis / elevated white blood cell count</td>
+<td>Leukocytosis</td>
+<td></td>
+<td>Negative prognostic factor; one source specifies WBC ≥8.3×10^9/L</td>
+<td>Pleural/peritoneal</td>
+<td>Human clinical/review (lewandowska2024diagnosisandtreatment pages 1-2, tyagi2024germlinebap1mutation pages 11-14)</td>
+</tr>
+<tr>
+<td>Elevated C-reactive protein</td>
+<td>Increased circulating C-reactive protein concentration</td>
+<td></td>
+<td>Negative prognostic factor in pleural mesothelioma</td>
+<td>Pleural</td>
+<td>Human clinical/review (lewandowska2024diagnosisandtreatment pages 1-2)</td>
+</tr>
+<tr>
+<td>Thrombocytosis</td>
+<td>Thrombocytosis</td>
+<td></td>
+<td>Negative prognostic factor; one source specifies platelet count &gt;400,000/µL</td>
+<td>Pleural/peritoneal</td>
+<td>Human clinical/review (tyagi2024germlinebap1mutation pages 11-14, tyagi2024germlinebap1mutation pages 14-17)</td>
+</tr>
+<tr>
+<td>Elevated lactate dehydrogenase</td>
+<td>Increased circulating lactate dehydrogenase concentration</td>
+<td></td>
+<td>Negative prognostic factor; one source specifies LDH &gt;500 IU/L</td>
+<td>Pleural/peritoneal</td>
+<td>Human clinical/review (tyagi2024germlinebap1mutation pages 11-14, tyagi2024germlinebap1mutation pages 14-17)</td>
+</tr>
+<tr>
+<td>Low hemoglobin / anemia</td>
+<td>Anemia</td>
+<td></td>
+<td>Reported as a poor prognostic feature in one source</td>
+<td>Pleural/peritoneal</td>
+<td>Human clinical/review (tyagi2024germlinebap1mutation pages 14-17)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes key clinical symptoms, signs, and laboratory abnormalities reported in the retrieved mesothelioma sources, organized by likely HPO mapping and disease context. It is useful for populating phenotype fields in a disease knowledge base while retaining source-linked evidence.</em></p>
+<h3>3.2 Onset, severity, progression</h3>
+<ul>
+<li><strong>Latency/onset:</strong> symptom onset often occurs decades after exposure; latency estimates include <strong>15–40 years</strong> (pleural; Chiec 2024), <strong>~30 years on average</strong> (Lewandowska 2024), and <strong>10–50 years</strong> (Jain 2024). (chiec2024immunotherapyfortreatment pages 1-2, lewandowska2024diagnosisandtreatment pages 1-2, jain2024malignantpleuralmesothelioma pages 1-2)</li>
+<li><strong>Progression:</strong> typically insidious with frequent late-stage dissemination at diagnosis. (lewandowska2024diagnosisandtreatment pages 1-2)</li>
+</ul>
+<h3>3.3 Quality of life impact</h3>
+<p>The ASCO guideline update indicates that quality-of-life domains were key outcomes in trials informing recommendations, and that in MARS2 multiple QOL domains favored chemotherapy alone versus surgery + chemo in a randomized comparison. (kindler2025treatmentofpleural pages 3-5)</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<h3>4.1 Key genes and alterations (current consensus)</h3>
+<p>Mesothelioma genomic landscapes are dominated by <strong>tumor suppressor loss-of-function</strong> rather than recurrent activating oncogenes.
+- Commonly altered genes cited in recent reviews include <strong>BAP1, CDKN2A, NF2</strong>. (cedres2023currentstateofthearttherapy pages 1-2, jain2024malignantpleuralmesothelioma pages 1-2, bertin2023thecurrenttreatment pages 1-2)
+- OpenTargets disease–target association evidence also links MM/MPM with <strong>WT1, BAP1, CDKN2A, SETD2, TP53, LATS1/2, PDCD1</strong>, among others, reflecting both diagnostic markers and therapeutic target biology. (OpenTargets Search: malignant mesothelioma,malignant pleural mesothelioma)</p>
+<h3>4.2 Somatic vs germline</h3>
+<ul>
+<li><strong>Germline:</strong> BAP1 is emphasized as a recurrent germline predisposition gene; ASCO highlights germline mutation prevalence as clinically relevant and supports offering germline testing broadly. (kindler2025treatmentofpleural pages 2-3)</li>
+<li><strong>Somatic:</strong> BAP1, CDKN2A, NF2 recurrently altered in tumor tissue. (cedres2023currentstateofthearttherapy pages 1-2, jain2024malignantpleuralmesothelioma pages 1-2)</li>
+</ul>
+<h3>4.3 Diagnostic molecular pathology markers</h3>
+<ul>
+<li><strong>BAP1 IHC:</strong> loss of nuclear expression is a key marker; one 2024 review notes BAP1 loss by IHC in <strong>~70% of epithelioid</strong> pleural mesotheliomas. (chiec2024immunotherapyfortreatment pages 1-2)</li>
+<li><strong>CDKN2A (p16) deletion:</strong> FISH for p16/CDKN2A deletion is described as a gold-standard ancillary diagnostic approach; MTAP is discussed as a practical surrogate. (zahiu2025molecularinsightsinto pages 1-2, chiec2024immunotherapyfortreatment pages 1-2)</li>
+<li><strong>MTAP IHC surrogate:</strong> MTAP loss described as an “almost ideal surrogate” for p16/CDKN2A deletion testing. (zahiu2025molecularinsightsinto pages 1-2)</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Gene/marker</th>
+<th>Alteration type (somatic/germline; LOF/deletion etc.)</th>
+<th>Clinical use (diagnosis/prognosis/therapy selection)</th>
+<th>Assay (IHC/FISH/seq)</th>
+<th>Notes</th>
+<th>Key citation (author year, PMID if given in context—otherwise leave blank)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>BAP1</strong></td>
+<td>Frequent loss/inactivation; tumor suppressor alteration; includes <strong>germline</strong> pathogenic variants and <strong>somatic</strong> loss</td>
+<td>Diagnosis, hereditary risk assessment, prognosis</td>
+<td>IHC; sequencing</td>
+<td>Loss of nuclear BAP1 expression is highlighted as a key diagnostic marker; ~70% of epithelioid pleural mesotheliomas show BAP1 loss by IHC; germline BAP1 is associated with younger age and better prognosis in some series; ASCO notes mesothelioma often has germline mutations, most commonly <strong>BAP1</strong>, supporting routine germline testing discussions (chiec2024immunotherapyfortreatment pages 1-2, lewandowska2024diagnosisandtreatment pages 1-2, kindler2025treatmentofpleural pages 2-3)</td>
+<td>Chiec 2024; Lewandowska 2024; Kindler 2025</td>
+</tr>
+<tr>
+<td><strong>MTAP</strong></td>
+<td>Loss, often reflecting adjacent <strong>CDKN2A</strong> deletion biology</td>
+<td>Diagnosis</td>
+<td>IHC</td>
+<td>MTAP loss is described as an almost ideal surrogate for gold-standard <strong>p16/CDKN2A FISH</strong> deletion testing; especially useful when tissue is limited (zahiu2025molecularinsightsinto pages 1-2, chiec2024immunotherapyfortreatment pages 1-2)</td>
+<td>Zahiu 2025; Chiec 2024</td>
+</tr>
+<tr>
+<td><strong>CDKN2A / p16</strong></td>
+<td>Homozygous deletion; recurrent chromosomal loss at 9p21</td>
+<td>Diagnosis; adverse biology/prognostic context</td>
+<td>FISH; MTAP IHC surrogate</td>
+<td>&gt;90% of sarcomatoid pleural mesotheliomas reportedly have <strong>CDKN2A homozygous deletion or MTAP loss</strong>; p16/CDKN2A FISH is treated as the gold-standard ancillary diagnostic approach in retrieved sources (chiec2024immunotherapyfortreatment pages 1-2, zahiu2025molecularinsightsinto pages 1-2, tyagi2024germlinebap1mutation pages 14-17)</td>
+<td>Chiec 2024; Zahiu 2025</td>
+</tr>
+<tr>
+<td><strong>NF2</strong></td>
+<td>Recurrent tumor suppressor loss/inactivation</td>
+<td>Molecular characterization; prognostic/biologic relevance</td>
+<td>Sequencing</td>
+<td>One of the most frequently altered genes in pleural mesothelioma; part of the recurrent chromosome 22q loss pattern described in reviews (cedres2023currentstateofthearttherapy pages 1-2, jain2024malignantpleuralmesothelioma pages 1-2, tyagi2024germlinebap1mutation pages 14-17, OpenTargets Search: malignant mesothelioma,malignant pleural mesothelioma)</td>
+<td>Cedres 2023; Jain 2024</td>
+</tr>
+<tr>
+<td><strong>TP53</strong></td>
+<td>Tumor suppressor alteration (subset)</td>
+<td>Molecular characterization</td>
+<td>Sequencing</td>
+<td>Listed among recurrently altered genes/targets in disease-target evidence; less emphasized diagnostically than BAP1/MTAP/CDKN2A in retrieved context (OpenTargets Search: malignant mesothelioma,malignant pleural mesothelioma)</td>
+<td>Open Targets context</td>
+</tr>
+<tr>
+<td><strong>SETD2</strong></td>
+<td>Tumor suppressor / epigenetic regulator alteration</td>
+<td>Molecular characterization</td>
+<td>Sequencing</td>
+<td>Included among associated targets in disease-target evidence and recent mesothelioma molecular reviews; supports chromatin dysregulation theme (OpenTargets Search: malignant mesothelioma,malignant pleural mesothelioma)</td>
+<td>Open Targets context</td>
+</tr>
+<tr>
+<td><strong>LATS1 / LATS2</strong></td>
+<td>Tumor suppressor loss/inactivation</td>
+<td>Molecular characterization</td>
+<td>Sequencing</td>
+<td>Included in disease-target associations and reflects Hippo pathway disruption noted in mesothelioma molecular landscapes (OpenTargets Search: malignant mesothelioma,malignant pleural mesothelioma)</td>
+<td>Open Targets context</td>
+</tr>
+<tr>
+<td><strong>WT1</strong></td>
+<td>Disease-associated marker/target (not framed here as recurrent genomic driver)</td>
+<td>Diagnostic immunophenotyping context; disease association</td>
+<td>IHC (typical clinical use), not specified in retrieved text</td>
+<td>Open Targets lists WT1 among associated targets for malignant mesothelioma; retrieved context does not provide detailed assay-performance claims for this report (OpenTargets Search: malignant mesothelioma,malignant pleural mesothelioma)</td>
+<td>Open Targets context</td>
+</tr>
+<tr>
+<td><strong>PD-L1</strong></td>
+<td>Protein expression biomarker</td>
+<td>Prognosis; possible therapy-response exploration</td>
+<td>IHC</td>
+<td>PD-L1 expression occurs in ~20–40% of patients and is associated with poorer prognosis, but predictive value for immunotherapy response remains unconfirmed in retrieved reviews (cedres2023currentstateofthearttherapy pages 1-2)</td>
+<td>Cedres 2023</td>
+</tr>
+<tr>
+<td><strong>Tumor mutational burden (TMB)</strong></td>
+<td>Generally low genomic mutation burden</td>
+<td>Therapy-selection research biomarker</td>
+<td>NGS / sequencing</td>
+<td>Pleural mesothelioma is described as having low TMB, often &lt;2 nonsynonymous mutations/Mb in most samples, contributing to biomarker challenges for immunotherapy (chiec2024immunotherapyfortreatment pages 1-2, bertin2023thecurrenttreatment pages 1-2)</td>
+<td>Chiec 2024; Bertin 2023</td>
+</tr>
+<tr>
+<td><strong>BAP1 + MTAP panel</strong></td>
+<td>Combined loss-marker strategy</td>
+<td>Diagnostic refinement / cost-effectiveness</td>
+<td>IHC panel</td>
+<td>Recent review emphasizes combined BAP1 and MTAP IHC as a practical, cost-effective adjunct for difficult mesothelioma diagnosis (zahiu2025molecularinsightsinto pages 17-19)</td>
+<td>Zahiu 2025</td>
+</tr>
+<tr>
+<td><strong>Broad germline cancer predisposition testing</strong></td>
+<td>Germline pathogenic variants, especially <strong>BAP1</strong></td>
+<td>Hereditary cancer risk assessment; family counseling; prognosis</td>
+<td>Germline sequencing / panel testing</td>
+<td>ASCO update states mesothelioma patients often harbor germline mutations, most commonly BAP1, and notes universal germline testing should be offered; this is a current implementation-oriented recommendation rather than a single-marker assay claim (kindler2025treatmentofpleural pages 2-3)</td>
+<td>Kindler 2025</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes the key molecular and diagnostic markers for mesothelioma retrieved from the available context, including their alteration types, clinical uses, and typical assays. It is useful for knowledge-base population because it distinguishes diagnostic markers from broader molecular features and hereditary risk genes.</em></p>
+<h3>4.4 Tumor immune microenvironment / biomarkers</h3>
+<ul>
+<li>The pleural mesothelioma microenvironment is described as relatively immunosuppressive, and PD-L1 expression occurs in <strong>~20–40%</strong> of patients and is associated with worse prognosis, though predictive value for immunotherapy response remains unconfirmed. (cedres2023currentstateofthearttherapy pages 1-2)</li>
+</ul>
+<h3>4.5 Epigenetics and chromatin regulation</h3>
+<ul>
+<li>Evidence of epigenetic/chromatin regulator involvement is supported by recurrent alterations in genes such as <strong>SETD2</strong> (OpenTargets association) and the emphasis on tumor suppressor/epigenetic regulator alterations in molecular overviews. (OpenTargets Search: malignant mesothelioma,malignant pleural mesothelioma)</li>
+</ul>
+<hr />
+<h2>5. Environmental Information</h2>
+<h3>5.1 Environmental/occupational factors</h3>
+<ul>
+<li>Asbestos remains central in contemporary accounts of pleural mesothelioma pathogenesis and continuing incidence. (lewandowska2024diagnosisandtreatment pages 1-2, bertin2023thecurrenttreatment pages 1-2)</li>
+<li>A regional Italian surveillance study (Emilia-Romagna, 1996–2023; n=3513 cases) found <strong>occupational exposure accounted for 82%</strong> of cases overall and increased to 88% in the most recent period; most cases were male (72%) and &gt;65 years (79%). (OpenTargets Search: malignant mesothelioma,malignant pleural mesothelioma)</li>
+</ul>
+<h3>5.2 Lifestyle factors</h3>
+<p>No lifestyle protective or causal factors (e.g., smoking, diet) were specifically extracted from the retrieved sources.</p>
+<h3>5.3 Infectious agents</h3>
+<p>No infectious etiologies were identified in retrieved sources.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>6.1 Causal chain (high-level)</h3>
+<ul>
+<li><strong>Trigger:</strong> Asbestos exposure (inhalational for pleural disease) with prolonged latency. (chiec2024immunotherapyfortreatment pages 1-2, zahiu2025molecularinsightsinto pages 1-2)</li>
+<li><strong>Intermediate processes:</strong> chronic pleural inflammation and tissue injury, with downstream genomic and cellular dysregulation; Jain (2024) describes free radical generation and disruption of cell division among mechanisms in asbestos-related pleural mesothelioma. (jain2024malignantpleuralmesothelioma pages 1-2)</li>
+<li><strong>Genomic state:</strong> predominance of tumor suppressor losses (BAP1, CDKN2A, NF2), low tumor mutational burden; these features contribute to therapeutic resistance and challenges for biomarker development. (chiec2024immunotherapyfortreatment pages 1-2, bertin2023thecurrenttreatment pages 1-2)</li>
+</ul>
+<h3>6.2 Immune involvement</h3>
+<ul>
+<li>Immunosuppressive tumor microenvironment described in recent treatment-focused reviews (regulatory immune populations; macrophage/MDSC emphasis in Cedres 2023), potentially contributing to variable immunotherapy response. (cedres2023currentstateofthearttherapy pages 1-2)</li>
+</ul>
+<h3>6.3 Suggested ontology terms (mechanisms)</h3>
+<p><em>GO biological process (suggested; IDs not provided in retrieved text):</em>
+- inflammatory response; response to oxidative stress; apoptotic process; DNA damage response; chromatin organization</p>
+<p><em>CL cell types (suggested; IDs not provided in retrieved text):</em>
+- mesothelial cell; tumor-associated macrophage; CD8-positive T cell; regulatory T cell</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<h3>7.1 Primary anatomic sites</h3>
+<ul>
+<li><strong>Pleura</strong> (dominant site; 80–85%) (zahiu2025molecularinsightsinto pages 1-2)</li>
+<li><strong>Peritoneum</strong> (less common but major clinical subtype) (ettinger2023mesotheliomaperitonealversion pages 1-2)</li>
+</ul>
+<h3>7.2 Suggested anatomy ontology mapping</h3>
+<p><em>UBERON terms are suggested conceptually but IDs were not present in retrieved sources.</em>
+- pleura; peritoneum</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<h3>8.1 Onset pattern</h3>
+<ul>
+<li>Typically adult-onset with a long latency from asbestos exposure. (chiec2024immunotherapyfortreatment pages 1-2, lewandowska2024diagnosisandtreatment pages 1-2)</li>
+</ul>
+<h3>8.2 Progression and staging</h3>
+<ul>
+<li>Many patients present with advanced/disseminated disease at diagnosis, limiting surgical options. (lewandowska2024diagnosisandtreatment pages 1-2)</li>
+<li>Standard staging uses TNM for pleural disease; Lewandowska (2024) reproduces TNM categories and indicates surgery is considered mainly for stages I–IIIa. (lewandowska2024diagnosisandtreatment pages 1-2)</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>9.1 Epidemiology (recent statistics)</h3>
+<ul>
+<li>US annual cases reported as <strong>~3,500/year</strong> in NCCN overview. (ettinger2023mesotheliomaperitonealversion pages 1-2)</li>
+<li>Another review cites <strong>~2,500–3,200</strong> new U.S. cases annually and <strong>~38,400 worldwide</strong>. (zahiu2025molecularinsightsinto pages 1-2)</li>
+</ul>
+<h3>9.2 Demographics</h3>
+<ul>
+<li>Male predominance (~70% male reported in one review). (zahiu2025molecularinsightsinto pages 1-2)</li>
+</ul>
+<h3>9.3 Geographic disparities and real-world data (SEER example)</h3>
+<p>A SEER analysis (2004–2021; 8519 cases) reported a decline in metropolitan incidence (1.4 to 0.8) and later decline in nonmetropolitan incidence (to 0.5 by 2021), with marked survival disparities: by 2020, <strong>1-year cancer-specific survival 50.3% (metropolitan) vs 27.7% (nonmetropolitan)</strong> and <strong>HR 1.18</strong> for nonmetropolitan hazard of death. (OpenTargets Search: malignant mesothelioma,malignant pleural mesothelioma)</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th style="text-align: right;">Value</th>
+<th>Population/region</th>
+<th>Year(s)</th>
+<th>Source</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>New cases per year</td>
+<td style="text-align: right;">~2,500–3,200</td>
+<td>United States</td>
+<td>Not specified in excerpt</td>
+<td>Zahiu et al., 2025 (zahiu2025molecularinsightsinto pages 1-2)</td>
+<td>Review cites annual U.S. case burden for malignant mesothelioma/pleural mesothelioma.</td>
+</tr>
+<tr>
+<td>New cases per year</td>
+<td style="text-align: right;">~3,500</td>
+<td>United States</td>
+<td>Not specified in excerpt</td>
+<td>NCCN Peritoneal Mesothelioma Guidelines, 2023 (ettinger2023mesotheliomaperitonealversion pages 1-2)</td>
+<td>NCCN overview states mesothelioma is estimated to occur in approximately 3,500 people in the U.S. every year; includes pleural, peritoneal, and other sites.</td>
+</tr>
+<tr>
+<td>New cases</td>
+<td style="text-align: right;">~38,400</td>
+<td>Worldwide</td>
+<td>Not specified in excerpt</td>
+<td>Zahiu et al., 2025 (zahiu2025molecularinsightsinto pages 1-2)</td>
+<td>Global annual burden cited in review.</td>
+</tr>
+<tr>
+<td>Sex distribution</td>
+<td style="text-align: right;">~70% male</td>
+<td>Mesothelioma overall</td>
+<td>Not specified in excerpt</td>
+<td>Zahiu et al., 2025 (zahiu2025molecularinsightsinto pages 1-2)</td>
+<td>Other sources in context also note male predominance.</td>
+</tr>
+<tr>
+<td>Cases by primary site</td>
+<td style="text-align: right;">Pleura 80–85%</td>
+<td>Mesothelioma overall</td>
+<td>Not specified in excerpt</td>
+<td>Zahiu et al., 2025 (zahiu2025molecularinsightsinto pages 1-2)</td>
+<td>Pleura is the dominant site; peritoneum and other serosal sites are less common.</td>
+</tr>
+<tr>
+<td>Latency from asbestos exposure to disease</td>
+<td style="text-align: right;">15–40 years</td>
+<td>Pleural mesothelioma</td>
+<td>Not specified in excerpt</td>
+<td>Chiec &amp; Bruno, 2024 (chiec2024immunotherapyfortreatment pages 1-2)</td>
+<td>Same context describes disease as primarily caused by inhalational asbestos exposure.</td>
+</tr>
+<tr>
+<td>Latency from asbestos exposure to symptoms</td>
+<td style="text-align: right;">10–50 years</td>
+<td>Malignant pleural mesothelioma</td>
+<td>Not specified in excerpt</td>
+<td>Jain et al., 2024 (jain2024malignantpleuralmesothelioma pages 1-2)</td>
+<td>Broad latency range in review; consistent with long natural history.</td>
+</tr>
+<tr>
+<td>Average latency</td>
+<td style="text-align: right;">~30 years</td>
+<td>Pleural mesothelioma</td>
+<td>Not specified in excerpt</td>
+<td>Lewandowska &amp; Kowalski, 2024 (lewandowska2024diagnosisandtreatment pages 1-2)</td>
+<td>Average latency reported in state-of-the-art review.</td>
+</tr>
+<tr>
+<td>5-year overall survival</td>
+<td style="text-align: right;">~12%</td>
+<td>Pleural mesothelioma</td>
+<td>Not specified in excerpt</td>
+<td>Chiec &amp; Bruno, 2024 (chiec2024immunotherapyfortreatment pages 1-2); Bertin et al., 2023 (bertin2023thecurrenttreatment pages 1-2)</td>
+<td>Chiec review abstract cites 5-year OS of 12%; Bertin review states 5-year survival of only 12%.</td>
+</tr>
+<tr>
+<td>5-year overall survival</td>
+<td style="text-align: right;">~10%</td>
+<td>Malignant pleural mesothelioma</td>
+<td>Not specified in excerpt</td>
+<td>Jain et al., 2024 (jain2024malignantpleuralmesothelioma pages 1-2)</td>
+<td>Slightly lower estimate from another review; likely reflects cohort/case-mix differences.</td>
+</tr>
+<tr>
+<td>Untreated median survival</td>
+<td style="text-align: right;">4–8 months</td>
+<td>Malignant pleural mesothelioma</td>
+<td>Not specified in excerpt</td>
+<td>Cedres et al., 2023 (cedres2023currentstateofthearttherapy pages 1-2)</td>
+<td>Review describes untreated patients as having very poor prognosis.</td>
+</tr>
+<tr>
+<td>Untreated median survival</td>
+<td style="text-align: right;">7–10 months</td>
+<td>Pleural mesothelioma / malignant mesothelioma</td>
+<td>Not specified in excerpt</td>
+<td>Zahiu et al., 2025 (zahiu2025molecularinsightsinto pages 1-2)</td>
+<td>Another review provides a somewhat higher untreated median survival estimate.</td>
+</tr>
+<tr>
+<td>Overall survival range</td>
+<td style="text-align: right;">9–18 months</td>
+<td>Malignant pleural mesothelioma</td>
+<td>Not specified in excerpt</td>
+<td>Cedres et al., 2023 (cedres2023currentstateofthearttherapy pages 1-2)</td>
+<td>Review-level estimate across treated populations/settings.</td>
+</tr>
+<tr>
+<td>Life expectancy without radical treatment</td>
+<td style="text-align: right;">9 months</td>
+<td>Pleural mesothelioma</td>
+<td>Not specified in excerpt</td>
+<td>Lewandowska &amp; Kowalski, 2024 (lewandowska2024diagnosisandtreatment pages 1-2)</td>
+<td>Context states life expectancy for patients not treated with radical intent.</td>
+</tr>
+<tr>
+<td>Survival by histology after resection</td>
+<td style="text-align: right;">~19 months epithelioid vs ~4 months sarcomatoid</td>
+<td>Pleural mesothelioma</td>
+<td>Not specified in excerpt</td>
+<td>Chiec &amp; Bruno, 2024 (chiec2024immunotherapyfortreatment pages 1-2)</td>
+<td>Strong prognostic effect of histologic subtype.</td>
+</tr>
+<tr>
+<td>Median survival by histology</td>
+<td style="text-align: right;">~17 months epithelioid vs &lt;7 months sarcomatoid</td>
+<td>Pleural mesothelioma</td>
+<td>Not specified in excerpt</td>
+<td>Lewandowska &amp; Kowalski, 2024 (lewandowska2024diagnosisandtreatment pages 1-2)</td>
+<td>Histology-associated prognosis in review article.</td>
+</tr>
+<tr>
+<td>Metropolitan incidence rate</td>
+<td style="text-align: right;">1.4 to 0.8 per 100,000</td>
+<td>U.S. metropolitan areas</td>
+<td>2004 to 2021</td>
+<td>Didier et al., 2025 (OpenTargets Search: malignant mesothelioma,malignant pleural mesothelioma)</td>
+<td>SEER-based pleural mesothelioma incidence declined over study period.</td>
+</tr>
+<tr>
+<td>Nonmetropolitan incidence rate</td>
+<td style="text-align: right;">Stable until 2017, then declined to 0.5 per 100,000</td>
+<td>U.S. nonmetropolitan areas</td>
+<td>2004 to 2021</td>
+<td>Didier et al., 2025 (OpenTargets Search: malignant mesothelioma,malignant pleural mesothelioma)</td>
+<td>Indicates later decline outside metropolitan areas.</td>
+</tr>
+<tr>
+<td>1-year cancer-specific survival</td>
+<td style="text-align: right;">50.3%</td>
+<td>U.S. metropolitan areas</td>
+<td>By 2020</td>
+<td>Didier et al., 2025 (OpenTargets Search: malignant mesothelioma,malignant pleural mesothelioma)</td>
+<td>Pleural mesothelioma; better outcomes than nonmetropolitan areas.</td>
+</tr>
+<tr>
+<td>1-year cancer-specific survival</td>
+<td style="text-align: right;">27.7%</td>
+<td>U.S. nonmetropolitan areas</td>
+<td>By 2020</td>
+<td>Didier et al., 2025 (OpenTargets Search: malignant mesothelioma,malignant pleural mesothelioma)</td>
+<td>Marked disparity versus metropolitan populations.</td>
+</tr>
+<tr>
+<td>Relative hazard of death</td>
+<td style="text-align: right;">HR 1.18</td>
+<td>U.S. nonmetropolitan vs metropolitan</td>
+<td>2004 to 2021 cohort</td>
+<td>Didier et al., 2025 (OpenTargets Search: malignant mesothelioma,malignant pleural mesothelioma)</td>
+<td>Multivariable analysis showed higher hazard of death in nonmetropolitan areas.</td>
+</tr>
+<tr>
+<td>Regional registry cases</td>
+<td style="text-align: right;">3,513 total cases; 72% male; 79% age &gt;65 years</td>
+<td>Emilia-Romagna, Italy</td>
+<td>1996–2023</td>
+<td>Giacomino et al., 2024 (OpenTargets Search: malignant mesothelioma,malignant pleural mesothelioma)</td>
+<td>Occupational exposure accounted for 82% overall and increased from 71% to 88% over periods studied.</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table compiles key epidemiology and prognosis statistics for malignant mesothelioma from the retrieved context, including incidence, survival, latency, sex/site distribution, and geographic disparities. It is useful as a concise evidence summary for knowledge base population and comparative review.</em></p>
+<h3>9.4 Inheritance</h3>
+<ul>
+<li>Germline susceptibility is clinically relevant, especially <strong>BAP1</strong>, motivating guideline support for germline testing. (kindler2025treatmentofpleural pages 2-3, lewandowska2024diagnosisandtreatment pages 1-2)</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>10.1 Imaging and tissue diagnosis (current practice)</h3>
+<ul>
+<li>Jain (2024) describes diagnostic work-up including contrast-enhanced thoracic CT, thoracoscopic pleural biopsy, thoracentesis with cytology, MRI for diaphragmatic invasion assessment, and PET for metastasis evaluation. (jain2024malignantpleuralmesothelioma pages 1-2)</li>
+<li>Chiec (2024) emphasizes the difficulty of diagnosis from pleural fluid/small biopsies and supports VATS surgical biopsy and invasive staging approaches (e.g., EBUS) when appropriate. (chiec2024immunotherapyfortreatment pages 1-2)</li>
+</ul>
+<h3>10.2 Biomarkers and molecular pathology</h3>
+<ul>
+<li><strong>BAP1 IHC</strong> and <strong>MTAP IHC</strong> (surrogate for <strong>CDKN2A/p16 FISH</strong>) are highlighted as high-value diagnostic adjuncts. (zahiu2025molecularinsightsinto pages 1-2, chiec2024immunotherapyfortreatment pages 1-2)</li>
+</ul>
+<h3>10.3 Germline testing</h3>
+<ul>
+<li>ASCO guideline update explicitly frames germline mutation prevalence (often BAP1) as rationale that <strong>universal germline testing should be offered</strong> to patients with mesothelioma. (kindler2025treatmentofpleural pages 2-3)</li>
+</ul>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<h3>11.1 Survival (recently reported values)</h3>
+<ul>
+<li>Untreated median survival: <strong>4–8 months</strong> (Cedres 2023) and <strong>7–10 months</strong> (Zahiu 2025 review excerpt). (cedres2023currentstateofthearttherapy pages 1-2, zahiu2025molecularinsightsinto pages 1-2)</li>
+<li>Population 5-year OS frequently cited around <strong>~12%</strong> (Bertin 2023; Chiec 2024 abstract). (bertin2023thecurrenttreatment pages 1-2, chiec2024immunotherapyfortreatment pages 1-2)</li>
+<li>Histology strongly influences outcomes (e.g., epithelioid better than sarcomatoid). (chiec2024immunotherapyfortreatment pages 1-2, lewandowska2024diagnosisandtreatment pages 1-2)</li>
+</ul>
+<h3>11.2 Prognostic factors</h3>
+<p>Recent review-level prognostic factors include older age, stage, poor performance status, and inflammatory markers (e.g., CRP, leukocytosis). (lewandowska2024diagnosisandtreatment pages 1-2)</p>
+<hr />
+<h2>12. Treatment</h2>
+<h3>12.1 Standard systemic therapy (real-world implementation)</h3>
+<ul>
+<li><strong>Chemotherapy backbone:</strong> platinum + pemetrexed remains a longstanding standard systemic therapy. (cedres2023currentstateofthearttherapy pages 1-2, chiec2024immunotherapyfortreatment pages 1-2, bertin2023thecurrenttreatment pages 1-2)</li>
+<li><strong>Bevacizumab addition:</strong> Cedres (2023) reports adding bevacizumab to platinum–pemetrexed adds <strong>~2 months</strong> to median survival. (cedres2023currentstateofthearttherapy pages 1-2)</li>
+</ul>
+<h3>12.2 Immunotherapy (major recent development; 2023–2024 emphasis)</h3>
+<ul>
+<li>Cedres (2023) reports first-line nivolumab + ipilimumab improved OS versus chemotherapy in CheckMate-743 with <strong>median OS 18.1 months</strong>, leading to FDA and EMA approval and a new standard-of-care position. (cedres2023currentstateofthearttherapy pages 1-2)</li>
+</ul>
+<h3>12.3 Surgery and multimodality therapy</h3>
+<ul>
+<li>Lewandowska (2024) describes tri-modal therapy (surgery + chemotherapy + radiotherapy) as a standard for radical management, but notes stage at diagnosis commonly precludes surgery. (lewandowska2024diagnosisandtreatment pages 1-2)</li>
+<li>ASCO (2025 update) includes randomized evidence (MARS2) showing aggressive surgery (EPD + adjuvant chemo) did not improve outcomes versus chemotherapy alone, with higher early mortality (30-day 4%, 90-day 9%). (kindler2025treatmentofpleural pages 3-5)</li>
+</ul>
+<h3>12.4 Guideline algorithms (visual evidence)</h3>
+<p>The ASCO 2025 update provides structured algorithms for surgical selection and first-line systemic therapy selection (immunotherapy vs chemotherapy based on histology). (kindler2025treatmentofpleural media fd734332, kindler2025treatmentofpleural media c1e908f8, kindler2025treatmentofpleural media 9d842ba2, kindler2025treatmentofpleural media 39f509f9, kindler2025treatmentofpleural media 0889009a)</p>
+<h3>12.5 Clinical trials (selected; NCT IDs)</h3>
+<ul>
+<li><strong>NCT02899299 (CheckMate 743):</strong> Phase 3 randomized open-label trial; nivolumab + ipilimumab vs pemetrexed + cisplatin/carboplatin in unresectable pleural malignant mesothelioma; primary endpoint OS; enrollment 605; includes PD-L1 stratified analyses. (NCT02899299 chunk 1)</li>
+<li><strong>NCT03918252:</strong> Neoadjuvant nivolumab ± ipilimumab for 3 cycles followed by surgery and adjuvant nivolumab for 12 months (phase I/II; active not recruiting per excerpt). (cecchi2025perioperativetreatmentsin pages 9-10)</li>
+<li>Additional identified trials from clinicaltrials.gov search results (metadata only in this run; full protocol/outcomes not extracted here): <strong>NCT04334759</strong> (durvalumab + chemotherapy; phase 3), <strong>NCT06097728</strong> (MEDI5752 + carboplatin/pemetrexed; phase 3), <strong>NCT04287829</strong> (pembrolizumab + lenvatinib; phase 2). (OpenTargets Search: malignant mesothelioma,malignant pleural mesothelioma)</li>
+</ul>
+<h3>12.6 Suggested MAXO terms (treatments)</h3>
+<p>MAXO IDs were not present in retrieved sources; suggested concepts:
+- immune checkpoint inhibitor therapy; combination immunotherapy; platinum-based chemotherapy; surgical cytoreduction; radiotherapy; genetic counseling / germline testing</p>
+<table>
+<thead>
+<tr>
+<th>Setting (1L unresectable, perioperative, peritoneal etc.)</th>
+<th>Modality/regimen</th>
+<th>Key evidence/trial or guideline</th>
+<th>Reported outcome metrics in context (median OS etc.)</th>
+<th>Regulatory/real-world implementation notes</th>
+<th>Suggested MAXO term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1L unresectable pleural mesothelioma</td>
+<td>Nivolumab + ipilimumab</td>
+<td>CheckMate-743; summarized in 2023/2024 reviews and ASCO guideline update (cedres2023currentstateofthearttherapy pages 1-2, lewandowska2024diagnosisandtreatment pages 1-2, kindler2025treatmentofpleural media fd734332)</td>
+<td>Median OS 18.1 months; superior to chemotherapy in CheckMate-743 (cedres2023currentstateofthearttherapy pages 1-2)</td>
+<td>Described as FDA/EMA approved and a new standard of care; implemented in routine practice/guidelines, including availability in Poland irrespective of histology (cedres2023currentstateofthearttherapy pages 1-2, lewandowska2024diagnosisandtreatment pages 1-2, kindler2025treatmentofpleural media fd734332)</td>
+<td></td>
+</tr>
+<tr>
+<td>1L unresectable pleural mesothelioma</td>
+<td>Platinum + pemetrexed</td>
+<td>Historical standard systemic therapy in reviews/guidelines (cedres2023currentstateofthearttherapy pages 1-2, chiec2024immunotherapyfortreatment pages 1-2, bertin2023thecurrenttreatment pages 1-2, kindler2025treatmentofpleural media fd734332)</td>
+<td>Extends survival only by months; comparator arm to immunotherapy in modern algorithms (bertin2023thecurrenttreatment pages 1-2, kindler2025treatmentofpleural media fd734332)</td>
+<td>Remains standard chemotherapy backbone in guidelines and clinical practice (cedres2023currentstateofthearttherapy pages 1-2, kindler2025treatmentofpleural media fd734332)</td>
+<td></td>
+</tr>
+<tr>
+<td>1L unresectable pleural mesothelioma</td>
+<td>Platinum + pemetrexed + bevacizumab</td>
+<td>Review summary of established regimen (cedres2023currentstateofthearttherapy pages 1-2)</td>
+<td>Addition of bevacizumab adds about 2 months to median survival (cedres2023currentstateofthearttherapy pages 1-2)</td>
+<td>Used as an intensified chemotherapy-based option where appropriate; discussed as pre-immunotherapy standard intensification (cedres2023currentstateofthearttherapy pages 1-2)</td>
+<td></td>
+</tr>
+<tr>
+<td>1L pleural mesothelioma, histology-directed decision making</td>
+<td>Systemic therapy algorithm: immunotherapy versus chemotherapy based on histology</td>
+<td>ASCO 2025 Figure 5 / Tables 4-5 (kindler2025treatmentofpleural media fd734332)</td>
+<td>Figure summarizes selection of ipilimumab+nivolumab versus pemetrexed+platinum based on epithelioid vs nonepithelioid histology; no additional numeric outcome quoted in image summary (kindler2025treatmentofpleural media fd734332)</td>
+<td>ASCO algorithm indicates first-line implementation in routine practice; nivolumab+ipilimumab especially emphasized for nonepithelioid disease (kindler2025treatmentofpleural media fd734332)</td>
+<td></td>
+</tr>
+<tr>
+<td>Radical/localized pleural mesothelioma</td>
+<td>Tri-modal therapy (surgery + chemotherapy + radiotherapy)</td>
+<td>2024 state-of-the-art review (lewandowska2024diagnosisandtreatment pages 1-2)</td>
+<td>Presented as standard for radical management; no pooled OS number in retrieved excerpt (lewandowska2024diagnosisandtreatment pages 1-2)</td>
+<td>Stage at diagnosis usually precludes surgery in many patients (lewandowska2024diagnosisandtreatment pages 1-2)</td>
+<td></td>
+</tr>
+<tr>
+<td>Resectable stage I-IIIa pleural mesothelioma</td>
+<td>Surgery: EPP or PD/EPD</td>
+<td>2024 review; ASCO surgical algorithm (lewandowska2024diagnosisandtreatment pages 1-2, kindler2025treatmentofpleural media fd734332)</td>
+<td>No single survival number for surgery alone in these excerpts; surgery is for selected patients with early-stage disease (lewandowska2024diagnosisandtreatment pages 1-2, kindler2025treatmentofpleural media fd734332)</td>
+<td>EPD/PD currently favored as lung-sparing approaches in guideline algorithms (kindler2025treatmentofpleural media fd734332)</td>
+<td></td>
+</tr>
+<tr>
+<td>Pleural mesothelioma surgery comparison</td>
+<td>Extended pleurectomy/decortication (EPD) + adjuvant chemotherapy versus chemotherapy alone</td>
+<td>MARS2, summarized in ASCO update (kindler2025treatmentofpleural pages 3-5)</td>
+<td>Median OS 19.3 months with surgery arm versus 24.8 months with chemotherapy alone; HR for death 1.28; 30-day mortality 4%, 90-day mortality 9% (kindler2025treatmentofpleural pages 3-5)</td>
+<td>Supports caution with aggressive surgery; guideline context favors careful patient selection and lung-sparing approaches (kindler2025treatmentofpleural pages 3-5, kindler2025treatmentofpleural media fd734332)</td>
+<td></td>
+</tr>
+<tr>
+<td>Advanced/recurrent pleural mesothelioma</td>
+<td>Immune checkpoint inhibitors (class effect)</td>
+<td>2024 immunotherapy review / emerging strategies (chiec2024immunotherapyfortreatment pages 1-2)</td>
+<td>Review notes recent dual-checkpoint and chemo-immunotherapy trials changed outcomes, but no specific salvage OS quoted in retrieved excerpt (chiec2024immunotherapyfortreatment pages 1-2)</td>
+<td>Incorporated into modern pleural mesothelioma treatment landscape; biomarker-guided selection remains unresolved (chiec2024immunotherapyfortreatment pages 1-2)</td>
+<td></td>
+</tr>
+<tr>
+<td>Previously treated pleural mesothelioma</td>
+<td>No approved systemic option after 1L (as of 2023 review context)</td>
+<td>2023 review (cedres2023currentstateofthearttherapy pages 1-2)</td>
+<td>Explicitly notes no approved systemic options after first-line treatment in that review excerpt (cedres2023currentstateofthearttherapy pages 1-2)</td>
+<td>Reflects therapeutic gap and rationale for ongoing trials (cedres2023currentstateofthearttherapy pages 1-2)</td>
+<td></td>
+</tr>
+<tr>
+<td>Peritoneal mesothelioma</td>
+<td>NCCN-guided workup/diagnosis/treatment pathways</td>
+<td>NCCN Peritoneal Mesothelioma v2.2023 (ettinger2023mesotheliomaperitonealversion pages 1-2)</td>
+<td>No regimen-specific OS in retrieved excerpt (ettinger2023mesotheliomaperitonealversion pages 1-2)</td>
+<td>NCCN notes rarity and encourages clinical trial participation; “malignant” terminology dropped because all mesotheliomas are now defined as malignant (ettinger2023mesotheliomaperitonealversion pages 1-2)</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes current mesothelioma treatment approaches and outcome data available in the retrieved context, emphasizing first-line systemic therapy, surgery, and guideline implementation. It is useful for quickly comparing standard regimens, landmark evidence, and practice implications.</em></p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li>Primary prevention is centered on eliminating asbestos exposure; ongoing incidence is consistent with long latency and historical exposure. (lewandowska2024diagnosisandtreatment pages 1-2, zahiu2025molecularinsightsinto pages 1-2)</li>
+<li>No specific screening program guidance for asymptomatic individuals was extracted from the retrieved excerpts.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p>No other-species naturally occurring disease data were present in the retrieved sources.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<p>No model organism systems were detailed in the retrieved excerpts.</p>
+<hr />
+<h2>Recent developments (2023–2024) and expert analysis (authoritative synthesis)</h2>
+<ol>
+<li><strong>First-line immunotherapy became practice-defining.</strong> A 2023 state-of-the-art review summarizes CheckMate-743, highlighting nivolumab + ipilimumab median OS <strong>18.1 months</strong> and regulatory approval, marking a new standard; subsequent 2024 reviews emphasize broad clinical implementation and ongoing biomarker uncertainty. (cedres2023currentstateofthearttherapy pages 1-2, chiec2024immunotherapyfortreatment pages 1-2, lewandowska2024diagnosisandtreatment pages 1-2)</li>
+<li><strong>Diagnostic adjuncts are converging on practical IHC strategies.</strong> 2024–2025 reviews highlight BAP1 and MTAP IHC, with MTAP as an “almost ideal surrogate” for CDKN2A deletion testing via p16/CDKN2A FISH, potentially improving diagnostic efficiency where tissue is limited. (zahiu2025molecularinsightsinto pages 1-2, chiec2024immunotherapyfortreatment pages 1-2)</li>
+<li><strong>Surgery is being re-evaluated with randomized evidence.</strong> ASCO’s guideline update incorporates MARS2 results showing no OS advantage for EPD + chemo vs chemo alone and QOL/cost favoring chemo, supporting more conservative, carefully selected multimodality surgery in specialized centers. (kindler2025treatmentofpleural pages 3-5, kindler2025treatmentofpleural media fd734332)</li>
+<li><strong>Hereditary genetics is increasingly guideline-relevant.</strong> ASCO emphasizes germline mutations (especially BAP1) in mesothelioma, supporting offering germline testing broadly to guide patient/family risk management. (kindler2025treatmentofpleural pages 2-3)</li>
+</ol>
+<hr />
+<h2>Required direct quotes from abstracts (supporting key statements)</h2>
+<ul>
+<li>Cedres et al. 2023 (Cancers; Dec 2023): “<em>Malignant pleural mesothelioma (MPM) is a locally aggressive disease related to asbestos exposure with a median survival for untreated patients of 4–8 months… Recently, in first-line treatment, immunotherapy combining nivolumab with ipilimumab has been shown to be superior to chemotherapy in the CheckMate-743 study in terms of overall survival (18.1 months)</em> …” https://doi.org/10.3390/cancers15245787 (cedres2023currentstateofthearttherapy pages 1-2)</li>
+<li>NCCN Peritoneal Mesothelioma v2.2023 (Sep 2023): “<em>Mesothelioma is a rare cancer originating in mesothelial surfaces of the peritoneum, pleura, and other sites.</em>” and “<em>The term ‘malignant’ is no longer used to classify mesotheliomas, because all mesotheliomas are now defined as malignant.</em>” https://doi.org/10.6004/jnccn.2023.0045 (ettinger2023mesotheliomaperitonealversion pages 1-2)</li>
+<li>Chiec &amp; Bruno 2024 (IJMS; Oct 2024): “<em>Pleural mesothelioma is a rare malignancy associated with asbestos exposure and very poor prognosis, with a 5-year overall survival of 12%.</em>” https://doi.org/10.3390/ijms251910861 (chiec2024immunotherapyfortreatment pages 1-2)</li>
+</ul>
+<hr />
+<h2>Notes on evidence limitations and gaps</h2>
+<ul>
+<li><strong>Ontology codes (MONDO, MeSH, ICD-10/ICD-11, Orphanet, OMIM)</strong> were not present in the retrieved full-text excerpts; these should be filled by directly querying those coding/ontology resources rather than inferred. (zahiu2025molecularinsightsinto pages 1-2, ettinger2023mesotheliomaperitonealversion pages 1-2)</li>
+<li>Several clinical trials were identified by NCT number, but detailed protocol fields/outcome fields were only retrieved in this run for NCT02899299 and NCT03918252. (NCT02899299 chunk 1, cecchi2025perioperativetreatmentsin pages 9-10)</li>
+</ul>
+<p>References</p>
+<ol>
+<li>
+<p>(zahiu2025molecularinsightsinto pages 1-2): Teodora Zahiu, Carmen Mihaela Mihu, Bianca A. Bosca, Mariana Mărginean, Lavinia Patricia Mocan, Roxana-Adelina Ștefan, Rada Teodora Suflețel, Carina Mihu, and Carmen Stanca Melincovici. Molecular insights into pleural mesothelioma: unveiling pathogenic mechanisms and therapeutic opportunities. Diagnostics, 15:1323, May 2025. URL: https://doi.org/10.3390/diagnostics15111323, doi:10.3390/diagnostics15111323. This article has 4 citations.</p>
+</li>
+<li>
+<p>(ettinger2023mesotheliomaperitonealversion pages 1-2): David S. Ettinger, Douglas E. Wood, James Stevenson, Dara L. Aisner, Wallace Akerley, Jessica R. Bauman, Ankit Bharat, Debora S. Bruno, Joe Y. Chang, Lucian R. Chirieac, Malcolm DeCamp, Thomas J. Dilling, Jonathan Dowell, Gregory A. Durm, Scott Gettinger, Travis E. Grotz, Matthew A. Gubens, Aparna Hegde, Rudy P. Lackner, Michael Lanuti, Jules Lin, Billy W. Loo, Christine M. Lovly, Fabien Maldonado, Erminia Massarelli, Daniel Morgensztern, Trey C. Mullikin, Thomas Ng, Gregory A. Otterson, Sandip P. Patel, Tejas Patil, Patricio M. Polanco, Gregory J. Riely, Jonathan Riess, Theresa A. Shapiro, Aditi P. Singh, Alda Tam, Tawee Tanvetyanon, Jane Yanagawa, Stephen C. Yang, Edwin Yau, Kristina M. Gregory, and Miranda Hughes. Mesothelioma: peritoneal, version 2.2023, nccn clinical practice guidelines in oncology. Journal of the National Comprehensive Cancer Network : JNCCN, 21 9:961-979, Sep 2023. URL: https://doi.org/10.6004/jnccn.2023.0045, doi:10.6004/jnccn.2023.0045. This article has 35 citations.</p>
+</li>
+<li>
+<p>(cedres2023currentstateofthearttherapy pages 1-2): Susana Cedres, Augusto Valdivia, Patricia Iranzo, Ana Callejo, Nuria Pardo, Alejandro Navarro, Alex Martinez-Marti, Juan David Assaf-Pastrana, Enriqueta Felip, and Pilar Garrido. Current state-of-the-art therapy for malignant pleural mesothelioma and future options centered on immunotherapy. Cancers, 15:5787, Dec 2023. URL: https://doi.org/10.3390/cancers15245787, doi:10.3390/cancers15245787. This article has 11 citations.</p>
+</li>
+<li>
+<p>(chiec2024immunotherapyfortreatment pages 1-2): Lauren Chiec and Debora S. Bruno. Immunotherapy for treatment of pleural mesothelioma: current and emerging therapeutic strategies. International Journal of Molecular Sciences, 25:10861, Oct 2024. URL: https://doi.org/10.3390/ijms251910861, doi:10.3390/ijms251910861. This article has 8 citations.</p>
+</li>
+<li>
+<p>(jain2024malignantpleuralmesothelioma pages 1-2): Molly Jain, Morgan Kay Crites, Patricia Rich, and Bharat Bajantri. Malignant pleural mesothelioma: a comprehensive review. Journal of Clinical Medicine, 13:5837, Sep 2024. URL: https://doi.org/10.3390/jcm13195837, doi:10.3390/jcm13195837. This article has 30 citations.</p>
+</li>
+<li>
+<p>(lewandowska2024diagnosisandtreatment pages 1-2): Zofia Lewandowska and Dariusz M. Kowalski. Diagnosis and treatment of pleural mesothelioma. state of the art 2024. Oncology in Clinical Practice, Oct 2024. URL: https://doi.org/10.5603/ocp.100725, doi:10.5603/ocp.100725. This article has 1 citations.</p>
+</li>
+<li>
+<p>(kindler2025treatmentofpleural pages 2-3): MD Hedy L. Kindler, M. M. No ﬁ sat Ismaila, MD Lyudmila Bazhenova, MD Quincy Chu, MD Jane E. Churpek, MD Ibiayi Dagogo-Jack, MD Darren S. Bryan, MD PhD Michael W. Drazer, MD Patrick Forde, MD Aliya N. Husain, MD Jennifer L. Sauter, MD Valerie Rusch, MB BCh Penelope A. Bradbury, MD PhD B.C. John Cho, MD MSc Marc de Perrot, MD Azam Ghafoor, MD David L. Graham, MD PhD Ola Khorshid, MS Cgc Alexandra Lebensohn, Bsn RN Ocn Julie White, and MD Raf ﬁ t Hassan. Treatment of pleural mesothelioma: asco guideline update. Journal of Clinical Oncology, 43:1006-1038, Jan 2025. URL: https://doi.org/10.1200/jco-24-02425, doi:10.1200/jco-24-02425. This article has 58 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(bertin2023thecurrenttreatment pages 1-2): Beatriz Bertin, Miguel Zugman, and Gustavo Schvartsman. The current treatment landscape of malignant pleural mesothelioma and future directions. Cancers, 15:5808, Dec 2023. URL: https://doi.org/10.3390/cancers15245808, doi:10.3390/cancers15245808. This article has 18 citations.</p>
+</li>
+<li>
+<p>(OpenTargets Search: malignant mesothelioma,malignant pleural mesothelioma): Open Targets Query (malignant mesothelioma,malignant pleural mesothelioma, 39 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.</p>
+</li>
+<li>
+<p>(tyagi2024germlinebap1mutation pages 14-17): G Tyagi. Germline bap1 mutation alter the tumor immune microenvironment and impact the progression of malignant mesothelioma (mm). Unknown journal, 2024.</p>
+</li>
+<li>
+<p>(tyagi2024germlinebap1mutation pages 11-14): G Tyagi. Germline bap1 mutation alter the tumor immune microenvironment and impact the progression of malignant mesothelioma (mm). Unknown journal, 2024.</p>
+</li>
+<li>
+<p>(kindler2025treatmentofpleural pages 3-5): MD Hedy L. Kindler, M. M. No ﬁ sat Ismaila, MD Lyudmila Bazhenova, MD Quincy Chu, MD Jane E. Churpek, MD Ibiayi Dagogo-Jack, MD Darren S. Bryan, MD PhD Michael W. Drazer, MD Patrick Forde, MD Aliya N. Husain, MD Jennifer L. Sauter, MD Valerie Rusch, MB BCh Penelope A. Bradbury, MD PhD B.C. John Cho, MD MSc Marc de Perrot, MD Azam Ghafoor, MD David L. Graham, MD PhD Ola Khorshid, MS Cgc Alexandra Lebensohn, Bsn RN Ocn Julie White, and MD Raf ﬁ t Hassan. Treatment of pleural mesothelioma: asco guideline update. Journal of Clinical Oncology, 43:1006-1038, Jan 2025. URL: https://doi.org/10.1200/jco-24-02425, doi:10.1200/jco-24-02425. This article has 58 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(zahiu2025molecularinsightsinto pages 17-19): Teodora Zahiu, Carmen Mihaela Mihu, Bianca A. Bosca, Mariana Mărginean, Lavinia Patricia Mocan, Roxana-Adelina Ștefan, Rada Teodora Suflețel, Carina Mihu, and Carmen Stanca Melincovici. Molecular insights into pleural mesothelioma: unveiling pathogenic mechanisms and therapeutic opportunities. Diagnostics, 15:1323, May 2025. URL: https://doi.org/10.3390/diagnostics15111323, doi:10.3390/diagnostics15111323. This article has 4 citations.</p>
+</li>
+<li>
+<p>(kindler2025treatmentofpleural media fd734332): MD Hedy L. Kindler, M. M. No ﬁ sat Ismaila, MD Lyudmila Bazhenova, MD Quincy Chu, MD Jane E. Churpek, MD Ibiayi Dagogo-Jack, MD Darren S. Bryan, MD PhD Michael W. Drazer, MD Patrick Forde, MD Aliya N. Husain, MD Jennifer L. Sauter, MD Valerie Rusch, MB BCh Penelope A. Bradbury, MD PhD B.C. John Cho, MD MSc Marc de Perrot, MD Azam Ghafoor, MD David L. Graham, MD PhD Ola Khorshid, MS Cgc Alexandra Lebensohn, Bsn RN Ocn Julie White, and MD Raf ﬁ t Hassan. Treatment of pleural mesothelioma: asco guideline update. Journal of Clinical Oncology, 43:1006-1038, Jan 2025. URL: https://doi.org/10.1200/jco-24-02425, doi:10.1200/jco-24-02425. This article has 58 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(kindler2025treatmentofpleural media c1e908f8): MD Hedy L. Kindler, M. M. No ﬁ sat Ismaila, MD Lyudmila Bazhenova, MD Quincy Chu, MD Jane E. Churpek, MD Ibiayi Dagogo-Jack, MD Darren S. Bryan, MD PhD Michael W. Drazer, MD Patrick Forde, MD Aliya N. Husain, MD Jennifer L. Sauter, MD Valerie Rusch, MB BCh Penelope A. Bradbury, MD PhD B.C. John Cho, MD MSc Marc de Perrot, MD Azam Ghafoor, MD David L. Graham, MD PhD Ola Khorshid, MS Cgc Alexandra Lebensohn, Bsn RN Ocn Julie White, and MD Raf ﬁ t Hassan. Treatment of pleural mesothelioma: asco guideline update. Journal of Clinical Oncology, 43:1006-1038, Jan 2025. URL: https://doi.org/10.1200/jco-24-02425, doi:10.1200/jco-24-02425. This article has 58 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(kindler2025treatmentofpleural media 9d842ba2): MD Hedy L. Kindler, M. M. No ﬁ sat Ismaila, MD Lyudmila Bazhenova, MD Quincy Chu, MD Jane E. Churpek, MD Ibiayi Dagogo-Jack, MD Darren S. Bryan, MD PhD Michael W. Drazer, MD Patrick Forde, MD Aliya N. Husain, MD Jennifer L. Sauter, MD Valerie Rusch, MB BCh Penelope A. Bradbury, MD PhD B.C. John Cho, MD MSc Marc de Perrot, MD Azam Ghafoor, MD David L. Graham, MD PhD Ola Khorshid, MS Cgc Alexandra Lebensohn, Bsn RN Ocn Julie White, and MD Raf ﬁ t Hassan. Treatment of pleural mesothelioma: asco guideline update. Journal of Clinical Oncology, 43:1006-1038, Jan 2025. URL: https://doi.org/10.1200/jco-24-02425, doi:10.1200/jco-24-02425. This article has 58 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(kindler2025treatmentofpleural media 39f509f9): MD Hedy L. Kindler, M. M. No ﬁ sat Ismaila, MD Lyudmila Bazhenova, MD Quincy Chu, MD Jane E. Churpek, MD Ibiayi Dagogo-Jack, MD Darren S. Bryan, MD PhD Michael W. Drazer, MD Patrick Forde, MD Aliya N. Husain, MD Jennifer L. Sauter, MD Valerie Rusch, MB BCh Penelope A. Bradbury, MD PhD B.C. John Cho, MD MSc Marc de Perrot, MD Azam Ghafoor, MD David L. Graham, MD PhD Ola Khorshid, MS Cgc Alexandra Lebensohn, Bsn RN Ocn Julie White, and MD Raf ﬁ t Hassan. Treatment of pleural mesothelioma: asco guideline update. Journal of Clinical Oncology, 43:1006-1038, Jan 2025. URL: https://doi.org/10.1200/jco-24-02425, doi:10.1200/jco-24-02425. This article has 58 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(kindler2025treatmentofpleural media 0889009a): MD Hedy L. Kindler, M. M. No ﬁ sat Ismaila, MD Lyudmila Bazhenova, MD Quincy Chu, MD Jane E. Churpek, MD Ibiayi Dagogo-Jack, MD Darren S. Bryan, MD PhD Michael W. Drazer, MD Patrick Forde, MD Aliya N. Husain, MD Jennifer L. Sauter, MD Valerie Rusch, MB BCh Penelope A. Bradbury, MD PhD B.C. John Cho, MD MSc Marc de Perrot, MD Azam Ghafoor, MD David L. Graham, MD PhD Ola Khorshid, MS Cgc Alexandra Lebensohn, Bsn RN Ocn Julie White, and MD Raf ﬁ t Hassan. Treatment of pleural mesothelioma: asco guideline update. Journal of Clinical Oncology, 43:1006-1038, Jan 2025. URL: https://doi.org/10.1200/jco-24-02425, doi:10.1200/jco-24-02425. This article has 58 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(NCT02899299 chunk 1):  Study of Nivolumab Combined With Ipilimumab Versus Pemetrexed and Cisplatin or Carboplatin as First Line Therapy in Unresectable Pleural Mesothelioma Patients. Bristol-Myers Squibb. 2016. ClinicalTrials.gov Identifier: NCT02899299</p>
+</li>
+<li>
+<p>(cecchi2025perioperativetreatmentsin pages 9-10): Luigi Giovanni Cecchi, Marta Aliprandi, Fabio De Vincenzo, Matteo Perrino, Nadia Cordua, Federica Borea, Alessandro Bertocchi, Antonio Federico, Giuseppe Marulli, Armando Santoro, Giovanni Luca Ceresoli, and Paolo Andrea Zucali. Perioperative treatments in pleural mesothelioma: state of the art and future directions. Cancers, 17:3199, Sep 2025. URL: https://doi.org/10.3390/cancers17193199, doi:10.3390/cancers17193199. This article has 4 citations.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </div>
         
 
         <footer class="page-footer">
@@ -4450,7 +6147,7 @@ classifications:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Malignant Mesothelioma", "mondoId": "MONDO:0006292", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Malignant_Mesothelioma", "yamlRevision": "7057f16b4866"};
+        const OS_CONFIG = {"diseaseName": "Malignant Mesothelioma", "mondoId": "MONDO:0006292", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Malignant_Mesothelioma", "yamlRevision": "7049292e8730"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

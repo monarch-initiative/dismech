@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2641,6 +2794,20 @@
             
             
             
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-value">5</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -4667,7 +4834,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"The IFN-induced gene signatures have a strong correlation with those observed in beta cells from individuals with type 1 diabetes."</div>
+                <div class="evidence-snippet">"The IFN-induced gene signatures have a strong correlation with those observed in beta cells from individuals with type 1 diabetes, and the level of expression of specific IFN-stimulated genes is positively correlated with proteins present in islets of these individuals, regulating beta cell..."</div>
                 
                 
                 <div class="evidence-explanation">This sentence links interferon-induced signatures to human T1D islet biology.</div>
@@ -12116,6 +12283,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -12157,6 +12325,7 @@
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Elevated)</span>
                     
                 </div>
+                
                 
                 
     
@@ -13469,7 +13638,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Diabetes mellitus
 creation_date: &#34;2026-02-21T15:39:12Z&#34;
-updated_date: &#34;2026-04-22T20:13:21Z&#34;
+updated_date: &#34;2026-05-08T20:47:43Z&#34;
 category: Complex
 description: &gt;-
   Diabetes mellitus is a heterogeneous group of disorders characterized by
@@ -13955,7 +14124,7 @@ prevalence:
     reference_title: &#34;Type 1 diabetes in 2017: global estimates of incident and prevalent cases in children and adults.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Globally, type 1 diabetes represents about 2% of the estimated total cases of diabetes.&#34;
+    snippet: &#34;Globally, type 1 diabetes represents about 2% of the estimated total cases of diabetes, ranging from less than 1% in certain Pacific countries to more than 15% in Northern European populations in 2017.&#34;
     explanation: This supports the approximate global proportion of diabetes represented by type 1 diabetes.
 - subtype: type 2 diabetes mellitus
   population: Global
@@ -13992,7 +14161,7 @@ progression:
     reference_title: &#34;Staging presymptomatic type 1 diabetes: a scientific statement of JDRF, the Endocrine Society, and the American Diabetes Association.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Stage 3 as onset of symptomatic disease ... Adoption of this staging classification provides a standardized taxonomy for type 1 diabetes.&#34;
+    snippet: &#34;Stage 3 represents manifestations of the typical clinical symptoms and signs of diabetes, which may include polyuria, polydipsia, weight loss, fatigue, diabetic ketoacidosis (DKA), and others.&#34;
     explanation: This supports staged progression of type 1 diabetes from presymptomatic phases to clinical onset.
 - phase: Symptomatic onset
   subtype: type 1 diabetes mellitus
@@ -14064,13 +14233,6 @@ pathophysiology:
   downstream:
   - target: Interferon-driven beta-cell inflammatory priming
     description: Susceptibility background increases vulnerability to beta-cell inflammatory priming.
-    evidence:
-    - reference: PMID:26621825
-      reference_title: &#34;Pathophysiology of type 1 and type 2 diabetes mellitus: a 90-year perspective.&#34;
-      supports: NO_EVIDENCE
-      evidence_source: OTHER
-      snippet: &#34;Diabetes mellitus is a complex metabolic disorder associated with an increased risk of microvascular and macrovascular disease; its main clinical characteristic is hyperglycaemia.&#34;
-      explanation: General background evidence for diabetes and hyperglycaemia; does not directly test this specific causal linkage.
   - target: Autoimmune pancreatic beta-cell destruction
     description: Genetic susceptibility increases risk of immune-mediated beta-cell destruction.
     evidence:
@@ -14130,7 +14292,7 @@ pathophysiology:
       reference_title: &#34;Interferons are key cytokines acting on pancreatic islets in type 1 diabetes.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;The IFN-induced gene signatures have a strong correlation with those observed in beta cells from individuals with type 1 diabetes.&#34;
+      snippet: &#34;The IFN-induced gene signatures have a strong correlation with those observed in beta cells from individuals with type 1 diabetes, and the level of expression of specific IFN-stimulated genes is positively correlated with proteins present in islets of these individuals, regulating beta cell responses to &#39;danger signals&#39; such as viral infections.&#34;
       explanation: This supports downstream progression from interferon-driven beta-cell priming to autoimmune beta-cell destruction.
   evidence:
   - reference: PMID:38409439
@@ -14143,7 +14305,7 @@ pathophysiology:
     reference_title: &#34;Interferons are key cytokines acting on pancreatic islets in type 1 diabetes.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;The IFN-induced gene signatures have a strong correlation with those observed in beta cells from individuals with type 1 diabetes.&#34;
+    snippet: &#34;The IFN-induced gene signatures have a strong correlation with those observed in beta cells from individuals with type 1 diabetes, and the level of expression of specific IFN-stimulated genes is positively correlated with proteins present in islets of these individuals, regulating beta cell responses to &#39;danger signals&#39; such as viral infections.&#34;
     explanation: This sentence links interferon-induced signatures to human T1D islet biology.
 - name: Autoimmune pancreatic beta-cell destruction
   description: &gt;-
@@ -16537,9 +16699,12 @@ datasets:
 computational_models:
 - name: Pancreatic Beta Cell Genome-Scale Metabolic Model
   description: &gt;-
-    First comprehensive genome-scale metabolic reconstruction of human pancreatic beta cells,
-    integrating transcriptomic data from healthy and type 2 diabetic islets. The model captures
-    beta cell-specific metabolic pathways and identifies metabolic alterations in T2D including
+    First comprehensive genome-scale metabolic reconstruction of human pancreatic
+    beta cells,
+    integrating transcriptomic data from healthy and type 2 diabetic islets. The model
+    captures
+    beta cell-specific metabolic pathways and identifies metabolic alterations in
+    T2D including
     impaired glucose-stimulated insulin secretion mechanisms.
   model_type: GENOME_SCALE_METABOLIC
   publication: PMID:35276551
@@ -16553,7 +16718,8 @@ computational_models:
     explanation: This directly supports a pancreatic beta-cell genome-scale metabolic modeling resource in type 2 diabetes.
 - name: Whole-Body Human Metabolic Model for Diabetes
   description: &gt;-
-    Multi-organ metabolic model (Harvey/Harvetta) capturing inter-organ metabolic fluxes in
+    Multi-organ metabolic model (Harvey/Harvetta) capturing inter-organ metabolic
+    fluxes in
     diabetes. Models liver, muscle, adipose, and pancreas metabolism with tissue-specific
     constraints derived from omics data.
   model_type: GENOME_SCALE_METABOLIC
@@ -16570,10 +16736,12 @@ computational_models:
     explanation: This supports use of organ-resolved whole-body metabolic reconstructions for human systems modeling in diabetes-related contexts.
 - name: AGORA2 Gut Microbiome Metabolic Models
   description: &gt;-
-    Collection of 7,302 strain-resolved genome-scale metabolic reconstructions of human
+    Collection of 7,302 strain-resolved genome-scale metabolic reconstructions of
+    human
     gut microorganisms. Enables personalized microbiome-host metabolic modeling by
     integrating with human metabolic models (Recon3D). Captures strain-level variation
-    in SCFA production, bile acid metabolism, and drug biotransformation relevant to T2D.
+    in SCFA production, bile acid metabolism, and drug biotransformation relevant
+    to T2D.
   model_type: GENOME_SCALE_METABOLIC
   repository_url: https://www.vmh.life/
   publication: PMID:36658342
@@ -16709,11 +16877,1426 @@ environmental:
     evidence_source: OTHER
     snippet: &#34;The USPSTF recommends screening for prediabetes and type 2 diabetes in adults aged 35 to 70 years who have overweight or obesity.&#34;
     explanation: This supports obesity-promoting environmental context as a major risk-linked feature in type 2 diabetes prevention and care.
+references:
+- reference: DOI:10.1186/s12916-023-02851-5
+  title: &#39;Dose–response relationship between device-measured physical activity and incident type 2 diabetes: findings from the UK Biobank prospective cohort study&#39;
+  found_in:
+  - Diabetes_Mellitus-deep-research-falcon.md
+  findings:
+  - statement: Most studies investigating the association between physical activity (PA) and the risk of type 2 diabetes are derived from self-reported questionnaires, with limited evidence using device-based measurements.
+    supporting_text: Most studies investigating the association between physical activity (PA) and the risk of type 2 diabetes are derived from self-reported questionnaires, with limited evidence using device-based measurements.
+    evidence:
+    - reference: DOI:10.1186/s12916-023-02851-5
+      reference_title: &#39;Dose–response relationship between device-measured physical activity and incident type 2 diabetes: findings from the UK Biobank prospective cohort study&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Most studies investigating the association between physical activity (PA) and the risk of type 2 diabetes are derived from self-reported questionnaires, with limited evidence using device-based measurements.
+      explanation: Deep research cited this publication as relevant literature for Diabetes Mellitus.
+- reference: DOI:10.1186/s12933-024-02154-w
+  title: &#39;The effectiveness of sodium-glucose co-transporter 2 inhibitors on cardiorenal outcomes: an updated systematic review and meta-analysis&#39;
+  found_in:
+  - Diabetes_Mellitus-deep-research-falcon.md
+  findings:
+  - statement: The 2022 Canadian Cardiovascular Society (CCS) cardiorenal guideline provided clinical recommendations on sodium-glucose co-transport 2 inhibitors (SGLT2i) and glucagon-like peptide-1 receptor agonists (GLP-1RA) use.
+    supporting_text: The 2022 Canadian Cardiovascular Society (CCS) cardiorenal guideline provided clinical recommendations on sodium-glucose co-transport 2 inhibitors (SGLT2i) and glucagon-like peptide-1 receptor agonists (GLP-1RA) use.
+    evidence:
+    - reference: DOI:10.1186/s12933-024-02154-w
+      reference_title: &#39;The effectiveness of sodium-glucose co-transporter 2 inhibitors on cardiorenal outcomes: an updated systematic review and meta-analysis&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The 2022 Canadian Cardiovascular Society (CCS) cardiorenal guideline provided clinical recommendations on sodium-glucose co-transport 2 inhibitors (SGLT2i) and glucagon-like peptide-1 receptor agonists (GLP-1RA) use.
+      explanation: Deep research cited this publication as relevant literature for Diabetes Mellitus.
+- reference: DOI:10.17925/ee.2023.19.2.7
+  title: &#39;Teplizumab in Type 1 Diabetes Mellitus: An Updated Review&#39;
+  found_in:
+  - Diabetes_Mellitus-deep-research-falcon.md
+  findings:
+  - statement: Type 1 diabetes mellitus (T1DM) is a chronic autoimmune condition characterized by the irreversible destruction of the β cells of the pancreas, which leads to a lifelong dependency on exogenous insulin.
+    supporting_text: Type 1 diabetes mellitus (T1DM) is a chronic autoimmune condition characterized by the irreversible destruction of the β cells of the pancreas, which leads to a lifelong dependency on exogenous insulin.
+    evidence:
+    - reference: DOI:10.17925/ee.2023.19.2.7
+      reference_title: &#39;Teplizumab in Type 1 Diabetes Mellitus: An Updated Review&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Type 1 diabetes mellitus (T1DM) is a chronic autoimmune condition characterized by the irreversible destruction of the β cells of the pancreas, which leads to a lifelong dependency on exogenous insulin.
+      explanation: Deep research cited this publication as relevant literature for Diabetes Mellitus.
+- reference: DOI:10.2337/dc22-1024
+  title: &#39;Combination of Multiple Low-Risk Lifestyle Behaviors and Incident Type 2 Diabetes: A Systematic Review and Dose-Response Meta-analysis of Prospective Cohort Studies&#39;
+  found_in:
+  - Diabetes_Mellitus-deep-research-falcon.md
+  findings:
+  - statement: Combined low-risk lifestyle behaviors (LRLBs) have been associated with a reduction in type 2 diabetes risk.
+    supporting_text: Combined low-risk lifestyle behaviors (LRLBs) have been associated with a reduction in type 2 diabetes risk.
+    evidence:
+    - reference: DOI:10.2337/dc22-1024
+      reference_title: &#39;Combination of Multiple Low-Risk Lifestyle Behaviors and Incident Type 2 Diabetes: A Systematic Review and Dose-Response Meta-analysis of Prospective Cohort Studies&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Combined low-risk lifestyle behaviors (LRLBs) have been associated with a reduction in type 2 diabetes risk.
+      explanation: Deep research cited this publication as relevant literature for Diabetes Mellitus.
+- reference: DOI:10.26719/2025.31.7.426
+  title: A cost of illness study of the economic burden of diabetes in the Eastern Mediterranean Region
+  found_in:
+  - Diabetes_Mellitus-deep-research-falcon.md
+  findings:
+  - statement: Diabetes poses an increasing public health and economic challenge in the Eastern Mediterranean Region (EMR), yet its full financial impact across the region remains poorly quantified.
+    supporting_text: Diabetes poses an increasing public health and economic challenge in the Eastern Mediterranean Region (EMR), yet its full financial impact across the region remains poorly quantified.
+    evidence:
+    - reference: DOI:10.26719/2025.31.7.426
+      reference_title: A cost of illness study of the economic burden of diabetes in the Eastern Mediterranean Region
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Diabetes poses an increasing public health and economic challenge in the Eastern Mediterranean Region (EMR), yet its full financial impact across the region remains poorly quantified.
+      explanation: Deep research cited this publication as relevant literature for Diabetes Mellitus.
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
+        
+        <div class="card reference-card" id="references-deep-research">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+            
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">5</span>
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1186/s12916-023-02851-5" target="_blank">DOI:10.1186/s12916-023-02851-5</a>
+                            </div>
+                            
+                            <div class="reference-title">Dose–response relationship between device-measured physical activity and incident type 2 diabetes: findings from the UK Biobank prospective cohort study</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Most studies investigating the association between physical activity (PA) and the risk of type 2 diabetes are derived from self-reported questionnaires, with limited evidence using device-based measurements.</div>
+            
+            
+            <div class="reference-finding-supporting">"Most studies investigating the association between physical activity (PA) and the risk of type 2 diabetes are derived from self-reported questionnaires, with limited evidence using device-based measurements."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s12916-023-02851-5" target="_blank">DOI:10.1186/s12916-023-02851-5</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Most studies investigating the association between physical activity (PA) and the risk of type 2 diabetes are derived from self-reported questionnaires, with limited evidence using device-based measurements."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Diabetes Mellitus.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1186/s12933-024-02154-w" target="_blank">DOI:10.1186/s12933-024-02154-w</a>
+                            </div>
+                            
+                            <div class="reference-title">The effectiveness of sodium-glucose co-transporter 2 inhibitors on cardiorenal outcomes: an updated systematic review and meta-analysis</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The 2022 Canadian Cardiovascular Society (CCS) cardiorenal guideline provided clinical recommendations on sodium-glucose co-transport 2 inhibitors (SGLT2i) and glucagon-like peptide-1 receptor agonists (GLP-1RA) use.</div>
+            
+            
+            <div class="reference-finding-supporting">"The 2022 Canadian Cardiovascular Society (CCS) cardiorenal guideline provided clinical recommendations on sodium-glucose co-transport 2 inhibitors (SGLT2i) and glucagon-like peptide-1 receptor agonists (GLP-1RA) use."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s12933-024-02154-w" target="_blank">DOI:10.1186/s12933-024-02154-w</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The 2022 Canadian Cardiovascular Society (CCS) cardiorenal guideline provided clinical recommendations on sodium-glucose co-transport 2 inhibitors (SGLT2i) and glucagon-like peptide-1 receptor agonists (GLP-1RA) use."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Diabetes Mellitus.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.17925/ee.2023.19.2.7" target="_blank">DOI:10.17925/ee.2023.19.2.7</a>
+                            </div>
+                            
+                            <div class="reference-title">Teplizumab in Type 1 Diabetes Mellitus: An Updated Review</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Type 1 diabetes mellitus (T1DM) is a chronic autoimmune condition characterized by the irreversible destruction of the β cells of the pancreas, which leads to a lifelong dependency on exogenous insulin.</div>
+            
+            
+            <div class="reference-finding-supporting">"Type 1 diabetes mellitus (T1DM) is a chronic autoimmune condition characterized by the irreversible destruction of the β cells of the pancreas, which leads to a lifelong dependency on exogenous insulin."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.17925/ee.2023.19.2.7" target="_blank">DOI:10.17925/ee.2023.19.2.7</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Type 1 diabetes mellitus (T1DM) is a chronic autoimmune condition characterized by the irreversible destruction of the β cells of the pancreas, which leads to a lifelong dependency on exogenous insulin."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Diabetes Mellitus.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.2337/dc22-1024" target="_blank">DOI:10.2337/dc22-1024</a>
+                            </div>
+                            
+                            <div class="reference-title">Combination of Multiple Low-Risk Lifestyle Behaviors and Incident Type 2 Diabetes: A Systematic Review and Dose-Response Meta-analysis of Prospective Cohort Studies</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Combined low-risk lifestyle behaviors (LRLBs) have been associated with a reduction in type 2 diabetes risk.</div>
+            
+            
+            <div class="reference-finding-supporting">"Combined low-risk lifestyle behaviors (LRLBs) have been associated with a reduction in type 2 diabetes risk."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.2337/dc22-1024" target="_blank">DOI:10.2337/dc22-1024</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Combined low-risk lifestyle behaviors (LRLBs) have been associated with a reduction in type 2 diabetes risk."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Diabetes Mellitus.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.26719/2025.31.7.426" target="_blank">DOI:10.26719/2025.31.7.426</a>
+                            </div>
+                            
+                            <div class="reference-title">A cost of illness study of the economic burden of diabetes in the Eastern Mediterranean Region</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Diabetes poses an increasing public health and economic challenge in the Eastern Mediterranean Region (EMR), yet its full financial impact across the region remains poorly quantified.</div>
+            
+            
+            <div class="reference-finding-supporting">"Diabetes poses an increasing public health and economic challenge in the Eastern Mediterranean Region (EMR), yet its full financial impact across the region remains poorly quantified."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.26719/2025.31.7.426" target="_blank">DOI:10.26719/2025.31.7.426</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Diabetes poses an increasing public health and economic challenge in the Eastern Mediterranean Region (EMR), yet its full financial impact across the region remains poorly quantified."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Diabetes Mellitus.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">Disease Characteristics Research Template</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">31 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-08T12:54:22.727995</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
+<p>Provide detailed information focusing on:
+1. Key concepts and definitions with current understanding
+2. Recent developments and latest research (prioritize 2023-2024 sources)
+3. Current applications and real-world implementations
+4. Expert opinions and analysis from authoritative sources
+5. Relevant statistics and data from recent studies</p>
+<p>Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
+Always prioritize recent, authoritative sources and provide specific citations for all major claims.</p>
+<h1>Disease Characteristics Research Template</h1>
+<h2>Target Disease</h2>
+<ul>
+<li><strong>Disease Name:</strong> Diabetes mellitus</li>
+<li><strong>MONDO ID:</strong>  (if available)</li>
+<li><strong>Category:</strong> Complex</li>
+</ul>
+<h2>Research Objectives</h2>
+<p>Please provide a comprehensive research report on <strong>Diabetes mellitus</strong> covering all of the
+disease characteristics listed below. This report will be used to populate a disease knowledge
+base entry. Be thorough and cite primary literature (PMID preferred) for all claims.</p>
+<p>For each section, <strong>suggested databases/resources</strong> are listed. These are the first places
+you should search for information on each topic.</p>
+<hr />
+<h3>1. Disease Information</h3>
+<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, ICD-10/ICD-11, MeSH, PubMed</p>
+</blockquote>
+<ul>
+<li>What is the disease? Provide a concise overview.</li>
+<li>What are the key identifiers? (OMIM, Orphanet, ICD-10/ICD-11, MeSH, Mondo)</li>
+<li>What are the common synonyms and alternative names?</li>
+<li>Is the information derived from individual patients (e.g., EHR) or aggregated disease-level resources?</li>
+</ul>
+<h3>2. Etiology</h3>
+<ul>
+<li><strong>Disease Causal Factors</strong>: What are the primary causes? (genetic, environmental, infectious, mechanistic)</li>
+<li><strong>Risk Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, UpToDate, clinical guidelines, ClinVar, ClinGen, GWAS Catalog, PheGenI, CTD, CDC, WHO, epidemiological databases</p>
+</blockquote>
+</li>
+<li>Genetic risk factors (causal variants, susceptibility loci, modifier genes)</li>
+<li>Environmental risk factors (toxins, lifestyle, occupational exposures, age, sex, family history)</li>
+<li><strong>Protective Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, clinical trial databases, GWAS Catalog, gnomAD, WHO, CDC, nutrition databases</p>
+</blockquote>
+</li>
+<li>Genetic protective factors (protective variants, modifier alleles)</li>
+<li>Environmental protective factors (diet, lifestyle, exposures that reduce risk)</li>
+<li><strong>Gene-Environment Interactions</strong>: How do genetic and environmental factors interact to influence disease?<blockquote>
+<p><strong>Search first:</strong> CTD, PubMed, PheGenI, GxE databases</p>
+</blockquote>
+</li>
+</ul>
+<h3>3. Phenotypes</h3>
+<blockquote>
+<p><strong>Search first:</strong> HPO (Human Phenotype Ontology), OMIM, Orphanet, PubMed, clinicaltrials.gov, MedDRA, SNOMED CT, DECIPHER, LOINC</p>
+</blockquote>
+<p>For each phenotype, provide:
+- <strong>Phenotype type</strong>: symptoms, clinical signs, physical manifestations, behavioral changes, or laboratory abnormalities</p>
+<blockquote>
+<p>For symptoms/signs: HPO, OMIM, Orphanet, PubMed
+For behavioral changes: HPO, DSM, RDoC (Research Domain Criteria), PubMed
+For laboratory abnormalities: LOINC, SNOMED CT, LabTests Online, PubMed
+- <strong>Phenotype characteristics</strong>:
+<strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed
+  - Age of symptom onset (neonatal, childhood, adult-onset, late-onset)
+  - Symptom severity (mild, moderate, severe, variable)
+  - Symptom progression (stable, progressive, episodic, fluctuating)
+  - Frequency among affected individuals (percentage or qualitative)
+- <strong>Quality of life impact</strong>: Effects on daily functioning and well-being (per-phenotype when possible)
+<strong>Search first:</strong> EQ-5D database, SF-36, WHO QOL databases, PubMed
+- Suggest HPO (Human Phenotype Ontology) terms for each phenotype</p>
+</blockquote>
+<h3>4. Genetic/Molecular Information</h3>
+<ul>
+<li><strong>Causal Genes</strong>: Gene mutations or chromosomal abnormalities responsible for disease (gene symbols, OMIM IDs)<blockquote>
+<p><strong>Search first:</strong> OMIM, ClinVar, HGMD, Ensembl, NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Pathogenic Variants</strong>:</li>
+<li>Affected genes (gene symbols, HGNC IDs)
+    &gt; <strong>Search first:</strong> OMIM, NCBI Gene, Ensembl, HGNC, UniProt, GeneCards</li>
+<li>Variant classification (pathogenic, likely pathogenic, VUS per ACMG/AMP guidelines)
+    &gt; <strong>Search first:</strong> ClinVar, ClinGen, ACMG/AMP guidelines, VarSome</li>
+<li>Variant type/class (missense, frameshift, nonsense, splice-site, structural)</li>
+<li>Allele frequency in population databases
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, ExAC, TOPMed, dbSNP</li>
+<li>Somatic vs germline origin
+    &gt; <strong>Search first:</strong> COSMIC (somatic), ClinVar, ICGC, TCGA</li>
+<li>Functional consequences (loss of function, gain of function, dominant negative)</li>
+<li><strong>Modifier Genes</strong>: Genes that modify disease severity or expression</li>
+<li><strong>Epigenetic Information</strong>: DNA methylation, histone modifications, chromatin changes affecting disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Chromosomal Abnormalities</strong>: Large-scale genetic changes (aneuploidy, translocations, inversions)<blockquote>
+<p><strong>Search first:</strong> DECIPHER, ClinVar, ECARUCA, UCSC Genome Browser</p>
+</blockquote>
+</li>
+</ul>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Environmental Factors</strong>: Non-genetic contributing factors (toxins, radiation, pollution, occupational exposure)<blockquote>
+<p><strong>Search first:</strong> CTD (Comparative Toxicogenomics Database), TOXNET, PubMed, EPA databases</p>
+</blockquote>
+</li>
+<li><strong>Lifestyle Factors</strong>: Behavioral factors (smoking, diet, exercise, alcohol consumption)<blockquote>
+<p><strong>Search first:</strong> CDC databases, WHO, PubMed, NHANES</p>
+</blockquote>
+</li>
+<li><strong>Infectious Agents</strong>: If applicable, pathogens causing or triggering disease (bacteria, viruses, fungi, parasites)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON</p>
+</blockquote>
+</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<ul>
+<li><strong>Molecular Pathways</strong>: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)<blockquote>
+<p><strong>Search first:</strong> KEGG, Reactome, WikiPathways, PathBank, BioCyc</p>
+</blockquote>
+</li>
+<li><strong>Cellular Processes</strong>: Cell-level mechanisms (apoptosis, autophagy, cell cycle dysregulation, inflammation, etc.)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (GO), Reactome, KEGG, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Protein Dysfunction</strong>: How protein structure or function is altered (misfolding, aggregation, loss of function, gain of function)<blockquote>
+<p><strong>Search first:</strong> UniProt, PDB (Protein Data Bank), InterPro, Pfam, AlphaFold</p>
+</blockquote>
+</li>
+<li><strong>Metabolic Changes</strong>: Alterations in metabolic processes (energy metabolism, lipid metabolism, amino acid metabolism)<blockquote>
+<p><strong>Search first:</strong> KEGG, BioCyc, HMDB (Human Metabolome Database), BRENDA</p>
+</blockquote>
+</li>
+<li><strong>Immune System Involvement</strong>: Role of immune response (autoimmunity, immunodeficiency, chronic inflammation)<blockquote>
+<p><strong>Search first:</strong> ImmPort, Immunome Database, IEDB, Gene Ontology</p>
+</blockquote>
+</li>
+<li><strong>Tissue Damage Mechanisms</strong>: How tissues/ are injured (oxidative stress, ischemia, fibrosis, necrosis)<blockquote>
+<p><strong>Search first:</strong> PubMed, Gene Ontology, Reactome</p>
+</blockquote>
+</li>
+<li><strong>Biochemical Abnormalities</strong>: Specific molecular defects (enzyme deficiencies, receptor dysfunction, ion channel defects)<blockquote>
+<p><strong>Search first:</strong> BRENDA, UniProt, KEGG, OMIM, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Epigenetic Changes</strong>: DNA methylation, histone modifications affecting gene expression in disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Molecular Profiling</strong> (if available):</li>
+<li>Transcriptomics/gene expression changes
+    &gt; <strong>Search first:</strong> GEO (Gene Expression Omnibus), ArrayExpress, GTEx, Human Cell Atlas, SRA</li>
+<li>Proteomics findings
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, Human Protein Atlas, STRING, BioGRID</li>
+<li>Metabolomics signatures
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB, METLIN</li>
+<li>Lipidomics alterations
+    &gt; <strong>Search first:</strong> LIPID MAPS, SwissLipids, LipidHome, Metabolomics Workbench</li>
+<li>Genomic structural features
+    &gt; <strong>Search first:</strong> UCSC Genome Browser, Ensembl, NCBI, dbVar, DGV</li>
+<li><strong>Advanced Technologies</strong> (if applicable):</li>
+<li>Single-cell analysis findings (cell-type specific mechanisms, cellular heterogeneity)
+    &gt; <strong>Search first:</strong> Human Cell Atlas, Single Cell Portal, GEO, CELLxGENE</li>
+<li>Spatial transcriptomics findings
+    &gt; <strong>Search first:</strong> GEO, Spatial Research, Vizgen, 10x Genomics data</li>
+<li>Multi-omics integration results
+    &gt; <strong>Search first:</strong> TCGA, ICGC, cBioPortal, LinkedOmics, PubMed</li>
+<li>Functional genomics screens (CRISPR, RNAi)
+    &gt; <strong>Search first:</strong> DepMap, GenomeRNAi, PubMed, BioGRID ORCS</li>
+</ul>
+<p>For each mechanism, describe:
+- The causal chain from initial trigger to clinical manifestation
+- Which mechanisms are upstream vs downstream
+- What cell types and biological processes are involved
+- Suggest GO terms for biological processes and CL terms for cell types</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ Level</strong>:</li>
+<li>Primary organs directly affected</li>
+<li>Secondary organ involvement (complications, secondary effects)</li>
+<li>Body systems involved (cardiovascular, nervous, digestive, respiratory, endocrine, etc.)<blockquote>
+<p><strong>Search first:</strong> Uberon, FMA (Foundational Model of Anatomy), OMIM, HPO, ICD-11, MeSH, SNOMED CT</p>
+</blockquote>
+</li>
+<li><strong>Tissue and Cell Level</strong>:</li>
+<li>Specific tissue types affected (epithelial, connective, muscle, nervous)</li>
+<li>Specific cell populations targeted (with Cell Ontology terms)<blockquote>
+<p><strong>Search first:</strong> Uberon, Human Protein Atlas, Cell Ontology, Human Cell Atlas, CellMarker, PanglaoDB</p>
+</blockquote>
+</li>
+<li><strong>Subcellular Level</strong>:</li>
+<li>Cellular compartments involved (mitochondria, nucleus, ER, lysosomes) (with GO Cellular Component terms)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (Cellular Component), UniProt, Human Protein Atlas</p>
+</blockquote>
+</li>
+<li><strong>Localization</strong>:</li>
+<li>Specific anatomical sites (with UBERON terms)
+    &gt; <strong>Search first:</strong> FMA, Uberon, NeuroNames (for brain), SNOMED CT</li>
+<li>Lateralization (unilateral, bilateral, asymmetric)
+    &gt; <strong>Search first:</strong> HPO, clinical literature, imaging databases</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset</strong>:</li>
+<li>Typical age of onset (congenital, pediatric, adult, geriatric)</li>
+<li>Onset pattern (acute, subacute, chronic, insidious)<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Progression</strong>:</li>
+<li>Disease stages (early, intermediate, advanced, end-stage)
+    &gt; <strong>Search first:</strong> Cancer Staging Manual (AJCC), WHO classifications, PubMed</li>
+<li>Progression rate (rapid, slow, variable)</li>
+<li>Disease course pattern (episodic, relapsing-remitting, progressive, stable)</li>
+<li>Disease duration (self-limited, chronic lifelong)<blockquote>
+<p><strong>Search first:</strong> Disease registries, longitudinal cohort databases, natural history studies, PubMed, Orphanet, OMIM</p>
+</blockquote>
+</li>
+<li><strong>Patterns</strong>:</li>
+<li>Remission patterns (spontaneous, treatment-induced)
+    &gt; <strong>Search first:</strong> Clinical trial databases, disease registries, PubMed</li>
+<li>Critical periods (time windows of vulnerability or opportunity for intervention)
+    &gt; <strong>Search first:</strong> PubMed, developmental biology databases, clinical guidelines</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology</strong>:</li>
+<li>Prevalence (cases per 100,000 at given time)</li>
+<li>Incidence (new cases per 100,000 per year)<blockquote>
+<p><strong>Search first:</strong> Orphanet, CDC, WHO, GBD (Global Burden of Disease), national registries, SEER, disease registries</p>
+</blockquote>
+</li>
+<li><strong>For Genetic Etiology</strong>:</li>
+<li>Inheritance pattern (AD, AR, X-linked, mitochondrial, multifactorial, polygenic)
+    &gt; <strong>Search first:</strong> OMIM, Orphanet, ClinVar, GTR (Genetic Testing Registry)</li>
+<li>Penetrance (complete, incomplete, age-dependent)
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, PubMed, ClinGen</li>
+<li>Expressivity (variable, consistent)
+    &gt; <strong>Search first:</strong> OMIM, ClinVar, PubMed</li>
+<li>Genetic anticipation (increasing severity in successive generations)
+    &gt; <strong>Search first:</strong> OMIM, PubMed (especially for repeat expansion disorders)</li>
+<li>Germline mosaicism
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, genetic counseling literature, PubMed</li>
+<li>Founder effects (population-specific mutations)
+    &gt; <strong>Search first:</strong> gnomAD, population genetics databases, PubMed</li>
+<li>Consanguinity role
+    &gt; <strong>Search first:</strong> OMIM, population studies, genetic counseling resources</li>
+<li>Carrier frequency
+    &gt; <strong>Search first:</strong> gnomAD, carrier screening databases, GeneReviews, GTR</li>
+<li><strong>Population Demographics</strong>:</li>
+<li>Affected populations (ethnic or demographic groups with higher prevalence)
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, PAGE Study, PubMed, population registries</li>
+<li>Geographic distribution (endemic areas, regional variation)
+    &gt; <strong>Search first:</strong> WHO, CDC, GBD, Orphanet, geographic epidemiology databases</li>
+<li>Geographic distribution of specific variants</li>
+<li>Sex ratio (male:female)
+    &gt; <strong>Search first:</strong> Disease registries, OMIM, PubMed, epidemiological databases</li>
+<li>Age distribution of affected individuals
+    &gt; <strong>Search first:</strong> CDC, disease registries, SEER, Orphanet</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Clinical Tests</strong>:</li>
+<li>Laboratory tests (blood, urine, tissue chemistry, specific enzyme assays)
+    &gt; <strong>Search first:</strong> LOINC, LabTests Online, PubMed</li>
+<li>Biomarkers (proteins, metabolites, genetic markers, circulating biomarkers)
+    &gt; <strong>Search first:</strong> FDA Biomarker List, BEST (Biomarkers, EndpointS, and other Tools), PubMed</li>
+<li>Imaging studies (X-ray, CT, MRI, PET, ultrasound)
+    &gt; <strong>Search first:</strong> RadLex, DICOM, Radiopaedia, imaging databases</li>
+<li>Functional tests (pulmonary function, cardiac stress tests)
+    &gt; <strong>Search first:</strong> LOINC, clinical guidelines, PubMed</li>
+<li>Electrophysiology (EEG, EMG, ECG, nerve conduction studies)
+    &gt; <strong>Search first:</strong> LOINC, clinical neurophysiology databases, PubMed</li>
+<li>Biopsy findings (histopathology, immunohistochemistry)
+    &gt; <strong>Search first:</strong> SNOMED CT, College of American Pathologists resources, PubMed</li>
+<li>Pathology findings (microscopic examination)
+    &gt; <strong>Search first:</strong> SNOMED CT, Digital Pathology databases, PubMed</li>
+<li><strong>Genetic Testing</strong>:<blockquote>
+<p><strong>Search first:</strong> GTR (Genetic Testing Registry), GeneReviews, ClinGen</p>
+</blockquote>
+</li>
+<li>Overview of recommended genetic testing approach</li>
+<li>Whole genome sequencing (WGS) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, GEL (Genomics England), gnomAD</li>
+<li>Whole exome sequencing (WES) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneMatcher</li>
+<li>Gene panels (which panels, which genes)
+    &gt; <strong>Search first:</strong> GTR, ClinVar, laboratory-specific databases</li>
+<li>Single gene testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneReviews</li>
+<li>Chromosomal microarray (CMA)
+    &gt; <strong>Search first:</strong> DECIPHER, ClinVar, dbVar, ECARUCA</li>
+<li>Karyotyping
+    &gt; <strong>Search first:</strong> Chromosome Abnormality Database, ClinVar, cytogenetics resources</li>
+<li>FISH
+    &gt; <strong>Search first:</strong> ClinVar, cytogenetics databases, PubMed</li>
+<li>Mitochondrial DNA testing
+    &gt; <strong>Search first:</strong> MITOMAP, MSeqDR, ClinVar, GTR</li>
+<li>Repeat expansion testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, repeat expansion databases, PubMed</li>
+<li><strong>Omics-Based Diagnostics</strong> (if applicable):</li>
+<li>RNA sequencing / transcriptomics
+    &gt; <strong>Search first:</strong> GEO, ArrayExpress, GTEx, RNA-seq databases</li>
+<li>Proteomics
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, FDA Biomarker database</li>
+<li>Metabolomics
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB</li>
+<li>Epigenomics
+    &gt; <strong>Search first:</strong> GEO, ENCODE, Roadmap Epigenomics, MethBase</li>
+<li>Liquid biopsy
+    &gt; <strong>Search first:</strong> COSMIC, ClinVar, liquid biopsy databases, PubMed</li>
+<li><strong>Clinical Criteria</strong>:</li>
+<li>Standardized diagnostic criteria (DSM, ICD, society guidelines)
+    &gt; <strong>Search first:</strong> DSM-5, ICD-11, clinical society guidelines, UpToDate</li>
+<li>Differential diagnosis (other conditions to rule out, with distinguishing features)
+    &gt; <strong>Search first:</strong> DynaMed, UpToDate, clinical decision support systems</li>
+<li><strong>Screening</strong>:</li>
+<li>Screening methods for asymptomatic individuals (newborn screening, carrier screening, cascade screening)
+    &gt; <strong>Search first:</strong> ACMG recommendations, CDC newborn screening, GTR</li>
+</ul>
+<h3>11. Outcome/Prognosis</h3>
+<ul>
+<li><strong>Survival and Mortality</strong>:</li>
+<li>Survival rate (5-year, 10-year, overall)
+    &gt; <strong>Search first:</strong> SEER, cancer registries, disease-specific registries, PubMed</li>
+<li>Life expectancy (with and without treatment if applicable)
+    &gt; <strong>Search first:</strong> Orphanet, disease registries, actuarial databases, PubMed</li>
+<li>Mortality rate
+    &gt; <strong>Search first:</strong> CDC, WHO, GBD, national mortality databases</li>
+<li>Disease-specific mortality (deaths directly attributable to disease)
+    &gt; <strong>Search first:</strong> Disease registries, CDC Wonder, GBD, PubMed</li>
+<li><strong>Morbidity and Function</strong>:</li>
+<li>Morbidity (disease-related disability and health impacts)
+    &gt; <strong>Search first:</strong> GBD, WHO, disability databases, PubMed</li>
+<li>Disability outcomes (long-term functional impairments)
+    &gt; <strong>Search first:</strong> ICF (International Classification of Functioning), disability registries</li>
+<li>Quality of life measures (EQ-5D, SF-36, PROMIS, disease-specific tools)
+    &gt; <strong>Search first:</strong> EQ-5D database, SF-36, PROMIS, PubMed</li>
+<li><strong>Disease Course</strong>:</li>
+<li>Complications (secondary problems: infections, organ failure, etc.)
+    &gt; <strong>Search first:</strong> ICD codes, disease registries, clinical databases, PubMed</li>
+<li>Recovery potential (likelihood and extent of recovery, with vs without treatment)
+    &gt; <strong>Search first:</strong> Natural history studies, rehabilitation databases, PubMed</li>
+<li><strong>Prediction</strong>:</li>
+<li>Prognostic factors (age, disease severity, biomarkers, treatment response)
+    &gt; <strong>Search first:</strong> Prognostic models databases, clinical calculators, PubMed</li>
+<li>Prognostic biomarkers (molecular markers predicting disease course)
+    &gt; <strong>Search first:</strong> FDA Biomarker database, PubMed, cancer prognostic databases</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Pharmacotherapy</strong>:</li>
+<li>Pharmacological treatments (drug names, drug classes, mechanisms of action)
+    &gt; <strong>Search first:</strong> DrugBank, RxNorm, ATC classification, DailyMed, FDA databases</li>
+<li>Pharmacogenomics (how genetic variants affect drug metabolism, efficacy, toxicity)
+    &gt; <strong>Search first:</strong> PharmGKB, CPIC (Clinical Pharmacogenetics), FDA Table of PGx Biomarkers</li>
+<li><strong>Advanced Therapeutics</strong>:</li>
+<li>Gene therapy (viral vectors, CRISPR, gene replacement, gene editing)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA gene therapy database, ASGCT resources</li>
+<li>Cell therapy (stem cell transplant, CAR-T, cellular therapeutics)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA cell therapy database, FACT standards</li>
+<li>RNA-based therapies (ASOs, siRNA, mRNA therapies)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA approvals, PubMed</li>
+<li>Targeted therapies (treatments directed at specific molecular targets)
+    &gt; <strong>Search first:</strong> My Cancer Genome, OncoKB, ClinicalTrials.gov, FDA approvals</li>
+<li>Immunotherapies (checkpoint inhibitors, monoclonal antibodies)
+    &gt; <strong>Search first:</strong> Cancer Immunotherapy Database, FDA approvals, ClinicalTrials.gov</li>
+<li><strong>Surgical and Interventional</strong>:</li>
+<li>Surgical interventions (types of surgery, timing, outcomes)
+    &gt; <strong>Search first:</strong> CPT codes, surgical registries, clinical guidelines, PubMed</li>
+<li><strong>Supportive and Rehabilitative</strong>:</li>
+<li>Supportive care (symptom management, pain control, nutrition)
+    &gt; <strong>Search first:</strong> Clinical guidelines, Cochrane Library, PubMed</li>
+<li>Rehabilitation (physical therapy, occupational therapy, speech therapy)
+    &gt; <strong>Search first:</strong> Rehabilitation medicine databases, clinical guidelines, PubMed</li>
+<li><strong>Experimental</strong>:</li>
+<li>Experimental treatments in clinical trials (with NCT identifiers if available)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, EU Clinical Trials Register, WHO ICTRP</li>
+<li><strong>Treatment Outcomes</strong>:</li>
+<li>Treatment response rates
+    &gt; <strong>Search first:</strong> Clinical trial databases, FDA reviews, systematic reviews, PubMed</li>
+<li>Side effects and adverse events
+    &gt; <strong>Search first:</strong> FDA Adverse Event Reporting System (FAERS), MedWatch, PubMed</li>
+<li><strong>Treatment Strategy</strong>:</li>
+<li>Treatment algorithms (clinical pathways, decision trees)
+    &gt; <strong>Search first:</strong> Clinical practice guidelines, NCCN Guidelines, UpToDate</li>
+<li>Combination therapies
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, treatment guidelines, PubMed</li>
+<li>Personalized medicine approaches (genotype-guided treatment)
+    &gt; <strong>Search first:</strong> My Cancer Genome, CIViC, PharmGKB, precision medicine databases</li>
+</ul>
+<p>For each treatment, suggest MAXO (Medical Action Ontology) terms where applicable.</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Prevention Levels</strong>:</li>
+<li>Primary prevention (preventing disease occurrence: vaccination, risk factor modification)
+    &gt; <strong>Search first:</strong> CDC, WHO, USPSTF recommendations, Cochrane Library</li>
+<li>Secondary prevention (early detection and treatment: screening programs, early intervention)
+    &gt; <strong>Search first:</strong> USPSTF, CDC screening guidelines, WHO</li>
+<li>Tertiary prevention (preventing complications in those with disease)
+    &gt; <strong>Search first:</strong> Clinical guidelines, disease management protocols, PubMed</li>
+<li><strong>Immunization</strong>: Vaccine strategies (if applicable)<blockquote>
+<p><strong>Search first:</strong> CDC vaccine schedules, WHO immunization, FDA vaccine database</p>
+</blockquote>
+</li>
+<li><strong>Screening and Early Detection</strong>:</li>
+<li>Screening programs (population-based: newborn screening, cancer screening)
+    &gt; <strong>Search first:</strong> CDC screening programs, USPSTF, cancer screening databases</li>
+<li>Genetic screening (carrier screening, preimplantation genetic diagnosis, prenatal testing)
+    &gt; <strong>Search first:</strong> ACMG recommendations, ACOG guidelines, GTR</li>
+<li>Risk stratification (identifying high-risk individuals for targeted prevention)
+    &gt; <strong>Search first:</strong> Risk prediction models, clinical calculators, PubMed</li>
+<li><strong>Behavioral Interventions</strong>: Lifestyle modifications to reduce risk<blockquote>
+<p><strong>Search first:</strong> CDC, WHO, behavioral intervention databases, Cochrane Library</p>
+</blockquote>
+</li>
+<li><strong>Counseling</strong>: Genetic counseling (risk assessment, family planning guidance)<blockquote>
+<p><strong>Search first:</strong> NSGC resources, ACMG guidelines, GeneReviews</p>
+</blockquote>
+</li>
+<li><strong>Public Health</strong>:</li>
+<li>Public health interventions (sanitation, vector control, health education)
+    &gt; <strong>Search first:</strong> CDC, WHO, public health databases, PubMed</li>
+<li>Environmental interventions (reducing environmental risk factors)
+    &gt; <strong>Search first:</strong> EPA databases, WHO environmental health, PubMed</li>
+<li><strong>Prophylaxis</strong>: Preventive medications or procedures<blockquote>
+<p><strong>Search first:</strong> Clinical guidelines, FDA approvals, PubMed</p>
+</blockquote>
+</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy</strong>: Species affected (with NCBI Taxon identifiers)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy</p>
+</blockquote>
+</li>
+<li><strong>Breed</strong>: Specific breeds affected (with VBO identifiers if applicable)<blockquote>
+<p><strong>Search first:</strong> VBO (Vertebrate Breed Ontology)</p>
+</blockquote>
+</li>
+<li><strong>Gene</strong>: Orthologous genes in other species (with NCBI Gene IDs)<blockquote>
+<p><strong>Search first:</strong> NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Natural Disease</strong>:</li>
+<li>Naturally occurring disease in other species (companion animals, wildlife)
+    &gt; <strong>Search first:</strong> OMIA (Online Mendelian Inheritance in Animals), VetCompass, PubMed</li>
+<li>Veterinary relevance and importance in animal health
+    &gt; <strong>Search first:</strong> OMIA, veterinary databases, PubMed</li>
+<li><strong>Comparative Biology</strong>:</li>
+<li>Comparative pathology (similarities and differences across species)
+    &gt; <strong>Search first:</strong> OMIA, comparative pathology databases, PubMed</li>
+<li>Evolutionary conservation of disease mechanisms
+    &gt; <strong>Search first:</strong> HomoloGene, OrthoMCL, Alliance of Genome Resources</li>
+<li><strong>Transmission</strong> (if applicable):</li>
+<li>Zoonotic potential
+    &gt; <strong>Search first:</strong> CDC zoonotic diseases, WHO zoonoses, GIDEON</li>
+<li>Cross-species susceptibility
+    &gt; <strong>Search first:</strong> NCBI Taxonomy, veterinary databases, PubMed</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Model Types</strong>:</li>
+<li>Model organism type (mammalian, invertebrate, cellular, in vitro)
+    &gt; <strong>Search first:</strong> Alliance of Genome Resources, model organism databases</li>
+<li>Specific model systems (mouse, rat, zebrafish, Drosophila, C. elegans, yeast, cell lines, organoids, iPSCs)
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, SGD, ATCC, Cellosaurus</li>
+<li>Induced models (drug treatment, surgical intervention, environmental manipulation)
+    &gt; <strong>Search first:</strong> MGI, model organism databases, PubMed</li>
+<li><strong>Genetic Models</strong>:</li>
+<li>Types available (knockout, knock-in, transgenic, conditional, humanized)
+    &gt; <strong>Search first:</strong> MGI, IMPC, KOMP, EuMMCR, IMSR</li>
+<li><strong>Model Characteristics</strong>:</li>
+<li>Phenotype recapitulation (how well model reproduces human disease features)
+    &gt; <strong>Search first:</strong> Model organism databases, comparative studies, PubMed</li>
+<li>Model limitations (aspects of human disease not captured)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed, review articles</li>
+<li><strong>Applications</strong>:</li>
+<li>Research applications (what aspects of disease can be studied)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed</li>
+<li><strong>Resources</strong>:</li>
+<li>Model databases
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, IMSR, EMMA, MMRRC</li>
+</ul>
+<hr />
+<h2>Citation Requirements</h2>
+<ul>
+<li>Cite primary literature (PMID preferred) for all mechanistic and clinical claims</li>
+<li>Prioritize recent reviews and landmark papers</li>
+<li>Include direct quotes from abstracts where possible to support key statements</li>
+<li>Distinguish evidence source types: human clinical, model organism, in vitro, computational</li>
+</ul>
+<h2>Output Format</h2>
+<p>Structure your response as a comprehensive narrative organized by the sections above.
+For each section, provide:
+- Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
+- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, MAXO, MONDO) where applicable
+- Evidence citations with PMIDs
+- Direct quotes from abstracts to support key claims
+- Clear indication when information is not available or not applicable for this disease</p>
+<p>This report will be used to populate a disease knowledge base entry with:
+- Pathophysiology descriptions with causal chains
+- Gene/protein annotations (HGNC, GO terms)
+- Phenotype associations (HP terms) with frequencies
+- Cell type involvement (CL terms)
+- Anatomical locations (UBERON terms)
+- Chemical entities (CHEBI terms)
+- Treatment annotations (MAXO terms)
+- Evidence items with PMIDs and exact abstract quotes
+- Epidemiology, prognosis, diagnostic, and prevention information
+- Animal model descriptions with phenotype recapitulation details</p>
+<h2>Comprehensive Disease Characteristics Report: Diabetes Mellitus (Complex disease)</h2>
+<h3>Executive summary (current understanding)</h3>
+<p>Diabetes mellitus (DM) is a group of chronic metabolic disorders characterized by persistent hyperglycemia due to defects in insulin secretion, insulin action, or both, and it is conventionally classified into type 1 diabetes (T1D), type 2 diabetes (T2D), gestational diabetes mellitus (GDM), and other specific types (e.g., monogenic diabetes, exocrine pancreatic disease, drug/chemical-induced diabetes). (yameny2024diabetesmellitusoverview pages 1-2, care20242.diagnosisand pages 4-5)</p>
+<p>In modern clinical practice, diabetes is increasingly viewed as heterogeneous with overlapping phenotypes and endotypes; misclassification at diagnosis is common (e.g., adults with new T1D misdiagnosed as T2D). (care20242.diagnosisand pages 4-5, care20242.diagnosisand pages 5-6)</p>
+<p>Recent (2024) evidence syntheses show that two glucose-lowering drug classes—SGLT2 inhibitors and GLP-1 receptor agonists—provide clinically meaningful reductions in cardiovascular and kidney outcomes beyond glycemic control in high-risk adults, with partially distinct benefits (e.g., stronger heart failure benefit for SGLT2 inhibitors; stroke benefit for GLP-1 RAs). (diabetology2024theeffectivenessof pages 1-2, diabetology2024theeffectivenessof pages 5-7)</p>
+<h3>Evidence and citation note</h3>
+<p>This report is constrained to sources retrievable via the provided tools in this run. Several ontology/identifier items (e.g., MONDO, MeSH tree, ICD-11 details, OMIM disease records) were not directly retrievable in the current tool outputs, so those elements are flagged as “not retrieved in tool-accessed sources” rather than inferred.</p>
+<hr />
+<h2>1. Disease information</h2>
+<h3>1.1 What is the disease?</h3>
+<p>Diabetes mellitus is defined as persistent hyperglycemia caused by impaired insulin secretion and/or impaired insulin action, with chronic microvascular and macrovascular complications risk across types. (yameny2024diabetesmellitusoverview pages 1-2, care20242.diagnosisand pages 5-6)</p>
+<h3>1.2 Key identifiers</h3>
+<ul>
+<li>MONDO ID: not retrieved in the tool-accessed sources for this run.</li>
+<li>ICD-10/ICD-11, MeSH, OMIM/Orphanet identifiers: not retrieved in the tool-accessed sources for this run.</li>
+</ul>
+<h3>1.3 Common synonyms / alternative names</h3>
+<p>Common clinical labels embedded in ADA classification include: type 1 diabetes (including latent autoimmune diabetes in adults, LADA), type 2 diabetes, gestational diabetes mellitus, and “specific types due to other causes” (including monogenic diabetes syndromes). (care20242.diagnosisand pages 4-5, care20242.diagnosisand pages 5-6)</p>
+<h3>1.4 Data provenance</h3>
+<p>Information used here is derived from aggregated, disease-level resources (e.g., ADA Standards of Care, meta-analyses, population surveys, and clinical trials), not individual EHR records. (care20242.diagnosisanda pages 2-2, diabetology2024theeffectivenessof pages 1-2)</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>2.1 Disease causal factors (high level)</h3>
+<ul>
+<li><strong>T1D</strong>: autoimmune destruction of pancreatic β cells leading to absolute insulin deficiency, mediated largely by autoreactive T cells (including cytotoxic CD8+ T cells) and characterized by islet autoantibodies appearing before clinical onset. (thakkar2023teplizumabintype pages 1-2)</li>
+<li><strong>T2D</strong>: progressive loss of adequate β-cell insulin secretion, frequently on a background of insulin resistance; the “paths to β-cell demise and dysfunction” are heterogeneous. (care20242.diagnosisand pages 5-6, care20242.diagnosisand pages 4-5)</li>
+</ul>
+<p>Direct abstract quote supporting T1D autoimmune etiology: the teplizumab review describes T1D as “a chronic autoimmune condition characterized by the irreversible destruction of the β cells of the pancreas.” (thakkar2023teplizumabintype pages 1-2)</p>
+<h3>2.2 Risk factors</h3>
+<h4>Genetic risk factors (examples)</h4>
+<ul>
+<li>T1D familial aggregation and genetic susceptibility are strongly influenced by the HLA region (e.g., DR3-DQ2, DR4-DQ8), and identical-twin concordance is substantial. (thakkar2023teplizumabintype pages 1-2)</li>
+<li>A major diagnostic/etiologic signal for T1D risk is persistent multiple islet autoantibodies; ADA notes that “persistent presence of two or more islet autoantibodies is a near-certain predictor of clinical diabetes” in at-risk cohorts. (care20242.diagnosisand pages 5-6)</li>
+</ul>
+<h4>Environmental/lifestyle risk factors (T2D)</h4>
+<p>Large prospective evidence supports lifestyle exposures as major determinants of incident T2D:
+- <strong>Physical activity</strong> (device-measured): In UK Biobank (n=40,431; 591 incident T2D cases over median 6.3 years), compared with &lt;150 min/week of moderate PA, 150–300, 300–600, and &gt;600 min/week were associated with <strong>49%</strong>, <strong>62%</strong>, and <strong>71% lower</strong> T2D risk, respectively. (boonpor2023dose–responserelationshipbetween pages 1-2)
+- <strong>Combined lifestyle pattern</strong>: A 2023 Diabetes Care systematic review/meta-analysis pooling 30 cohort comparisons (n=1,693,753; 75,669 incident cases) found highest vs lowest adherence to combined low-risk lifestyle behaviors (healthy weight, healthy diet, regular exercise, non-smoking, light alcohol) associated with <strong>80% lower</strong> T2D risk (RR 0.20; 95% CI 0.17–0.23). (khan2023combinationofmultiple pages 1-3)</p>
+<h3>2.3 Protective factors</h3>
+<ul>
+<li><strong>Multiple combined low-risk lifestyle behaviors</strong> show strong protective association, with a graded dose–response: each additional low-risk behavior associated with ~33% lower risk (RR 0.67; 95% CI 0.64–0.70), and maximum adherence estimated RR 0.15 (95% CI 0.12–0.18). (khan2023combinationofmultiple pages 8-10)</li>
+<li><strong>Moderate-to-high physical activity</strong> shows graded protection and only partially mediated by BMI (12–20% mediation), suggesting benefits beyond weight reduction alone. (boonpor2023dose–responserelationshipbetween pages 1-2)</li>
+</ul>
+<h3>2.4 Gene–environment interactions</h3>
+<p>Specific gene–environment interaction mechanisms were not directly retrievable in the tool-accessed sources for this run. However, the ADA Standards emphasize that both genetic and environmental factors contribute to progressive β-cell loss/dysfunction across diabetes types. (care20242.diagnosisand pages 5-6)</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>3.1 Core phenotypes (symptoms/signs/lab abnormalities)</h3>
+<ul>
+<li><strong>Hyperglycemia</strong> (laboratory abnormality) defining phenotype across DM types. (care20242.diagnosisanda pages 2-2, care20242.diagnosisand pages 2-2)</li>
+<li><strong>Classic hyperglycemia symptoms</strong> (clinical phenotype) support diagnosis when random plasma glucose ≥200 mg/dL occurs with symptoms or hyperglycemic crisis. (care20242.diagnosisanda pages 2-2, care20242.diagnosisand pages 2-2)</li>
+<li><strong>Diabetic ketoacidosis (DKA)</strong> is a key acute presentation risk, especially in insulinopenic states; ADA highlights DKA prevention benefit from earlier identification/follow-up in at-risk children. (care20242.diagnosisand pages 8-9)</li>
+</ul>
+<h3>3.2 Chronic complications (high level)</h3>
+<p>All diabetes forms confer risk for chronic complications once hyperglycemia occurs, with potentially different rates of progression by diabetes subtype. (care20242.diagnosisand pages 5-6)</p>
+<h3>3.3 Suggested HPO terms (non-exhaustive, for knowledge base population)</h3>
+<p>Not all HPO terms were validated against HPO in this tool run; below are reasonable mapping suggestions based on standard clinical phenotype structure:
+- Hyperglycemia: HP:0003074 (suggested)
+- Polydipsia: HP:0001959 (suggested)
+- Polyuria: HP:0000103 (suggested)
+- Diabetic ketoacidosis: HP:0001953 (suggested)
+- Abnormal glycated hemoglobin: HP:0030663 (suggested)</p>
+<p>Frequency/severity estimates for symptoms/complications were not directly extractable from the tool-accessed sources for this run.</p>
+<hr />
+<h2>4. Genetic / molecular information</h2>
+<h3>4.1 Causal genes</h3>
+<ul>
+<li>For <strong>polygenic T1D/T2D</strong>, specific causal genes were not enumerated in the retrievable sources here; HLA risk is emphasized for T1D (thakkar2023teplizumabintype pages 1-2).</li>
+<li>For <strong>monogenic diabetes</strong>, ADA explicitly recognizes “monogenic diabetes syndromes” within the “specific types of diabetes due to other causes” category and provides clinical features that raise suspicion (e.g., family history, A1C &lt;7.5% at diagnosis, syndromic features), but does not list a gene set in the extracted pages. (care20242.diagnosisand pages 4-5, care20242.diagnosisand pages 5-6)</li>
+</ul>
+<h3>4.2 Pathogenic variants / allele frequency / somatic vs germline</h3>
+<p>Not retrievable in the tool-accessed sources for this run.</p>
+<h3>4.3 Epigenetic information</h3>
+<p>Not retrievable in the tool-accessed sources for this run.</p>
+<hr />
+<h2>5. Environmental information</h2>
+<h3>5.1 Lifestyle factors</h3>
+<p>Lifestyle determinants with strong cohort evidence are summarized above (Section 2) with quantitative risk reductions for physical activity and combined lifestyle patterns. (boonpor2023dose–responserelationshipbetween pages 1-2, khan2023combinationofmultiple pages 1-3)</p>
+<h3>5.2 Infectious agents</h3>
+<p>ADA notes enteroviruses (e.g., Coxsackievirus B) as associated with T1D and discusses mixed evidence regarding COVID-19 as a trigger/accelerator in susceptible individuals during the early pandemic, with later cohorts showing mixed findings and possible confounding by delayed diagnosis/access. (care20242.diagnosisand pages 8-9)</p>
+<hr />
+<h2>6. Mechanism / pathophysiology</h2>
+<h3>6.1 Causal chains (simplified)</h3>
+<h4>T1D</h4>
+<p>Genetic susceptibility and environmental triggers → loss of immune tolerance → appearance of islet autoantibodies → autoreactive T cell infiltration/β-cell killing (CD8+ T cells; impaired regulation by Tregs) → progressive β-cell loss → absolute insulin deficiency → hyperglycemia and risk of acute metabolic decompensation (e.g., DKA). (thakkar2023teplizumabintype pages 1-2, care20242.diagnosisand pages 5-6)</p>
+<h4>T2D</h4>
+<p>Obesogenic environment + genetic susceptibility → insulin resistance in metabolic tissues with compensatory hyperinsulinemia → progressive β-cell dysfunction and inadequate insulin secretion → chronic hyperglycemia → vascular and other tissue injury → microvascular and macrovascular complications. (care20242.diagnosisand pages 5-6, yameny2024diabetesmellitusoverview pages 1-2)</p>
+<h3>6.2 Key pathways/processes (ontology-mappable suggestions)</h3>
+<p>The specific pathway names (e.g., PI3K-AKT, mTOR) were not explicitly provided in the tool-accessed sources for this run, but standard disease mapping for diabetes commonly includes:
+- GO biological process suggestions: “regulation of insulin secretion”, “glucose homeostasis”, “inflammatory response”, “T cell activation” (suggested; not directly validated in retrieved text).</p>
+<h3>6.3 Key cell types (CL suggestions)</h3>
+<ul>
+<li>Pancreatic β cell (CL:0000169; suggested)</li>
+<li>CD8-positive, alpha-beta T cell (CL:0000625; suggested)</li>
+<li>Regulatory T cell (CL:0000815; suggested)</li>
+</ul>
+<p>Evidence for CD8+ T cell cytotoxicity and Treg involvement in T1D is explicit in retrieved sources. (thakkar2023teplizumabintype pages 1-2)</p>
+<h3>6.4 Key anatomical sites (UBERON suggestions)</h3>
+<ul>
+<li>Pancreas (UBERON:0001264; suggested)</li>
+<li>Pancreatic islet of Langerhans (UBERON:0000007; suggested)</li>
+</ul>
+<hr />
+<h2>7. Anatomical structures affected</h2>
+<p>Primary: endocrine pancreas/islets (β cells) in T1D; systemic metabolic tissues involved in insulin resistance in T2D; multi-organ vascular beds underlying chronic complications across types once hyperglycemia occurs. (care20242.diagnosisand pages 5-6, thakkar2023teplizumabintype pages 1-2)</p>
+<hr />
+<h2>8. Temporal development</h2>
+<ul>
+<li>T1D: autoantibody seroconversion can occur early in life; ADA notes peak seroconversion between 9–24 months and that glycemic changes can precede diagnosis by months. (care20242.diagnosisand pages 5-6)</li>
+<li>Both T1D and T2D occur across age groups; “traditional paradigms” (T2D only adults, T1D only children) are inaccurate. (care20242.diagnosisand pages 3-4)</li>
+</ul>
+<hr />
+<h2>9. Inheritance and population</h2>
+<h3>9.1 Epidemiology (recent statistics)</h3>
+<ul>
+<li><strong>Global</strong>: 537 million adults (20–79) living with diabetes in 2021 (10.5%), projected to 643 million by 2030 and 783 million by 2045 (IDF-based figures cited in multiple 2024–2025 sources). (elmusharaf2025acostof pages 1-2, yameny2024diabetesmellitusoverview pages 1-2)</li>
+<li><strong>Diabetes-attributable mortality and expenditures (global, 2021)</strong>: 6.7 million deaths and US$ 966 billion in health expenditures are cited from IDF/2021-based estimates. (elmusharaf2025acostof pages 1-2)</li>
+<li><strong>Regional example (Eastern Mediterranean Region, EMR)</strong>: &gt;74 million people with diabetes and ~833,000 deaths in 2023, projected to 150 million cases and 2 million deaths by 2050. (elmusharaf2025acostof pages 1-2)</li>
+<li><strong>Country example (Korea)</strong>: adult prevalence (≥30 years) 15.5% in 2021–2022, with only 32.4% achieving HbA1c &lt;6.5% and 15.9% achieving integrated HbA1c/BP/LDL targets. (park2025diabetesfactsheets pages 1-3)</li>
+</ul>
+<h3>9.2 Genetic architecture</h3>
+<p>The tool-accessed sources emphasize multifactorial/polygenic inheritance for common forms and highlight HLA contribution for T1D susceptibility. (thakkar2023teplizumabintype pages 1-2, care20242.diagnosisand pages 5-6)</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>10.1 Guideline diagnostic criteria (ADA Standards of Care)</h3>
+<p>Diagnostic and prediabetes thresholds are shown in ADA tables (images extracted) and text:
+- Diabetes: A1C ≥6.5%; FPG ≥126 mg/dL; 2-h OGTT ≥200 mg/dL; random plasma glucose ≥200 mg/dL with classic symptoms or crisis. (care20242.diagnosisanda pages 2-2, care20242.diagnosisand pages 2-2, care20242.diagnosisand media a404318a)
+- Prediabetes: A1C 5.7–6.4%; FPG 100–125 mg/dL; 2-h OGTT 140–199 mg/dL. (care20242.diagnosisand pages 2-3, care20242.diagnosisand media aa0d0872)
+- Confirmation: in absence of unequivocal hyperglycemia, diagnosis requires two abnormal results (repeat or different test). (care20242.diagnosisanda pages 2-2, care20242.diagnosisand pages 3-4)
+- A1C caveats: use plasma glucose criteria when A1C–glycemia relationship is altered (e.g., pregnancy, hemoglobin variants, anemia/altered RBC turnover, HIV, kidney failure/dialysis). (care20242.diagnosisand pages 2-3, care20242.diagnosisand pages 3-4)</p>
+<h3>10.2 Biomarkers for classification</h3>
+<ul>
+<li>Islet autoantibodies (e.g., GAD, IA-2, ZnT8) and C-peptide are used to support classification in adults with suspected T1D and to consider monogenic diabetes when clinical features suggest. (care20242.diagnosisand pages 4-5, care20242.diagnosisand pages 5-6)</li>
+</ul>
+<hr />
+<h2>11. Outcome / prognosis</h2>
+<h3>11.1 Complications risk and outcomes</h3>
+<p>Once hyperglycemia occurs, all diabetes types confer risk of chronic complications; contemporary management emphasizes preventing acute complications (e.g., DKA) and reducing cardiorenal morbidity using therapies with outcomes evidence. (care20242.diagnosisand pages 5-6, diabetology2024theeffectivenessof pages 1-2)</p>
+<h3>11.2 Recent quantitative outcomes evidence (cardiorenal protection)</h3>
+<ul>
+<li>A 2024 updated meta-analysis pooling 151,023 adults (90,943 in SGLT2 inhibitor trials; 60,080 in GLP-1RA trials) reports reductions vs standard care: CV mortality (SGLT2i 14%; GLP-1RA 13%), all-cause mortality (12% both), MACE (SGLT2i 11%; GLP-1RA 14%), HF hospitalization (SGLT2i 30%; GLP-1RA 9%), and kidney composite outcomes (SGLT2i 32%; GLP-1RA 22%). (diabetology2024theeffectivenessof pages 1-2)</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<h3>12.1 Standard of care categories (high level)</h3>
+<p>Management includes lifestyle interventions, pharmacotherapy (including insulin, GLP-1 receptor agonists, SGLT2 inhibitors), and in selected cases metabolic surgery or advanced biologic/cell therapies. (yameny2024diabetesmellitusoverview pages 1-2, care20242.diagnosisand pages 5-6)</p>
+<h3>12.2 Cardiorenal outcome–directed pharmacotherapy (2023–2024 emphasis)</h3>
+<ul>
+<li><strong>SGLT2 inhibitors and GLP-1 RAs (outcomes evidence)</strong>: the 2024 meta-analysis indicates class-level reductions across major outcomes, with differential signals (SGLT2i stronger HF hospitalization benefit; GLP-1RA stroke benefit). (diabetology2024theeffectivenessof pages 1-2, diabetology2024theeffectivenessof pages 5-7)</li>
+<li><strong>GLP-1RA CV/kidney outcomes meta-analysis (2024)</strong>: A June 2024 meta-analysis of 13 placebo-controlled GLP-1RA CVOTs (83,258 patients) reported MACE reduction (OR 0.86, 95% CI 0.80–0.94) and kidney composite reduction (OR 0.76, 95% CI 0.67–0.85), among other endpoints. (rivera2024cardiovascularandrenal pages 1-2)</li>
+<li><strong>Semaglutide kidney outcomes in SELECT (2024, real-world adjacent implications)</strong>: In SELECT (overweight/obesity with established CVD without diabetes), semaglutide lowered a prespecified kidney composite (1.8% vs 2.2%; HR 0.78; 95% CI 0.63–0.96) and improved eGFR slope at 104 weeks. (colhoun2024longtermkidneyoutcomes pages 1-2)</li>
+</ul>
+<h3>12.3 Advanced therapeutics (latest research; real-world implementation status varies)</h3>
+<ul>
+<li><strong>Disease-modifying immunotherapy to delay T1D</strong>: Teplizumab (anti-CD3) is described as FDA-licensed (Nov 2022) to delay onset of clinical T1D in high-risk individuals ≥8 years (stage 2 T1D), with proposed mechanisms including enhancement of regulatory T-cell activity and promotion of immune tolerance. (thakkar2023teplizumabintype pages 1-2)</li>
+<li><strong>β-cell replacement / stem-cell–derived islet therapy (2025, pivotal clinical development)</strong>: A phase 1–2 study of zimislecel (VX-880; allogeneic stem cell–derived fully differentiated islets) reported detectable C-peptide after infusion in all 14 participants (all had undetectable baseline C-peptide), and among 12 full-dose recipients, 83% were insulin independent at day 365, with HbA1c &lt;7% and &gt;70% time in range; safety signals included neutropenia and two deaths. (reichman2025stemcellderivedfully pages 1-2)</li>
+</ul>
+<h3>12.4 MAXO term suggestions (non-exhaustive)</h3>
+<p>Not validated against MAXO in this run; suggested mappings:
+- Insulin therapy; glucose monitoring; lifestyle intervention; bariatric surgery/metabolic surgery; immunotherapy (anti-CD3); islet cell transplantation/cell therapy.</p>
+<hr />
+<h2>13. Prevention</h2>
+<h3>13.1 Primary prevention (T2D)</h3>
+<ul>
+<li><strong>Physical activity</strong>: graded dose-response protection against incident T2D in device-measured cohort data. (boonpor2023dose–responserelationshipbetween pages 1-2)</li>
+<li><strong>Multi-behavior lifestyle pattern</strong>: very large risk reductions associated with combined low-risk lifestyle behaviors in prospective cohorts, with strong dose-response. (khan2023combinationofmultiple pages 1-3, khan2023combinationofmultiple pages 8-10)</li>
+</ul>
+<h3>13.2 Secondary prevention (screening/early detection)</h3>
+<p>ADA provides risk-based screening and emphasizes accurate use of diagnostic criteria, confirmatory testing, and appropriate selection of A1C vs plasma glucose tests depending on clinical context. (care20242.diagnosisand pages 2-3, care20242.diagnosisanda pages 2-2)</p>
+<h3>13.3 Tertiary prevention (prevent complications)</h3>
+<p>Outcomes-focused therapy with SGLT2 inhibitors and/or GLP-1 RAs for appropriate patients is supported by 2024 evidence synthesis showing reductions in MACE, HF hospitalization, and kidney composites. (diabetology2024theeffectivenessof pages 1-2)</p>
+<hr />
+<h2>14. Other species / natural disease</h2>
+<p>Not retrievable in the tool-accessed sources for this run.</p>
+<hr />
+<h2>15. Model organisms</h2>
+<p>Not retrievable in the tool-accessed sources for this run.</p>
+<hr />
+<h2>Consolidated evidence table (diagnosis + key 2024–2025 outcomes)</h2>
+<table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Measure/Endpoint</th>
+<th>Quantitative result</th>
+<th>Population/Context</th>
+<th>Source (paper + year)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Diagnosis</td>
+<td>Diabetes: A1C</td>
+<td>≥6.5% (≥48 mmol/mol)</td>
+<td>ADA diagnostic threshold for diabetes in nonpregnant individuals; laboratory NGSP-certified assay recommended</td>
+<td>ADA Standards of Care 2024 (care20242.diagnosisanda pages 2-2, care20242.diagnosisand pages 2-2)</td>
+</tr>
+<tr>
+<td>Diagnosis</td>
+<td>Diabetes: Fasting plasma glucose</td>
+<td>≥126 mg/dL (≥7.0 mmol/L)</td>
+<td>Fasting defined as no caloric intake for at least 8 h</td>
+<td>ADA Standards of Care 2024 (care20242.diagnosisanda pages 2-2, care20242.diagnosisand pages 2-2, care20242.diagnosisand pages 1-2)</td>
+</tr>
+<tr>
+<td>Diagnosis</td>
+<td>Diabetes: 2-h plasma glucose during 75-g OGTT</td>
+<td>≥200 mg/dL (≥11.1 mmol/L)</td>
+<td>ADA diagnostic threshold; OGTT more sensitive than A1C in some settings</td>
+<td>ADA Standards of Care 2024 (care20242.diagnosisanda pages 2-2, care20242.diagnosisand pages 2-2)</td>
+</tr>
+<tr>
+<td>Diagnosis</td>
+<td>Diabetes: Random plasma glucose</td>
+<td>≥200 mg/dL (≥11.1 mmol/L)</td>
+<td>Requires classic hyperglycemia symptoms or hyperglycemic crisis</td>
+<td>ADA Standards of Care 2024 (care20242.diagnosisanda pages 2-2, care20242.diagnosisand pages 2-2)</td>
+</tr>
+<tr>
+<td>Diagnosis</td>
+<td>Prediabetes: A1C</td>
+<td>5.7–6.4% (39–47 mmol/mol)</td>
+<td>ADA high-risk/prediabetes range</td>
+<td>ADA Standards of Care 2024 (care20242.diagnosisand pages 2-3, care20242.diagnosisanda pages 2-3, care20242.diagnosisand pages 10-10)</td>
+</tr>
+<tr>
+<td>Diagnosis</td>
+<td>Prediabetes: Fasting plasma glucose</td>
+<td>100–125 mg/dL (5.6–6.9 mmol/L)</td>
+<td>Impaired fasting glucose</td>
+<td>ADA Standards of Care 2024 (care20242.diagnosisand pages 2-3, care20242.diagnosisanda pages 2-3, care20242.diagnosisand pages 10-10)</td>
+</tr>
+<tr>
+<td>Diagnosis</td>
+<td>Prediabetes: 2-h plasma glucose during 75-g OGTT</td>
+<td>140–199 mg/dL (7.8–11.0 mmol/L)</td>
+<td>Impaired glucose tolerance</td>
+<td>ADA Standards of Care 2024 (care20242.diagnosisand pages 2-3, care20242.diagnosisanda pages 2-3, care20242.diagnosisand pages 10-10)</td>
+</tr>
+<tr>
+<td>Diagnosis</td>
+<td>Confirmation requirement</td>
+<td>2 abnormal results from the same or different tests unless unequivocal hyperglycemia is present</td>
+<td>Repeat/confirmatory testing recommended when no classic symptoms</td>
+<td>ADA Standards of Care 2024 (care20242.diagnosisanda pages 2-2, care20242.diagnosisand pages 2-2, care20242.diagnosisand pages 3-4)</td>
+</tr>
+<tr>
+<td>Diagnosis</td>
+<td>Key A1C caveats</td>
+<td>Use plasma glucose criteria instead when A1C-glycemia relationship is altered</td>
+<td>Examples: hemoglobin variants, pregnancy, G6PD deficiency, anemia/altered RBC turnover, erythropoietin use, hemodialysis/kidney failure, HIV, transfusion/hemolysis</td>
+<td>ADA Standards of Care 2024 (care20242.diagnosisand pages 2-3, care20242.diagnosisand pages 3-4, care20242.diagnosisanda pages 2-3)</td>
+</tr>
+<tr>
+<td>Diagnosis</td>
+<td>OGTT pre-test preparation</td>
+<td>≥150 g carbohydrate/day for 3 days before test</td>
+<td>Helps avoid false-positive postchallenge glucose results</td>
+<td>ADA Standards of Care 2024 (care20242.diagnosisand pages 2-3, care20242.diagnosisanda pages 2-3)</td>
+</tr>
+<tr>
+<td>Treatment/Outcomes</td>
+<td>SGLT2 inhibitors: CV mortality</td>
+<td>14% reduction</td>
+<td>Pooled RCT meta-analysis across cardiorenal trials; total n=151,023 adults overall (90,943 in SGLT2i trials)</td>
+<td>Sherifali et al., 2024 (diabetology2024theeffectivenessof pages 1-2)</td>
+</tr>
+<tr>
+<td>Treatment/Outcomes</td>
+<td>GLP-1 receptor agonists: CV mortality</td>
+<td>13% reduction</td>
+<td>Pooled RCT meta-analysis across cardiorenal trials; total n=151,023 adults overall (60,080 in GLP-1RA trials)</td>
+<td>Sherifali et al., 2024 (diabetology2024theeffectivenessof pages 1-2)</td>
+</tr>
+<tr>
+<td>Treatment/Outcomes</td>
+<td>SGLT2 inhibitors: MACE</td>
+<td>11% reduction</td>
+<td>Pooled RCT meta-analysis</td>
+<td>Sherifali et al., 2024 (diabetology2024theeffectivenessof pages 1-2)</td>
+</tr>
+<tr>
+<td>Treatment/Outcomes</td>
+<td>GLP-1 receptor agonists: MACE</td>
+<td>14% reduction</td>
+<td>Pooled RCT meta-analysis</td>
+<td>Sherifali et al., 2024 (diabetology2024theeffectivenessof pages 1-2)</td>
+</tr>
+<tr>
+<td>Treatment/Outcomes</td>
+<td>SGLT2 inhibitors: HF hospitalization</td>
+<td>30% reduction</td>
+<td>Pooled RCT meta-analysis; in T2D subgroup, SGLT2i uniquely reduced HF hospitalization</td>
+<td>Sherifali et al., 2024 (diabetology2024theeffectivenessof pages 1-2)</td>
+</tr>
+<tr>
+<td>Treatment/Outcomes</td>
+<td>GLP-1 receptor agonists: HF hospitalization</td>
+<td>9% reduction</td>
+<td>Pooled RCT meta-analysis</td>
+<td>Sherifali et al., 2024 (diabetology2024theeffectivenessof pages 1-2)</td>
+</tr>
+<tr>
+<td>Treatment/Outcomes</td>
+<td>SGLT2 inhibitors: Kidney composite</td>
+<td>32% reduction overall; 33% reduction in T2D subgroup (HR 0.67, 95% CI 0.59–0.75)</td>
+<td>Pooled RCT meta-analysis/update</td>
+<td>Sherifali et al., 2024 (diabetology2024theeffectivenessof pages 5-7, diabetology2024theeffectivenessof pages 1-2)</td>
+</tr>
+<tr>
+<td>Treatment/Outcomes</td>
+<td>GLP-1 receptor agonists: Kidney composite</td>
+<td>22% reduction overall; HR 0.78 (95% CI 0.70–0.87) in T2D subgroup</td>
+<td>Pooled RCT meta-analysis/update</td>
+<td>Sherifali et al., 2024 (diabetology2024theeffectivenessof pages 5-7, diabetology2024theeffectivenessof pages 1-2)</td>
+</tr>
+<tr>
+<td>Treatment/Outcomes</td>
+<td>GLP-1 receptor agonists: nonfatal stroke</td>
+<td>16% reduction; HR 0.84 (95% CI 0.76–0.94)</td>
+<td>T2D subgroup meta-analysis; GLP-1RA showed stroke benefit not seen with SGLT2i</td>
+<td>Sherifali et al., 2024 (diabetology2024theeffectivenessof pages 5-7)</td>
+</tr>
+<tr>
+<td>Treatment/Outcomes</td>
+<td>SELECT semaglutide kidney composite</td>
+<td>1.8% vs 2.2%; HR 0.78 (95% CI 0.63–0.96), P=0.02</td>
+<td>Overweight/obesity with established CVD, without diabetes; semaglutide n=8,803 vs placebo n=8,801</td>
+<td>Colhoun et al., 2024 (colhoun2024longtermkidneyoutcomes pages 1-2)</td>
+</tr>
+<tr>
+<td>Treatment/Outcomes</td>
+<td>SELECT semaglutide eGFR benefit at 104 weeks</td>
+<td>+0.75 mL/min/1.73 m² overall; +2.19 mL/min/1.73 m² if baseline eGFR &lt;60</td>
+<td>Prespecified kidney analysis in SELECT</td>
+<td>Colhoun et al., 2024 (colhoun2024longtermkidneyoutcomes pages 1-2)</td>
+</tr>
+<tr>
+<td>Advanced therapy</td>
+<td>Zimislecel (VX-880): insulin independence at day 365</td>
+<td>10/12 (83%)</td>
+<td>Full-dose recipients with type 1 diabetes in phase 1–2 study; all 12/12 also free of severe hypoglycemic events and HbA1c &lt;7%</td>
+<td>Reichman et al., 2025 (reichman2025stemcellderivedfully pages 1-2)</td>
+</tr>
+<tr>
+<td>Advanced therapy</td>
+<td>Zimislecel (VX-880): engraftment/islet function</td>
+<td>Detectable C-peptide in all 14 participants after infusion</td>
+<td>Type 1 diabetes; C-peptide undetectable at baseline in all 14</td>
+<td>Reichman et al., 2025 (reichman2025stemcellderivedfully pages 1-2)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table compiles ADA diagnostic thresholds for diabetes and prediabetes, including key testing caveats, alongside recent quantitative treatment and outcome findings for SGLT2 inhibitors, GLP-1 receptor agonists, semaglutide in SELECT, and stem-cell derived islet therapy. It is useful as a compact evidence summary for diagnosis and current therapeutic impact.</em></p>
+<hr />
+<h2>Key visual evidence (guideline tables)</h2>
+<p>Images extracted from the ADA Standards include the diagnostic criteria for diabetes and prediabetes (Table 2.1/2.2) and can be used as visual support for threshold values. (care20242.diagnosisand media a404318a, care20242.diagnosisand media aa0d0872)</p>
+<hr />
+<h2>References (URLs and publication dates available in retrieved sources)</h2>
+<ul>
+<li>ADA Standards of Care (Diagnosis &amp; Classification): “2. Diagnosis and classification of diabetes: Standards of care in diabetes—2024” (retrieved text excerpts include criteria and caveats; URL indicated in document as https://diabetesjournals.org/care). (care20242.diagnosisanda pages 2-2, care20242.diagnosisand pages 2-3)</li>
+<li>Sherifali et al. “The effectiveness of sodium-glucose co-transporter 2 inhibitors on cardiorenal outcomes: an updated systematic review and meta-analysis.” <em>Cardiovascular Diabetology</em>, Feb 2024. https://doi.org/10.1186/s12933-024-02154-w (diabetology2024theeffectivenessof pages 1-2)</li>
+<li>Rivera et al. “Cardiovascular and renal outcomes of GLP-1 receptor agonists…” <em>American Journal of Preventive Cardiology</em>, Jun 2024 (online 7 May 2024). https://doi.org/10.1016/j.ajpc.2024.100679 (rivera2024cardiovascularandrenal pages 1-2)</li>
+<li>Colhoun et al. “Long-term kidney outcomes of semaglutide in obesity and cardiovascular disease in the SELECT trial.” <em>Nature Medicine</em>, May 2024 (online 25 May 2024). https://doi.org/10.1038/s41591-024-03015-5 (colhoun2024longtermkidneyoutcomes pages 1-2)</li>
+<li>Thakkar et al. “Teplizumab in Type 1 Diabetes Mellitus: An Updated Review.” <em>touchREVIEWS in Endocrinology</em>, Oct 2023. https://doi.org/10.17925/ee.2023.19.2.7 (thakkar2023teplizumabintype pages 1-2)</li>
+<li>Reichman et al. “Stem Cell-Derived, Fully Differentiated Islets for Type 1 Diabetes.” <em>NEJM</em>, Jun 2025. https://doi.org/10.1056/NEJMoa2506549 (reichman2025stemcellderivedfully pages 1-2)</li>
+<li>Khan et al. “Combination of Multiple Low-Risk Lifestyle Behaviors and Incident Type 2 Diabetes.” <em>Diabetes Care</em>, Feb 2023. https://doi.org/10.2337/dc22-1024 (khan2023combinationofmultiple pages 1-3)</li>
+<li>Boonpor et al. “Dose–response relationship between device-measured physical activity and incident type 2 diabetes.” <em>BMC Medicine</em>, May 2023. https://doi.org/10.1186/s12916-023-02851-5 (boonpor2023dose–responserelationshipbetween pages 1-2)</li>
+<li>Elmusharaf et al. “A cost of illness study of the economic burden of diabetes in the Eastern Mediterranean Region.” <em>Eastern Mediterranean Health Journal</em>, Aug 2025 (contains IDF-based global 2021 prevalence/mortality/expenditure and EMR 2023 estimates). https://doi.org/10.26719/2025.31.7.426 (elmusharaf2025acostof pages 1-2)</li>
+<li>Park et al. “Diabetes Fact Sheets in Korea 2024.” <em>Diabetes &amp; Metabolism Journal</em>, Jan 2025. https://doi.org/10.4093/dmj.2024.0818 (park2025diabetesfactsheets pages 1-3)</li>
+</ul>
+<p>References</p>
+<ol>
+<li>
+<p>(yameny2024diabetesmellitusoverview pages 1-2): Ahmed Abdelhalim Yameny. Diabetes mellitus overview 2024. Journal of Bioscience and Applied Research, 10:641-645, Sep 2024. URL: https://doi.org/10.21608/jbaar.2024.382794, doi:10.21608/jbaar.2024.382794. This article has 203 citations.</p>
+</li>
+<li>
+<p>(care20242.diagnosisand pages 4-5): D Care. 2. diagnosis and classification of diabetes: standards of care in diabetes—2024. Unknown journal, 2024.</p>
+</li>
+<li>
+<p>(care20242.diagnosisand pages 5-6): D Care. 2. diagnosis and classification of diabetes: standards of care in diabetes—2024. Unknown journal, 2024.</p>
+</li>
+<li>
+<p>(diabetology2024theeffectivenessof pages 1-2): Cardiovascular Diabetology, D. Sherifali, Muhammad Usman Ali, G. B. J. Mancini, D. Fitzpatrick-Lewis, Kim A. Connelly, E. O’Meara, and Shelley Zieroth. The effectiveness of sodium-glucose co-transporter 2 inhibitors on cardiorenal outcomes: an updated systematic review and meta-analysis. Cardiovascular Diabetology, Feb 2024. URL: https://doi.org/10.1186/s12933-024-02154-w, doi:10.1186/s12933-024-02154-w. This article has 21 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(diabetology2024theeffectivenessof pages 5-7): Cardiovascular Diabetology, D. Sherifali, Muhammad Usman Ali, G. B. J. Mancini, D. Fitzpatrick-Lewis, Kim A. Connelly, E. O’Meara, and Shelley Zieroth. The effectiveness of sodium-glucose co-transporter 2 inhibitors on cardiorenal outcomes: an updated systematic review and meta-analysis. Cardiovascular Diabetology, Feb 2024. URL: https://doi.org/10.1186/s12933-024-02154-w, doi:10.1186/s12933-024-02154-w. This article has 21 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(care20242.diagnosisanda pages 2-2): D Care. 2. diagnosis and classification of diabetes: standards of care in diabetes—2024. Unknown journal, 2024.</p>
+</li>
+<li>
+<p>(thakkar2023teplizumabintype pages 1-2): Simran Thakkar, Aditi Chopra, Lakshmi Nagendra, Sanjay Kalra, and Saptarshi Bhattacharya. Teplizumab in type 1 diabetes mellitus: an updated review. touchREVIEWS in Endocrinology, 19:22-30, Oct 2023. URL: https://doi.org/10.17925/ee.2023.19.2.7, doi:10.17925/ee.2023.19.2.7. This article has 40 citations.</p>
+</li>
+<li>
+<p>(boonpor2023dose–responserelationshipbetween pages 1-2): Jirapitcha Boonpor, Solange Parra-Soto, Fanny Petermann-Rocha, Nathan Lynskey, Verónica Cabanas-Sánchez, Naveed Sattar, Jason M. R. Gill, Paul Welsh, Jill P. Pell, Stuart R. Gray, Frederick K. Ho, and Carlos Celis-Morales. Dose–response relationship between device-measured physical activity and incident type 2 diabetes: findings from the uk biobank prospective cohort study. BMC Medicine, May 2023. URL: https://doi.org/10.1186/s12916-023-02851-5, doi:10.1186/s12916-023-02851-5. This article has 38 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(khan2023combinationofmultiple pages 1-3): Tauseef A. Khan, David Field, Victoria Chen, Suleman Ahmad, Sonia Blanco Mejia, Hana Kahleová, Dario Rahelić, Jordi Salas-Salvadó, Lawrence A. Leiter, Matti Uusitupa, Cyril W.C. Kendall, and John L. Sievenpiper. Combination of multiple low-risk lifestyle behaviors and incident type 2 diabetes: a systematic review and dose-response meta-analysis of prospective cohort studies. Diabetes Care, 46:643-656, Feb 2023. URL: https://doi.org/10.2337/dc22-1024, doi:10.2337/dc22-1024. This article has 77 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(khan2023combinationofmultiple pages 8-10): Tauseef A. Khan, David Field, Victoria Chen, Suleman Ahmad, Sonia Blanco Mejia, Hana Kahleová, Dario Rahelić, Jordi Salas-Salvadó, Lawrence A. Leiter, Matti Uusitupa, Cyril W.C. Kendall, and John L. Sievenpiper. Combination of multiple low-risk lifestyle behaviors and incident type 2 diabetes: a systematic review and dose-response meta-analysis of prospective cohort studies. Diabetes Care, 46:643-656, Feb 2023. URL: https://doi.org/10.2337/dc22-1024, doi:10.2337/dc22-1024. This article has 77 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(care20242.diagnosisand pages 2-2): D Care. 2. diagnosis and classification of diabetes: standards of care in diabetes—2024. Unknown journal, 2024.</p>
+</li>
+<li>
+<p>(care20242.diagnosisand pages 8-9): D Care. 2. diagnosis and classification of diabetes: standards of care in diabetes—2024. Unknown journal, 2024.</p>
+</li>
+<li>
+<p>(care20242.diagnosisand pages 3-4): D Care. 2. diagnosis and classification of diabetes: standards of care in diabetes—2024. Unknown journal, 2024.</p>
+</li>
+<li>
+<p>(elmusharaf2025acostof pages 1-2): Khalifa Elmusharaf, Maisoon Mairghani, Sébastien Poix, Emil Scaria, P. Phyo, Win Thu, S. Slama, Matilda Byström, Hicham El Berri, and A. Hammerich. A cost of illness study of the economic burden of diabetes in the eastern mediterranean region. Eastern Mediterranean Health Journal, Aug 2025. URL: https://doi.org/10.26719/2025.31.7.426, doi:10.26719/2025.31.7.426. This article has 6 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(park2025diabetesfactsheets pages 1-3): Se Eun Park, Seung-Hyun Ko, Ji Yoon Kim, Kyuho Kim, Joon Ho Moon, Nam Hoon Kim, Kyung Do Han, Sung Hee Choi, and Bong Soo Cha. Diabetes fact sheets in korea 2024. Diabetes &amp; Metabolism Journal, 49:24-33, Jan 2025. URL: https://doi.org/10.4093/dmj.2024.0818, doi:10.4093/dmj.2024.0818. This article has 92 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(care20242.diagnosisand media a404318a): D Care. 2. diagnosis and classification of diabetes: standards of care in diabetes—2024. Unknown journal, 2024.</p>
+</li>
+<li>
+<p>(care20242.diagnosisand pages 2-3): D Care. 2. diagnosis and classification of diabetes: standards of care in diabetes—2024. Unknown journal, 2024.</p>
+</li>
+<li>
+<p>(care20242.diagnosisand media aa0d0872): D Care. 2. diagnosis and classification of diabetes: standards of care in diabetes—2024. Unknown journal, 2024.</p>
+</li>
+<li>
+<p>(rivera2024cardiovascularandrenal pages 1-2): Frederick Berro Rivera, Linnaeus Louisse A. Cruz, John Vincent Magalong, Jade Monica Marie J. Ruyeras, John Paul Aparece, Nathan Ross B. Bantayan, Kyla Lara-Breitinger, and Martha Gulati. Cardiovascular and renal outcomes of glucagon-like peptide 1 receptor agonists among patients with and without type 2 diabetes mellitus: a meta-analysis of randomized placebo-controlled trials. American Journal of Preventive Cardiology, 18:100679, Jun 2024. URL: https://doi.org/10.1016/j.ajpc.2024.100679, doi:10.1016/j.ajpc.2024.100679. This article has 126 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(colhoun2024longtermkidneyoutcomes pages 1-2): Helen M. Colhoun, Ildiko Lingvay, Paul M. Brown, John Deanfield, Kirstine Brown-Frandsen, Steven E. Kahn, Jorge Plutzky, Koichi Node, Alexander Parkhomenko, Lars Rydén, John P. H. Wilding, Johannes F. E. Mann, Katherine R. Tuttle, Thomas Idorn, Naveen Rathor, and A. Michael Lincoff. Long-term kidney outcomes of semaglutide in obesity and cardiovascular disease in the select trial. Nature Medicine, 30:2058-2066, May 2024. URL: https://doi.org/10.1038/s41591-024-03015-5, doi:10.1038/s41591-024-03015-5. This article has 238 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(reichman2025stemcellderivedfully pages 1-2): Trevor W. Reichman, James F. Markmann, Jon Odorico, Piotr Witkowski, John J. Fung, Martin Wijkstrom, Fouad Kandeel, Eelco J.P. de Koning, Anne L. Peters, Chantal Mathieu, Leslie S. Kean, Bote G. Bruinsma, Chenkun Wang, Molly Mascia, Bastiano Sanna, Gautham Marigowda, Felicia Pagliuca, Doug Melton, Camillo Ricordi, and Michael R. Rickels. Stem cell-derived, fully differentiated islets for type 1 diabetes. The New England journal of medicine, Jun 2025. URL: https://doi.org/10.1056/nejmoa2506549, doi:10.1056/nejmoa2506549. This article has 129 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(care20242.diagnosisand pages 1-2): D Care. 2. diagnosis and classification of diabetes: standards of care in diabetes—2024. Unknown journal, 2024.</p>
+</li>
+<li>
+<p>(care20242.diagnosisanda pages 2-3): D Care. 2. diagnosis and classification of diabetes: standards of care in diabetes—2024. Unknown journal, 2024.</p>
+</li>
+<li>
+<p>(care20242.diagnosisand pages 10-10): D Care. 2. diagnosis and classification of diabetes: standards of care in diabetes—2024. Unknown journal, 2024.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </div>
         
 
         <footer class="page-footer">
@@ -16764,7 +18347,7 @@ environmental:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Diabetes mellitus", "mondoId": "MONDO:0005015", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Diabetes_mellitus", "yamlRevision": "48c59b5c51f3"};
+        const OS_CONFIG = {"diseaseName": "Diabetes mellitus", "mondoId": "MONDO:0005015", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Diabetes_mellitus", "yamlRevision": "6e7b6f097791"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

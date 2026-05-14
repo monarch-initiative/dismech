@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2416,6 +2569,8 @@
                     </a>
                 </span>
                 
+                
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 2</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Motor Neuron Disease</span>
@@ -2573,15 +2728,17 @@
             </a>
             
             
+            <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Pathograph</div>
             </div>
+            </a>
             
             
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
-                <div class="stat-value">5</div>
+                <div class="stat-value">21</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
@@ -3744,6 +3901,29 @@
         
 
         <!-- Causal Graph (Pathograph) -->
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
+                <h2 class="card-title">Pathograph</h2>
+            </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
+            
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for Amyotrophic Lateral Sclerosis</title>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
+            </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Axonal Transport Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired axonal transport leads to accumulation of organelles and proteins in motor neuron axons, contributing to neurodegeneration. Gene mutations affecting cytoskeletal components (KIF5A, DCTN1, PFN1) contribute to this dysfunction.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"anterograde axonal transport\"], \"genes\": [\"KIF5A\", \"DCTN1\", \"PFN1\"]}}, {\"id\": \"DCTN1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DCTN1\"], \"association\": \"Pathogenic Variants\"}}], \"edges\": [{\"source\": \"DCTN1\", \"target\": \"Axonal Transport Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
+        </div>
         
 
         <!-- Phenotypes -->
@@ -6800,7 +6980,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">21</span>
             </div>
             
             <div class="item-box genetic-box">
@@ -7112,6 +7292,694 @@
                 
                 
                 <div class="evidence-explanation">Large-scale genetic study identifying NEK1 variants as risk factors for ALS.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    ARHGEF28
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_ac27cecc-9749-4c69-88fa-fe83b2d49568-2024-03-28T190000.000Z" target="_blank">CGGV:assertion_ac27cecc-9749-4c69-88fa-fe83b2d49568-2024-03-28T190000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"ARHGEF28 | HGNC:30322 | amyotrophic lateral sclerosis | MONDO:0004976 | SD | Limited"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the ARHGEF28-amyotrophic lateral sclerosis gene-disease relationship as limited with semidominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    ARPP21
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_02d4089a-94dd-42b6-ab09-dc258db00ae9-2025-01-14T200000.000Z" target="_blank">CGGV:assertion_02d4089a-94dd-42b6-ab09-dc258db00ae9-2025-01-14T200000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"ARPP21 | HGNC:16968 | amyotrophic lateral sclerosis | MONDO:0004976 | AD | Limited"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the ARPP21-amyotrophic lateral sclerosis gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    CAV1
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_cab41529-d295-466c-8821-75a16bb12c38-2023-12-21T170000.000Z" target="_blank">CGGV:assertion_cab41529-d295-466c-8821-75a16bb12c38-2023-12-21T170000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"CAV1 | HGNC:1527 | amyotrophic lateral sclerosis | MONDO:0004976 | AD | Limited"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the CAV1-amyotrophic lateral sclerosis gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    CAV2
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_38faae4c-13ae-4c28-bea4-43e3ad15e178-2023-12-21T170000.000Z" target="_blank">CGGV:assertion_38faae4c-13ae-4c28-bea4-43e3ad15e178-2023-12-21T170000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"CAV2 | HGNC:1528 | amyotrophic lateral sclerosis | MONDO:0004976 | AD | Limited"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the CAV2-amyotrophic lateral sclerosis gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    CFAP410
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_bde7edf1-ccfa-443e-a917-cf3d2dd9cba6-2023-12-12T180000.000Z" target="_blank">CGGV:assertion_bde7edf1-ccfa-443e-a917-cf3d2dd9cba6-2023-12-12T180000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"CFAP410 | HGNC:1260 | amyotrophic lateral sclerosis | MONDO:0004976 | SD | Limited"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the CFAP410-amyotrophic lateral sclerosis gene-disease relationship as limited with semidominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    DCTN1
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_5cd19f2c-2499-417f-94c8-2bd4bedf34ef-2023-08-04T160000.000Z" target="_blank">CGGV:assertion_5cd19f2c-2499-417f-94c8-2bd4bedf34ef-2023-08-04T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"DCTN1 | HGNC:2711 | amyotrophic lateral sclerosis | MONDO:0004976 | AD | Moderate"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the DCTN1-amyotrophic lateral sclerosis gene-disease relationship as moderate with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    DNAJC7
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_e2a12a19-b37a-4654-87fa-3a921c202c87-2022-10-27T160000.000Z" target="_blank">CGGV:assertion_e2a12a19-b37a-4654-87fa-3a921c202c87-2022-10-27T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"DNAJC7 | HGNC:12392 | amyotrophic lateral sclerosis | MONDO:0004976 | AD | Limited"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the DNAJC7-amyotrophic lateral sclerosis gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    GLE1
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_0284b3cd-38af-4309-8ce4-054a0379e693-2023-10-10T160000.000Z" target="_blank">CGGV:assertion_0284b3cd-38af-4309-8ce4-054a0379e693-2023-10-10T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"GLE1 | HGNC:4315 | amyotrophic lateral sclerosis | MONDO:0004976 | AD | Limited"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the GLE1-amyotrophic lateral sclerosis gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    GLT8D1
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_a2c4f919-ccb5-4d9f-a604-5ed19e19057e-2025-01-14T200000.000Z" target="_blank">CGGV:assertion_a2c4f919-ccb5-4d9f-a604-5ed19e19057e-2025-01-14T200000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"GLT8D1 | HGNC:24870 | amyotrophic lateral sclerosis | MONDO:0004976 | AD | Limited"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the GLT8D1-amyotrophic lateral sclerosis gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    LGALSL
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_5a2db59f-5293-4e5d-ae34-5a38d8c6ebdf-2023-02-14T170000.000Z" target="_blank">CGGV:assertion_5a2db59f-5293-4e5d-ae34-5a38d8c6ebdf-2023-02-14T170000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"LGALSL | HGNC:25012 | amyotrophic lateral sclerosis | MONDO:0004976 | UD | Limited"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the LGALSL-amyotrophic lateral sclerosis gene-disease relationship as limited with undetermined inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    NEFH
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_6c71deac-6b11-4947-8834-8391d516a9c9-2023-03-23T160000.000Z" target="_blank">CGGV:assertion_6c71deac-6b11-4947-8834-8391d516a9c9-2023-03-23T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"NEFH | HGNC:7737 | amyotrophic lateral sclerosis | MONDO:0004976 | AD | Limited"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the NEFH-amyotrophic lateral sclerosis gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    NUP50
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_0ce3418e-c7e5-452b-9db6-661571331822-2024-06-27T160000.000Z" target="_blank">CGGV:assertion_0ce3418e-c7e5-452b-9db6-661571331822-2024-06-27T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"NUP50 | HGNC:8065 | amyotrophic lateral sclerosis | MONDO:0004976 | AD | Limited"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the NUP50-amyotrophic lateral sclerosis gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    PRPH
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_3d11b04d-508a-4f91-9d9a-b5016fd0b940-2022-12-13T170000.000Z" target="_blank">CGGV:assertion_3d11b04d-508a-4f91-9d9a-b5016fd0b940-2022-12-13T170000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"PRPH | HGNC:9461 | amyotrophic lateral sclerosis | MONDO:0004976 | AD | Limited"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the PRPH-amyotrophic lateral sclerosis gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    SPTLC2
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_402cf65d-02f1-4cc1-a45e-b3bd3ad48b86-2024-06-26T160000.000Z" target="_blank">CGGV:assertion_402cf65d-02f1-4cc1-a45e-b3bd3ad48b86-2024-06-26T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"SPTLC2 | HGNC:11278 | amyotrophic lateral sclerosis | MONDO:0004976 | AD | Strong"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the SPTLC2-amyotrophic lateral sclerosis gene-disease relationship as strong with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    SS18L1
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_6e148a06-50fc-45f3-90ea-023dc8687577-2023-05-25T160000.000Z" target="_blank">CGGV:assertion_6e148a06-50fc-45f3-90ea-023dc8687577-2023-05-25T160000.000Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"SS18L1 | HGNC:15592 | amyotrophic lateral sclerosis | MONDO:0004976 | AD | Limited"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the SS18L1-amyotrophic lateral sclerosis gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    TAF15
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_605446ae-fd1f-4451-bd49-643c24cd652e-2021-11-03T020945.214Z" target="_blank">CGGV:assertion_605446ae-fd1f-4451-bd49-643c24cd652e-2021-11-03T020945.214Z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"TAF15 | HGNC:11547 | amyotrophic lateral sclerosis | MONDO:0004976 | AD | Limited"</div>
+                
+                
+                <div class="evidence-explanation">ClinGen classifies the TAF15-amyotrophic lateral sclerosis gene-disease relationship as limited with autosomal dominant inheritance.</div>
                 
             </div>
             
@@ -8009,6 +8877,7 @@
                 <div class="item-desc">Context: CSF and serum biomarker of axonal injury, elevated in ALS with prognostic value</div>
                 
                 
+                
     
     
             </div>
@@ -8022,6 +8891,7 @@
                 </div>
                 
                 <div class="item-desc">Context: CSF and serum biomarker of axonal injury</div>
+                
                 
                 
     
@@ -9520,6 +10390,230 @@ genetic:
     supports: SUPPORT
     snippet: &#34;In total, we observed NEK1 risk variants in nearly 3% of ALS cases. NEK1 has been linked to several cellular functions, including cilia formation, DNA-damage response, microtubule stability, neuronal morphology and axonal polarity.&#34;
     explanation: Large-scale genetic study identifying NEK1 variants as risk factors for ALS.
+- name: ARHGEF28
+  gene_term:
+    preferred_term: ARHGEF28
+    term:
+      id: hgnc:30322
+      label: ARHGEF28
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_ac27cecc-9749-4c69-88fa-fe83b2d49568-2024-03-28T190000.000Z
+    reference_title: &#34;ARHGEF28 / amyotrophic lateral sclerosis (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;ARHGEF28 | HGNC:30322 | amyotrophic lateral sclerosis | MONDO:0004976 | SD | Limited&#34;
+    explanation: ClinGen classifies the ARHGEF28-amyotrophic lateral sclerosis gene-disease relationship as limited with semidominant inheritance.
+- name: ARPP21
+  gene_term:
+    preferred_term: ARPP21
+    term:
+      id: hgnc:16968
+      label: ARPP21
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_02d4089a-94dd-42b6-ab09-dc258db00ae9-2025-01-14T200000.000Z
+    reference_title: &#34;ARPP21 / amyotrophic lateral sclerosis (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;ARPP21 | HGNC:16968 | amyotrophic lateral sclerosis | MONDO:0004976 | AD | Limited&#34;
+    explanation: ClinGen classifies the ARPP21-amyotrophic lateral sclerosis gene-disease relationship as limited with autosomal dominant inheritance.
+- name: CAV1
+  gene_term:
+    preferred_term: CAV1
+    term:
+      id: hgnc:1527
+      label: CAV1
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_cab41529-d295-466c-8821-75a16bb12c38-2023-12-21T170000.000Z
+    reference_title: &#34;CAV1 / amyotrophic lateral sclerosis (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;CAV1 | HGNC:1527 | amyotrophic lateral sclerosis | MONDO:0004976 | AD | Limited&#34;
+    explanation: ClinGen classifies the CAV1-amyotrophic lateral sclerosis gene-disease relationship as limited with autosomal dominant inheritance.
+- name: CAV2
+  gene_term:
+    preferred_term: CAV2
+    term:
+      id: hgnc:1528
+      label: CAV2
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_38faae4c-13ae-4c28-bea4-43e3ad15e178-2023-12-21T170000.000Z
+    reference_title: &#34;CAV2 / amyotrophic lateral sclerosis (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;CAV2 | HGNC:1528 | amyotrophic lateral sclerosis | MONDO:0004976 | AD | Limited&#34;
+    explanation: ClinGen classifies the CAV2-amyotrophic lateral sclerosis gene-disease relationship as limited with autosomal dominant inheritance.
+- name: CFAP410
+  gene_term:
+    preferred_term: CFAP410
+    term:
+      id: hgnc:1260
+      label: CFAP410
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_bde7edf1-ccfa-443e-a917-cf3d2dd9cba6-2023-12-12T180000.000Z
+    reference_title: &#34;CFAP410 / amyotrophic lateral sclerosis (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;CFAP410 | HGNC:1260 | amyotrophic lateral sclerosis | MONDO:0004976 | SD | Limited&#34;
+    explanation: ClinGen classifies the CFAP410-amyotrophic lateral sclerosis gene-disease relationship as limited with semidominant inheritance.
+- name: DCTN1
+  gene_term:
+    preferred_term: DCTN1
+    term:
+      id: hgnc:2711
+      label: DCTN1
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_5cd19f2c-2499-417f-94c8-2bd4bedf34ef-2023-08-04T160000.000Z
+    reference_title: &#34;DCTN1 / amyotrophic lateral sclerosis (Moderate)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;DCTN1 | HGNC:2711 | amyotrophic lateral sclerosis | MONDO:0004976 | AD | Moderate&#34;
+    explanation: ClinGen classifies the DCTN1-amyotrophic lateral sclerosis gene-disease relationship as moderate with autosomal dominant inheritance.
+- name: DNAJC7
+  gene_term:
+    preferred_term: DNAJC7
+    term:
+      id: hgnc:12392
+      label: DNAJC7
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_e2a12a19-b37a-4654-87fa-3a921c202c87-2022-10-27T160000.000Z
+    reference_title: &#34;DNAJC7 / amyotrophic lateral sclerosis (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;DNAJC7 | HGNC:12392 | amyotrophic lateral sclerosis | MONDO:0004976 | AD | Limited&#34;
+    explanation: ClinGen classifies the DNAJC7-amyotrophic lateral sclerosis gene-disease relationship as limited with autosomal dominant inheritance.
+- name: GLE1
+  gene_term:
+    preferred_term: GLE1
+    term:
+      id: hgnc:4315
+      label: GLE1
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_0284b3cd-38af-4309-8ce4-054a0379e693-2023-10-10T160000.000Z
+    reference_title: &#34;GLE1 / amyotrophic lateral sclerosis (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;GLE1 | HGNC:4315 | amyotrophic lateral sclerosis | MONDO:0004976 | AD | Limited&#34;
+    explanation: ClinGen classifies the GLE1-amyotrophic lateral sclerosis gene-disease relationship as limited with autosomal dominant inheritance.
+- name: GLT8D1
+  gene_term:
+    preferred_term: GLT8D1
+    term:
+      id: hgnc:24870
+      label: GLT8D1
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_a2c4f919-ccb5-4d9f-a604-5ed19e19057e-2025-01-14T200000.000Z
+    reference_title: &#34;GLT8D1 / amyotrophic lateral sclerosis (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;GLT8D1 | HGNC:24870 | amyotrophic lateral sclerosis | MONDO:0004976 | AD | Limited&#34;
+    explanation: ClinGen classifies the GLT8D1-amyotrophic lateral sclerosis gene-disease relationship as limited with autosomal dominant inheritance.
+- name: LGALSL
+  gene_term:
+    preferred_term: LGALSL
+    term:
+      id: hgnc:25012
+      label: LGALSL
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_5a2db59f-5293-4e5d-ae34-5a38d8c6ebdf-2023-02-14T170000.000Z
+    reference_title: &#34;LGALSL / amyotrophic lateral sclerosis (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;LGALSL | HGNC:25012 | amyotrophic lateral sclerosis | MONDO:0004976 | UD | Limited&#34;
+    explanation: ClinGen classifies the LGALSL-amyotrophic lateral sclerosis gene-disease relationship as limited with undetermined inheritance.
+- name: NEFH
+  gene_term:
+    preferred_term: NEFH
+    term:
+      id: hgnc:7737
+      label: NEFH
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_6c71deac-6b11-4947-8834-8391d516a9c9-2023-03-23T160000.000Z
+    reference_title: &#34;NEFH / amyotrophic lateral sclerosis (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;NEFH | HGNC:7737 | amyotrophic lateral sclerosis | MONDO:0004976 | AD | Limited&#34;
+    explanation: ClinGen classifies the NEFH-amyotrophic lateral sclerosis gene-disease relationship as limited with autosomal dominant inheritance.
+- name: NUP50
+  gene_term:
+    preferred_term: NUP50
+    term:
+      id: hgnc:8065
+      label: NUP50
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_0ce3418e-c7e5-452b-9db6-661571331822-2024-06-27T160000.000Z
+    reference_title: &#34;NUP50 / amyotrophic lateral sclerosis (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;NUP50 | HGNC:8065 | amyotrophic lateral sclerosis | MONDO:0004976 | AD | Limited&#34;
+    explanation: ClinGen classifies the NUP50-amyotrophic lateral sclerosis gene-disease relationship as limited with autosomal dominant inheritance.
+- name: PRPH
+  gene_term:
+    preferred_term: PRPH
+    term:
+      id: hgnc:9461
+      label: PRPH
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_3d11b04d-508a-4f91-9d9a-b5016fd0b940-2022-12-13T170000.000Z
+    reference_title: &#34;PRPH / amyotrophic lateral sclerosis (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;PRPH | HGNC:9461 | amyotrophic lateral sclerosis | MONDO:0004976 | AD | Limited&#34;
+    explanation: ClinGen classifies the PRPH-amyotrophic lateral sclerosis gene-disease relationship as limited with autosomal dominant inheritance.
+- name: SPTLC2
+  gene_term:
+    preferred_term: SPTLC2
+    term:
+      id: hgnc:11278
+      label: SPTLC2
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_402cf65d-02f1-4cc1-a45e-b3bd3ad48b86-2024-06-26T160000.000Z
+    reference_title: &#34;SPTLC2 / amyotrophic lateral sclerosis (Strong)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;SPTLC2 | HGNC:11278 | amyotrophic lateral sclerosis | MONDO:0004976 | AD | Strong&#34;
+    explanation: ClinGen classifies the SPTLC2-amyotrophic lateral sclerosis gene-disease relationship as strong with autosomal dominant inheritance.
+- name: SS18L1
+  gene_term:
+    preferred_term: SS18L1
+    term:
+      id: hgnc:15592
+      label: SS18L1
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_6e148a06-50fc-45f3-90ea-023dc8687577-2023-05-25T160000.000Z
+    reference_title: &#34;SS18L1 / amyotrophic lateral sclerosis (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;SS18L1 | HGNC:15592 | amyotrophic lateral sclerosis | MONDO:0004976 | AD | Limited&#34;
+    explanation: ClinGen classifies the SS18L1-amyotrophic lateral sclerosis gene-disease relationship as limited with autosomal dominant inheritance.
+- name: TAF15
+  gene_term:
+    preferred_term: TAF15
+    term:
+      id: hgnc:11547
+      label: TAF15
+  association: Pathogenic Variants
+  evidence:
+  - reference: CGGV:assertion_605446ae-fd1f-4451-bd49-643c24cd652e-2021-11-03T020945.214Z
+    reference_title: &#34;TAF15 / amyotrophic lateral sclerosis (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;TAF15 | HGNC:11547 | amyotrophic lateral sclerosis | MONDO:0004976 | AD | Limited&#34;
+    explanation: ClinGen classifies the TAF15-amyotrophic lateral sclerosis gene-disease relationship as limited with autosomal dominant inheritance.
 environmental:
 - name: Heavy Metal Exposure
   notes: Occupational exposure to lead, mercury, and other heavy metals has been associated with increased ALS risk.
@@ -10059,7 +11153,7 @@ Comprehensive report on the molecular and cellular mechanisms underlying ALS dis
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Amyotrophic Lateral Sclerosis", "mondoId": "MONDO:0004976", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Amyotrophic_Lateral_Sclerosis", "yamlRevision": "3c51a70eaca3"};
+        const OS_CONFIG = {"diseaseName": "Amyotrophic Lateral Sclerosis", "mondoId": "MONDO:0004976", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Amyotrophic_Lateral_Sclerosis", "yamlRevision": "70b3edbfbe2c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

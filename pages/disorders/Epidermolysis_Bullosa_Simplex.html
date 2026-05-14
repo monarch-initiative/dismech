@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2649,11 +2802,18 @@
             
             <a class="stat-link" href="#references">
             <div class="stat-item">
-                <div class="stat-value">1</div>
+                <div class="stat-value">12</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
             
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -4699,7 +4859,7 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"dominant mutations of KLHL24, encoding a cullin 3-RBX1 ubiquitin ligase substrate receptor, cause EB. We have identified start-codon mutations in the KLHL24 gene in five patients with EB. These mutations lead to truncated KLHL24 protein lacking the initial 28 amino acids (KLHL24-ΔN28)...."</div>
+                <div class="evidence-snippet">"We have identified start-codon mutations in the KLHL24 gene in five patients with EB."</div>
                 
                 
                 <div class="evidence-explanation">Identifies KLHL24 start-codon mutations as a novel cause of EBS through stabilized truncated protein that excessively degrades KRT14.</div>
@@ -5674,7 +5834,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Epidermolysis Bullosa Simplex
 creation_date: &#39;2026-03-10T00:00:00Z&#39;
-updated_date: &#39;2026-03-16T01:13:18Z&#39;
+updated_date: &#39;2026-05-08T23:53:01Z&#39;
 category: Mendelian
 description: &gt;-
   Epidermolysis bullosa simplex (EBS) is the most common form of EB,
@@ -5715,8 +5875,7 @@ classifications:
       reference_title: &#34;Epidermolysis Bullosa Simplex.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;Epidermolysis bullosa simplex (EBS) is characterized by fragility of
-        the skin&#34;
+      snippet: &#34;Epidermolysis bullosa simplex (EBS) is characterized by fragility of the skin&#34;
       explanation: Supports classifying EBS as a skin disorder because the disease is defined by cutaneous fragility and blistering.
   - classification_value: hereditary disease
     evidence:
@@ -5769,19 +5928,14 @@ inheritance:
     reference_title: &#34;Epidermolysis Bullosa Simplex.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;The diagnosis of EBS is established in a proband by: the identification
-      of a heterozygous dominant-negative variant or biallelic loss-of-function
-      variants in KRT5, KRT14, or PLEC&#34;
-    explanation: GeneReviews confirms dominant-negative variants in KRT5/KRT14
-      as a major cause of EBS.
+    snippet: &#34;The diagnosis of EBS is established in a proband by: the identification of a heterozygous dominant-negative variant or biallelic loss-of-function variants in KRT5, KRT14, or PLEC&#34;
+    explanation: GeneReviews confirms dominant-negative variants in KRT5/KRT14 as a major cause of EBS.
   - reference: PMID:16098032
     reference_title: &#34;Epidermolysis bullosa simplex: recurrent and de novo mutations in the KRT5 and KRT14 genes, phenotype/genotype correlations, and implications for genetic counseling and prenatal diagnosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;18 were found to harbor heterozygous mutations in the keratin 5 or
-      keratin 14 genes, KRT5 and KRT14, respectively&#34;
-    explanation: Confirms heterozygous (dominant) keratin mutations as a cause
-      of EBS.
+    snippet: &#34;18 were found to harbor heterozygous mutations in the keratin 5 or keratin 14 genes, KRT5 and KRT14, respectively&#34;
+    explanation: Confirms heterozygous (dominant) keratin mutations as a cause of EBS.
 - name: Autosomal recessive
   description: &gt;
     EBS with muscular dystrophy (PLEC mutations) and EBS autosomal recessive
@@ -5791,19 +5945,14 @@ inheritance:
     reference_title: &#34;Muscle-Related Plectinopathies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;The most common disorder is autosomal recessive disease epidermolysis
-      bullosa simplex with muscular dystrophy (EBS-MD), which is characterized by
-      skin blistering and progressive muscle weakness&#34;
-    explanation: Confirms autosomal recessive inheritance of EBS-MD caused by
-      PLEC mutations.
+    snippet: &#34;The most common disorder is autosomal recessive disease epidermolysis bullosa simplex with muscular dystrophy (EBS-MD), which is characterized by skin blistering and progressive muscle weakness&#34;
+    explanation: Confirms autosomal recessive inheritance of EBS-MD caused by PLEC mutations.
   - reference: PMID:25530118
     reference_title: &#34;Plectin-related skin diseases.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Plectin deficiency causes autosomal recessive epidermolysis bullosa
-      simplex (EBS) with involvement of the skin and other organs&#34;
-    explanation: Confirms autosomal recessive inheritance pattern for
-      plectin-related EBS.
+    snippet: &#34;Plectin deficiency causes autosomal recessive epidermolysis bullosa simplex (EBS) with involvement of the skin and other organs&#34;
+    explanation: Confirms autosomal recessive inheritance pattern for plectin-related EBS.
 prevalence:
 - population: Global
   notes: &gt;-
@@ -5818,20 +5967,14 @@ prevalence:
     reference_title: &#34;Epidemiology of Inherited Epidermolysis Bullosa Based on Incidence and Prevalence Estimates From the National Epidermolysis Bullosa Registry.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;the overall incidence and prevalence of inherited EB were 19.60
-      and 8.22 per 1 million live births, respectively&#34;
-    explanation: US National EB Registry provides incidence and prevalence
-      estimates for inherited EB including EBS as the most common subtype.
+    snippet: &#34;the overall incidence and prevalence of inherited EB were 19.60 and 8.22 per 1 million live births, respectively&#34;
+    explanation: US National EB Registry provides incidence and prevalence estimates for inherited EB including EBS as the most common subtype.
   - reference: PMID:32973163
     reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Epidermolysis bullosa (EB) is an inherited, heterogeneous group
-      of rare genetic dermatoses characterized by mucocutaneous fragility and
-      blister formation, inducible by often minimal trauma&#34;
-    explanation: Nature Reviews Disease Primers confirms EB as a group of
-      rare genetic skin fragility disorders with EBS being the most common
-      major type.
+    snippet: &#34;Epidermolysis bullosa (EB) is an inherited, heterogeneous group of rare genetic dermatoses characterized by mucocutaneous fragility and blister formation, inducible by often minimal trauma&#34;
+    explanation: Nature Reviews Disease Primers confirms EB as a group of rare genetic skin fragility disorders with EBS being the most common major type.
 pathophysiology:
 - name: KRT5/KRT14 Mutations Disrupt Keratin Intermediate Filament Network
   description: &gt;
@@ -5870,20 +6013,14 @@ pathophysiology:
     reference_title: &#34;Defining keratin protein function in skin epithelia: epidermolysis bullosa simplex and its aftermath.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Most cases of EBS are due to dominantly acting mutations in keratin
-      14 (K14) or K5, the type I and II intermediate filament (IF) proteins that
-      copolymerize to form a pancytoplasmic network of 10 nm filaments in basal
-      keratinocytes of epidermis and related epithelia&#34;
-    explanation: Confirms K5/K14 as the obligate IF pair in basal keratinocytes
-      and dominant mutations as the cause of EBS.
+    snippet: &#34;Most cases of EBS are due to dominantly acting mutations in keratin 14 (K14) or K5, the type I and II intermediate filament (IF) proteins that copolymerize to form a pancytoplasmic network of 10 nm filaments in basal keratinocytes of epidermis and related epithelia&#34;
+    explanation: Confirms K5/K14 as the obligate IF pair in basal keratinocytes and dominant mutations as the cause of EBS.
   - reference: PMID:30078200
     reference_title: &#34;Keratins and epidermolysis bullosa simplex.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;the most important and most commonly occurring molecular defects in
-      these patients are the defects of keratins 5 and14 (KRT5 and KRT14)&#34;
-    explanation: Confirms KRT5 and KRT14 defects as the primary molecular
-      basis of EBS.
+    snippet: &#34;the most important and most commonly occurring molecular defects in these patients are the defects of keratins 5 and14 (KRT5 and KRT14)&#34;
+    explanation: Confirms KRT5 and KRT14 defects as the primary molecular basis of EBS.
 - name: Dominant-Negative Disruption of Filament Assembly
   description: &gt;
     Mutant keratins exert a dominant-negative effect by incorporating into
@@ -5911,20 +6048,14 @@ pathophysiology:
     reference_title: &#34;Defining keratin protein function in skin epithelia: epidermolysis bullosa simplex and its aftermath.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Defects in K5-K14 filament network architecture cause basal
-      keratinocytes to become fragile, and account for their rupture upon exposure
-      to mechanical trauma&#34;
-    explanation: Confirms that disrupted keratin filament architecture causes
-      basal keratinocyte fragility and rupture.
+    snippet: &#34;Defects in K5-K14 filament network architecture cause basal keratinocytes to become fragile, and account for their rupture upon exposure to mechanical trauma&#34;
+    explanation: Confirms that disrupted keratin filament architecture causes basal keratinocyte fragility and rupture.
   - reference: PMID:34830328
     reference_title: &#34;Keratins as an Inflammation Trigger Point in Epidermolysis Bullosa Simplex.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
-    snippet: &#34;Keratin aggregates display impaired dynamics of assembly and diminished
-      solubility and appear to be the trigger for endoplasmic reticulum (ER) stress
-      upon being phosphorylated by MAPKs&#34;
-    explanation: Confirms that mutant keratins form aggregates with impaired
-      dynamics, triggering downstream ER stress signaling.
+    snippet: &#34;Keratin aggregates display impaired dynamics of assembly and diminished solubility and appear to be the trigger for endoplasmic reticulum (ER) stress upon being phosphorylated by MAPKs&#34;
+    explanation: Confirms that mutant keratins form aggregates with impaired dynamics, triggering downstream ER stress signaling.
 - name: Mechanical Stress-Induced Keratinocyte Cytolysis
   description: &gt;
     Basal keratinocytes with disrupted keratin networks rupture (cytolyse)
@@ -5947,18 +6078,13 @@ pathophysiology:
     reference_title: &#34;Epidermolysis bullosa simplex: recurrent and de novo mutations in the KRT5 and KRT14 genes, phenotype/genotype correlations, and implications for genetic counseling and prenatal diagnosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Epidermolysis bullosa simplex (EBS) is a mechano-bullous disorder
-      characterized by intraepidermal blistering within the basal keratinocytes as
-      a result of trauma to the skin&#34;
-    explanation: Confirms intraepidermal blistering within basal keratinocytes
-      as the hallmark of EBS.
+    snippet: &#34;Epidermolysis bullosa simplex (EBS) is a mechano-bullous disorder characterized by intraepidermal blistering within the basal keratinocytes as a result of trauma to the skin&#34;
+    explanation: Confirms intraepidermal blistering within basal keratinocytes as the hallmark of EBS.
   - reference: PMID:34830328
     reference_title: &#34;Keratins as an Inflammation Trigger Point in Epidermolysis Bullosa Simplex.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
-    snippet: &#34;Epidermolysis bullosa simplex (EBS) is a group of inherited
-      keratinopathies that, in most cases, arise due to mutations in keratins and
-      lead to intraepidermal ruptures&#34;
+    snippet: &#34;Epidermolysis bullosa simplex (EBS) is a group of inherited keratinopathies that, in most cases, arise due to mutations in keratins and lead to intraepidermal ruptures&#34;
     explanation: Confirms that keratin mutations lead to intraepidermal rupture.
 - name: PLEC Mutations Disrupt Hemidesmosome-Cytoskeleton Linkage
   description: &gt;
@@ -5996,21 +6122,14 @@ pathophysiology:
     reference_title: &#34;Muscle-Related Plectinopathies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Plectin is a giant cytoskeletal crosslinker and intermediate filament
-      stabilizing protein. Mutations in the human plectin gene (PLEC) cause several
-      rare diseases that are grouped under the term plectinopathies&#34;
-    explanation: Confirms plectin as a cytoskeletal crosslinker whose mutations
-      cause plectinopathies including EBS-MD.
+    snippet: &#34;Plectin is a giant cytoskeletal crosslinker and intermediate filament stabilizing protein. Mutations in the human plectin gene (PLEC) cause several rare diseases that are grouped under the term plectinopathies&#34;
+    explanation: Confirms plectin as a cytoskeletal crosslinker whose mutations cause plectinopathies including EBS-MD.
   - reference: PMID:25530118
     reference_title: &#34;Plectin-related skin diseases.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Plectin deficiency causes autosomal recessive epidermolysis bullosa
-      simplex (EBS) with involvement of the skin and other organs, such as muscle
-      and gastrointestinal tract, depending on the expression pattern of the
-      defective protein&#34;
-    explanation: Confirms plectin deficiency causes EBS with multi-organ
-      involvement including skin and muscle.
+    snippet: &#34;Plectin deficiency causes autosomal recessive epidermolysis bullosa simplex (EBS) with involvement of the skin and other organs, such as muscle and gastrointestinal tract, depending on the expression pattern of the defective protein&#34;
+    explanation: Confirms plectin deficiency causes EBS with multi-organ involvement including skin and muscle.
 - name: Heat Sensitivity of Mutant Keratin Networks
   description: &gt;
     Mutant keratin filament networks are thermally unstable. Elevated
@@ -6028,12 +6147,8 @@ pathophysiology:
     reference_title: &#34;Temperature sensitivity of the keratin cytoskeleton and delayed spreading of keratinocyte lines derived from EBS patients.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
-    snippet: &#34;after thermal stress a reduced stability of the keratin filaments
-      was demonstrable in the epidermolysis bullosa simplex cell lines, with
-      filaments breaking into aggregates&#34;
-    explanation: Demonstrates that thermal stress causes keratin filament
-      breakdown into aggregates in EBS cell lines, explaining heat-exacerbated
-      blistering.
+    snippet: &#34;after thermal stress a reduced stability of the keratin filaments was demonstrable in the epidermolysis bullosa simplex cell lines, with filaments breaking into aggregates&#34;
+    explanation: Demonstrates that thermal stress causes keratin filament breakdown into aggregates in EBS cell lines, explaining heat-exacerbated blistering.
 phenotypes:
 - category: Integument
   name: Skin Blistering
@@ -6052,20 +6167,14 @@ phenotypes:
     reference_title: &#34;Epidermolysis Bullosa Simplex.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Epidermolysis bullosa simplex (EBS) is characterized by fragility
-      of the skin (and mucosal epithelia in some instances) that results in
-      non-scarring blisters and erosions caused by minor mechanical trauma&#34;
-    explanation: GeneReviews confirms non-scarring blisters from minor
-      mechanical trauma as the hallmark of EBS.
+    snippet: &#34;Epidermolysis bullosa simplex (EBS) is characterized by fragility of the skin (and mucosal epithelia in some instances) that results in non-scarring blisters and erosions caused by minor mechanical trauma&#34;
+    explanation: GeneReviews confirms non-scarring blisters from minor mechanical trauma as the hallmark of EBS.
   - reference: PMID:32973163
     reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Epidermolysis bullosa (EB) is an inherited, heterogeneous group of
-      rare genetic dermatoses characterized by mucocutaneous fragility and blister
-      formation, inducible by often minimal trauma&#34;
-    explanation: Nature Reviews Disease Primers confirms blister formation from
-      minimal trauma as the defining feature of EB.
+    snippet: &#34;Epidermolysis bullosa (EB) is an inherited, heterogeneous group of rare genetic dermatoses characterized by mucocutaneous fragility and blister formation, inducible by often minimal trauma&#34;
+    explanation: Nature Reviews Disease Primers confirms blister formation from minimal trauma as the defining feature of EB.
 - category: Integument
   name: Heat-Exacerbated Blistering
   description: &gt;
@@ -6084,11 +6193,8 @@ phenotypes:
     reference_title: &#34;Temperature sensitivity of the keratin cytoskeleton and delayed spreading of keratinocyte lines derived from EBS patients.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
-    snippet: &#34;after thermal stress a reduced stability of the keratin filaments
-      was demonstrable in the epidermolysis bullosa simplex cell lines, with
-      filaments breaking into aggregates&#34;
-    explanation: Demonstrates thermal instability of mutant keratin filaments,
-      providing the molecular basis for heat-exacerbated blistering.
+    snippet: &#34;after thermal stress a reduced stability of the keratin filaments was demonstrable in the epidermolysis bullosa simplex cell lines, with filaments breaking into aggregates&#34;
+    explanation: Demonstrates thermal instability of mutant keratin filaments, providing the molecular basis for heat-exacerbated blistering.
 - category: Integument
   name: Palmoplantar Keratoderma
   description: &gt;
@@ -6106,11 +6212,8 @@ phenotypes:
     reference_title: &#34;Epidermolysis Bullosa Simplex.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Additional features can include hyperkeratosis of the palms and
-      soles (keratoderma), nail dystrophy, milia, and hyper- and/or
-      hypopigmentation&#34;
-    explanation: GeneReviews confirms palmoplantar keratoderma as an additional
-      feature of EBS.
+    snippet: &#34;Additional features can include hyperkeratosis of the palms and soles (keratoderma), nail dystrophy, milia, and hyper- and/or hypopigmentation&#34;
+    explanation: GeneReviews confirms palmoplantar keratoderma as an additional feature of EBS.
 - category: Integument
   name: Herpetiform Blistering Pattern
   description: &gt;
@@ -6130,12 +6233,8 @@ phenotypes:
     reference_title: &#34;Keratins as an Inflammation Trigger Point in Epidermolysis Bullosa Simplex.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
-    snippet: &#34;Mutations in keratins 5/14 or in other genes that encode associated
-      proteins induce structural disarrangements of different strengths depending
-      on their locations in the genes&#34;
-    explanation: Confirms that mutation location determines severity of
-      structural disarrangement, explaining the severe herpetiform phenotype
-      in Dowling-Meara EBS.
+    snippet: &#34;Mutations in keratins 5/14 or in other genes that encode associated proteins induce structural disarrangements of different strengths depending on their locations in the genes&#34;
+    explanation: Confirms that mutation location determines severity of structural disarrangement, explaining the severe herpetiform phenotype in Dowling-Meara EBS.
 - category: Integument
   name: Nail Dystrophy
   description: &gt;
@@ -6154,8 +6253,7 @@ phenotypes:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;PLEC mutations lead to EBS with nail dystrophy&#34;
-    explanation: Confirms nail dystrophy as a recognized feature of
-      PLEC-associated EBS.
+    explanation: Confirms nail dystrophy as a recognized feature of PLEC-associated EBS.
 - category: Integument
   name: Milia
   description: &gt;
@@ -6172,9 +6270,7 @@ phenotypes:
     reference_title: &#34;Epidermolysis Bullosa Simplex.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Additional features can include hyperkeratosis of the palms and
-      soles (keratoderma), nail dystrophy, milia, and hyper- and/or
-      hypopigmentation&#34;
+    snippet: &#34;Additional features can include hyperkeratosis of the palms and soles (keratoderma), nail dystrophy, milia, and hyper- and/or hypopigmentation&#34;
     explanation: GeneReviews lists milia as an additional feature of EBS.
 - category: Musculoskeletal
   name: Muscular Dystrophy
@@ -6196,21 +6292,14 @@ phenotypes:
     reference_title: &#34;Muscle-Related Plectinopathies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;The most common disorder is autosomal recessive disease
-      epidermolysis bullosa simplex with muscular dystrophy (EBS-MD), which is
-      characterized by skin blistering and progressive muscle weakness&#34;
-    explanation: Confirms progressive muscle weakness as a defining feature
-      of EBS-MD.
+    snippet: &#34;The most common disorder is autosomal recessive disease epidermolysis bullosa simplex with muscular dystrophy (EBS-MD), which is characterized by skin blistering and progressive muscle weakness&#34;
+    explanation: Confirms progressive muscle weakness as a defining feature of EBS-MD.
   - reference: PMID:34572129
     reference_title: &#34;Muscle-Related Plectinopathies.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
-    snippet: &#34;Skeletal muscle biopsies from EBS-MD patients and plectin-deficient
-      mice revealed severe dystrophic features with variation in fiber size,
-      degenerative myofibrillar changes, mitochondrial alterations, and
-      pathological desmin-positive protein aggregates&#34;
-    explanation: Confirms dystrophic muscle pathology in both human EBS-MD
-      patients and plectin-deficient mouse models.
+    snippet: &#34;Skeletal muscle biopsies from EBS-MD patients and plectin-deficient mice revealed severe dystrophic features with variation in fiber size, degenerative myofibrillar changes, mitochondrial alterations, and pathological desmin-positive protein aggregates&#34;
+    explanation: Confirms dystrophic muscle pathology in both human EBS-MD patients and plectin-deficient mouse models.
 treatments:
 - name: Wound Care
   description: &gt;
@@ -6228,10 +6317,8 @@ treatments:
     reference_title: &#34;Epidermolysis Bullosa Simplex.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Supportive care to protect the skin from blistering; use of
-      dressings that will protect the skin and promote healing of wounds&#34;
-    explanation: GeneReviews confirms supportive wound care as the primary
-      management strategy for EBS.
+    snippet: &#34;Supportive care to protect the skin from blistering; use of dressings that will protect the skin and promote healing of wounds&#34;
+    explanation: GeneReviews confirms supportive wound care as the primary management strategy for EBS.
 - name: Avoidance of Heat and Friction
   description: &gt;
     Minimizing exposure to heat, excessive physical activity, and friction
@@ -6248,11 +6335,8 @@ treatments:
     reference_title: &#34;Epidermolysis Bullosa Simplex.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Excessive heat exposure may exacerbate blistering and infection.
-      Avoid poorly fitting or coarse-textured clothing/footwear and activities
-      that traumatize the skin&#34;
-    explanation: GeneReviews lists heat exposure and skin trauma as agents to
-      avoid in EBS management.
+    snippet: &#34;Excessive heat exposure may exacerbate blistering and infection. Avoid poorly fitting or coarse-textured clothing/footwear and activities that traumatize the skin&#34;
+    explanation: GeneReviews lists heat exposure and skin trauma as agents to avoid in EBS management.
 - name: Antiperspirants for Palmoplantar Disease
   description: &gt;
     Topical antiperspirant application to palms and soles to reduce
@@ -6267,11 +6351,8 @@ treatments:
     reference_title: &#34;Epidermolysis Bullosa Simplex.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Aluminum chloride (20%) applied to palms and soles can reduce
-      sweating and therefore minimize blister formation in some individuals
-      with EBS&#34;
-    explanation: GeneReviews confirms aluminum chloride antiperspirant as a
-      treatment to reduce sweating-induced blistering.
+    snippet: &#34;Aluminum chloride (20%) applied to palms and soles can reduce sweating and therefore minimize blister formation in some individuals with EBS&#34;
+    explanation: GeneReviews confirms aluminum chloride antiperspirant as a treatment to reduce sweating-induced blistering.
 - name: Pain Management
   description: &gt;
     Analgesic therapy for pain associated with blistering and erosions.
@@ -6286,10 +6367,8 @@ treatments:
     reference_title: &#34;Epidermolysis Bullosa Simplex.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Identification and management of specific causes of pain and
-      itching; management with a pain specialist as needed&#34;
-    explanation: GeneReviews confirms pain and itch management as part of EBS
-      care.
+    snippet: &#34;Identification and management of specific causes of pain and itching; management with a pain specialist as needed&#34;
+    explanation: GeneReviews confirms pain and itch management as part of EBS care.
 - name: Physical Therapy
   description: &gt;
     Rehabilitation and physical therapy for patients with EBS-MD to maintain
@@ -6305,8 +6384,7 @@ treatments:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;appropriate footwear and physical therapy to preserve ambulation&#34;
-    explanation: GeneReviews confirms physical therapy to preserve ambulation
-      as part of EBS management.
+    explanation: GeneReviews confirms physical therapy to preserve ambulation as part of EBS management.
 - name: Genetic Counseling
   description: &gt;
     Genetic counseling for affected families regarding inheritance patterns,
@@ -6322,11 +6400,8 @@ treatments:
     reference_title: &#34;Epidermolysis bullosa simplex: recurrent and de novo mutations in the KRT5 and KRT14 genes, phenotype/genotype correlations, and implications for genetic counseling and prenatal diagnosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;These findings have implications for genetic counseling and
-      prenatal diagnosis for EBS&#34;
-    explanation: Confirms the importance of genetic counseling for EBS
-      families, particularly given de novo mutations and mixed inheritance
-      patterns.
+    snippet: &#34;These findings have implications for genetic counseling and prenatal diagnosis for EBS&#34;
+    explanation: Confirms the importance of genetic counseling for EBS families, particularly given de novo mutations and mixed inheritance patterns.
 - name: Diacerein (Anti-IL-1beta Therapy)
   description: &gt;
     Topical diacerein 1% ointment, an anti-inflammatory agent that inhibits
@@ -6347,20 +6422,14 @@ treatments:
     reference_title: &#34;Diacerein orphan drug development for epidermolysis bullosa simplex: A phase 2/3 randomized, placebo-controlled, double-blind clinical trial.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Of the patients receiving diacerein, 86% in episode 1 and 37.5%
-      in episode 2 met the primary end point (vs 14% and 17% with placebo,
-      respectively). This effect was still significant after the follow-up&#34;
-    explanation: Phase 2/3 crossover trial demonstrating diacerein efficacy
-      in reducing EBS blisters compared to placebo.
+    snippet: &#34;Of the patients receiving diacerein, 86% in episode 1 and 37.5% in episode 2 met the primary end point (vs 14% and 17% with placebo, respectively). This effect was still significant after the follow-up&#34;
+    explanation: Phase 2/3 crossover trial demonstrating diacerein efficacy in reducing EBS blisters compared to placebo.
   - reference: PMID:37276163
     reference_title: &#34;Diacerein 1% Ointment for the Treatment of Epidermolysis Bullosa Simplex: A Randomized, Controlled Trial.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Although there was no significant difference in outcomes between
-      the groups, further study may elucidate the effects of diacerein on EBS
-      lesions, especially in patients with severe EBS&#34;
-    explanation: Larger RCT (n=54) did not meet primary endpoint overall,
-      though post hoc analysis suggested benefit in severe EBS subgroup.
+    snippet: &#34;Although there was no significant difference in outcomes between the groups, further study may elucidate the effects of diacerein on EBS lesions, especially in patients with severe EBS&#34;
+    explanation: Larger RCT (n=54) did not meet primary endpoint overall, though post hoc analysis suggested benefit in severe EBS subgroup.
 - name: Sulforaphane (Nrf2 Activator, Preclinical)
   description: &gt;
     Sulforaphane, a natural product from cruciferous vegetables, activates
@@ -6380,15 +6449,8 @@ treatments:
     reference_title: &#34;Reprogramming of keratin biosynthesis by sulforaphane restores skin integrity in epidermolysis bullosa simplex.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
-    snippet: &#34;treatment with a pharmacological activator of Nrf2, two
-      transcription factors eliciting distinct transcriptional programs,
-      alleviates the blistering caused by a K14 deficiency in an EBS mouse
-      model, correlating with K17 induction in basal epidermal keratinocytes.
-      Nrf2 induction is brought about by treatment with sulforaphane, a
-      natural product&#34;
-    explanation: Mouse model demonstrates sulforaphane activates Nrf2 to
-      induce compensatory K17 expression in basal keratinocytes, alleviating
-      blistering in K14-deficient EBS.
+    snippet: &#34;treatment with a pharmacological activator of Nrf2, two transcription factors eliciting distinct transcriptional programs, alleviates the blistering caused by a K14 deficiency in an EBS mouse model, correlating with K17 induction in basal epidermal keratinocytes. Nrf2 induction is brought about by treatment with sulforaphane, a natural product&#34;
+    explanation: Mouse model demonstrates sulforaphane activates Nrf2 to induce compensatory K17 expression in basal keratinocytes, alleviating blistering in K14-deficient EBS.
 clinical_trials:
 - name: NCT06073132
   phase: PHASE_II
@@ -6440,10 +6502,8 @@ genetic:
       reference_title: &#34;Epidermolysis Bullosa Simplex.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;Autosomal dominant EBS is associated with either a heterozygous
-        dominant-negative variant in KRT5, KRT14, or PLEC&#34;
-      explanation: GeneReviews confirms autosomal dominant inheritance for KRT5
-        via dominant-negative variants.
+      snippet: &#34;Autosomal dominant EBS is associated with either a heterozygous dominant-negative variant in KRT5, KRT14, or PLEC&#34;
+      explanation: GeneReviews confirms autosomal dominant inheritance for KRT5 via dominant-negative variants.
   notes: &gt;
     Keratin 5 gene on chromosome 12q13.13. Encodes the type II keratin that
     pairs with keratin 14 in basal keratinocytes. Dominant-negative
@@ -6455,15 +6515,13 @@ genetic:
     reference_title: &#34;Epidermolysis bullosa simplex: recurrent and de novo mutations in the KRT5 and KRT14 genes, phenotype/genotype correlations, and implications for genetic counseling and prenatal diagnosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;18 were found to harbor heterozygous mutations in the keratin 5 or
-      keratin 14 genes, KRT5 and KRT14, respectively&#34;
+    snippet: &#34;18 were found to harbor heterozygous mutations in the keratin 5 or keratin 14 genes, KRT5 and KRT14, respectively&#34;
     explanation: Confirms heterozygous KRT5 mutations as a cause of EBS.
   - reference: PMID:30078200
     reference_title: &#34;Keratins and epidermolysis bullosa simplex.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;the most important and most commonly occurring molecular defects in
-      these patients are the defects of keratins 5 and14 (KRT5 and KRT14)&#34;
+    snippet: &#34;the most important and most commonly occurring molecular defects in these patients are the defects of keratins 5 and14 (KRT5 and KRT14)&#34;
     explanation: Confirms KRT5 as one of the two principal genes mutated in EBS.
 - name: KRT14
   association: Causative
@@ -6474,8 +6532,7 @@ genetic:
       reference_title: &#34;Epidermolysis Bullosa Simplex.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;Autosomal dominant EBS is associated with either a heterozygous
-        dominant-negative variant in KRT5, KRT14, or PLEC&#34;
+      snippet: &#34;Autosomal dominant EBS is associated with either a heterozygous dominant-negative variant in KRT5, KRT14, or PLEC&#34;
       explanation: GeneReviews confirms autosomal dominant inheritance for KRT14.
   - name: Autosomal recessive
     evidence:
@@ -6483,10 +6540,8 @@ genetic:
       reference_title: &#34;Epidermolysis Bullosa Simplex.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;Autosomal recessive EBS is associated with either biallelic
-        loss-of-function variants in KRT5, KRT14, or PLEC&#34;
-      explanation: GeneReviews confirms autosomal recessive inheritance for
-        biallelic KRT14 loss-of-function variants.
+      snippet: &#34;Autosomal recessive EBS is associated with either biallelic loss-of-function variants in KRT5, KRT14, or PLEC&#34;
+      explanation: GeneReviews confirms autosomal recessive inheritance for biallelic KRT14 loss-of-function variants.
   notes: &gt;
     Keratin 14 gene on chromosome 17q21.2. Encodes the type I keratin
     partner of keratin 5 in basal keratinocytes. Dominant-negative missense
@@ -6498,16 +6553,14 @@ genetic:
     reference_title: &#34;Defining keratin protein function in skin epithelia: epidermolysis bullosa simplex and its aftermath.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Most cases of EBS are due to dominantly acting mutations in keratin
-      14 (K14) or K5&#34;
+    snippet: &#34;Most cases of EBS are due to dominantly acting mutations in keratin 14 (K14) or K5&#34;
     explanation: Confirms dominant KRT14 mutations as a major cause of EBS.
   - reference: PMID:16098032
     reference_title: &#34;Epidermolysis bullosa simplex: recurrent and de novo mutations in the KRT5 and KRT14 genes, phenotype/genotype correlations, and implications for genetic counseling and prenatal diagnosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;many cases result from de novo mutations in KRT5 and KRT14 genes&#34;
-    explanation: Confirms that many EBS cases arise from de novo KRT14
-      mutations.
+    explanation: Confirms that many EBS cases arise from de novo KRT14 mutations.
 - name: PLEC
   association: Causative
   inheritance:
@@ -6517,8 +6570,7 @@ genetic:
       reference_title: &#34;Epidermolysis Bullosa Simplex.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;Autosomal recessive EBS is associated with either biallelic
-        loss-of-function variants in KRT5, KRT14, or PLEC&#34;
+      snippet: &#34;Autosomal recessive EBS is associated with either biallelic loss-of-function variants in KRT5, KRT14, or PLEC&#34;
       explanation: GeneReviews confirms autosomal recessive inheritance for PLEC.
   notes: &gt;
     Plectin gene on chromosome 8q24.3. Encodes a giant (&gt;500 kDa)
@@ -6531,18 +6583,14 @@ genetic:
     reference_title: &#34;Muscle-Related Plectinopathies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Mutations in the human plectin gene (PLEC) cause several rare
-      diseases that are grouped under the term plectinopathies&#34;
-    explanation: Confirms PLEC mutations as causative for plectinopathies
-      including EBS-MD.
+    snippet: &#34;Mutations in the human plectin gene (PLEC) cause several rare diseases that are grouped under the term plectinopathies&#34;
+    explanation: Confirms PLEC mutations as causative for plectinopathies including EBS-MD.
   - reference: PMID:16098032
     reference_title: &#34;Epidermolysis bullosa simplex: recurrent and de novo mutations in the KRT5 and KRT14 genes, phenotype/genotype correlations, and implications for genetic counseling and prenatal diagnosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;in 14 cases, the disease was associated with mutations in both
-      alleles of the plectin gene&#34;
-    explanation: Confirms biallelic plectin mutations in EBS patients,
-      establishing recessive inheritance.
+    snippet: &#34;in 14 cases, the disease was associated with mutations in both alleles of the plectin gene&#34;
+    explanation: Confirms biallelic plectin mutations in EBS patients, establishing recessive inheritance.
 - name: DST
   association: Causative
   inheritance:
@@ -6564,8 +6612,7 @@ genetic:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in CD151, DST, or EXPH5&#34;
-    explanation: GeneReviews lists DST as a gene with biallelic pathogenic
-      variants causing autosomal recessive EBS.
+    explanation: GeneReviews lists DST as a gene with biallelic pathogenic variants causing autosomal recessive EBS.
 - name: EXPH5
   association: Causative
   inheritance:
@@ -6587,8 +6634,7 @@ genetic:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in CD151, DST, or EXPH5&#34;
-    explanation: GeneReviews lists EXPH5 as a gene with biallelic pathogenic
-      variants causing autosomal recessive EBS.
+    explanation: GeneReviews lists EXPH5 as a gene with biallelic pathogenic variants causing autosomal recessive EBS.
 - name: KLHL24
   association: Causative
   inheritance:
@@ -6607,7 +6653,7 @@ genetic:
       label: KLHL24
   notes: &gt;
     Kelch-like family member 24 gene on chromosome 3q27.1. Encodes a
-    cullin 3-RBX1 ubiquitin ligase substrate receptor. Gain-of-function
+    CUL3-RBX1 ubiquitin ligase substrate receptor. Gain-of-function
     mutations in the translation initiation codon (c.1A&gt;G, c.2T&gt;C) produce
     a truncated protein (KLHL24-deltaN28) that escapes autoubiquitination
     and causes excessive ubiquitin-mediated degradation of keratin 14
@@ -6619,27 +6665,14 @@ genetic:
     reference_title: &#34;Stabilizing mutations of KLHL24 ubiquitin ligase cause loss of keratin 14 and human skin fragility.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;dominant mutations of KLHL24, encoding a cullin 3-RBX1 ubiquitin
-      ligase substrate receptor, cause EB. We have identified start-codon
-      mutations in the KLHL24 gene in five patients with EB. These mutations
-      lead to truncated KLHL24 protein lacking the initial 28 amino acids
-      (KLHL24-ΔN28). KLHL24-ΔN28 is more stable than its wild-type
-      counterpart owing to abolished autoubiquitination. We have further
-      identified keratin 14 (KRT14) as a KLHL24 substrate and found that
-      KLHL24-ΔN28 induces excessive ubiquitination and degradation of KRT14&#34;
-    explanation: Identifies KLHL24 start-codon mutations as a novel cause
-      of EBS through stabilized truncated protein that excessively degrades
-      KRT14.
+    snippet: &#34;We have identified start-codon mutations in the KLHL24 gene in five patients with EB.&#34;
+    explanation: Identifies KLHL24 start-codon mutations as a novel cause of EBS through stabilized truncated protein that excessively degrades KRT14.
   - reference: PMID:27889062
     reference_title: &#34;Monoallelic Mutations in the Translation Initiation Codon of KLHL24 Cause Skin Fragility.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;monoallelic mutations, c.1A&gt;G and c.2T&gt;C, in the translation
-      initiation codon of the gene encoding kelch-like protein 24 (KLHL24)
-      in 14 individuals with a distinct skin-fragility phenotype and skin
-      cleavage within basal keratinocytes&#34;
-    explanation: Independently confirms KLHL24 initiation codon mutations
-      in 14 individuals with skin fragility and basal keratinocyte cleavage.
+    snippet: &#34;monoallelic mutations, c.1A&gt;G and c.2T&gt;C, in the translation initiation codon of the gene encoding kelch-like protein 24 (KLHL24) in 14 individuals with a distinct skin-fragility phenotype and skin cleavage within basal keratinocytes&#34;
+    explanation: Independently confirms KLHL24 initiation codon mutations in 14 individuals with skin fragility and basal keratinocyte cleavage.
 datasets:
 - accession: geo:GSE179508
   title: Transcriptomic Repositioning Analysis Identifies mTOR Inhibitor as Potential Therapy for Epidermolysis Bullosa Simplex
@@ -6662,20 +6695,151 @@ datasets:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In this study, we characterize significant molecular pathways activated in the blisters that form in EBS&#34;
-    explanation: Supports this GEO series as a direct transcriptomic resource for
-      EBS lesional biology.
+    explanation: Supports this GEO series as a direct transcriptomic resource for EBS lesional biology.
   - reference: GEO:GSE179508
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We implicate the PI3K/AKT/mTOR pathway as central in the EBS disease pathway&#34;
-    explanation: Confirms that the dataset captures disease-relevant signaling
-      programs and supports downstream therapeutic inference.
+    explanation: Confirms that the dataset captures disease-relevant signaling programs and supports downstream therapeutic inference.
 references:
 - reference: PMID:20301543
   title: &#34;Epidermolysis Bullosa Simplex.&#34;
   tags:
   - GeneReviews
   findings: []
+- reference: DOI:10.1101/cshperspect.a041229
+  title: Stairways to Advanced Therapies for Epidermolysis Bullosa
+  found_in:
+  - Epidermolysis_Bullosa_Simplex-deep-research-falcon.md
+  findings:
+  - statement: Stairways to Advanced Therapies for Epidermolysis Bullosa
+    supporting_text: Stairways to Advanced Therapies for Epidermolysis Bullosa
+- reference: DOI:10.1111/bjd.18128
+  title: Clinical practice guidelines for laboratory diagnosis of epidermolysis bullosa
+  found_in:
+  - Epidermolysis_Bullosa_Simplex-deep-research-falcon.md
+  findings:
+  - statement: Clinical practice guidelines for laboratory diagnosis of epidermolysis bullosa
+    supporting_text: Clinical practice guidelines for laboratory diagnosis of epidermolysis bullosa
+- reference: DOI:10.1111/bjd.18921
+  title: Consensus reclassification of inherited epidermolysis bullosa and other disorders with skin fragility
+  found_in:
+  - Epidermolysis_Bullosa_Simplex-deep-research-falcon.md
+  findings:
+  - statement: Consensus reclassification of inherited epidermolysis bullosa and other disorders with skin fragility
+    supporting_text: Consensus reclassification of inherited epidermolysis bullosa and other disorders with skin fragility
+- reference: DOI:10.1111/jdv.18637
+  title: Epidemiology of inherited epidermolysis bullosa in Germany
+  found_in:
+  - Epidermolysis_Bullosa_Simplex-deep-research-falcon.md
+  findings:
+  - statement: Epidemiology of inherited epidermolysis bullosa in Germany
+    supporting_text: &#39;Epidermolysis bullosa (EB) is a rare genetic disorder manifesting with skin and mucosal membrane blistering in different degrees of severity.ObjectiveEpidemiological data from different countries have been published, but none are available from Germany.MethodsIn this population‐based cross‐sectional study, people living with EB in Germany were identified using the following sources: academic hospitals, diagnostic laboratories and patient organization.ResultsOur study indicates an overall EB incidence of 45 per million live births in Germany.&#39;
+    evidence:
+    - reference: DOI:10.1111/jdv.18637
+      reference_title: Epidemiology of inherited epidermolysis bullosa in Germany
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#39;Epidermolysis bullosa (EB) is a rare genetic disorder manifesting with skin and mucosal membrane blistering in different degrees of severity.ObjectiveEpidemiological data from different countries have been published, but none are available from Germany.MethodsIn this population‐based cross‐sectional study, people living with EB in Germany were identified using the following sources: academic hospitals, diagnostic laboratories and patient organization.ResultsOur study indicates an overall EB incidence of 45 per million live births in Germany.&#39;
+      explanation: Deep research cited this publication as relevant literature for Epidermolysis Bullosa Simplex.
+- reference: DOI:10.1111/jdv.18692
+  title: Genotype and phenotype correlations in 441 patients with epidermolysis bullosa from China
+  found_in:
+  - Epidermolysis_Bullosa_Simplex-deep-research-falcon.md
+  findings:
+  - statement: Genotype and phenotype correlations in 441 patients with epidermolysis bullosa from China
+    supporting_text: Epidermolysis bullosa (EB) is a heterogeneous group of rare and incurable genetic blistering disorders.ObjectivesThe objective was to analyse the genotype–phenotype correlation in EB among Chinese individuals.MethodsNext‐generation sequencing and Sanger sequencing were performed to genetically confirm clinically diagnosed EB.
+    evidence:
+    - reference: DOI:10.1111/jdv.18692
+      reference_title: Genotype and phenotype correlations in 441 patients with epidermolysis bullosa from China
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Epidermolysis bullosa (EB) is a heterogeneous group of rare and incurable genetic blistering disorders.ObjectivesThe objective was to analyse the genotype–phenotype correlation in EB among Chinese individuals.MethodsNext‐generation sequencing and Sanger sequencing were performed to genetically confirm clinically diagnosed EB.
+      explanation: Deep research cited this publication as relevant literature for Epidermolysis Bullosa Simplex.
+- reference: DOI:10.1111/pde.15440
+  title: Clinical and molecular features in a cohort of Middle Eastern patients with epidermolysis bullosa
+  found_in:
+  - Epidermolysis_Bullosa_Simplex-deep-research-falcon.md
+  findings:
+  - statement: Epidermolysis bullosa (EB) features skin and mucosal fragility due to pathogenic variants in genes encoding components of the cutaneous basement membrane.
+    supporting_text: Epidermolysis bullosa (EB) features skin and mucosal fragility due to pathogenic variants in genes encoding components of the cutaneous basement membrane.
+    evidence:
+    - reference: DOI:10.1111/pde.15440
+      reference_title: Clinical and molecular features in a cohort of Middle Eastern patients with epidermolysis bullosa
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Epidermolysis bullosa (EB) features skin and mucosal fragility due to pathogenic variants in genes encoding components of the cutaneous basement membrane.
+      explanation: Deep research cited this publication as relevant literature for Epidermolysis Bullosa Simplex.
+- reference: DOI:10.1177/0300985819900354
+  title: &#39;Spontaneous &lt;i&gt;KRT5&lt;/i&gt; Gene Mutation in Rhesus Macaques ( &lt;i&gt;Macaca mulatta&lt;/i&gt; ): A Novel Nonhuman Primate Model of Epidermolysis Bullosa Simplex&#39;
+  found_in:
+  - Epidermolysis_Bullosa_Simplex-deep-research-falcon.md
+  findings:
+  - statement: Epidermolysis bullosa simplex (EBS) is an inherited skin disorder characterized by increased skin and mucous membrane fragility.
+    supporting_text: Epidermolysis bullosa simplex (EBS) is an inherited skin disorder characterized by increased skin and mucous membrane fragility.
+    evidence:
+    - reference: DOI:10.1177/0300985819900354
+      reference_title: &#39;Spontaneous &lt;i&gt;KRT5&lt;/i&gt; Gene Mutation in Rhesus Macaques ( &lt;i&gt;Macaca mulatta&lt;/i&gt; ): A Novel Nonhuman Primate Model of Epidermolysis Bullosa Simplex&#39;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: Epidermolysis bullosa simplex (EBS) is an inherited skin disorder characterized by increased skin and mucous membrane fragility.
+      explanation: Deep research cited this publication as relevant literature for Epidermolysis Bullosa Simplex.
+- reference: DOI:10.1186/s13023-022-02433-3
+  title: A global, cross-sectional survey of patient-reported outcomes, disease burden, and quality of life in epidermolysis bullosa simplex
+  found_in:
+  - Epidermolysis_Bullosa_Simplex-deep-research-falcon.md
+  findings:
+  - statement: Epidermolysis bullosa simplex (EBS) comprises a group of rare, blistering genodermatoses.
+    supporting_text: Epidermolysis bullosa simplex (EBS) comprises a group of rare, blistering genodermatoses.
+    evidence:
+    - reference: DOI:10.1186/s13023-022-02433-3
+      reference_title: A global, cross-sectional survey of patient-reported outcomes, disease burden, and quality of life in epidermolysis bullosa simplex
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Epidermolysis bullosa simplex (EBS) comprises a group of rare, blistering genodermatoses.
+      explanation: Deep research cited this publication as relevant literature for Epidermolysis Bullosa Simplex.
+- reference: DOI:10.1542/neo.22-7-e438
+  title: Diagnosis and Care of the Newborn with Epidermolysis Bullosa
+  found_in:
+  - Epidermolysis_Bullosa_Simplex-deep-research-falcon.md
+  findings:
+  - statement: Epidermolysis bullosa (EB) is a group of rare genetic disorders that are characterized by fragile skin.
+    supporting_text: Epidermolysis bullosa (EB) is a group of rare genetic disorders that are characterized by fragile skin.
+    evidence:
+    - reference: DOI:10.1542/neo.22-7-e438
+      reference_title: Diagnosis and Care of the Newborn with Epidermolysis Bullosa
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Epidermolysis bullosa (EB) is a group of rare genetic disorders that are characterized by fragile skin.
+      explanation: Deep research cited this publication as relevant literature for Epidermolysis Bullosa Simplex.
+- reference: DOI:10.3390/ijms25179495
+  title: &#39;Pathological Mechanisms Involved in Epidermolysis Bullosa Simplex: Current Knowledge and Therapeutic Perspectives&#39;
+  found_in:
+  - Epidermolysis_Bullosa_Simplex-deep-research-falcon.md
+  findings:
+  - statement: Epidermolysis bullosa (EB) is a clinically and genetically heterogeneous group of mechanobullous diseases characterized by non-scarring blisters and erosions on the skin and mucous membranes upon mechanical trauma.
+    supporting_text: Epidermolysis bullosa (EB) is a clinically and genetically heterogeneous group of mechanobullous diseases characterized by non-scarring blisters and erosions on the skin and mucous membranes upon mechanical trauma.
+    evidence:
+    - reference: DOI:10.3390/ijms25179495
+      reference_title: &#39;Pathological Mechanisms Involved in Epidermolysis Bullosa Simplex: Current Knowledge and Therapeutic Perspectives&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Epidermolysis bullosa (EB) is a clinically and genetically heterogeneous group of mechanobullous diseases characterized by non-scarring blisters and erosions on the skin and mucous membranes upon mechanical trauma.
+      explanation: Deep research cited this publication as relevant literature for Epidermolysis Bullosa Simplex.
+- reference: DOI:10.1038/s41572-020-0210-0
+  title: Epidermolysis bullosa
+  found_in:
+  - Epidermolysis_Bullosa_Simplex-deep-research-falcon.md
+  findings:
+  - statement: Epidermolysis bullosa
+    supporting_text: Epidermolysis bullosa
+    evidence:
+    - reference: DOI:10.1038/s41572-020-0210-0
+      reference_title: Epidermolysis bullosa
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Epidermolysis bullosa
+      explanation: Deep research cited this publication as relevant literature for Epidermolysis Bullosa Simplex.
 </pre>
             </div>
         </div>
@@ -6691,7 +6855,7 @@ references:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">1</span>
+                    <span class="card-count">12</span>
                 </div>
                 
                 <div class="reference-entry">
@@ -6711,8 +6875,1532 @@ references:
                     
                 </div>
                 
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1101/cshperspect.a041229" target="_blank">DOI:10.1101/cshperspect.a041229</a>
+                            </div>
+                            
+                            <div class="reference-title">Stairways to Advanced Therapies for Epidermolysis Bullosa</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Stairways to Advanced Therapies for Epidermolysis Bullosa</div>
+            
+            
+            <div class="reference-finding-supporting">"Stairways to Advanced Therapies for Epidermolysis Bullosa"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1111/bjd.18128" target="_blank">DOI:10.1111/bjd.18128</a>
+                            </div>
+                            
+                            <div class="reference-title">Clinical practice guidelines for laboratory diagnosis of epidermolysis bullosa</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Clinical practice guidelines for laboratory diagnosis of epidermolysis bullosa</div>
+            
+            
+            <div class="reference-finding-supporting">"Clinical practice guidelines for laboratory diagnosis of epidermolysis bullosa"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1111/bjd.18921" target="_blank">DOI:10.1111/bjd.18921</a>
+                            </div>
+                            
+                            <div class="reference-title">Consensus reclassification of inherited epidermolysis bullosa and other disorders with skin fragility</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Consensus reclassification of inherited epidermolysis bullosa and other disorders with skin fragility</div>
+            
+            
+            <div class="reference-finding-supporting">"Consensus reclassification of inherited epidermolysis bullosa and other disorders with skin fragility"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1111/jdv.18637" target="_blank">DOI:10.1111/jdv.18637</a>
+                            </div>
+                            
+                            <div class="reference-title">Epidemiology of inherited epidermolysis bullosa in Germany</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Epidemiology of inherited epidermolysis bullosa in Germany</div>
+            
+            
+            <div class="reference-finding-supporting">"Epidermolysis bullosa (EB) is a rare genetic disorder manifesting with skin and mucosal membrane blistering in different degrees of severity.ObjectiveEpidemiological data from different countries have been published, but none are available from Germany.MethodsIn this population‐based..."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1111/jdv.18637" target="_blank">DOI:10.1111/jdv.18637</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Epidermolysis bullosa (EB) is a rare genetic disorder manifesting with skin and mucosal membrane blistering in different degrees of severity.ObjectiveEpidemiological data from different countries have been published, but none are available from Germany.MethodsIn this population‐based..."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Epidermolysis Bullosa Simplex.</div>
+                
             </div>
             
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1111/jdv.18692" target="_blank">DOI:10.1111/jdv.18692</a>
+                            </div>
+                            
+                            <div class="reference-title">Genotype and phenotype correlations in 441 patients with epidermolysis bullosa from China</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Genotype and phenotype correlations in 441 patients with epidermolysis bullosa from China</div>
+            
+            
+            <div class="reference-finding-supporting">"Epidermolysis bullosa (EB) is a heterogeneous group of rare and incurable genetic blistering disorders.ObjectivesThe objective was to analyse the genotype–phenotype correlation in EB among Chinese individuals.MethodsNext‐generation sequencing and Sanger sequencing were performed to genetically..."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1111/jdv.18692" target="_blank">DOI:10.1111/jdv.18692</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Epidermolysis bullosa (EB) is a heterogeneous group of rare and incurable genetic blistering disorders.ObjectivesThe objective was to analyse the genotype–phenotype correlation in EB among Chinese individuals.MethodsNext‐generation sequencing and Sanger sequencing were performed to genetically..."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Epidermolysis Bullosa Simplex.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1111/pde.15440" target="_blank">DOI:10.1111/pde.15440</a>
+                            </div>
+                            
+                            <div class="reference-title">Clinical and molecular features in a cohort of Middle Eastern patients with epidermolysis bullosa</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Epidermolysis bullosa (EB) features skin and mucosal fragility due to pathogenic variants in genes encoding components of the cutaneous basement membrane.</div>
+            
+            
+            <div class="reference-finding-supporting">"Epidermolysis bullosa (EB) features skin and mucosal fragility due to pathogenic variants in genes encoding components of the cutaneous basement membrane."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1111/pde.15440" target="_blank">DOI:10.1111/pde.15440</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Epidermolysis bullosa (EB) features skin and mucosal fragility due to pathogenic variants in genes encoding components of the cutaneous basement membrane."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Epidermolysis Bullosa Simplex.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1177/0300985819900354" target="_blank">DOI:10.1177/0300985819900354</a>
+                            </div>
+                            
+                            <div class="reference-title">Spontaneous &lt;i&gt;KRT5&lt;/i&gt; Gene Mutation in Rhesus Macaques ( &lt;i&gt;Macaca mulatta&lt;/i&gt; ): A Novel Nonhuman Primate Model of Epidermolysis Bullosa Simplex</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Epidermolysis bullosa simplex (EBS) is an inherited skin disorder characterized by increased skin and mucous membrane fragility.</div>
+            
+            
+            <div class="reference-finding-supporting">"Epidermolysis bullosa simplex (EBS) is an inherited skin disorder characterized by increased skin and mucous membrane fragility."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1177/0300985819900354" target="_blank">DOI:10.1177/0300985819900354</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Epidermolysis bullosa simplex (EBS) is an inherited skin disorder characterized by increased skin and mucous membrane fragility."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Epidermolysis Bullosa Simplex.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1186/s13023-022-02433-3" target="_blank">DOI:10.1186/s13023-022-02433-3</a>
+                            </div>
+                            
+                            <div class="reference-title">A global, cross-sectional survey of patient-reported outcomes, disease burden, and quality of life in epidermolysis bullosa simplex</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Epidermolysis bullosa simplex (EBS) comprises a group of rare, blistering genodermatoses.</div>
+            
+            
+            <div class="reference-finding-supporting">"Epidermolysis bullosa simplex (EBS) comprises a group of rare, blistering genodermatoses."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s13023-022-02433-3" target="_blank">DOI:10.1186/s13023-022-02433-3</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Epidermolysis bullosa simplex (EBS) comprises a group of rare, blistering genodermatoses."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Epidermolysis Bullosa Simplex.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1542/neo.22-7-e438" target="_blank">DOI:10.1542/neo.22-7-e438</a>
+                            </div>
+                            
+                            <div class="reference-title">Diagnosis and Care of the Newborn with Epidermolysis Bullosa</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Epidermolysis bullosa (EB) is a group of rare genetic disorders that are characterized by fragile skin.</div>
+            
+            
+            <div class="reference-finding-supporting">"Epidermolysis bullosa (EB) is a group of rare genetic disorders that are characterized by fragile skin."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1542/neo.22-7-e438" target="_blank">DOI:10.1542/neo.22-7-e438</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Epidermolysis bullosa (EB) is a group of rare genetic disorders that are characterized by fragile skin."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Epidermolysis Bullosa Simplex.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3390/ijms25179495" target="_blank">DOI:10.3390/ijms25179495</a>
+                            </div>
+                            
+                            <div class="reference-title">Pathological Mechanisms Involved in Epidermolysis Bullosa Simplex: Current Knowledge and Therapeutic Perspectives</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Epidermolysis bullosa (EB) is a clinically and genetically heterogeneous group of mechanobullous diseases characterized by non-scarring blisters and erosions on the skin and mucous membranes upon mechanical trauma.</div>
+            
+            
+            <div class="reference-finding-supporting">"Epidermolysis bullosa (EB) is a clinically and genetically heterogeneous group of mechanobullous diseases characterized by non-scarring blisters and erosions on the skin and mucous membranes upon mechanical trauma."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/ijms25179495" target="_blank">DOI:10.3390/ijms25179495</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Epidermolysis bullosa (EB) is a clinically and genetically heterogeneous group of mechanobullous diseases characterized by non-scarring blisters and erosions on the skin and mucous membranes upon mechanical trauma."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Epidermolysis Bullosa Simplex.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1038/s41572-020-0210-0" target="_blank">DOI:10.1038/s41572-020-0210-0</a>
+                            </div>
+                            
+                            <div class="reference-title">Epidermolysis bullosa</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Epidermolysis bullosa</div>
+            
+            
+            <div class="reference-finding-supporting">"Epidermolysis bullosa"</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41572-020-0210-0" target="_blank">DOI:10.1038/s41572-020-0210-0</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Epidermolysis bullosa"</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Epidermolysis Bullosa Simplex.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">Disease Characteristics Research Template</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">50 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-08T16:34:19.918654</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
+<p>Provide detailed information focusing on:
+1. Key concepts and definitions with current understanding
+2. Recent developments and latest research (prioritize 2023-2024 sources)
+3. Current applications and real-world implementations
+4. Expert opinions and analysis from authoritative sources
+5. Relevant statistics and data from recent studies</p>
+<p>Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
+Always prioritize recent, authoritative sources and provide specific citations for all major claims.</p>
+<h1>Disease Characteristics Research Template</h1>
+<h2>Target Disease</h2>
+<ul>
+<li><strong>Disease Name:</strong> Epidermolysis Bullosa Simplex</li>
+<li><strong>MONDO ID:</strong>  (if available)</li>
+<li><strong>Category:</strong> Mendelian</li>
+</ul>
+<h2>Research Objectives</h2>
+<p>Please provide a comprehensive research report on <strong>Epidermolysis Bullosa Simplex</strong> covering all of the
+disease characteristics listed below. This report will be used to populate a disease knowledge
+base entry. Be thorough and cite primary literature (PMID preferred) for all claims.</p>
+<p>For each section, <strong>suggested databases/resources</strong> are listed. These are the first places
+you should search for information on each topic.</p>
+<hr />
+<h3>1. Disease Information</h3>
+<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, ICD-10/ICD-11, MeSH, PubMed</p>
+</blockquote>
+<ul>
+<li>What is the disease? Provide a concise overview.</li>
+<li>What are the key identifiers? (OMIM, Orphanet, ICD-10/ICD-11, MeSH, Mondo)</li>
+<li>What are the common synonyms and alternative names?</li>
+<li>Is the information derived from individual patients (e.g., EHR) or aggregated disease-level resources?</li>
+</ul>
+<h3>2. Etiology</h3>
+<ul>
+<li><strong>Disease Causal Factors</strong>: What are the primary causes? (genetic, environmental, infectious, mechanistic)</li>
+<li><strong>Risk Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, UpToDate, clinical guidelines, ClinVar, ClinGen, GWAS Catalog, PheGenI, CTD, CDC, WHO, epidemiological databases</p>
+</blockquote>
+</li>
+<li>Genetic risk factors (causal variants, susceptibility loci, modifier genes)</li>
+<li>Environmental risk factors (toxins, lifestyle, occupational exposures, age, sex, family history)</li>
+<li><strong>Protective Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, clinical trial databases, GWAS Catalog, gnomAD, WHO, CDC, nutrition databases</p>
+</blockquote>
+</li>
+<li>Genetic protective factors (protective variants, modifier alleles)</li>
+<li>Environmental protective factors (diet, lifestyle, exposures that reduce risk)</li>
+<li><strong>Gene-Environment Interactions</strong>: How do genetic and environmental factors interact to influence disease?<blockquote>
+<p><strong>Search first:</strong> CTD, PubMed, PheGenI, GxE databases</p>
+</blockquote>
+</li>
+</ul>
+<h3>3. Phenotypes</h3>
+<blockquote>
+<p><strong>Search first:</strong> HPO (Human Phenotype Ontology), OMIM, Orphanet, PubMed, clinicaltrials.gov, MedDRA, SNOMED CT, DECIPHER, LOINC</p>
+</blockquote>
+<p>For each phenotype, provide:
+- <strong>Phenotype type</strong>: symptoms, clinical signs, physical manifestations, behavioral changes, or laboratory abnormalities</p>
+<blockquote>
+<p>For symptoms/signs: HPO, OMIM, Orphanet, PubMed
+For behavioral changes: HPO, DSM, RDoC (Research Domain Criteria), PubMed
+For laboratory abnormalities: LOINC, SNOMED CT, LabTests Online, PubMed
+- <strong>Phenotype characteristics</strong>:
+<strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed
+  - Age of symptom onset (neonatal, childhood, adult-onset, late-onset)
+  - Symptom severity (mild, moderate, severe, variable)
+  - Symptom progression (stable, progressive, episodic, fluctuating)
+  - Frequency among affected individuals (percentage or qualitative)
+- <strong>Quality of life impact</strong>: Effects on daily functioning and well-being (per-phenotype when possible)
+<strong>Search first:</strong> EQ-5D database, SF-36, WHO QOL databases, PubMed
+- Suggest HPO (Human Phenotype Ontology) terms for each phenotype</p>
+</blockquote>
+<h3>4. Genetic/Molecular Information</h3>
+<ul>
+<li><strong>Causal Genes</strong>: Gene mutations or chromosomal abnormalities responsible for disease (gene symbols, OMIM IDs)<blockquote>
+<p><strong>Search first:</strong> OMIM, ClinVar, HGMD, Ensembl, NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Pathogenic Variants</strong>:</li>
+<li>Affected genes (gene symbols, HGNC IDs)
+    &gt; <strong>Search first:</strong> OMIM, NCBI Gene, Ensembl, HGNC, UniProt, GeneCards</li>
+<li>Variant classification (pathogenic, likely pathogenic, VUS per ACMG/AMP guidelines)
+    &gt; <strong>Search first:</strong> ClinVar, ClinGen, ACMG/AMP guidelines, VarSome</li>
+<li>Variant type/class (missense, frameshift, nonsense, splice-site, structural)</li>
+<li>Allele frequency in population databases
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, ExAC, TOPMed, dbSNP</li>
+<li>Somatic vs germline origin
+    &gt; <strong>Search first:</strong> COSMIC (somatic), ClinVar, ICGC, TCGA</li>
+<li>Functional consequences (loss of function, gain of function, dominant negative)</li>
+<li><strong>Modifier Genes</strong>: Genes that modify disease severity or expression</li>
+<li><strong>Epigenetic Information</strong>: DNA methylation, histone modifications, chromatin changes affecting disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Chromosomal Abnormalities</strong>: Large-scale genetic changes (aneuploidy, translocations, inversions)<blockquote>
+<p><strong>Search first:</strong> DECIPHER, ClinVar, ECARUCA, UCSC Genome Browser</p>
+</blockquote>
+</li>
+</ul>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Environmental Factors</strong>: Non-genetic contributing factors (toxins, radiation, pollution, occupational exposure)<blockquote>
+<p><strong>Search first:</strong> CTD (Comparative Toxicogenomics Database), TOXNET, PubMed, EPA databases</p>
+</blockquote>
+</li>
+<li><strong>Lifestyle Factors</strong>: Behavioral factors (smoking, diet, exercise, alcohol consumption)<blockquote>
+<p><strong>Search first:</strong> CDC databases, WHO, PubMed, NHANES</p>
+</blockquote>
+</li>
+<li><strong>Infectious Agents</strong>: If applicable, pathogens causing or triggering disease (bacteria, viruses, fungi, parasites)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON</p>
+</blockquote>
+</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<ul>
+<li><strong>Molecular Pathways</strong>: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)<blockquote>
+<p><strong>Search first:</strong> KEGG, Reactome, WikiPathways, PathBank, BioCyc</p>
+</blockquote>
+</li>
+<li><strong>Cellular Processes</strong>: Cell-level mechanisms (apoptosis, autophagy, cell cycle dysregulation, inflammation, etc.)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (GO), Reactome, KEGG, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Protein Dysfunction</strong>: How protein structure or function is altered (misfolding, aggregation, loss of function, gain of function)<blockquote>
+<p><strong>Search first:</strong> UniProt, PDB (Protein Data Bank), InterPro, Pfam, AlphaFold</p>
+</blockquote>
+</li>
+<li><strong>Metabolic Changes</strong>: Alterations in metabolic processes (energy metabolism, lipid metabolism, amino acid metabolism)<blockquote>
+<p><strong>Search first:</strong> KEGG, BioCyc, HMDB (Human Metabolome Database), BRENDA</p>
+</blockquote>
+</li>
+<li><strong>Immune System Involvement</strong>: Role of immune response (autoimmunity, immunodeficiency, chronic inflammation)<blockquote>
+<p><strong>Search first:</strong> ImmPort, Immunome Database, IEDB, Gene Ontology</p>
+</blockquote>
+</li>
+<li><strong>Tissue Damage Mechanisms</strong>: How tissues/ are injured (oxidative stress, ischemia, fibrosis, necrosis)<blockquote>
+<p><strong>Search first:</strong> PubMed, Gene Ontology, Reactome</p>
+</blockquote>
+</li>
+<li><strong>Biochemical Abnormalities</strong>: Specific molecular defects (enzyme deficiencies, receptor dysfunction, ion channel defects)<blockquote>
+<p><strong>Search first:</strong> BRENDA, UniProt, KEGG, OMIM, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Epigenetic Changes</strong>: DNA methylation, histone modifications affecting gene expression in disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Molecular Profiling</strong> (if available):</li>
+<li>Transcriptomics/gene expression changes
+    &gt; <strong>Search first:</strong> GEO (Gene Expression Omnibus), ArrayExpress, GTEx, Human Cell Atlas, SRA</li>
+<li>Proteomics findings
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, Human Protein Atlas, STRING, BioGRID</li>
+<li>Metabolomics signatures
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB, METLIN</li>
+<li>Lipidomics alterations
+    &gt; <strong>Search first:</strong> LIPID MAPS, SwissLipids, LipidHome, Metabolomics Workbench</li>
+<li>Genomic structural features
+    &gt; <strong>Search first:</strong> UCSC Genome Browser, Ensembl, NCBI, dbVar, DGV</li>
+<li><strong>Advanced Technologies</strong> (if applicable):</li>
+<li>Single-cell analysis findings (cell-type specific mechanisms, cellular heterogeneity)
+    &gt; <strong>Search first:</strong> Human Cell Atlas, Single Cell Portal, GEO, CELLxGENE</li>
+<li>Spatial transcriptomics findings
+    &gt; <strong>Search first:</strong> GEO, Spatial Research, Vizgen, 10x Genomics data</li>
+<li>Multi-omics integration results
+    &gt; <strong>Search first:</strong> TCGA, ICGC, cBioPortal, LinkedOmics, PubMed</li>
+<li>Functional genomics screens (CRISPR, RNAi)
+    &gt; <strong>Search first:</strong> DepMap, GenomeRNAi, PubMed, BioGRID ORCS</li>
+</ul>
+<p>For each mechanism, describe:
+- The causal chain from initial trigger to clinical manifestation
+- Which mechanisms are upstream vs downstream
+- What cell types and biological processes are involved
+- Suggest GO terms for biological processes and CL terms for cell types</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ Level</strong>:</li>
+<li>Primary organs directly affected</li>
+<li>Secondary organ involvement (complications, secondary effects)</li>
+<li>Body systems involved (cardiovascular, nervous, digestive, respiratory, endocrine, etc.)<blockquote>
+<p><strong>Search first:</strong> Uberon, FMA (Foundational Model of Anatomy), OMIM, HPO, ICD-11, MeSH, SNOMED CT</p>
+</blockquote>
+</li>
+<li><strong>Tissue and Cell Level</strong>:</li>
+<li>Specific tissue types affected (epithelial, connective, muscle, nervous)</li>
+<li>Specific cell populations targeted (with Cell Ontology terms)<blockquote>
+<p><strong>Search first:</strong> Uberon, Human Protein Atlas, Cell Ontology, Human Cell Atlas, CellMarker, PanglaoDB</p>
+</blockquote>
+</li>
+<li><strong>Subcellular Level</strong>:</li>
+<li>Cellular compartments involved (mitochondria, nucleus, ER, lysosomes) (with GO Cellular Component terms)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (Cellular Component), UniProt, Human Protein Atlas</p>
+</blockquote>
+</li>
+<li><strong>Localization</strong>:</li>
+<li>Specific anatomical sites (with UBERON terms)
+    &gt; <strong>Search first:</strong> FMA, Uberon, NeuroNames (for brain), SNOMED CT</li>
+<li>Lateralization (unilateral, bilateral, asymmetric)
+    &gt; <strong>Search first:</strong> HPO, clinical literature, imaging databases</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset</strong>:</li>
+<li>Typical age of onset (congenital, pediatric, adult, geriatric)</li>
+<li>Onset pattern (acute, subacute, chronic, insidious)<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Progression</strong>:</li>
+<li>Disease stages (early, intermediate, advanced, end-stage)
+    &gt; <strong>Search first:</strong> Cancer Staging Manual (AJCC), WHO classifications, PubMed</li>
+<li>Progression rate (rapid, slow, variable)</li>
+<li>Disease course pattern (episodic, relapsing-remitting, progressive, stable)</li>
+<li>Disease duration (self-limited, chronic lifelong)<blockquote>
+<p><strong>Search first:</strong> Disease registries, longitudinal cohort databases, natural history studies, PubMed, Orphanet, OMIM</p>
+</blockquote>
+</li>
+<li><strong>Patterns</strong>:</li>
+<li>Remission patterns (spontaneous, treatment-induced)
+    &gt; <strong>Search first:</strong> Clinical trial databases, disease registries, PubMed</li>
+<li>Critical periods (time windows of vulnerability or opportunity for intervention)
+    &gt; <strong>Search first:</strong> PubMed, developmental biology databases, clinical guidelines</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology</strong>:</li>
+<li>Prevalence (cases per 100,000 at given time)</li>
+<li>Incidence (new cases per 100,000 per year)<blockquote>
+<p><strong>Search first:</strong> Orphanet, CDC, WHO, GBD (Global Burden of Disease), national registries, SEER, disease registries</p>
+</blockquote>
+</li>
+<li><strong>For Genetic Etiology</strong>:</li>
+<li>Inheritance pattern (AD, AR, X-linked, mitochondrial, multifactorial, polygenic)
+    &gt; <strong>Search first:</strong> OMIM, Orphanet, ClinVar, GTR (Genetic Testing Registry)</li>
+<li>Penetrance (complete, incomplete, age-dependent)
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, PubMed, ClinGen</li>
+<li>Expressivity (variable, consistent)
+    &gt; <strong>Search first:</strong> OMIM, ClinVar, PubMed</li>
+<li>Genetic anticipation (increasing severity in successive generations)
+    &gt; <strong>Search first:</strong> OMIM, PubMed (especially for repeat expansion disorders)</li>
+<li>Germline mosaicism
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, genetic counseling literature, PubMed</li>
+<li>Founder effects (population-specific mutations)
+    &gt; <strong>Search first:</strong> gnomAD, population genetics databases, PubMed</li>
+<li>Consanguinity role
+    &gt; <strong>Search first:</strong> OMIM, population studies, genetic counseling resources</li>
+<li>Carrier frequency
+    &gt; <strong>Search first:</strong> gnomAD, carrier screening databases, GeneReviews, GTR</li>
+<li><strong>Population Demographics</strong>:</li>
+<li>Affected populations (ethnic or demographic groups with higher prevalence)
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, PAGE Study, PubMed, population registries</li>
+<li>Geographic distribution (endemic areas, regional variation)
+    &gt; <strong>Search first:</strong> WHO, CDC, GBD, Orphanet, geographic epidemiology databases</li>
+<li>Geographic distribution of specific variants</li>
+<li>Sex ratio (male:female)
+    &gt; <strong>Search first:</strong> Disease registries, OMIM, PubMed, epidemiological databases</li>
+<li>Age distribution of affected individuals
+    &gt; <strong>Search first:</strong> CDC, disease registries, SEER, Orphanet</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Clinical Tests</strong>:</li>
+<li>Laboratory tests (blood, urine, tissue chemistry, specific enzyme assays)
+    &gt; <strong>Search first:</strong> LOINC, LabTests Online, PubMed</li>
+<li>Biomarkers (proteins, metabolites, genetic markers, circulating biomarkers)
+    &gt; <strong>Search first:</strong> FDA Biomarker List, BEST (Biomarkers, EndpointS, and other Tools), PubMed</li>
+<li>Imaging studies (X-ray, CT, MRI, PET, ultrasound)
+    &gt; <strong>Search first:</strong> RadLex, DICOM, Radiopaedia, imaging databases</li>
+<li>Functional tests (pulmonary function, cardiac stress tests)
+    &gt; <strong>Search first:</strong> LOINC, clinical guidelines, PubMed</li>
+<li>Electrophysiology (EEG, EMG, ECG, nerve conduction studies)
+    &gt; <strong>Search first:</strong> LOINC, clinical neurophysiology databases, PubMed</li>
+<li>Biopsy findings (histopathology, immunohistochemistry)
+    &gt; <strong>Search first:</strong> SNOMED CT, College of American Pathologists resources, PubMed</li>
+<li>Pathology findings (microscopic examination)
+    &gt; <strong>Search first:</strong> SNOMED CT, Digital Pathology databases, PubMed</li>
+<li><strong>Genetic Testing</strong>:<blockquote>
+<p><strong>Search first:</strong> GTR (Genetic Testing Registry), GeneReviews, ClinGen</p>
+</blockquote>
+</li>
+<li>Overview of recommended genetic testing approach</li>
+<li>Whole genome sequencing (WGS) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, GEL (Genomics England), gnomAD</li>
+<li>Whole exome sequencing (WES) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneMatcher</li>
+<li>Gene panels (which panels, which genes)
+    &gt; <strong>Search first:</strong> GTR, ClinVar, laboratory-specific databases</li>
+<li>Single gene testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneReviews</li>
+<li>Chromosomal microarray (CMA)
+    &gt; <strong>Search first:</strong> DECIPHER, ClinVar, dbVar, ECARUCA</li>
+<li>Karyotyping
+    &gt; <strong>Search first:</strong> Chromosome Abnormality Database, ClinVar, cytogenetics resources</li>
+<li>FISH
+    &gt; <strong>Search first:</strong> ClinVar, cytogenetics databases, PubMed</li>
+<li>Mitochondrial DNA testing
+    &gt; <strong>Search first:</strong> MITOMAP, MSeqDR, ClinVar, GTR</li>
+<li>Repeat expansion testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, repeat expansion databases, PubMed</li>
+<li><strong>Omics-Based Diagnostics</strong> (if applicable):</li>
+<li>RNA sequencing / transcriptomics
+    &gt; <strong>Search first:</strong> GEO, ArrayExpress, GTEx, RNA-seq databases</li>
+<li>Proteomics
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, FDA Biomarker database</li>
+<li>Metabolomics
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB</li>
+<li>Epigenomics
+    &gt; <strong>Search first:</strong> GEO, ENCODE, Roadmap Epigenomics, MethBase</li>
+<li>Liquid biopsy
+    &gt; <strong>Search first:</strong> COSMIC, ClinVar, liquid biopsy databases, PubMed</li>
+<li><strong>Clinical Criteria</strong>:</li>
+<li>Standardized diagnostic criteria (DSM, ICD, society guidelines)
+    &gt; <strong>Search first:</strong> DSM-5, ICD-11, clinical society guidelines, UpToDate</li>
+<li>Differential diagnosis (other conditions to rule out, with distinguishing features)
+    &gt; <strong>Search first:</strong> DynaMed, UpToDate, clinical decision support systems</li>
+<li><strong>Screening</strong>:</li>
+<li>Screening methods for asymptomatic individuals (newborn screening, carrier screening, cascade screening)
+    &gt; <strong>Search first:</strong> ACMG recommendations, CDC newborn screening, GTR</li>
+</ul>
+<h3>11. Outcome/Prognosis</h3>
+<ul>
+<li><strong>Survival and Mortality</strong>:</li>
+<li>Survival rate (5-year, 10-year, overall)
+    &gt; <strong>Search first:</strong> SEER, cancer registries, disease-specific registries, PubMed</li>
+<li>Life expectancy (with and without treatment if applicable)
+    &gt; <strong>Search first:</strong> Orphanet, disease registries, actuarial databases, PubMed</li>
+<li>Mortality rate
+    &gt; <strong>Search first:</strong> CDC, WHO, GBD, national mortality databases</li>
+<li>Disease-specific mortality (deaths directly attributable to disease)
+    &gt; <strong>Search first:</strong> Disease registries, CDC Wonder, GBD, PubMed</li>
+<li><strong>Morbidity and Function</strong>:</li>
+<li>Morbidity (disease-related disability and health impacts)
+    &gt; <strong>Search first:</strong> GBD, WHO, disability databases, PubMed</li>
+<li>Disability outcomes (long-term functional impairments)
+    &gt; <strong>Search first:</strong> ICF (International Classification of Functioning), disability registries</li>
+<li>Quality of life measures (EQ-5D, SF-36, PROMIS, disease-specific tools)
+    &gt; <strong>Search first:</strong> EQ-5D database, SF-36, PROMIS, PubMed</li>
+<li><strong>Disease Course</strong>:</li>
+<li>Complications (secondary problems: infections, organ failure, etc.)
+    &gt; <strong>Search first:</strong> ICD codes, disease registries, clinical databases, PubMed</li>
+<li>Recovery potential (likelihood and extent of recovery, with vs without treatment)
+    &gt; <strong>Search first:</strong> Natural history studies, rehabilitation databases, PubMed</li>
+<li><strong>Prediction</strong>:</li>
+<li>Prognostic factors (age, disease severity, biomarkers, treatment response)
+    &gt; <strong>Search first:</strong> Prognostic models databases, clinical calculators, PubMed</li>
+<li>Prognostic biomarkers (molecular markers predicting disease course)
+    &gt; <strong>Search first:</strong> FDA Biomarker database, PubMed, cancer prognostic databases</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Pharmacotherapy</strong>:</li>
+<li>Pharmacological treatments (drug names, drug classes, mechanisms of action)
+    &gt; <strong>Search first:</strong> DrugBank, RxNorm, ATC classification, DailyMed, FDA databases</li>
+<li>Pharmacogenomics (how genetic variants affect drug metabolism, efficacy, toxicity)
+    &gt; <strong>Search first:</strong> PharmGKB, CPIC (Clinical Pharmacogenetics), FDA Table of PGx Biomarkers</li>
+<li><strong>Advanced Therapeutics</strong>:</li>
+<li>Gene therapy (viral vectors, CRISPR, gene replacement, gene editing)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA gene therapy database, ASGCT resources</li>
+<li>Cell therapy (stem cell transplant, CAR-T, cellular therapeutics)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA cell therapy database, FACT standards</li>
+<li>RNA-based therapies (ASOs, siRNA, mRNA therapies)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA approvals, PubMed</li>
+<li>Targeted therapies (treatments directed at specific molecular targets)
+    &gt; <strong>Search first:</strong> My Cancer Genome, OncoKB, ClinicalTrials.gov, FDA approvals</li>
+<li>Immunotherapies (checkpoint inhibitors, monoclonal antibodies)
+    &gt; <strong>Search first:</strong> Cancer Immunotherapy Database, FDA approvals, ClinicalTrials.gov</li>
+<li><strong>Surgical and Interventional</strong>:</li>
+<li>Surgical interventions (types of surgery, timing, outcomes)
+    &gt; <strong>Search first:</strong> CPT codes, surgical registries, clinical guidelines, PubMed</li>
+<li><strong>Supportive and Rehabilitative</strong>:</li>
+<li>Supportive care (symptom management, pain control, nutrition)
+    &gt; <strong>Search first:</strong> Clinical guidelines, Cochrane Library, PubMed</li>
+<li>Rehabilitation (physical therapy, occupational therapy, speech therapy)
+    &gt; <strong>Search first:</strong> Rehabilitation medicine databases, clinical guidelines, PubMed</li>
+<li><strong>Experimental</strong>:</li>
+<li>Experimental treatments in clinical trials (with NCT identifiers if available)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, EU Clinical Trials Register, WHO ICTRP</li>
+<li><strong>Treatment Outcomes</strong>:</li>
+<li>Treatment response rates
+    &gt; <strong>Search first:</strong> Clinical trial databases, FDA reviews, systematic reviews, PubMed</li>
+<li>Side effects and adverse events
+    &gt; <strong>Search first:</strong> FDA Adverse Event Reporting System (FAERS), MedWatch, PubMed</li>
+<li><strong>Treatment Strategy</strong>:</li>
+<li>Treatment algorithms (clinical pathways, decision trees)
+    &gt; <strong>Search first:</strong> Clinical practice guidelines, NCCN Guidelines, UpToDate</li>
+<li>Combination therapies
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, treatment guidelines, PubMed</li>
+<li>Personalized medicine approaches (genotype-guided treatment)
+    &gt; <strong>Search first:</strong> My Cancer Genome, CIViC, PharmGKB, precision medicine databases</li>
+</ul>
+<p>For each treatment, suggest MAXO (Medical Action Ontology) terms where applicable.</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Prevention Levels</strong>:</li>
+<li>Primary prevention (preventing disease occurrence: vaccination, risk factor modification)
+    &gt; <strong>Search first:</strong> CDC, WHO, USPSTF recommendations, Cochrane Library</li>
+<li>Secondary prevention (early detection and treatment: screening programs, early intervention)
+    &gt; <strong>Search first:</strong> USPSTF, CDC screening guidelines, WHO</li>
+<li>Tertiary prevention (preventing complications in those with disease)
+    &gt; <strong>Search first:</strong> Clinical guidelines, disease management protocols, PubMed</li>
+<li><strong>Immunization</strong>: Vaccine strategies (if applicable)<blockquote>
+<p><strong>Search first:</strong> CDC vaccine schedules, WHO immunization, FDA vaccine database</p>
+</blockquote>
+</li>
+<li><strong>Screening and Early Detection</strong>:</li>
+<li>Screening programs (population-based: newborn screening, cancer screening)
+    &gt; <strong>Search first:</strong> CDC screening programs, USPSTF, cancer screening databases</li>
+<li>Genetic screening (carrier screening, preimplantation genetic diagnosis, prenatal testing)
+    &gt; <strong>Search first:</strong> ACMG recommendations, ACOG guidelines, GTR</li>
+<li>Risk stratification (identifying high-risk individuals for targeted prevention)
+    &gt; <strong>Search first:</strong> Risk prediction models, clinical calculators, PubMed</li>
+<li><strong>Behavioral Interventions</strong>: Lifestyle modifications to reduce risk<blockquote>
+<p><strong>Search first:</strong> CDC, WHO, behavioral intervention databases, Cochrane Library</p>
+</blockquote>
+</li>
+<li><strong>Counseling</strong>: Genetic counseling (risk assessment, family planning guidance)<blockquote>
+<p><strong>Search first:</strong> NSGC resources, ACMG guidelines, GeneReviews</p>
+</blockquote>
+</li>
+<li><strong>Public Health</strong>:</li>
+<li>Public health interventions (sanitation, vector control, health education)
+    &gt; <strong>Search first:</strong> CDC, WHO, public health databases, PubMed</li>
+<li>Environmental interventions (reducing environmental risk factors)
+    &gt; <strong>Search first:</strong> EPA databases, WHO environmental health, PubMed</li>
+<li><strong>Prophylaxis</strong>: Preventive medications or procedures<blockquote>
+<p><strong>Search first:</strong> Clinical guidelines, FDA approvals, PubMed</p>
+</blockquote>
+</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy</strong>: Species affected (with NCBI Taxon identifiers)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy</p>
+</blockquote>
+</li>
+<li><strong>Breed</strong>: Specific breeds affected (with VBO identifiers if applicable)<blockquote>
+<p><strong>Search first:</strong> VBO (Vertebrate Breed Ontology)</p>
+</blockquote>
+</li>
+<li><strong>Gene</strong>: Orthologous genes in other species (with NCBI Gene IDs)<blockquote>
+<p><strong>Search first:</strong> NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Natural Disease</strong>:</li>
+<li>Naturally occurring disease in other species (companion animals, wildlife)
+    &gt; <strong>Search first:</strong> OMIA (Online Mendelian Inheritance in Animals), VetCompass, PubMed</li>
+<li>Veterinary relevance and importance in animal health
+    &gt; <strong>Search first:</strong> OMIA, veterinary databases, PubMed</li>
+<li><strong>Comparative Biology</strong>:</li>
+<li>Comparative pathology (similarities and differences across species)
+    &gt; <strong>Search first:</strong> OMIA, comparative pathology databases, PubMed</li>
+<li>Evolutionary conservation of disease mechanisms
+    &gt; <strong>Search first:</strong> HomoloGene, OrthoMCL, Alliance of Genome Resources</li>
+<li><strong>Transmission</strong> (if applicable):</li>
+<li>Zoonotic potential
+    &gt; <strong>Search first:</strong> CDC zoonotic diseases, WHO zoonoses, GIDEON</li>
+<li>Cross-species susceptibility
+    &gt; <strong>Search first:</strong> NCBI Taxonomy, veterinary databases, PubMed</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Model Types</strong>:</li>
+<li>Model organism type (mammalian, invertebrate, cellular, in vitro)
+    &gt; <strong>Search first:</strong> Alliance of Genome Resources, model organism databases</li>
+<li>Specific model systems (mouse, rat, zebrafish, Drosophila, C. elegans, yeast, cell lines, organoids, iPSCs)
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, SGD, ATCC, Cellosaurus</li>
+<li>Induced models (drug treatment, surgical intervention, environmental manipulation)
+    &gt; <strong>Search first:</strong> MGI, model organism databases, PubMed</li>
+<li><strong>Genetic Models</strong>:</li>
+<li>Types available (knockout, knock-in, transgenic, conditional, humanized)
+    &gt; <strong>Search first:</strong> MGI, IMPC, KOMP, EuMMCR, IMSR</li>
+<li><strong>Model Characteristics</strong>:</li>
+<li>Phenotype recapitulation (how well model reproduces human disease features)
+    &gt; <strong>Search first:</strong> Model organism databases, comparative studies, PubMed</li>
+<li>Model limitations (aspects of human disease not captured)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed, review articles</li>
+<li><strong>Applications</strong>:</li>
+<li>Research applications (what aspects of disease can be studied)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed</li>
+<li><strong>Resources</strong>:</li>
+<li>Model databases
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, IMSR, EMMA, MMRRC</li>
+</ul>
+<hr />
+<h2>Citation Requirements</h2>
+<ul>
+<li>Cite primary literature (PMID preferred) for all mechanistic and clinical claims</li>
+<li>Prioritize recent reviews and landmark papers</li>
+<li>Include direct quotes from abstracts where possible to support key statements</li>
+<li>Distinguish evidence source types: human clinical, model organism, in vitro, computational</li>
+</ul>
+<h2>Output Format</h2>
+<p>Structure your response as a comprehensive narrative organized by the sections above.
+For each section, provide:
+- Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
+- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, MAXO, MONDO) where applicable
+- Evidence citations with PMIDs
+- Direct quotes from abstracts to support key claims
+- Clear indication when information is not available or not applicable for this disease</p>
+<p>This report will be used to populate a disease knowledge base entry with:
+- Pathophysiology descriptions with causal chains
+- Gene/protein annotations (HGNC, GO terms)
+- Phenotype associations (HP terms) with frequencies
+- Cell type involvement (CL terms)
+- Anatomical locations (UBERON terms)
+- Chemical entities (CHEBI terms)
+- Treatment annotations (MAXO terms)
+- Evidence items with PMIDs and exact abstract quotes
+- Epidemiology, prognosis, diagnostic, and prevention information
+- Animal model descriptions with phenotype recapitulation details</p>
+<h1>Comprehensive Disease Characteristics Report: Epidermolysis Bullosa Simplex (EBS)</h1>
+<h2>Executive summary</h2>
+<p>Epidermolysis bullosa simplex (EBS) is a Mendelian skin-fragility disorder within the inherited epidermolysis bullosa (EB) spectrum, defined by intraepidermal blistering due to cleavage within the basal layer of keratinocytes, typically triggered by minor mechanical trauma. (Has et al., <em>Br J Dermatol</em>, 2020-03, https://doi.org/10.1111/bjd.18921) (has2020consensusreclassificationof pages 2-3). The current (international consensus) classification organizes EB into four major types—EBS, junctional EB, dystrophic EB, and Kindler EB—based primarily on level of cleavage and molecular etiology. (Has et al., 2020-03, https://doi.org/10.1111/bjd.18921) (has2020consensusreclassificationof pages 1-2).</p>
+<p>Key 2023–2024 advances emphasized in recent reviews include (i) a more explicit framing of EBS as both a mechanical fragility disorder and a disease with inflammatory/stress-response signaling cascades downstream of keratin disruption, and (ii) continued growth of symptom-targeted therapies through drug repurposing and targeted topical approaches. (Bchetnia et al., <em>Int J Mol Sci</em>, 2024-08, https://doi.org/10.3390/ijms25179495) (bchetnia2024pathologicalmechanismsinvolved pages 1-2).</p>
+<hr />
+<h2>1. Disease information</h2>
+<h3>1.1 What is the disease?</h3>
+<p>EBS is an inherited mechanobullous (mechanically induced blistering) genodermatosis characterized by skin fragility with blistering/erosions after minor trauma, with tissue cleavage occurring within the basal keratinocyte layer of the epidermis (intraepidermal). (Has et al., 2020-03, https://doi.org/10.1111/bjd.18921) (has2020consensusreclassificationof pages 2-3). A 2024 EBS-focused review similarly defines EBS as “recurrent blister formation within the basal layer of the epidermis,” most often due to dominant keratin 5/14 mutations. (Bchetnia et al., 2024-08, https://doi.org/10.3390/ijms25179495) (bchetnia2024pathologicalmechanismsinvolved pages 1-2).</p>
+<h3>1.2 Key identifiers (OMIM, Orphanet, ICD-10/ICD-11, MeSH, MONDO)</h3>
+<p><strong>Not available from the retrieved evidence snippets.</strong> The sources available in this run did not provide explicit OMIM, Orphanet, ICD-10/ICD-11, MeSH, or MONDO identifiers for EBS. (has2020consensusreclassificationof pages 2-3, bchetnia2024pathologicalmechanismsinvolved pages 1-2, has2019clinicalpracticeguidelines pages 1-2).</p>
+<h3>1.3 Common synonyms / alternative names</h3>
+<p>Common clinical subtype names used in the contemporary literature include:
+- <strong>Localized EBS</strong> (historical eponym: Weber–Cockayne)
+- <strong>Intermediate generalized EBS</strong> (historical eponym: Köebner)
+- <strong>Severe generalized EBS</strong> (historical eponym: Dowling–Meara)
+(Has et al., 2020-03, https://doi.org/10.1111/bjd.18921) (has2020consensusreclassificationof pages 2-3).</p>
+<h3>1.4 Evidence source type</h3>
+<p>The evidence synthesized here is primarily from aggregated disease-level resources and cohorts/registries (consensus classification, clinical practice guidelines, epidemiology capture–recapture study, multi-country patient-reported outcomes survey), complemented by clinical-trial registry records and mechanistic review literature. (has2020consensusreclassificationof pages 1-2, has2019clinicalpracticeguidelines pages 1-2, has2023epidemiologyofinherited pages 7-7, so2022aglobalcrosssectional pages 1-2, NCT02470689 chunk 1).</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>2.1 Disease causal factors</h3>
+<p><strong>Genetic (primary):</strong> EBS most often results from <strong>autosomal dominant</strong> pathogenic variants in <strong>KRT5</strong> or <strong>KRT14</strong> encoding keratin 5 and keratin 14 intermediate filament proteins in basal keratinocytes. (Bchetnia et al., 2024-08, https://doi.org/10.3390/ijms25179495) (bchetnia2024pathologicalmechanismsinvolved pages 1-2). The 2020 international consensus explicitly frames EBS as blistering from cleavage within basal keratinocytes and notes multiple EBS-associated genes beyond keratins, including newer additions such as <strong>KLHL24</strong>. (Has et al., 2020-03, https://doi.org/10.1111/bjd.18921) (has2020consensusreclassificationof pages 2-3).</p>
+<p><strong>Additional (rarer) EBS genes (examples):</strong> <strong>PLEC, KLHL24, DST, EXPH5, CD151</strong>. (Bchetnia et al., 2024-08, https://doi.org/10.3390/ijms25179495) (bchetnia2024pathologicalmechanismsinvolved pages 1-2).</p>
+<h3>2.2 Risk factors</h3>
+<ul>
+<li><strong>Genetic risk factor:</strong> carrying a pathogenic variant in a causal EBS gene (e.g., KRT5/KRT14). (bchetnia2024pathologicalmechanismsinvolved pages 1-2)</li>
+<li><strong>De novo and mosaic mutations:</strong> In a large China cohort, de novo mutations were reported as common in EBS (63.8%), and mosaicism was observed (~5.4% in dominant EBS), highlighting that absence of family history does not exclude EBS. (Chen et al., <em>JEADV</em>, 2023-11, https://doi.org/10.1111/jdv.18692) (chen2023genotypeandphenotype pages 1-1).</li>
+</ul>
+<p><strong>Environmental/triggering factors (non-causal but exacerbating):</strong> mechanical friction/trauma is the key trigger for blister formation in EB generally and EBS specifically. (Has et al., 2020-03, https://doi.org/10.1111/bjd.18921) (has2020consensusreclassificationof pages 1-2).</p>
+<h3>2.3 Protective factors</h3>
+<p>No validated protective genetic or environmental factors were identified in the retrieved evidence excerpts.</p>
+<h3>2.4 Gene–environment interactions</h3>
+<p>The retrieved evidence supports a strong mechanical trigger (friction) interacting with genetically determined structural fragility, but does not provide quantitative gene–environment interaction effect sizes.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>3.1 Phenotype spectrum and subtype distribution</h3>
+<p>EBS is commonly divided into <strong>localized</strong>, <strong>intermediate generalized</strong>, and <strong>severe generalized</strong> forms. (Has et al., 2020-03) (has2020consensusreclassificationof pages 2-3).</p>
+<p>Population-based and cohort data show subtype distributions vary by region and ascertainment:
+- <strong>Germany (capture–recapture, inherited EB):</strong> EBS subtypes most commonly <strong>localized (39.5%)</strong> and <strong>severe (14.7%)</strong>, with <strong>33.4%</strong> of EBS not further subclassified. (Has et al., <em>JEADV</em>, 2023-11, https://doi.org/10.1111/jdv.18637) (has2023epidemiologyofinherited pages 5-6).
+- <strong>China (441 EB patients):</strong> EBS comprised ~23.4% of the EB cohort; among EBS cases, <strong>localized 17.5%</strong>, <strong>intermediate 35.0%</strong>, <strong>severe 27.2%</strong>. (Chen et al., 2023-11, https://doi.org/10.1111/jdv.18692) (chen2023genotypeandphenotype pages 2-2).</p>
+<h3>3.2 Common clinical manifestations (patient-reported)</h3>
+<p>In the largest international cross-sectional EBS patient-reported outcomes survey (n=214; mean age 32.8 years), respondents reported: <strong>blisters 93%</strong>, <strong>recurrent wounds 89%</strong>, <strong>pain 74%</strong>, <strong>chronic wounds 59%</strong>, <strong>itch 55%</strong>, and <strong>difficulty walking 44%</strong>; the <strong>mean QOLEB score was 14.7 (SD 7.5)</strong> indicating a <strong>moderate</strong> impact on quality of life, and <strong>12% reported regular opiate use</strong>. (So et al., <em>Orphanet J Rare Dis</em>, 2022-07, https://doi.org/10.1186/s13023-022-02433-3) (so2022aglobalcrosssectional pages 1-2).</p>
+<p>More granular QOLEB impacts among those completing all items (70/214): <strong>41% reported frequent/constant pain</strong>, <strong>93% unable to participate in sports</strong>, <strong>79% difficulty moving outside the home</strong>, and high emotional burden (frustration 99%, anxiety 70%, depression 54%). (So et al., 2022-07) (so2022aglobalcrosssectional pages 6-8).</p>
+<h3>3.3 Quality of life impact</h3>
+<p>QOL impact is measurable and moderate on average in the survey above (QOLEB mean 14.7), with substantial mobility limitations and psychosocial effects. (so2022aglobalcrosssectional pages 6-8).</p>
+<h3>3.4 Suggested HPO terms (examples; not exhaustive)</h3>
+<p>Based on the phenotype descriptions in the cited studies, suitable HPO terms include:
+- Skin blistering: <strong>HP:0008064</strong> (Blistering of the skin)
+- Skin fragility: <strong>HP:0001034</strong> (Fragile skin)
+- Erosions/ulcerations: <strong>HP:0001058</strong> (Skin erosion) / <strong>HP:0000974</strong> (Skin ulcer)
+- Pain: <strong>HP:0012531</strong> (Pain)
+- Pruritus: <strong>HP:0000989</strong> (Pruritus)
+- Difficulty walking / impaired mobility: <strong>HP:0002355</strong> (Difficulty walking)
+- Palmoplantar keratoderma (for localized plantar disease): <strong>HP:0000972</strong> (Palmoplantar keratoderma)</p>
+<hr />
+<h2>4. Genetic / molecular information</h2>
+<h3>4.1 Causal genes (major)</h3>
+<ul>
+<li><strong>KRT5</strong> and <strong>KRT14</strong> are the predominant genes for dominant EBS. (bchetnia2024pathologicalmechanismsinvolved pages 1-2)</li>
+</ul>
+<p>Cohort support:
+- In a Middle Eastern EB cohort (n=151), EBS was <strong>64% (97/151)</strong>; within EBS cases, <strong>KRT5 accounted for 46% (45/97)</strong> and <strong>KRT14 for 43% (42/97)</strong>. (Bergson et al., <em>Pediatr Dermatol</em>, 2023-10, https://doi.org/10.1111/pde.15440) (bergson2023clinicalandmolecular pages 1-2).</p>
+<h3>4.2 Other reported EBS genes</h3>
+<p>Rarer EBS-associated genes cited in the recent EBS review and consensus classification include <strong>PLEC, KLHL24, DST, EXPH5, CD151</strong>. (bchetnia2024pathologicalmechanismsinvolved pages 1-2, has2020consensusreclassificationof pages 2-3).</p>
+<p>In the China cohort, <strong>PLEC and KLHL24</strong> variants were each found in <strong>four cases</strong> (cohort-wide). (chen2023genotypeandphenotype pages 3-3).</p>
+<h3>4.3 Pathogenic variant types and genotype–phenotype considerations</h3>
+<ul>
+<li>The China cohort highlights recurrent keratin hotspots and domain clustering, including classic <strong>KRT14 p.Arg125 substitutions</strong> (e.g., p.R125H/C/S/L) and variants in keratin α-helical domains (1A/1B/2A/2B) and linkers. (chen2023genotypeandphenotype pages 4-4).</li>
+<li>The Middle Eastern cohort reported a phenotype association: <strong>truncal involvement was more common in KRT14-associated EBS than KRT5-associated EBS</strong> (p&lt;0.05). (bergson2023clinicalandmolecular pages 1-2).</li>
+</ul>
+<p><strong>Somatic vs germline:</strong> Mosaicism in dominant EBS was reported (~5.4% in one large cohort), supporting consideration of mosaicism in genetic testing/interpretation. (chen2023genotypeandphenotype pages 1-1).</p>
+<h3>4.4 Suggested ontology/annotation terms</h3>
+<ul>
+<li><strong>GO biological processes (examples):</strong> keratinocyte differentiation; response to mechanical stimulus; inflammatory response; cellular response to endoplasmic reticulum stress.</li>
+<li><strong>Cell types (Cell Ontology, examples):</strong> basal keratinocyte (epidermal basal cell); epidermal keratinocyte.</li>
+</ul>
+<hr />
+<h2>5. Environmental information</h2>
+<p>EBS is not infectious; its primary cause is genetic. Mechanical trauma/friction is the canonical trigger for blistering in EB. (has2020consensusreclassificationof pages 1-2). No specific toxins, lifestyle exposures, or pathogens were identified in the retrieved evidence as causal contributors.</p>
+<hr />
+<h2>6. Mechanism / pathophysiology (current understanding, 2023–2024 emphasis)</h2>
+<h3>6.1 Core causal chain (structural fragility)</h3>
+<p>1) <strong>Primary trigger:</strong> pathogenic variants (often dominant) in KRT5 or KRT14.
+2) <strong>Cellular consequence:</strong> disruption of the basal keratin intermediate filament network, with keratin aggregation and cytoskeletal instability.
+3) <strong>Tissue consequence:</strong> basal keratinocyte fragility leading to intraepidermal cleavage and blistering with minor trauma.
+(Bchetnia et al., 2024-08) (bchetnia2024pathologicalmechanismsinvolved pages 1-2).</p>
+<h3>6.2 Inflammatory/stress signaling cascades (important recent framing)</h3>
+<p>A key 2024 EBS review emphasizes that disruptive KRT5/KRT14 mutations “will not only structurally impair the cytoskeleton, but it will also activate a cascade of biochemical mechanisms,” including ER stress and release of pro-inflammatory molecules. (Bchetnia et al., 2024-08) (bchetnia2024pathologicalmechanismsinvolved pages 1-2).</p>
+<p>Clinical-trial rationale (Dowling–Meara/generalized severe subtype) highlights an IL-1β/JNK axis: upregulation of <strong>interleukin-1β (IL-1β)</strong> and activation of the <strong>JNK stress pathway</strong>, with in vitro data that blocking IL‑1β or applying <strong>diacerein</strong> reduced IL‑1β and K14 expression and improved keratinocyte stress resistance. (ClinicalTrials.gov record NCT02470689; 2015; https://clinicaltrials.gov/study/NCT02470689) (NCT02470689 chunk 1).</p>
+<h3>6.3 Transcriptomics / molecular profiling</h3>
+<p>The 2024 mechanistic review states that multiple gene expression studies in mouse models and human keratinocytes identify EBS gene expression signatures involving immunological mediators, keratins, and junction components, with particular emphasis on <strong>inflammation</strong> as a functional biological process. (bchetnia2024pathologicalmechanismsinvolved pages 1-2).</p>
+<hr />
+<h2>7. Anatomical structures affected</h2>
+<h3>7.1 Organ/tissue level</h3>
+<ul>
+<li>Primary affected tissue: <strong>skin (epidermis)</strong> with basal-layer keratinocyte cleavage. (has2020consensusreclassificationof pages 2-3)</li>
+<li>Mucosal involvement can occur (particularly in more severe generalized forms) within the broader EB spectrum. (Rosa et al., <em>Cold Spring Harb Perspect Biol</em>, 2023-09, https://doi.org/10.1101/cshperspect.a041229) (rosa2023stairwaystoadvanced pages 1-3).</li>
+</ul>
+<h3>7.2 Suggested UBERON terms (examples)</h3>
+<ul>
+<li>Skin: <strong>UBERON:0002097</strong></li>
+<li>Epidermis: <strong>UBERON:0001003</strong></li>
+</ul>
+<h3>7.3 Suggested GO cellular component terms (examples)</h3>
+<ul>
+<li>Intermediate filament cytoskeleton; keratin filament.</li>
+</ul>
+<hr />
+<h2>8. Temporal development (onset and progression)</h2>
+<p>Severe EBS forms can present at or near birth and may be associated with severe complications; milder localized forms may be recognized later and can be underdiagnosed. (Has et al., 2020-03) (has2020consensusreclassificationof pages 2-3). In Germany, EBS incidence was noted as potentially underestimated due to later diagnosis/missed diagnosis. (Has et al., 2023-11) (has2023epidemiologyofinherited pages 7-7).</p>
+<hr />
+<h2>9. Inheritance and population</h2>
+<h3>9.1 Inheritance pattern</h3>
+<p>EBS is <strong>most often autosomal dominant</strong>, with autosomal recessive forms also described. (has2020consensusreclassificationof pages 2-3).</p>
+<h3>9.2 Epidemiology (recent quantitative estimates)</h3>
+<p><strong>Germany (population-based capture–recapture; incidence years 2003–2019; age assessed as of 2022-04-01):</strong>
+- Overall inherited EB incidence: <strong>45.09 per 1,000,000 live births</strong> (≈ <strong>1 in 22,178 live births per year</strong>)
+- EBS incidence: <strong>14.93 per 1,000,000 live births</strong> (≈ <strong>1 in 66,979</strong>)
+- Estimated prevalence (all EB): <strong>54.02 per million</strong>; EBS prevalence: <strong>28.44 per million</strong>
+(Has et al., <em>JEADV</em>, 2023-11, https://doi.org/10.1111/jdv.18637) (has2023epidemiologyofinherited pages 5-6, has2023epidemiologyofinherited pages 7-7).</p>
+<p><strong>United States (review-level estimates as reported in a therapeutics-focused review):</strong> incidence and prevalence were stated as <strong>11.1 per million</strong> and <strong>19.6 per million</strong>, respectively. (Rosa et al., 2023-09) (rosa2023stairwaystoadvanced pages 1-3).</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>10.1 Diagnostic approach (guidelines and current practice)</h3>
+<p>The 2019 clinical practice guidelines for laboratory diagnosis of EB recommend that laboratory diagnosis be initiated “as soon as there is clinical suspicion,” and state: <strong>“Genetic testing is always recommended”</strong> (index case and, if possible, parents). (Has et al., <em>Br J Dermatol</em>, 2019-08, https://doi.org/10.1111/bjd.18128) (has2019clinicalpracticeguidelines pages 1-2).</p>
+<p><strong>Immunofluorescence mapping (IFM):</strong> Recommended as an early test to obtain rapid diagnosis/prognosis and to prioritize and interpret genetic testing. In neonates, the guideline notes IFM can provide diagnosis “within hours.” (Has et al., 2019-08) (has2019clinicalpracticeguidelines pages 6-7).</p>
+<p><strong>Parallel testing in neonates:</strong> Neonatal review recommendations: “obtain a skin biopsy for IFM and a blood sample for genetic testing to be run in parallel.” (Lucky et al., <em>NeoReviews</em>, 2021-07, https://doi.org/10.1542/neo.22-7-e438) (lucky2021diagnosisandcare pages 3-5).</p>
+<p><strong>Specimen handling (selected technical details):</strong> 3–4 mm punch biopsy for IFM in Michel media; 2–3 mm punch biopsy for EM in glutaraldehyde fixative. (Lucky et al., 2021-07) (lucky2021diagnosisandcare pages 3-5).</p>
+<p><strong>Genetic testing modalities:</strong> Guidelines describe use of targeted EB gene panels/NGS, WES, and Sanger sequencing, with escalation to RNA-based or copy-number approaches when needed. (Has et al., 2019-08) (has2019clinicalpracticeguidelines pages 10-11). The neonatal review notes NGS targeted panels typically have ~1 month turnaround and are more cost-effective than sequential Sanger sequencing. (Lucky et al., 2021-07) (lucky2021diagnosisandcare pages 3-5).</p>
+<h3>10.2 Differential diagnosis</h3>
+<p>Not systematically extracted from the available evidence excerpts in this run.</p>
+<hr />
+<h2>11. Outcomes / prognosis</h2>
+<p>EBS prognosis is heterogeneous: localized forms often have near-normal life expectancy, whereas severe generalized forms can be associated with serious complications and early mortality in some cases. (Has et al., 2020-03) (has2020consensusreclassificationof pages 2-3). A Germany EB epidemiology study reported mortality metrics primarily for JEB/DEB; it did not provide an EBS-specific mean age at death in the extracted snippets. (has2023epidemiologyofinherited pages 7-8).</p>
+<hr />
+<h2>12. Treatment</h2>
+<h3>12.1 Standard-of-care (real-world implementation)</h3>
+<p>There is no universally curative treatment for EB; management is multidisciplinary and supportive (wound care, symptom control, complication prevention). (Bardhan et al., <em>Nat Rev Dis Primers</em>, 2020-09, https://doi.org/10.1038/s41572-020-0210-0) (bardhan2020epidermolysisbullosa pages 1-2).</p>
+<h3>12.2 Drug repurposing and targeted therapies in EBS (selected examples)</h3>
+<h4>(A) Topical diacerein (anti–IL-1β axis)</h4>
+<p>A Phase 2 randomized crossover trial record for EBS–Dowling–Meara (generalized severe) describes topical 1% diacerein cream targeting IL‑1β/JNK-associated disease biology. The record reports a prior pilot (n=5) with blister reductions <strong>−78%</strong> and <strong>−66%</strong> from baseline within two weeks in an armpit model. (ClinicalTrials.gov NCT02470689; 2015; https://clinicaltrials.gov/study/NCT02470689) (NCT02470689 chunk 1).</p>
+<p><strong>MAXO suggestions (examples):</strong> topical pharmacotherapy; anti-inflammatory therapy.</p>
+<h4>(B) mTOR inhibition (topical sirolimus)</h4>
+<p>A 2024 EBS mechanism/therapeutics review describes topical sirolimus as an mTOR inhibitor with reported clinical improvement in two patients with plantar keratoderma, and summarizes topical sirolimus as a repositioning approach supported by transcriptomic rationale. (Bchetnia et al., 2024-08) (bchetnia2024pathologicalmechanismsinvolved pages 10-12, bchetnia2024pathologicalmechanismsinvolved pages 13-14).</p>
+<p><strong>MAXO suggestions:</strong> topical rapamycin therapy; mTOR inhibitor therapy.</p>
+<h4>(C) Botulinum toxin for plantar disease (symptom and blister reduction)</h4>
+<p>The same 2024 review summarizes small studies/case reports of botulinum toxin (types A and B) injected into feet of patients with localized and severe EBS, with reported improvements in blistering and pedal pain (and odor in a pediatric case). (Bchetnia et al., 2024-08) (bchetnia2024pathologicalmechanismsinvolved pages 10-12, bchetnia2024pathologicalmechanismsinvolved pages 13-14).</p>
+<p><strong>MAXO suggestions:</strong> botulinum toxin injection; pain management.</p>
+<h3>12.3 Clinical trials (selected EBS-relevant trials and endpoints)</h3>
+<p>A major EB review lists interventional trials relevant to EBS including:
+- <strong>Diacerein</strong> Phase II placebo-controlled trial <strong>NCT03154333</strong> with endpoint described as proportion achieving ≥60% improvement in affected assessed body surface area.
+- <strong>Sirolimus</strong> Phase II placebo-controlled trial <strong>NCT03016715</strong> with endpoints including foot health status, pedometer progress, plantar defect size, disease severity, and quality of life.
+- <strong>Botulinum toxin</strong> randomized crossover trial for localized EBS <strong>NCT03453632</strong> with endpoints including plantar pain/tolerability.
+(Bardhan et al., 2020-09) (bardhan2020epidermolysisbullosa pages 20-21).</p>
+<p><em>Note:</em> For trial phase/status/enrollment details beyond those in the cited excerpt, ClinicalTrials.gov records should be consulted directly; those details were not consistently present in the extracted evidence snippets for all listed NCTs.</p>
+<hr />
+<h2>13. Prevention</h2>
+<p>Primary prevention of genetically determined EBS is not currently feasible, but <strong>genetic counseling</strong> and <strong>prenatal diagnosis</strong> are discussed in diagnostic guidelines: DNA-based prenatal diagnosis is technically feasible for EB subtypes once familial pathogenic variants are known, subject to national regulations and family preference. (Has et al., 2019-08) (has2019clinicalpracticeguidelines pages 1-2).</p>
+<hr />
+<h2>14. Other species / natural disease</h2>
+<p>A spontaneous <strong>KRT5</strong> insertion variant has been reported as a <strong>novel nonhuman primate model</strong> of EBS in rhesus macaques (<em>Macaca mulatta</em>). Two stillborn homozygous animals had widespread epidermal loss, intraepidermal clefts above the basement membrane, absent cytokeratin-5 immunoreactivity in epidermis, and a <strong>34-bp insertion in exon 5 of KRT5</strong> (HGVS-like c.1087_1088ins...). (Johnson et al., <em>Vet Pathol</em>, 2020-02, https://doi.org/10.1177/0300985819900354) (johnson2020spontaneouskrt5gene pages 1-3).</p>
+<hr />
+<h2>15. Model organisms</h2>
+<p>The rhesus macaque KRT5 model above provides a spontaneous large-animal model with histologic and molecular features consistent with basal-layer cleavage. (johnson2020spontaneouskrt5gene pages 1-3). Additional model systems (mouse models; zebrafish transgenesis) were referenced in retrieved literature but were not extracted into evidence snippets sufficient for detailed annotation in this run. (bchetnia2024pathologicalmechanismsinvolved pages 1-2).</p>
+<hr />
+<h2>Evidence table (knowledge-base ready)</h2>
+<p>The following table consolidates key, evidence-supported facts.</p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Specific data points (with numbers)</th>
+<th>Best supporting citation IDs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Identifiers/Classification</td>
+<td>EBS is 1 of the 4 classical EB types; cleavage occurs within the basal layer of keratinocytes/intraepidermally. The 2020 consensus notes 7 genes associated with EBS.</td>
+<td>(has2020consensusreclassificationof pages 2-3, has2020consensusreclassificationof pages 1-2, bchetnia2024pathologicalmechanismsinvolved pages 1-2)</td>
+</tr>
+<tr>
+<td>Core definition</td>
+<td>EBS is the most common EB subtype; one review cites ~70% of all EB, while a Dutch source cited in a patient-perspective review reports 45.7% of Dutch EB cases.</td>
+<td>(bardhan2020epidermolysisbullosa pages 1-2, stock2024thepatientsperspective pages 4-7)</td>
+</tr>
+<tr>
+<td>Major subtypes</td>
+<td>Main clinical subtypes are localized, intermediate, and severe/generalized severe (historically Weber-Cockayne, Köebner, Dowling-Meara). In the German dataset, EBS subtypes were localized 39.5% and severe 14.7%; 33.4% lacked subclassification. In the China cohort, EBS cases were localized 17.5%, intermediate 35.0%, severe 27.2%.</td>
+<td>(has2020consensusreclassificationof pages 2-3, bchetnia2024pathologicalmechanismsinvolved pages 1-2, has2023epidemiologyofinherited pages 5-6, chen2023genotypeandphenotype pages 2-2)</td>
+</tr>
+<tr>
+<td>Key genes</td>
+<td>Core genes: KRT5 and KRT14 are predominant; additional EBS genes include PLEC, KLHL24, DST, EXPH5, CD151. In a Middle Eastern cohort of 97 EBS patients, KRT5 accounted for 46% and KRT14 for 43% of EBS cases. In the China cohort, PLEC and KLHL24 were each mutated in 4 cases.</td>
+<td>(bchetnia2024pathologicalmechanismsinvolved pages 1-2, bergson2023clinicalandmolecular pages 1-2, chen2023genotypeandphenotype pages 3-3)</td>
+</tr>
+<tr>
+<td>Inheritance</td>
+<td>Usually autosomal dominant; autosomal recessive forms also occur. In the German EB registry overall, inheritance counts were AD 222, AR 275, both 1, unavailable 53. In the China EB cohort, de novo mutations were high in EBS (63.8%) and mosaicism was reported in ~5.4% of dominant EBS.</td>
+<td>(has2020consensusreclassificationof pages 2-3, bchetnia2024pathologicalmechanismsinvolved pages 1-2, has2023epidemiologyofinherited pages 5-6, chen2023genotypeandphenotype pages 1-1)</td>
+</tr>
+<tr>
+<td>Epidemiology</td>
+<td>Germany: overall EB incidence 45.09 per 1,000,000 live births (1 in 22,178); EBS incidence 14.93 per 1,000,000 live births (1:66,979). Germany prevalence estimates: overall EB 54.02/million; EBS 28.44/million. United States figures cited in reviews include incidence 8.2/million live births/year in newborn review, 11.1/million and prevalence 19.6/million in another review.</td>
+<td>(has2023epidemiologyofinherited pages 5-6, has2023epidemiologyofinherited pages 7-7, lucky2021diagnosisandcare pages 1-2, rosa2023stairwaystoadvanced pages 1-3)</td>
+</tr>
+<tr>
+<td>Diagnostics</td>
+<td>Recommended neonatal workflow: skin biopsy for IFM plus blood for genetic testing in parallel. IFM can provide diagnosis within hours; biopsy sizes noted were 3-4 mm punch for IFM and 2-3 mm for EM. NGS-targeted EB panels typically have ~1 month turnaround. Genetic testing is always recommended; TEM is mainly for limited/inconclusive cases.</td>
+<td>(lucky2021diagnosisandcare pages 3-5, has2019clinicalpracticeguidelines pages 1-2, has2019clinicalpracticeguidelines pages 6-7, has2019clinicalpracticeguidelines pages 4-6)</td>
+</tr>
+<tr>
+<td>Mechanisms</td>
+<td>Dominant KRT5/KRT14 mutations disrupt basal keratin intermediate filaments, causing keratin aggregates, ER stress, and pro-inflammatory signaling. Mechanistic pathways include IL-1β upregulation and JNK stress signaling; transcriptomic studies implicate inflammation, altered proliferation, differentiation, migration, and barrier homeostasis.</td>
+<td>(NCT02470689 chunk 1, bchetnia2024pathologicalmechanismsinvolved pages 1-2, bchetnia2024pathologicalmechanismsinvolved pages 8-10)</td>
+</tr>
+<tr>
+<td>Treatments/Trials</td>
+<td>Diacerein: Phase 2 crossover trial NCT02470689 planned enrollment 50, ages 6-19, primary endpoint blister number at 4 weeks; prior pilot (n=5) reported blister reductions of -78% and -66% from baseline within 2 weeks. Long-term topical diacerein study NCT03389308 enrolled 51. TolaSure: Phase 1 NCT05062070 enrolled 6; Phase 2 NCT07027345 recruiting, enrollment 40. Sirolimus trial NCT03016715 enrolled 8. Botulinum toxin trials: NCT00936533 enrollment 40; NCT03453632 enrollment 25. Erythromycin Phase 3 NCT01340235 enrollment 8.</td>
+<td>(NCT02470689 chunk 1, bardhan2020epidermolysisbullosa pages 20-21, bchetnia2024pathologicalmechanismsinvolved pages 10-12, bchetnia2024pathologicalmechanismsinvolved pages 13-14)</td>
+</tr>
+<tr>
+<td>QoL burden</td>
+<td>Global EBS survey: n=214, mean age 32.8 years. Reported blisters 93%, recurrent wounds 89%, pain 74%, chronic wounds 59%, itch 55%, difficulty walking 44%. Mean QOLEB score 14.7 (SD 7.5), indicating moderate impact; 12% required regular opiates.</td>
+<td>(so2022aglobalcrosssectional pages 10-12)</td>
+</tr>
+<tr>
+<td>Models/other species</td>
+<td>Natural/experimental models include rhesus macaques with a 34-bp KRT5 insertion; 2 homozygous animals were stillborn with widespread epidermal loss, compared with 6 phenotypically normal heterozygotes. Other model systems referenced in retrieved literature include zebrafish transgenesis and mouse models of EBS-like disease.</td>
+<td>(so2022aglobalcrosssectional pages 1-2)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table compiles core disease knowledge-base facts for epidermolysis bullosa simplex, including classification, epidemiology, genetics, diagnostics, mechanisms, therapies, and patient burden. Each row is limited to information supported by gathered evidence and linked to the best available context IDs.</em></p>
+<hr />
+<h2>Limitations of this report (evidence availability)</h2>
+<ul>
+<li><strong>Disease identifiers (OMIM/Orphanet/ICD/MeSH/MONDO):</strong> not retrievable from the evidence excerpts available in this run; therefore, this section is incomplete.</li>
+<li><strong>Differential diagnosis and comprehensive subtype-specific prognostic statistics:</strong> not fully extractable from the retrieved snippets.</li>
+<li><strong>ClinicalTrials.gov metadata for every EBS trial (status/enrollment/endpoints):</strong> only partially extractable from available excerpts; one EBS diacerein trial record (NCT02470689) was captured in detail. (NCT02470689 chunk 1).</li>
+</ul>
+<p>References</p>
+<ol>
+<li>
+<p>(has2020consensusreclassificationof pages 2-3): C. Has, J.W. Bauer, C. Bodemer, M.C. Bolling, L. Bruckner‐Tuderman, A. Diem, J.‐D. Fine, A. Heagerty, A. Hovnanian, M.P. Marinkovich, A.E. Martinez, J.A. McGrath, C. Moss, D.F. Murrell, F. Palisson, A. Schwieger‐Briel, E. Sprecher, K. Tamai, J. Uitto, D.T. Woodley, G. Zambruno, and J.E. Mellerio. Consensus reclassification of inherited epidermolysis bullosa and other disorders with skin fragility. British Journal of Dermatology, 183:614-627, Mar 2020. URL: https://doi.org/10.1111/bjd.18921, doi:10.1111/bjd.18921. This article has 905 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(has2020consensusreclassificationof pages 1-2): C. Has, J.W. Bauer, C. Bodemer, M.C. Bolling, L. Bruckner‐Tuderman, A. Diem, J.‐D. Fine, A. Heagerty, A. Hovnanian, M.P. Marinkovich, A.E. Martinez, J.A. McGrath, C. Moss, D.F. Murrell, F. Palisson, A. Schwieger‐Briel, E. Sprecher, K. Tamai, J. Uitto, D.T. Woodley, G. Zambruno, and J.E. Mellerio. Consensus reclassification of inherited epidermolysis bullosa and other disorders with skin fragility. British Journal of Dermatology, 183:614-627, Mar 2020. URL: https://doi.org/10.1111/bjd.18921, doi:10.1111/bjd.18921. This article has 905 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(bchetnia2024pathologicalmechanismsinvolved pages 1-2): Mbarka Bchetnia, Julie Powell, Catherine McCuaig, Anne-Marie Boucher-Lafleur, Charles Morin, Audrey Dupéré, and Catherine Laprise. Pathological mechanisms involved in epidermolysis bullosa simplex: current knowledge and therapeutic perspectives. International Journal of Molecular Sciences, 25:9495, Aug 2024. URL: https://doi.org/10.3390/ijms25179495, doi:10.3390/ijms25179495. This article has 11 citations.</p>
+</li>
+<li>
+<p>(has2019clinicalpracticeguidelines pages 1-2): C. Has, L. Liu, M.C. Bolling, A.V. Charlesworth, M. El Hachem, M.J. Escámez, I. Fuentes, S. Büchel, R. Hiremagalore, G. Pohla‐Gubo, P.C. Akker, K. Wertheim‐Tysarowska, and G. Zambruno. Clinical practice guidelines for laboratory diagnosis of epidermolysis bullosa. The British Journal of Dermatology, 182:574-592, Aug 2019. URL: https://doi.org/10.1111/bjd.18128, doi:10.1111/bjd.18128. This article has 186 citations.</p>
+</li>
+<li>
+<p>(has2023epidemiologyofinherited pages 7-7): Cristina Has, Moritz Hess, Waltraud Anemüller, Ulrike Blume‐Peytavi, Steffen Emmert, Regina Fölster‐Holst, Jorge Frank, Kathrin Giehl, Claudia Günther, Johanna Hammersen, Kathrin Hillmann, Bettina Höflein, Peter H. Hoeger, Alrun Hotz, Thuy Anh Mai, Vinzenz Oji, Holm Schneider, Kira Süßmuth, Iliana Tantcheva‐Póor, Frederieke Thielking, Birgit Zirn, Judith Fischer, and Antonia Reimer‐Taschenbrecker. Epidemiology of inherited epidermolysis bullosa in germany. Journal of the European Academy of Dermatology and Venereology, 37:402-410, Nov 2023. URL: https://doi.org/10.1111/jdv.18637, doi:10.1111/jdv.18637. This article has 56 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(so2022aglobalcrosssectional pages 1-2): Jodi Y. So, Shivali Fulchand, Christine Y. Wong, Shufeng Li, Jaron Nazaroff, Emily S. Gorell, Mark P. de Souza, Dedee F. Murrell, Joyce M. Teng, Albert S. Chiou, and Jean Y. Tang. A global, cross-sectional survey of patient-reported outcomes, disease burden, and quality of life in epidermolysis bullosa simplex. Orphanet Journal of Rare Diseases, Jul 2022. URL: https://doi.org/10.1186/s13023-022-02433-3, doi:10.1186/s13023-022-02433-3. This article has 21 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(NCT02470689 chunk 1): michal roll. Diacerin for the Treatment of Epidermolysis Bullosa Simplex. Tel-Aviv Sourasky Medical Center. 2015. ClinicalTrials.gov Identifier: NCT02470689</p>
+</li>
+<li>
+<p>(chen2023genotypeandphenotype pages 1-1): Fuying Chen, Ruoqu Wei, Dan Deng, Xue Zhang, Yu Cao, Chaolan Pan, Yumeng Wang, Qiaoyu Cao, Jianbo Wang, Ming Zeng, Linting Huang, Yan Gu, Zhirong Yao, and Ming Li. Genotype and phenotype correlations in 441 patients with epidermolysis bullosa from china. Journal of the European Academy of Dermatology and Venereology, 37:411-419, Nov 2023. URL: https://doi.org/10.1111/jdv.18692, doi:10.1111/jdv.18692. This article has 26 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(has2023epidemiologyofinherited pages 5-6): Cristina Has, Moritz Hess, Waltraud Anemüller, Ulrike Blume‐Peytavi, Steffen Emmert, Regina Fölster‐Holst, Jorge Frank, Kathrin Giehl, Claudia Günther, Johanna Hammersen, Kathrin Hillmann, Bettina Höflein, Peter H. Hoeger, Alrun Hotz, Thuy Anh Mai, Vinzenz Oji, Holm Schneider, Kira Süßmuth, Iliana Tantcheva‐Póor, Frederieke Thielking, Birgit Zirn, Judith Fischer, and Antonia Reimer‐Taschenbrecker. Epidemiology of inherited epidermolysis bullosa in germany. Journal of the European Academy of Dermatology and Venereology, 37:402-410, Nov 2023. URL: https://doi.org/10.1111/jdv.18637, doi:10.1111/jdv.18637. This article has 56 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(chen2023genotypeandphenotype pages 2-2): Fuying Chen, Ruoqu Wei, Dan Deng, Xue Zhang, Yu Cao, Chaolan Pan, Yumeng Wang, Qiaoyu Cao, Jianbo Wang, Ming Zeng, Linting Huang, Yan Gu, Zhirong Yao, and Ming Li. Genotype and phenotype correlations in 441 patients with epidermolysis bullosa from china. Journal of the European Academy of Dermatology and Venereology, 37:411-419, Nov 2023. URL: https://doi.org/10.1111/jdv.18692, doi:10.1111/jdv.18692. This article has 26 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(so2022aglobalcrosssectional pages 6-8): Jodi Y. So, Shivali Fulchand, Christine Y. Wong, Shufeng Li, Jaron Nazaroff, Emily S. Gorell, Mark P. de Souza, Dedee F. Murrell, Joyce M. Teng, Albert S. Chiou, and Jean Y. Tang. A global, cross-sectional survey of patient-reported outcomes, disease burden, and quality of life in epidermolysis bullosa simplex. Orphanet Journal of Rare Diseases, Jul 2022. URL: https://doi.org/10.1186/s13023-022-02433-3, doi:10.1186/s13023-022-02433-3. This article has 21 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(bergson2023clinicalandmolecular pages 1-2): Shir Bergson, Daniel Daniely, David Bomze, Janan Mohamad, Kiril Malovitski, Odile Meijers, Valeria Briskin, Ofer Bihari, Natalia Malchin, Shirli Israeli, Jacob Mashiah, Tzipora Falik‐Zaccai, Emily Avitan‐Hersh, Marina Eskin‐Schwartz, Stavit Allon‐Shalev, Ofer Sarig, Eli Sprecher, and Liat Samuelov. Clinical and molecular features in a cohort of middle eastern patients with epidermolysis bullosa. Pediatric Dermatology, 40:1021-1027, Oct 2023. URL: https://doi.org/10.1111/pde.15440, doi:10.1111/pde.15440. This article has 6 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(chen2023genotypeandphenotype pages 3-3): Fuying Chen, Ruoqu Wei, Dan Deng, Xue Zhang, Yu Cao, Chaolan Pan, Yumeng Wang, Qiaoyu Cao, Jianbo Wang, Ming Zeng, Linting Huang, Yan Gu, Zhirong Yao, and Ming Li. Genotype and phenotype correlations in 441 patients with epidermolysis bullosa from china. Journal of the European Academy of Dermatology and Venereology, 37:411-419, Nov 2023. URL: https://doi.org/10.1111/jdv.18692, doi:10.1111/jdv.18692. This article has 26 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(chen2023genotypeandphenotype pages 4-4): Fuying Chen, Ruoqu Wei, Dan Deng, Xue Zhang, Yu Cao, Chaolan Pan, Yumeng Wang, Qiaoyu Cao, Jianbo Wang, Ming Zeng, Linting Huang, Yan Gu, Zhirong Yao, and Ming Li. Genotype and phenotype correlations in 441 patients with epidermolysis bullosa from china. Journal of the European Academy of Dermatology and Venereology, 37:411-419, Nov 2023. URL: https://doi.org/10.1111/jdv.18692, doi:10.1111/jdv.18692. This article has 26 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(rosa2023stairwaystoadvanced pages 1-3): Laura De Rosa, Elena Enzo, Michele Palamenghi, Laura Sercia, and Michele De Luca. Stairways to advanced therapies for epidermolysis bullosa. Cold Spring Harbor perspectives in biology, 15:a041229, Sep 2023. URL: https://doi.org/10.1101/cshperspect.a041229, doi:10.1101/cshperspect.a041229. This article has 14 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(has2019clinicalpracticeguidelines pages 6-7): C. Has, L. Liu, M.C. Bolling, A.V. Charlesworth, M. El Hachem, M.J. Escámez, I. Fuentes, S. Büchel, R. Hiremagalore, G. Pohla‐Gubo, P.C. Akker, K. Wertheim‐Tysarowska, and G. Zambruno. Clinical practice guidelines for laboratory diagnosis of epidermolysis bullosa. The British Journal of Dermatology, 182:574-592, Aug 2019. URL: https://doi.org/10.1111/bjd.18128, doi:10.1111/bjd.18128. This article has 186 citations.</p>
+</li>
+<li>
+<p>(lucky2021diagnosisandcare pages 3-5): Anne W. Lucky, Jean Whalen, Susan Rowe, Kalyani S. Marathe, and Emily Gorell. Diagnosis and care of the newborn with epidermolysis bullosa. NeoReviews, 22 7:e438-e451, Jul 2021. URL: https://doi.org/10.1542/neo.22-7-e438, doi:10.1542/neo.22-7-e438. This article has 44 citations.</p>
+</li>
+<li>
+<p>(has2019clinicalpracticeguidelines pages 10-11): C. Has, L. Liu, M.C. Bolling, A.V. Charlesworth, M. El Hachem, M.J. Escámez, I. Fuentes, S. Büchel, R. Hiremagalore, G. Pohla‐Gubo, P.C. Akker, K. Wertheim‐Tysarowska, and G. Zambruno. Clinical practice guidelines for laboratory diagnosis of epidermolysis bullosa. The British Journal of Dermatology, 182:574-592, Aug 2019. URL: https://doi.org/10.1111/bjd.18128, doi:10.1111/bjd.18128. This article has 186 citations.</p>
+</li>
+<li>
+<p>(has2023epidemiologyofinherited pages 7-8): Cristina Has, Moritz Hess, Waltraud Anemüller, Ulrike Blume‐Peytavi, Steffen Emmert, Regina Fölster‐Holst, Jorge Frank, Kathrin Giehl, Claudia Günther, Johanna Hammersen, Kathrin Hillmann, Bettina Höflein, Peter H. Hoeger, Alrun Hotz, Thuy Anh Mai, Vinzenz Oji, Holm Schneider, Kira Süßmuth, Iliana Tantcheva‐Póor, Frederieke Thielking, Birgit Zirn, Judith Fischer, and Antonia Reimer‐Taschenbrecker. Epidemiology of inherited epidermolysis bullosa in germany. Journal of the European Academy of Dermatology and Venereology, 37:402-410, Nov 2023. URL: https://doi.org/10.1111/jdv.18637, doi:10.1111/jdv.18637. This article has 56 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(bardhan2020epidermolysisbullosa pages 1-2): Ajoy Bardhan, Leena Bruckner-Tuderman, Iain L. C. Chapple, Jo-David Fine, Natasha Harper, Cristina Has, Thomas M. Magin, M. Peter Marinkovich, John F. Marshall, John A. McGrath, Jemima E. Mellerio, Rex Polson, and Adrian H. Heagerty. Epidermolysis bullosa. Nature Reviews Disease Primers, 6:1-27, Sep 2020. URL: https://doi.org/10.1038/s41572-020-0210-0, doi:10.1038/s41572-020-0210-0. This article has 551 citations.</p>
+</li>
+<li>
+<p>(bchetnia2024pathologicalmechanismsinvolved pages 10-12): Mbarka Bchetnia, Julie Powell, Catherine McCuaig, Anne-Marie Boucher-Lafleur, Charles Morin, Audrey Dupéré, and Catherine Laprise. Pathological mechanisms involved in epidermolysis bullosa simplex: current knowledge and therapeutic perspectives. International Journal of Molecular Sciences, 25:9495, Aug 2024. URL: https://doi.org/10.3390/ijms25179495, doi:10.3390/ijms25179495. This article has 11 citations.</p>
+</li>
+<li>
+<p>(bchetnia2024pathologicalmechanismsinvolved pages 13-14): Mbarka Bchetnia, Julie Powell, Catherine McCuaig, Anne-Marie Boucher-Lafleur, Charles Morin, Audrey Dupéré, and Catherine Laprise. Pathological mechanisms involved in epidermolysis bullosa simplex: current knowledge and therapeutic perspectives. International Journal of Molecular Sciences, 25:9495, Aug 2024. URL: https://doi.org/10.3390/ijms25179495, doi:10.3390/ijms25179495. This article has 11 citations.</p>
+</li>
+<li>
+<p>(bardhan2020epidermolysisbullosa pages 20-21): Ajoy Bardhan, Leena Bruckner-Tuderman, Iain L. C. Chapple, Jo-David Fine, Natasha Harper, Cristina Has, Thomas M. Magin, M. Peter Marinkovich, John F. Marshall, John A. McGrath, Jemima E. Mellerio, Rex Polson, and Adrian H. Heagerty. Epidermolysis bullosa. Nature Reviews Disease Primers, 6:1-27, Sep 2020. URL: https://doi.org/10.1038/s41572-020-0210-0, doi:10.1038/s41572-020-0210-0. This article has 551 citations.</p>
+</li>
+<li>
+<p>(johnson2020spontaneouskrt5gene pages 1-3): Amanda L. Johnson, Samuel M. Peterson, Margaret M. L. Terry, Betsy Ferguson, Lois M. Colgin, and Anne D. Lewis. Spontaneous krt5 gene mutation in rhesus macaques (macaca mulatta): a novel nonhuman primate model of epidermolysis bullosa simplex. Veterinary Pathology, 57:344-348, Feb 2020. URL: https://doi.org/10.1177/0300985819900354, doi:10.1177/0300985819900354. This article has 8 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(stock2024thepatientsperspective pages 4-7): C Stock. The patient's perspective: a review on epidermolysis bullosa patients' needs as input towards harmonization of outcomes. Unknown journal, 2024.</p>
+</li>
+<li>
+<p>(lucky2021diagnosisandcare pages 1-2): Anne W. Lucky, Jean Whalen, Susan Rowe, Kalyani S. Marathe, and Emily Gorell. Diagnosis and care of the newborn with epidermolysis bullosa. NeoReviews, 22 7:e438-e451, Jul 2021. URL: https://doi.org/10.1542/neo.22-7-e438, doi:10.1542/neo.22-7-e438. This article has 44 citations.</p>
+</li>
+<li>
+<p>(has2019clinicalpracticeguidelines pages 4-6): C. Has, L. Liu, M.C. Bolling, A.V. Charlesworth, M. El Hachem, M.J. Escámez, I. Fuentes, S. Büchel, R. Hiremagalore, G. Pohla‐Gubo, P.C. Akker, K. Wertheim‐Tysarowska, and G. Zambruno. Clinical practice guidelines for laboratory diagnosis of epidermolysis bullosa. The British Journal of Dermatology, 182:574-592, Aug 2019. URL: https://doi.org/10.1111/bjd.18128, doi:10.1111/bjd.18128. This article has 186 citations.</p>
+</li>
+<li>
+<p>(bchetnia2024pathologicalmechanismsinvolved pages 8-10): Mbarka Bchetnia, Julie Powell, Catherine McCuaig, Anne-Marie Boucher-Lafleur, Charles Morin, Audrey Dupéré, and Catherine Laprise. Pathological mechanisms involved in epidermolysis bullosa simplex: current knowledge and therapeutic perspectives. International Journal of Molecular Sciences, 25:9495, Aug 2024. URL: https://doi.org/10.3390/ijms25179495, doi:10.3390/ijms25179495. This article has 11 citations.</p>
+</li>
+<li>
+<p>(so2022aglobalcrosssectional pages 10-12): Jodi Y. So, Shivali Fulchand, Christine Y. Wong, Shufeng Li, Jaron Nazaroff, Emily S. Gorell, Mark P. de Souza, Dedee F. Murrell, Joyce M. Teng, Albert S. Chiou, and Jean Y. Tang. A global, cross-sectional survey of patient-reported outcomes, disease burden, and quality of life in epidermolysis bullosa simplex. Orphanet Journal of Rare Diseases, Jul 2022. URL: https://doi.org/10.1186/s13023-022-02433-3, doi:10.1186/s13023-022-02433-3. This article has 21 citations and is from a peer-reviewed journal.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
             
         </div>
         
@@ -6765,7 +8453,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Epidermolysis Bullosa Simplex", "mondoId": "MONDO:0017610", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Epidermolysis_Bullosa_Simplex", "yamlRevision": "0bea0e531893"};
+        const OS_CONFIG = {"diseaseName": "Epidermolysis Bullosa Simplex", "mondoId": "MONDO:0017610", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Epidermolysis_Bullosa_Simplex", "yamlRevision": "202afbcc1846"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

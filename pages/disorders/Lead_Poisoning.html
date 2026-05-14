@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2643,6 +2796,20 @@
             
             
             
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-value">13</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#literature-summaries">
+            <div class="stat-item">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
             
         </div>
 
@@ -6339,6 +6506,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6380,6 +6548,7 @@
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(INCREASED)</span>
                     
                 </div>
+                
                 
                 
     
@@ -7094,7 +7263,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Lead Poisoning
 creation_date: &#34;2026-03-10T20:45:26Z&#34;
-updated_date: &#34;2026-03-10T23:12:33Z&#34;
+updated_date: &#34;2026-05-09T17:46:55Z&#34;
 category: Environmental
 categories:
 - Toxic Exposure Disorder
@@ -8609,11 +8778,1551 @@ clinical_trials:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;From that pool of subjects, 40 healthy women aged 18 to 40 years will participate in this randomized, placebo controlled pilot clinical trial.&#34;
     explanation: Supports the interventional randomized design of this lead-reduction trial.
+references:
+- reference: DOI:10.1007/s11356-022-19333-5
+  title: Systemic review of genetic and epigenetic factors underlying differential toxicity to environmental lead (Pb) exposure
+  found_in:
+  - Lead_Poisoning-deep-research-falcon.md
+  findings:
+  - statement: Systemic review of genetic and epigenetic factors underlying differential toxicity to environmental lead (Pb) exposure
+    supporting_text: Systemic review of genetic and epigenetic factors underlying differential toxicity to environmental lead (Pb) exposure
+- reference: DOI:10.1038/s41440-022-01069-x
+  title: Public and occupational health risks related to lead exposure updated according to present-day blood lead levels
+  found_in:
+  - Lead_Poisoning-deep-research-falcon.md
+  findings:
+  - statement: Lead is an environmental hazard that should be addressed worldwide.
+    supporting_text: Lead is an environmental hazard that should be addressed worldwide.
+    evidence:
+    - reference: DOI:10.1038/s41440-022-01069-x
+      reference_title: Public and occupational health risks related to lead exposure updated according to present-day blood lead levels
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Lead is an environmental hazard that should be addressed worldwide.
+      explanation: Deep research cited this publication as relevant literature for Lead Poisoning.
+- reference: DOI:10.1038/s41598-024-77194-z
+  title: Interplay analysis of lead exposure with key cardiovascular gene polymorphisms on blood pressure in a cross-sectional study of occupational workers
+  found_in:
+  - Lead_Poisoning-deep-research-falcon.md
+  findings:
+  - statement: Interplay analysis of lead exposure with key cardiovascular gene polymorphisms on blood pressure in a cross-sectional study of occupational workers
+    supporting_text: Interplay analysis of lead exposure with key cardiovascular gene polymorphisms on blood pressure in a cross-sectional study of occupational workers
+- reference: DOI:10.1056/nejm200105103441902
+  title: The Effect of Chelation Therapy with Succimer on Neuropsychological Development in Children Exposed to Lead
+  found_in:
+  - Lead_Poisoning-deep-research-falcon.md
+  findings:
+  - statement: The Effect of Chelation Therapy with Succimer on Neuropsychological Development in Children Exposed to Lead
+    supporting_text: The Effect of Chelation Therapy with Succimer on Neuropsychological Development in Children Exposed to Lead
+- reference: DOI:10.1056/nejmra2402527
+  title: Lead Poisoning
+  found_in:
+  - Lead_Poisoning-deep-research-falcon.md
+  findings:
+  - statement: Lead Poisoning
+    supporting_text: Lead Poisoning
+- reference: DOI:10.1097/phh.0000000000001664
+  title: &#39;Childhood Lead Poisoning 1970-2022: Charting Progress and Needed Reforms&#39;
+  found_in:
+  - Lead_Poisoning-deep-research-falcon.md
+  findings:
+  - statement: &#39;Childhood Lead Poisoning 1970-2022: Charting Progress and Needed Reforms&#39;
+    supporting_text: &#39;Context: Childhood lead poisoning prevention in the United States was marked by a largely failed medical approach from 1971 to 1990; an emergent (but small) healthy housing primary prevention strategy from 1991 to 2015; and implementation of large-scale proven interventions since then.&#39;
+    evidence:
+    - reference: DOI:10.1097/phh.0000000000001664
+      reference_title: &#39;Childhood Lead Poisoning 1970-2022: Charting Progress and Needed Reforms&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#39;Context: Childhood lead poisoning prevention in the United States was marked by a largely failed medical approach from 1971 to 1990; an emergent (but small) healthy housing primary prevention strategy from 1991 to 2015; and implementation of large-scale proven interventions since then.&#39;
+      explanation: Deep research cited this publication as relevant literature for Lead Poisoning.
+- reference: DOI:10.1111/1468-0009.12596
+  title: Improving Equitability and Inclusion for Testing and Detection of Lead Poisoning in US Children
+  found_in:
+  - Lead_Poisoning-deep-research-falcon.md
+  findings:
+  - statement: Policy Points Child lead poisoning is associated with socioeconomic inequity and perpetuates health inequality.
+    supporting_text: Policy Points Child lead poisoning is associated with socioeconomic inequity and perpetuates health inequality.
+    evidence:
+    - reference: DOI:10.1111/1468-0009.12596
+      reference_title: Improving Equitability and Inclusion for Testing and Detection of Lead Poisoning in US Children
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Policy Points Child lead poisoning is associated with socioeconomic inequity and perpetuates health inequality.
+      explanation: Deep research cited this publication as relevant literature for Lead Poisoning.
+- reference: DOI:10.1186/s12887-024-04871-3
+  title: &#39;Lead encephalopathy presenting as status epilepticus: a case report&#39;
+  found_in:
+  - Lead_Poisoning-deep-research-falcon.md
+  findings:
+  - statement: &#39;Lead encephalopathy presenting as status epilepticus: a case report&#39;
+    supporting_text: &#39;Lead encephalopathy presenting as status epilepticus: a case report&#39;
+- reference: DOI:10.1186/s12889-023-16005-y
+  title: &#39;The contribution of secondhand tobacco smoke to blood lead levels in US children and adolescents: a cross-sectional analysis of NHANES 2015–2018&#39;
+  found_in:
+  - Lead_Poisoning-deep-research-falcon.md
+  findings:
+  - statement: Lead is a major developmental neurotoxicant in children, and tobacco smoke has been suggested as a source of lead exposure in vulnerable populations.
+    supporting_text: Lead is a major developmental neurotoxicant in children, and tobacco smoke has been suggested as a source of lead exposure in vulnerable populations.
+    evidence:
+    - reference: DOI:10.1186/s12889-023-16005-y
+      reference_title: &#39;The contribution of secondhand tobacco smoke to blood lead levels in US children and adolescents: a cross-sectional analysis of NHANES 2015–2018&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Lead is a major developmental neurotoxicant in children, and tobacco smoke has been suggested as a source of lead exposure in vulnerable populations.
+      explanation: Deep research cited this publication as relevant literature for Lead Poisoning.
+- reference: DOI:10.1289/ehp.6517
+  title: Reductions in blood lead overestimate reductions in brain lead following repeated succimer regimens in a rodent model of childhood lead exposure.
+  found_in:
+  - Lead_Poisoning-deep-research-falcon.md
+  findings:
+  - statement: Reductions in blood lead overestimate reductions in brain lead following repeated succimer regimens in a rodent model of childhood lead exposure
+    supporting_text: Reductions in blood lead overestimate reductions in brain lead following repeated succimer regimens in a rodent model of childhood lead exposure.
+- reference: DOI:10.1289/ehp14336
+  title: A Snapshot of Lead in Consumer Products Across Four US Jurisdictions
+  found_in:
+  - Lead_Poisoning-deep-research-falcon.md
+  findings:
+  - statement: A Snapshot of Lead in Consumer Products Across Four US Jurisdictions
+    supporting_text: A Snapshot of Lead in Consumer Products Across Four US Jurisdictions
+- reference: DOI:10.3389/fpubh.2023.1073658
+  title: &#39;Toxicomethylomics revisited: A state-of-the-science review about DNA methylation modifications in blood cells from workers exposed to toxic agents&#39;
+  found_in:
+  - Lead_Poisoning-deep-research-falcon.md
+  findings:
+  - statement: Epigenetic marks have been proposed as early changes, at the subcellular level, in disease development.
+    supporting_text: Epigenetic marks have been proposed as early changes, at the subcellular level, in disease development.
+    evidence:
+    - reference: DOI:10.3389/fpubh.2023.1073658
+      reference_title: &#39;Toxicomethylomics revisited: A state-of-the-science review about DNA methylation modifications in blood cells from workers exposed to toxic agents&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Epigenetic marks have been proposed as early changes, at the subcellular level, in disease development.
+      explanation: Deep research cited this publication as relevant literature for Lead Poisoning.
+- reference: PMID:38863853
+  title: Trends in Shortages of Lead Chelators From 2001 to 2022.
+  found_in:
+  - Lead_Poisoning-deep-research-falcon.md
+  findings:
+  - statement: All chelators experienced multiple shortages, which became increasingly frequent and prolonged over time.
+    supporting_text: All chelators experienced multiple shortages, which became increasingly frequent and prolonged over time.
+    evidence:
+    - reference: PMID:38863853
+      reference_title: Trends in Shortages of Lead Chelators From 2001 to 2022.
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: All chelators experienced multiple shortages, which became increasingly frequent and prolonged over time.
+      explanation: Deep research cited this publication as relevant literature for Lead Poisoning.
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
+        
+        <div class="card reference-card" id="references-deep-research">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+            
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">13</span>
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1007/s11356-022-19333-5" target="_blank">DOI:10.1007/s11356-022-19333-5</a>
+                            </div>
+                            
+                            <div class="reference-title">Systemic review of genetic and epigenetic factors underlying differential toxicity to environmental lead (Pb) exposure</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Systemic review of genetic and epigenetic factors underlying differential toxicity to environmental lead (Pb) exposure</div>
+            
+            
+            <div class="reference-finding-supporting">"Systemic review of genetic and epigenetic factors underlying differential toxicity to environmental lead (Pb) exposure"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1038/s41440-022-01069-x" target="_blank">DOI:10.1038/s41440-022-01069-x</a>
+                            </div>
+                            
+                            <div class="reference-title">Public and occupational health risks related to lead exposure updated according to present-day blood lead levels</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Lead is an environmental hazard that should be addressed worldwide.</div>
+            
+            
+            <div class="reference-finding-supporting">"Lead is an environmental hazard that should be addressed worldwide."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41440-022-01069-x" target="_blank">DOI:10.1038/s41440-022-01069-x</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Lead is an environmental hazard that should be addressed worldwide."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Lead Poisoning.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1038/s41598-024-77194-z" target="_blank">DOI:10.1038/s41598-024-77194-z</a>
+                            </div>
+                            
+                            <div class="reference-title">Interplay analysis of lead exposure with key cardiovascular gene polymorphisms on blood pressure in a cross-sectional study of occupational workers</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Interplay analysis of lead exposure with key cardiovascular gene polymorphisms on blood pressure in a cross-sectional study of occupational workers</div>
+            
+            
+            <div class="reference-finding-supporting">"Interplay analysis of lead exposure with key cardiovascular gene polymorphisms on blood pressure in a cross-sectional study of occupational workers"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1056/nejm200105103441902" target="_blank">DOI:10.1056/nejm200105103441902</a>
+                            </div>
+                            
+                            <div class="reference-title">The Effect of Chelation Therapy with Succimer on Neuropsychological Development in Children Exposed to Lead</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The Effect of Chelation Therapy with Succimer on Neuropsychological Development in Children Exposed to Lead</div>
+            
+            
+            <div class="reference-finding-supporting">"The Effect of Chelation Therapy with Succimer on Neuropsychological Development in Children Exposed to Lead"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1056/nejmra2402527" target="_blank">DOI:10.1056/nejmra2402527</a>
+                            </div>
+                            
+                            <div class="reference-title">Lead Poisoning</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Lead Poisoning</div>
+            
+            
+            <div class="reference-finding-supporting">"Lead Poisoning"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1097/phh.0000000000001664" target="_blank">DOI:10.1097/phh.0000000000001664</a>
+                            </div>
+                            
+                            <div class="reference-title">Childhood Lead Poisoning 1970-2022: Charting Progress and Needed Reforms</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Childhood Lead Poisoning 1970-2022: Charting Progress and Needed Reforms</div>
+            
+            
+            <div class="reference-finding-supporting">"Context: Childhood lead poisoning prevention in the United States was marked by a largely failed medical approach from 1971 to 1990; an emergent (but small) healthy housing primary prevention strategy from 1991 to 2015; and implementation of large-scale proven interventions since then."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1097/phh.0000000000001664" target="_blank">DOI:10.1097/phh.0000000000001664</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Context: Childhood lead poisoning prevention in the United States was marked by a largely failed medical approach from 1971 to 1990; an emergent (but small) healthy housing primary prevention strategy from 1991 to 2015; and implementation of large-scale proven interventions since then."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Lead Poisoning.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1111/1468-0009.12596" target="_blank">DOI:10.1111/1468-0009.12596</a>
+                            </div>
+                            
+                            <div class="reference-title">Improving Equitability and Inclusion for Testing and Detection of Lead Poisoning in US Children</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Policy Points Child lead poisoning is associated with socioeconomic inequity and perpetuates health inequality.</div>
+            
+            
+            <div class="reference-finding-supporting">"Policy Points Child lead poisoning is associated with socioeconomic inequity and perpetuates health inequality."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1111/1468-0009.12596" target="_blank">DOI:10.1111/1468-0009.12596</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Policy Points Child lead poisoning is associated with socioeconomic inequity and perpetuates health inequality."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Lead Poisoning.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1186/s12887-024-04871-3" target="_blank">DOI:10.1186/s12887-024-04871-3</a>
+                            </div>
+                            
+                            <div class="reference-title">Lead encephalopathy presenting as status epilepticus: a case report</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Lead encephalopathy presenting as status epilepticus: a case report</div>
+            
+            
+            <div class="reference-finding-supporting">"Lead encephalopathy presenting as status epilepticus: a case report"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1186/s12889-023-16005-y" target="_blank">DOI:10.1186/s12889-023-16005-y</a>
+                            </div>
+                            
+                            <div class="reference-title">The contribution of secondhand tobacco smoke to blood lead levels in US children and adolescents: a cross-sectional analysis of NHANES 2015–2018</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Lead is a major developmental neurotoxicant in children, and tobacco smoke has been suggested as a source of lead exposure in vulnerable populations.</div>
+            
+            
+            <div class="reference-finding-supporting">"Lead is a major developmental neurotoxicant in children, and tobacco smoke has been suggested as a source of lead exposure in vulnerable populations."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s12889-023-16005-y" target="_blank">DOI:10.1186/s12889-023-16005-y</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Lead is a major developmental neurotoxicant in children, and tobacco smoke has been suggested as a source of lead exposure in vulnerable populations."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Lead Poisoning.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1289/ehp.6517" target="_blank">DOI:10.1289/ehp.6517</a>
+                            </div>
+                            
+                            <div class="reference-title">Reductions in blood lead overestimate reductions in brain lead following repeated succimer regimens in a rodent model of childhood lead exposure.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Reductions in blood lead overestimate reductions in brain lead following repeated succimer regimens in a rodent model of childhood lead exposure</div>
+            
+            
+            <div class="reference-finding-supporting">"Reductions in blood lead overestimate reductions in brain lead following repeated succimer regimens in a rodent model of childhood lead exposure."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1289/ehp14336" target="_blank">DOI:10.1289/ehp14336</a>
+                            </div>
+                            
+                            <div class="reference-title">A Snapshot of Lead in Consumer Products Across Four US Jurisdictions</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">A Snapshot of Lead in Consumer Products Across Four US Jurisdictions</div>
+            
+            
+            <div class="reference-finding-supporting">"A Snapshot of Lead in Consumer Products Across Four US Jurisdictions"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.3389/fpubh.2023.1073658" target="_blank">DOI:10.3389/fpubh.2023.1073658</a>
+                            </div>
+                            
+                            <div class="reference-title">Toxicomethylomics revisited: A state-of-the-science review about DNA methylation modifications in blood cells from workers exposed to toxic agents</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Epigenetic marks have been proposed as early changes, at the subcellular level, in disease development.</div>
+            
+            
+            <div class="reference-finding-supporting">"Epigenetic marks have been proposed as early changes, at the subcellular level, in disease development."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fpubh.2023.1073658" target="_blank">DOI:10.3389/fpubh.2023.1073658</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Epigenetic marks have been proposed as early changes, at the subcellular level, in disease development."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Lead Poisoning.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/38863853" target="_blank">PMID:38863853</a>
+                            </div>
+                            
+                            <div class="reference-title">Trends in Shortages of Lead Chelators From 2001 to 2022.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">All chelators experienced multiple shortages, which became increasingly frequent and prolonged over time.</div>
+            
+            
+            <div class="reference-finding-supporting">"All chelators experienced multiple shortages, which became increasingly frequent and prolonged over time."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38863853" target="_blank">PMID:38863853</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"All chelators experienced multiple shortages, which became increasingly frequent and prolonged over time."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Lead Poisoning.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="grouped-section anchor-target" id="literature-summaries">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">Deep Research</h3>
+                    <span class="card-count">1</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">Lead Poisoning (Plumbism): Disease Characteristics Research Report</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">45 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-09T10:38:49.080798</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <h1>Lead Poisoning (Plumbism): Disease Characteristics Research Report</h1>
+<h2>1. Disease Information</h2>
+<h3>Overview / current understanding</h3>
+<p>Lead poisoning (also termed <em>plumbism</em>) is a toxicologic disease caused by absorption of lead (Pb) with subsequent systemic distribution and cumulative retention, producing multisystem injury. Contemporary clinical framing emphasizes that toxicity is not limited to overt “classic” poisoning; low-level chronic exposure is linked to neurodevelopmental harm in children and cardiovascular/kidney disease in adults. In a 2024 <em>New England Journal of Medicine</em> review, the CDC’s position is summarized as: <strong>“no safe level of lead had been identified in children”</strong>. (lanphear2024leadpoisoning. pages 3-5)</p>
+<p>Lead has a long biologic residence time because most retained Pb is stored in bone, with only a small fraction present in blood at any time; thus blood lead reflects both recent exposure and mobilization from stores. (lanphear2024leadpoisoning. pages 1-2, yu2023publicandoccupational pages 1-3)</p>
+<h3>Key identifiers (OMIM / Orphanet / ICD / MeSH / MONDO)</h3>
+<p>Within the evidence retrieved for this report, <strong>explicit ontology/terminology identifiers (ICD-10/ICD-11, MeSH, MONDO, OMIM, Orphanet)</strong> were <strong>not present</strong> in the full-text excerpts available to the system. Therefore, these cannot be provided with evidence-backed citations in this tool run.</p>
+<h3>Synonyms / alternative names</h3>
+<ul>
+<li>Lead poisoning</li>
+<li>Plumbism</li>
+<li>Lead intoxication
+These terms are used interchangeably in contemporary clinical literature. (lanphear2024leadpoisoning. pages 1-2)</li>
+</ul>
+<h3>Evidence source type</h3>
+<p>The content summarized here is derived primarily from <strong>aggregated disease-level resources</strong> (high-impact reviews and policy analyses) and <strong>primary studies</strong> (randomized trial, observational epidemiology, case report), rather than EHR-only patient-level data. (lanphear2024leadpoisoning. pages 3-5, rogan2001theeffectof pages 1-2, obeng2023thecontributionof pages 2-4)</p>
+<h2>2. Etiology</h2>
+<h3>Disease causal factors</h3>
+<p>Lead poisoning is <strong>environmental/toxicant-induced</strong>.</p>
+<p><strong>Routes of exposure</strong> are primarily ingestion and inhalation. (lanphear2024leadpoisoning. pages 2-3, yu2023publicandoccupational pages 1-3)</p>
+<p><strong>Major sources</strong> highlighted in recent clinical/public-health syntheses include:
+* Legacy lead-based paint and dust/soil contamination around older housing (especially pre-1960 housing). (lanphear2024leadpoisoning. pages 2-3)
+* Water contamination from lead service lines and plumbing components. (lanphear2024leadpoisoning. pages 1-2, lanphear2024leadpoisoning. pages 2-3)
+* Industrial emissions and occupational exposures (smelting, battery production/recycling, construction). (lanphear2024leadpoisoning. pages 1-2, lanphear2024leadpoisoning. pages 2-3, yu2023publicandoccupational pages 1-3)
+* Consumer products (spices, ceramic/metal cookware, traditional remedies, cultural powders, cosmetics, jewelry/toys). (porterfield2024asnapshotof pages 1-2, porterfield2024asnapshotof pages 2-3, porterfield2024asnapshotof pages 5-6)
+* Ongoing specialized uses such as aviation fuel and ammunition (and retained bullet fragments). (lanphear2024leadpoisoning. pages 1-2, lanphear2024leadpoisoning. pages 2-3)</p>
+<h3>Risk factors</h3>
+<p><strong>Host risk factors / vulnerability</strong>:
+* <strong>Young age</strong>: children absorb Pb more readily and have high-risk behaviors (hand-to-mouth). (lanphear2024leadpoisoning. pages 2-3, cuomo2022systemicreviewof pages 1-3)
+* <strong>Nutritional deficiencies</strong>: iron or calcium deficiency increases absorption; absorption increases with iron/calcium deficiency. (lanphear2024leadpoisoning. pages 2-3, cuomo2022systemicreviewof pages 1-3)
+* <strong>Pregnancy and postpartum</strong>: increased risk of mobilization from bone stores and adverse birth outcomes; maternal Pb is linked to preterm birth. (lanphear2024leadpoisoning. pages 3-5, lanphear2024leadpoisoning. pages 1-2)</p>
+<p><strong>Social and environmental risk factors</strong>:
+* Older, poorly maintained housing stock. (lanphear2024leadpoisoning. pages 2-3, jacobs2023childhoodleadpoisoning pages 4-6)
+* Occupational exposure in lead-related industries. (yu2023publicandoccupational pages 1-3)
+* Consumer products and imported goods exposure, especially in immigrant/refugee communities. (porterfield2024asnapshotof pages 1-2)
+* Secondhand tobacco smoke exposure as an additional contributor to children’s BLLs (NHANES 2015–2018). (obeng2023thecontributionof pages 2-4, obeng2023thecontributionof pages 1-2)</p>
+<h3>Protective factors</h3>
+<p>Evidence in retrieved texts supports that improved nutrition (addressing iron deficiency; ensuring adequate calcium and vitamin C) is considered part of management and may reduce absorption risk, but the excerpts do not provide trial-grade quantification of protective effect size. (lowry2010oralchelationtherapy pages 6-9)</p>
+<h3>Gene–environment interactions</h3>
+<p>Recent evidence supports <strong>interindividual susceptibility</strong> via gene–environment interactions:
+* In occupationally exposed workers, SNP-by-lead interactions were reported for blood pressure traits. In one cross-sectional study (568 workers), the <strong>CCM3 rs3804610</strong> interaction corresponded to <strong>SBP +0.53 mmHg</strong> and <strong>DBP +0.34 mmHg</strong> per 1 µg/dL blood lead contrast in risk-allele carriers; <strong>VEGFR2 rs2305948</strong> showed negative interaction (SBP −0.28 mmHg; DBP −0.22 mmHg). (ou2024interplayanalysisof pages 1-2)
+* A 2022 systematic review summarizes candidate susceptibility loci affecting Pb kinetics and effects (e.g., <strong>ALAD</strong>, <strong>VDR</strong>, <strong>HFE</strong>, GST genes, MT2A) and notes sex- and exposure-dependent effects in some studies. (cuomo2022systemicreviewof pages 6-7)</p>
+<h2>3. Phenotypes</h2>
+<h3>Core clinical manifestations (symptoms/signs/labs)</h3>
+<p>A contemporary clinical review describes classic symptoms including fatigue, headache, irritability, abdominal colic and constipation, with very high blood lead levels associated with seizures, encephalopathy, and death. (lanphear2024leadpoisoning. pages 1-2)</p>
+<p><strong>Severe neurologic phenotype (pediatric encephalopathy)</strong>: A 2024 case report describes a 4-year-old presenting with refractory status epilepticus, profound microcytic anemia, and developmental delay at <strong>BLL 116.2 µg/dL</strong>. (kamal2024leadencephalopathypresenting pages 1-2)</p>
+<h3>Age of onset, severity, progression</h3>
+<ul>
+<li><strong>Children</strong>: effects can be subtle and neurodevelopmental at low exposures; severe acute manifestations can include encephalopathy and seizures at high BLLs. (lanphear2024leadpoisoning. pages 3-5, kamal2024leadencephalopathypresenting pages 2-4)</li>
+<li><strong>Adults</strong>: low-level chronic exposure is linked to hypertension, chronic kidney disease/failure, and cardiovascular disease. (lanphear2024leadpoisoning. pages 1-2, yu2023publicandoccupational pages 1-3)</li>
+</ul>
+<h3>Suggested HPO terms (non-exhaustive; derived from described phenotypes)</h3>
+<p>Because HPO identifiers were not included in the retrieved sources, the following are <strong>suggested mapping targets</strong> (to be verified against HPO):
+* Seizures; status epilepticus (pediatric encephalopathy) (kamal2024leadencephalopathypresenting pages 1-2)
+* Encephalopathy (lanphear2024leadpoisoning. pages 1-2, kamal2024leadencephalopathypresenting pages 2-4)
+* Abdominal pain / colic; constipation (lanphear2024leadpoisoning. pages 1-2)
+* Microcytic anemia (kamal2024leadencephalopathypresenting pages 1-2)
+* Developmental delay / cognitive impairment; ADHD / attention problems (lanphear2024leadpoisoning. pages 3-5, kamal2024leadencephalopathypresenting pages 1-2)
+* Hypertension (yu2023publicandoccupational pages 1-3)
+* Chronic kidney disease/failure (lanphear2024leadpoisoning. pages 1-2, yu2023publicandoccupational pages 1-3)</p>
+<h2>4. Genetic / Molecular Information</h2>
+<h3>Causal genes</h3>
+<p>Lead poisoning is not a Mendelian disorder; it is primarily a toxicant exposure condition. Genetic factors act mainly as <strong>susceptibility/modifier loci</strong> (gene–environment interaction) rather than single-gene causation. (cuomo2022systemicreviewof pages 6-7)</p>
+<h3>Modifier genes / susceptibility loci (examples in retrieved evidence)</h3>
+<ul>
+<li><strong>CCM3 (PDCD10)</strong> rs3804610; <strong>VEGFR2 (KDR)</strong> rs2305948; <strong>NOTCH1</strong> rs3124591 in an occupational interaction study of lead and blood pressure. (ou2024interplayanalysisof pages 1-2)</li>
+<li>Candidate genes summarized as influencing Pb kinetics/effects: <strong>ALAD</strong>, <strong>VDR</strong>, <strong>HFE</strong>, GST genes, metallothionein, iron transport genes. (cuomo2022systemicreviewof pages 6-7)</li>
+</ul>
+<h3>Epigenetic information</h3>
+<p>A 2023 state-of-the-science review on occupational toxicant exposure methylation emphasizes that lead exposure is associated with DNA methylation changes (e.g., promoter hypermethylation of genes such as <strong>ALAD</strong>, tumor suppressor loci, and global methylation shifts), but cautions that due to limited longitudinal evidence and heterogeneity <strong>“we cannot say that DNA methylation changes are predictive of disease development due to those exposures.”</strong> (jimenezgarza2023toxicomethylomicsrevisiteda pages 1-2)</p>
+<h2>5. Environmental Information</h2>
+<h3>Environmental factors and real-world exposure sources</h3>
+<p>A 2024 high-impact synthesis summarizes lead sources as including legacy paint/soil, water lines, consumer products (spices, ceramics, cosmetics), industrial emissions, and specific ongoing uses (aviation fuel, ammunition). (lanphear2024leadpoisoning. pages 1-2, lanphear2024leadpoisoning. pages 2-3)</p>
+<h3>Lifestyle factors</h3>
+<p>Secondhand tobacco smoke may be a measurable contributor to children’s BLLs: NHANES 2015–2018 data (ages 6–19 years) showed adjusted geometric mean BLLs were <strong>18% higher</strong> at intermediate cotinine and <strong>29% higher</strong> at high cotinine relative to low cotinine. (obeng2023thecontributionof pages 1-2)</p>
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Toxicokinetics and causal chain (trigger → biology → phenotype)</h3>
+<p><strong>Trigger</strong>: inhalation/ingestion exposure, with enhanced absorption under iron/calcium deficiency and in young children. (lanphear2024leadpoisoning. pages 2-3)</p>
+<p><strong>Distribution and storage</strong>: most retained Pb is stored in bone (skeleton), with a small blood fraction primarily in red blood cells; bone lead can be remobilized (e.g., physiologic states such as menopause). (lanphear2024leadpoisoning. pages 1-2, yu2023publicandoccupational pages 1-3)</p>
+<p><strong>Cellular/molecular injury mechanisms</strong> (as described in retrieved evidence):
+* <strong>Metal mimicry and transport</strong>: Pb mimics calcium/iron/zinc and can enter cells via calcium channels and DMT1. (lanphear2024leadpoisoning. pages 2-3)
+* <strong>Oxidative stress and thiol binding</strong> are repeatedly invoked as core mechanisms across organ systems. (cuomo2022systemicreviewof pages 1-3)</p>
+<p><strong>Clinical endpoints</strong>: neurodevelopmental impairment (children), cardiovascular disease and hypertension (adults), and kidney disease. (lanphear2024leadpoisoning. pages 1-2, yu2023publicandoccupational pages 1-3)</p>
+<h3>Suggested ontology terms</h3>
+<p>Because GO/CL/Reactome identifiers were not provided in retrieved excerpts, the following are <strong>suggested</strong> targets (to be verified):
+* GO (process): response to toxic substance; oxidative stress response; metal ion homeostasis; neurodevelopment
+* CL (cells): neurons; glial cells; erythrocytes; renal tubular epithelial cells; vascular smooth muscle cells</p>
+<h2>7. Anatomical Structures Affected</h2>
+<p>Evidence supports multi-organ involvement:
+* <strong>Nervous system</strong> (brain; neurodevelopmental effects; encephalopathy, seizures). (lanphear2024leadpoisoning. pages 3-5, kamal2024leadencephalopathypresenting pages 1-2)
+* <strong>Blood/hematopoietic system</strong> (anemia in severe pediatric case). (kamal2024leadencephalopathypresenting pages 1-2)
+* <strong>Kidney</strong> (chronic kidney disease/failure associations in adults). (lanphear2024leadpoisoning. pages 1-2)
+* <strong>Cardiovascular system</strong> (hypertension, cardiovascular disease). (lanphear2024leadpoisoning. pages 1-2, yu2023publicandoccupational pages 1-3)
+* <strong>Skeleton/bone</strong> as major reservoir for Pb. (lanphear2024leadpoisoning. pages 1-2)</p>
+<p>Suggested UBERON targets (to be verified): brain; kidney; heart; aorta; skeleton/bone tissue.</p>
+<h2>8. Temporal Development</h2>
+<h3>Onset patterns</h3>
+<p>Lead poisoning may be <strong>acute</strong> (high-dose exposure with colic/encephalopathy) or <strong>chronic/insidious</strong> with low-level exposure producing subtle neurocognitive harms (children) and cardiometabolic disease risk (adults). (lanphear2024leadpoisoning. pages 1-2, lanphear2024leadpoisoning. pages 2-3)</p>
+<h3>Critical windows</h3>
+<p>Childhood neurodevelopment is a key window of vulnerability, with lasting cognitive/behavioral sequelae and limited reversibility emphasized in public health analyses. (sobin2023improvingequitabilityand pages 3-3, lanphear2024leadpoisoning. pages 3-5)</p>
+<h2>9. Inheritance and Population</h2>
+<h3>Epidemiology and burden (selected statistics)</h3>
+<p>A 2023 policy/housing review reports a dramatic decline in U.S. pediatric blood lead over decades (NHANES geometric mean <strong>12.8 → 0.82 µg/dL</strong> from 1976–1980 to 2015–2016) and gives 2015–2016 prevalence estimates (ages 1–5): <strong>1.3% ≥5 µg/dL</strong> and <strong>0.2% ≥10 µg/dL</strong>. (jacobs2023childhoodleadpoisoning pages 4-6)</p>
+<p>A 2024 consumer-product surveillance synthesis cites a 2021 estimate that <strong>21,172 children (1.9%)</strong> had BLLs ≥ the then-reference value (5 µg/dL), and after the BLRV dropped to 3.5 µg/dL an estimated <strong>2.5%</strong> of U.S. children would exceed it. (porterfield2024asnapshotof pages 1-2)</p>
+<p>Global burden: the 2024 NEJM review cites 2019 estimates of <strong>5.5 million cardiovascular deaths</strong> and <strong>765 million IQ points lost</strong> attributable to lead exposure globally. (lanphear2024leadpoisoning. pages 1-2)</p>
+<h3>Population disparities</h3>
+<p>The testing and prevention literature emphasizes socioeconomic inequities and persistent disparities, and argues that primary prevention (removing lead from environments) is the definitive solution. (sobin2023improvingequitabilityand pages 3-3)</p>
+<h2>10. Diagnostics</h2>
+<h3>Clinical tests / biomarkers</h3>
+<p><strong>Venous whole-blood lead level (BLL)</strong> is emphasized as the most widely used biomarker of exposure. (lanphear2024leadpoisoning. pages 1-2)</p>
+<p>A 2024 NEJM review summarizes that blood lead is mostly in red blood cells and is the standard biomarker; bone lead can be measured in research contexts and constitutes cumulative burden. (lanphear2024leadpoisoning. pages 1-2)</p>
+<p><strong>Testing implementation / methods</strong>: A policy analysis proposes expanded use of capillary testing (with “clean” collection training) and recommends sensitive analytical methods (ICP-MS or graphite furnace AAS) with low limits of detection to support detection at low BLLs under the 3.5 µg/dL reference value. (sobin2023improvingequitabilityand pages 3-3)</p>
+<h3>Screening / thresholds (as supported in retrieved evidence)</h3>
+<ul>
+<li>CDC blood lead reference value lowered to <strong>3.5 µg/dL</strong> (2021). (lanphear2024leadpoisoning. pages 2-3, sobin2023improvingequitabilityand pages 3-3)</li>
+</ul>
+<h2>11. Outcome / Prognosis</h2>
+<p>Low-level exposure can have persistent effects (particularly neurodevelopment), and severe acute toxicity can be fatal or cause long-term neurologic sequelae. The 2024 severe pediatric encephalopathy case report emphasizes that rapid recognition and appropriate management is essential for “neurologically intact survival.” (kamal2024leadencephalopathypresenting pages 1-2)</p>
+<h2>12. Treatment</h2>
+<h3>Core treatment principles</h3>
+<ul>
+<li><strong>Remove/stop exposure</strong> and perform environmental investigation/abatement; chelation is not a substitute for hazard control. (lowry2010oralchelationtherapy pages 6-9)</li>
+</ul>
+<h3>Chelation therapy</h3>
+<h4>Evidence base (children with moderate BLLs)</h4>
+<p>The pivotal multicenter randomized trial (TLC) enrolled 780 children aged 12–33 months with BLLs <strong>20–44 µg/dL</strong>. Succimer reduced mean BLL by <strong>4.5 µg/dL</strong> over the first 6 months, but at 36 months: <strong>“Treatment with succimer did not lead to better scores on cognitive, neuropsychological, or behavioral tests than placebo.”</strong> (rogan2001theeffectof pages 5-6, rogan2001theeffectof pages 3-5)</p>
+<h4>Severe poisoning / encephalopathy</h4>
+<p>A 2024 pediatric encephalopathy case report notes encephalopathy typically occurs at <strong>&gt;80–100 µg/dL</strong>, and describes combined chelation (succimer, calcium disodium EDTA, and dimercaprol) with repeated courses due to rebound; it provides BSA-based dosing examples for succimer and EDTA and highlights need for close monitoring. (kamal2024leadencephalopathypresenting pages 2-4, kamal2024leadencephalopathypresenting pages 1-2)</p>
+<h3>Real-world implementation constraints: chelator shortages</h3>
+<p>A 2024 analysis of U.S. shortages (2001–2022) identified 13 chelator shortages, with prolonged and overlapping episodes and large price increases. CaNa2EDTA was unavailable for <strong>22.5%</strong> of the period; and BAL’s sole U.S. manufacturer (Akorn) permanently shut down in <strong>February 2023</strong>. (whitledge2024trendsinshortages pages 4-5)</p>
+<h3>Suggested MAXO terms (to be verified)</h3>
+<ul>
+<li>Chelation therapy</li>
+<li>Environmental exposure removal / abatement</li>
+<li>Blood lead screening</li>
+<li>Nutritional supplementation (iron/calcium) as supportive care</li>
+</ul>
+<h2>13. Prevention</h2>
+<h3>Primary prevention</h3>
+<p>Multiple authoritative sources emphasize that definitive prevention requires removing lead hazards before exposure (“primary prevention”), especially in housing and in the imported consumer-product supply chain. (sobin2023improvingequitabilityand pages 3-3, porterfield2024asnapshotof pages 1-2)</p>
+<h3>Secondary prevention: screening/testing</h3>
+<p>A 2023 policy analysis proposes practical improvements to raise equitable detection capacity, including acceptance of capillary samples for final determination (with standardized training/certification) and sensitive analytical methods to support low-level measurement. (sobin2023improvingequitabilityand pages 3-3)</p>
+<h3>Public health interventions in practice</h3>
+<p>A 2024 Environmental Health Perspectives analysis argues consumer products are an increasingly important source: across four U.S. jurisdictions, consumer products were identified in <strong>15%–38%</strong> of investigations, supporting the need for national product surveillance databases and upstream interventions in countries of origin. (porterfield2024asnapshotof pages 1-2, porterfield2024asnapshotof pages 3-5)</p>
+<h2>14. Other Species / Natural Disease</h2>
+<p>No species-specific veterinary/natural disease evidence was retrieved in the provided corpus for this run. Therefore, this section cannot be completed with citations.</p>
+<h2>15. Model Organisms</h2>
+<p>Model-organism evidence in the retrieved corpus includes a rodent study showing that blood lead reductions after succimer can overestimate brain lead reductions, emphasizing limitations of using blood lead as a surrogate for neurotoxicant burden. (stangle2004reductionsinblood pages 5-6)</p>
+<p>No additional detailed model-organism inventories (mouse/rat/zebrafish/cell models) were retrievable in the excerpts available here; thus this section is partial.</p>
+<h1>Key quantitative summary tables</h1>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Population/Context</th>
+<th>Value(s) &amp; Units</th>
+<th>Year/Period</th>
+<th>Source (first author, journal)</th>
+<th>URL</th>
+<th>Evidence citation id</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CDC blood lead reference value (BLRV)</td>
+<td>U.S. children; CDC reference/action benchmark</td>
+<td>Lowered to <strong>3.5 µg/dL</strong> (from 5 µg/dL)</td>
+<td>2021</td>
+<td>Lanphear, <em>NEJM</em>; Sobin, <em>Milbank Quarterly</em></td>
+<td>https://doi.org/10.1056/NEJMra2402527 ; https://doi.org/10.1111/1468-0009.12596</td>
+<td>(lanphear2024leadpoisoning. pages 2-3, sobin2023improvingequitabilityand pages 3-3)</td>
+</tr>
+<tr>
+<td>U.S. child prevalence at prior BLRV</td>
+<td>U.S. children with BLLs at or above prior CDC BLRV</td>
+<td><strong>21,172 children (1.9%)</strong> at <strong>≥5 µg/dL</strong></td>
+<td>2021 study cited in 2024 review</td>
+<td>Porterfield, <em>Environmental Health Perspectives</em></td>
+<td>https://doi.org/10.1289/ehp14336</td>
+<td>(porterfield2024asnapshotof pages 1-2)</td>
+</tr>
+<tr>
+<td>U.S. child prevalence at current BLRV</td>
+<td>U.S. children expected above current BLRV</td>
+<td><strong>2.5%</strong> expected at <strong>≥3.5 µg/dL</strong></td>
+<td>Post-2021 BLRV estimate</td>
+<td>Porterfield, <em>Environmental Health Perspectives</em></td>
+<td>https://doi.org/10.1289/ehp14336</td>
+<td>(porterfield2024asnapshotof pages 1-2)</td>
+</tr>
+<tr>
+<td>NHANES decline in pediatric blood lead</td>
+<td>U.S. children aged 1–5 years; geometric mean BLL</td>
+<td><strong>12.8 → 0.82 µg/dL</strong></td>
+<td>1976–1980 to 2015–2016</td>
+<td>Jacobs, <em>J Public Health Management Practice</em></td>
+<td>https://doi.org/10.1097/PHH.0000000000001664</td>
+<td>(jacobs2023childhoodleadpoisoning pages 4-6)</td>
+</tr>
+<tr>
+<td>NHANES decline in general-population blood lead</td>
+<td>U.S. NHANES population metric</td>
+<td><strong>13.1 → 1.64 µg/dL</strong></td>
+<td>1976–1980 to 1999–2002</td>
+<td>Yu, <em>Hypertension Research</em></td>
+<td>https://doi.org/10.1038/s41440-022-01069-x</td>
+<td>(yu2023publicandoccupational pages 1-3)</td>
+</tr>
+<tr>
+<td>Skeletal lead storage fraction</td>
+<td>Retained body lead stored in skeleton</td>
+<td><strong>70% in children; 95% in adults</strong></td>
+<td>Contemporary toxicokinetic summary</td>
+<td>Lanphear, <em>NEJM</em></td>
+<td>https://doi.org/10.1056/NEJMra2402527</td>
+<td>(lanphear2024leadpoisoning. pages 1-2, lanphear2024leadpoisoning. pages 3-5)</td>
+</tr>
+<tr>
+<td>Severe toxicity threshold: encephalopathy</td>
+<td>Pediatric severe lead poisoning</td>
+<td>Encephalopathy typically at <strong>&gt;80–100 µg/dL</strong></td>
+<td>Contemporary case-based review</td>
+<td>Kamal, <em>BMC Pediatrics</em></td>
+<td>https://doi.org/10.1186/s12887-024-04871-3</td>
+<td>(kamal2024leadencephalopathypresenting pages 2-4)</td>
+</tr>
+<tr>
+<td>Very high acute toxicity threshold</td>
+<td>Severe acute poisoning, all ages</td>
+<td><strong>&gt;800 µg/L</strong> associated with <strong>seizures, encephalopathy, death</strong></td>
+<td>Contemporary clinical review</td>
+<td>Lanphear, <em>NEJM</em></td>
+<td>https://doi.org/10.1056/NEJMra2402527</td>
+<td>(lanphear2024leadpoisoning. pages 1-2)</td>
+</tr>
+<tr>
+<td>Chelation trial eligibility range</td>
+<td>TLC randomized trial in children aged 12–33 months</td>
+<td>Baseline venous BLL <strong>20–44 µg/dL</strong></td>
+<td>Trial enrollment period 1994–1997; report 2001</td>
+<td>Rogan, <em>NEJM</em></td>
+<td>https://doi.org/10.1056/NEJM200105103441902</td>
+<td>(rogan2001theeffectof pages 1-2)</td>
+</tr>
+<tr>
+<td>Chelation effect size on blood lead</td>
+<td>TLC trial; succimer vs placebo</td>
+<td>Mean BLL reduction <strong>4.5 µg/dL</strong> over first <strong>6 months</strong></td>
+<td>2001 report</td>
+<td>Rogan, <em>NEJM</em></td>
+<td>https://doi.org/10.1056/NEJM200105103441902</td>
+<td>(rogan2001theeffectof pages 1-2, rogan2001theeffectof pages 5-6)</td>
+</tr>
+<tr>
+<td>Chelation neurodevelopmental outcome</td>
+<td>TLC trial; cognition/behavior</td>
+<td><strong>No significant cognitive, neuropsychological, or behavioral benefit</strong> despite BLL reduction</td>
+<td>36-month follow-up; 2001 report</td>
+<td>Rogan, <em>NEJM</em></td>
+<td>https://doi.org/10.1056/NEJM200105103441902</td>
+<td>(rogan2001theeffectof pages 5-6, rogan2001theeffectof pages 3-5)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table compiles the main quantitative thresholds and epidemiologic statistics for lead poisoning drawn from the gathered evidence. It highlights current CDC benchmarks, prevalence estimates, toxicokinetic facts, severe-toxicity thresholds, and the major randomized chelation trial findings.</em></p>
+<table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Jurisdiction/Agent</th>
+<th>Metric</th>
+<th>Value</th>
+<th>Time window</th>
+<th>Source (author/journal)</th>
+<th>URL</th>
+<th>Evidence citation id</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Exposure sources</td>
+<td>California</td>
+<td>Consumer-products-only share of investigations</td>
+<td>25.8% (93/360)</td>
+<td>FY2019</td>
+<td>Porterfield et al., <em>Environmental Health Perspectives</em> (2024)</td>
+<td>https://doi.org/10.1289/ehp14336</td>
+<td>(porterfield2024asnapshotof pages 2-3)</td>
+</tr>
+<tr>
+<td>Exposure sources</td>
+<td>California</td>
+<td>Housing-only share of investigations</td>
+<td>27.5% (99/360)</td>
+<td>FY2019</td>
+<td>Porterfield et al., <em>Environmental Health Perspectives</em> (2024)</td>
+<td>https://doi.org/10.1289/ehp14336</td>
+<td>(porterfield2024asnapshotof pages 2-3)</td>
+</tr>
+<tr>
+<td>Exposure sources</td>
+<td>California</td>
+<td>Consumer-product attribution range across investigations</td>
+<td>22.3%–39.6%</td>
+<td>FY2016–FY2020</td>
+<td>Porterfield et al., <em>Environmental Health Perspectives</em> (2024)</td>
+<td>https://doi.org/10.1289/ehp14336</td>
+<td>(porterfield2024asnapshotof pages 3-5, porterfield2024asnapshotof pages 2-3)</td>
+</tr>
+<tr>
+<td>Exposure sources</td>
+<td>Oregon</td>
+<td>Consumer-products-only share of investigations</td>
+<td>16.7% (30/180)</td>
+<td>CY2019</td>
+<td>Porterfield et al., <em>Environmental Health Perspectives</em> (2024)</td>
+<td>https://doi.org/10.1289/ehp14336</td>
+<td>(porterfield2024asnapshotof pages 2-3)</td>
+</tr>
+<tr>
+<td>Exposure sources</td>
+<td>Oregon</td>
+<td>Housing-only share of investigations</td>
+<td>14.4% (26/180)</td>
+<td>CY2019</td>
+<td>Porterfield et al., <em>Environmental Health Perspectives</em> (2024)</td>
+<td>https://doi.org/10.1289/ehp14336</td>
+<td>(porterfield2024asnapshotof pages 2-3)</td>
+</tr>
+<tr>
+<td>Exposure sources</td>
+<td>Oregon</td>
+<td>Consumer-product attribution range across investigations</td>
+<td>9.2%–19.1%</td>
+<td>CY2016–CY2017 examples; broader review 2010–2021 noted 2%–20%</td>
+<td>Porterfield et al., <em>Environmental Health Perspectives</em> (2024)</td>
+<td>https://doi.org/10.1289/ehp14336</td>
+<td>(porterfield2024asnapshotof pages 3-5, porterfield2024asnapshotof pages 2-3)</td>
+</tr>
+<tr>
+<td>Exposure sources</td>
+<td>New York City</td>
+<td>Consumer-product attribution share</td>
+<td>29.4%</td>
+<td>FY2019</td>
+<td>Porterfield et al., <em>Environmental Health Perspectives</em> (2024)</td>
+<td>https://doi.org/10.1289/ehp14336</td>
+<td>(porterfield2024asnapshotof pages 2-3)</td>
+</tr>
+<tr>
+<td>Exposure sources</td>
+<td>New York City</td>
+<td>Housing-related attribution share</td>
+<td>64.2%</td>
+<td>FY2019</td>
+<td>Porterfield et al., <em>Environmental Health Perspectives</em> (2024)</td>
+<td>https://doi.org/10.1289/ehp14336</td>
+<td>(porterfield2024asnapshotof pages 2-3)</td>
+</tr>
+<tr>
+<td>Exposure sources</td>
+<td>New York City</td>
+<td>Multiple-source context</td>
+<td>~90% of children had multiple potential exposure sources</td>
+<td>FY2019</td>
+<td>Porterfield et al., <em>Environmental Health Perspectives</em> (2024)</td>
+<td>https://doi.org/10.1289/ehp14336</td>
+<td>(porterfield2024asnapshotof pages 2-3)</td>
+</tr>
+<tr>
+<td>Exposure sources</td>
+<td>King County, WA</td>
+<td>Consumer-product attribution share</td>
+<td>38.1%</td>
+<td>CY2019</td>
+<td>Porterfield et al., <em>Environmental Health Perspectives</em> (2024)</td>
+<td>https://doi.org/10.1289/ehp14336</td>
+<td>(porterfield2024asnapshotof pages 3-5)</td>
+</tr>
+<tr>
+<td>Exposure sources</td>
+<td>King County, WA</td>
+<td>Housing-related attribution share</td>
+<td>61.9%</td>
+<td>CY2019</td>
+<td>Porterfield et al., <em>Environmental Health Perspectives</em> (2024)</td>
+<td>https://doi.org/10.1289/ehp14336</td>
+<td>(porterfield2024asnapshotof pages 3-5)</td>
+</tr>
+<tr>
+<td>Exposure sources</td>
+<td>King County, WA</td>
+<td>Consumer-product attribution range across investigations</td>
+<td>37%–46%</td>
+<td>2019–2021</td>
+<td>Porterfield et al., <em>Environmental Health Perspectives</em> (2024)</td>
+<td>https://doi.org/10.1289/ehp14336</td>
+<td>(porterfield2024asnapshotof pages 3-5)</td>
+</tr>
+<tr>
+<td>Exposure sources</td>
+<td>Four jurisdictions combined</td>
+<td>Consumer products identified as potential source</td>
+<td>15%–38% of investigations</td>
+<td>2010–2021</td>
+<td>Porterfield et al., <em>Environmental Health Perspectives</em> (2024)</td>
+<td>https://doi.org/10.1289/ehp14336</td>
+<td>(porterfield2024asnapshotof pages 1-2)</td>
+</tr>
+<tr>
+<td>Chelator supply</td>
+<td>All lead chelators</td>
+<td>Total shortage events</td>
+<td>13 shortages</td>
+<td>2001–2022</td>
+<td>Whitledge et al., <em>JPPT</em> (2024)</td>
+<td>https://doi.org/10.5863/1551-6776-29.3.306</td>
+<td>(whitledge2024trendsinshortages pages 1-2, whitledge2024trendsinshortages pages 2-4)</td>
+</tr>
+<tr>
+<td>Chelator supply</td>
+<td>All lead chelators</td>
+<td>Median shortage duration</td>
+<td>7.4 months</td>
+<td>2001–2022</td>
+<td>Whitledge et al., <em>JPPT</em> (2024)</td>
+<td>https://doi.org/10.5863/1551-6776-29.3.306</td>
+<td>(whitledge2024trendsinshortages pages 1-2)</td>
+</tr>
+<tr>
+<td>Chelator supply</td>
+<td>Parenteral chelators</td>
+<td>Share of shortages</td>
+<td>61.5%</td>
+<td>2001–2022</td>
+<td>Whitledge et al., <em>JPPT</em> (2024)</td>
+<td>https://doi.org/10.5863/1551-6776-29.3.306</td>
+<td>(whitledge2024trendsinshortages pages 1-2, whitledge2024trendsinshortages pages 2-4)</td>
+</tr>
+<tr>
+<td>Chelator supply</td>
+<td>Parenteral vs non-parenteral</td>
+<td>Median shortage duration comparison</td>
+<td>14.2 months vs 2.2 months</td>
+<td>2001–2022</td>
+<td>Whitledge et al., <em>JPPT</em> (2024)</td>
+<td>https://doi.org/10.5863/1551-6776-29.3.306</td>
+<td>(whitledge2024trendsinshortages pages 4-5, whitledge2024trendsinshortages pages 1-2, whitledge2024trendsinshortages pages 2-4)</td>
+</tr>
+<tr>
+<td>Chelator supply</td>
+<td>Concurrent shortages</td>
+<td>Overlapping shortage time</td>
+<td>3.7% of study period</td>
+<td>2001–2022</td>
+<td>Whitledge et al., <em>JPPT</em> (2024)</td>
+<td>https://doi.org/10.5863/1551-6776-29.3.306</td>
+<td>(whitledge2024trendsinshortages pages 1-2)</td>
+</tr>
+<tr>
+<td>Chelator supply</td>
+<td>CaNa2EDTA</td>
+<td>Number of shortages</td>
+<td>4</td>
+<td>2001–2022</td>
+<td>Whitledge et al., <em>JPPT</em> (2024)</td>
+<td>https://doi.org/10.5863/1551-6776-29.3.306</td>
+<td>(whitledge2024trendsinshortages pages 4-5, whitledge2024trendsinshortages pages 2-4)</td>
+</tr>
+<tr>
+<td>Chelator supply</td>
+<td>CaNa2EDTA</td>
+<td>Total shortage months</td>
+<td>60.3 months</td>
+<td>2001–2022</td>
+<td>Whitledge et al., <em>JPPT</em> (2024)</td>
+<td>https://doi.org/10.5863/1551-6776-29.3.306</td>
+<td>(whitledge2024trendsinshortages pages 2-4)</td>
+</tr>
+<tr>
+<td>Chelator supply</td>
+<td>CaNa2EDTA</td>
+<td>Median shortage duration</td>
+<td>21.2 months</td>
+<td>2001–2022</td>
+<td>Whitledge et al., <em>JPPT</em> (2024)</td>
+<td>https://doi.org/10.5863/1551-6776-29.3.306</td>
+<td>(whitledge2024trendsinshortages pages 2-4)</td>
+</tr>
+<tr>
+<td>Chelator supply</td>
+<td>CaNa2EDTA</td>
+<td>Downtime as share of study period</td>
+<td>22.5% unavailable</td>
+<td>2001–2022</td>
+<td>Whitledge et al., <em>JPPT</em> (2024)</td>
+<td>https://doi.org/10.5863/1551-6776-29.3.306</td>
+<td>(whitledge2024trendsinshortages pages 4-5)</td>
+</tr>
+<tr>
+<td>Chelator supply</td>
+<td>CaNa2EDTA</td>
+<td>Average wholesale price (AWP) increase</td>
+<td>$42.40 to $6,730</td>
+<td>2001–2022</td>
+<td>Whitledge et al., <em>JPPT</em> (2024)</td>
+<td>https://doi.org/10.5863/1551-6776-29.3.306</td>
+<td>(whitledge2024trendsinshortages pages 4-5)</td>
+</tr>
+<tr>
+<td>Chelator supply</td>
+<td>BAL (dimercaprol)</td>
+<td>Number of shortages</td>
+<td>4</td>
+<td>2001–2022</td>
+<td>Whitledge et al., <em>JPPT</em> (2024)</td>
+<td>https://doi.org/10.5863/1551-6776-29.3.306</td>
+<td>(whitledge2024trendsinshortages pages 4-5, whitledge2024trendsinshortages pages 2-4)</td>
+</tr>
+<tr>
+<td>Chelator supply</td>
+<td>BAL (dimercaprol)</td>
+<td>Total shortage months</td>
+<td>29.5 months</td>
+<td>2001–2022</td>
+<td>Whitledge et al., <em>JPPT</em> (2024)</td>
+<td>https://doi.org/10.5863/1551-6776-29.3.306</td>
+<td>(whitledge2024trendsinshortages pages 2-4)</td>
+</tr>
+<tr>
+<td>Chelator supply</td>
+<td>BAL (dimercaprol)</td>
+<td>Median shortage duration</td>
+<td>5.8 months</td>
+<td>2001–2022</td>
+<td>Whitledge et al., <em>JPPT</em> (2024)</td>
+<td>https://doi.org/10.5863/1551-6776-29.3.306</td>
+<td>(whitledge2024trendsinshortages pages 2-4)</td>
+</tr>
+<tr>
+<td>Chelator supply</td>
+<td>BAL (dimercaprol)</td>
+<td>Manufacturing disruption</td>
+<td>Sole US manufacturer Akorn permanently shut down after Chapter 7 bankruptcy</td>
+<td>Feb 2023</td>
+<td>Whitledge et al., <em>JPPT</em> (2024)</td>
+<td>https://doi.org/10.5863/1551-6776-29.3.306</td>
+<td>(whitledge2024trendsinshortages pages 4-5, whitledge2024trendsinshortages pages 8-10)</td>
+</tr>
+<tr>
+<td>Chelator supply</td>
+<td>DMSA (succimer)</td>
+<td>Number of shortages</td>
+<td>2</td>
+<td>2001–2022</td>
+<td>Whitledge et al., <em>JPPT</em> (2024)</td>
+<td>https://doi.org/10.5863/1551-6776-29.3.306</td>
+<td>(whitledge2024trendsinshortages pages 4-5, whitledge2024trendsinshortages pages 2-4)</td>
+</tr>
+<tr>
+<td>Chelator supply</td>
+<td>DMSA (succimer)</td>
+<td>Total shortage months</td>
+<td>8.3 months</td>
+<td>2001–2022</td>
+<td>Whitledge et al., <em>JPPT</em> (2024)</td>
+<td>https://doi.org/10.5863/1551-6776-29.3.306</td>
+<td>(whitledge2024trendsinshortages pages 2-4)</td>
+</tr>
+<tr>
+<td>Chelator supply</td>
+<td>DMSA (succimer)</td>
+<td>Median shortage duration</td>
+<td>4.2 months</td>
+<td>2001–2022</td>
+<td>Whitledge et al., <em>JPPT</em> (2024)</td>
+<td>https://doi.org/10.5863/1551-6776-29.3.306</td>
+<td>(whitledge2024trendsinshortages pages 2-4)</td>
+</tr>
+<tr>
+<td>Chelator supply</td>
+<td>DMSA (succimer)</td>
+<td>Downtime as share of study period</td>
+<td>3.1% unavailable</td>
+<td>2001–2022</td>
+<td>Whitledge et al., <em>JPPT</em> (2024)</td>
+<td>https://doi.org/10.5863/1551-6776-29.3.306</td>
+<td>(whitledge2024trendsinshortages pages 4-5)</td>
+</tr>
+<tr>
+<td>Chelator supply</td>
+<td>DMSA (succimer)</td>
+<td>Average wholesale price (AWP) increase</td>
+<td>$469 to $2,671</td>
+<td>2001–2022</td>
+<td>Whitledge et al., <em>JPPT</em> (2024)</td>
+<td>https://doi.org/10.5863/1551-6776-29.3.306</td>
+<td>(whitledge2024trendsinshortages pages 4-5)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes recent U.S. data on source attribution for pediatric lead exposure across four jurisdictions and on shortages of major lead chelators. It is useful for contrasting exposure epidemiology with real-world treatment access constraints.</em></p>
+<h1>Notes on evidence gaps and identifier limitations</h1>
+<p>This report prioritizes 2023–2024 sources where available (e.g., Lanphear <em>NEJM</em> 2024; Porterfield <em>EHP</em> 2024; Yu <em>Hypertension Research</em> 2023; Sobin <em>Milbank Quarterly</em> 2023; Obeng <em>BMC Public Health</em> 2023; Whitledge <em>JPPT</em> 2024; Kamal <em>BMC Pediatrics</em> 2024). However, <strong>formal disease ontology identifiers (MONDO, MeSH, ICD-10/11) and some requested structured ontology mappings (HPO/GO/CL/UBERON IDs)</strong> were not present in the tool-retrieved excerpts; consequently, they are provided only as <em>suggested</em> concepts without identifier codes when not evidence-backed.</p>
+<h1>Source figure (visual evidence)</h1>
+<p>Lanphear et al. (2024) Figure 2 (as retrieved) summarizes major exposure sources and body distribution, including bone storage fractions (70% children; 95% adults). (lanphear2024leadpoisoning. media 5797edb2)</p>
+<p>References</p>
+<ol>
+<li>
+<p>(lanphear2024leadpoisoning. pages 3-5): Bruce Lanphear, Ana Navas-Acien, and David C. Bellinger. Lead poisoning. The New England journal of medicine, 391 17:1621-1631, Oct 2024. URL: https://doi.org/10.1056/nejmra2402527, doi:10.1056/nejmra2402527. This article has 68 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(lanphear2024leadpoisoning. pages 1-2): Bruce Lanphear, Ana Navas-Acien, and David C. Bellinger. Lead poisoning. The New England journal of medicine, 391 17:1621-1631, Oct 2024. URL: https://doi.org/10.1056/nejmra2402527, doi:10.1056/nejmra2402527. This article has 68 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(yu2023publicandoccupational pages 1-3): Yu-Ling Yu, Wen-Yi Yang, Azusa Hara, Kei Asayama, Harry A. Roels, Tim S. Nawrot, and Jan A. Staessen. Public and occupational health risks related to lead exposure updated according to present-day blood lead levels. Hypertension Research, 46:395-407, Oct 2023. URL: https://doi.org/10.1038/s41440-022-01069-x, doi:10.1038/s41440-022-01069-x. This article has 56 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(rogan2001theeffectof pages 1-2): Walter J. Rogan, Kim N. Dietrich, James H. Ware, Douglas W. Dockery, Mikhail Salganik, Jerilynn Radcliffe, Robert L. Jones, N. Beth Ragan, J. Julian Chisolm, and George G. Rhoads. The effect of chelation therapy with succimer on neuropsychological development in children exposed to lead. The New England journal of medicine, 344 19:1421-6, May 2001. URL: https://doi.org/10.1056/nejm200105103441902, doi:10.1056/nejm200105103441902. This article has 493 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(obeng2023thecontributionof pages 2-4): Alexander Obeng, Taehyun Roh, Anisha Aggarwal, Kido Uyasmasi, and Genny Carrillo. The contribution of secondhand tobacco smoke to blood lead levels in us children and adolescents: a cross-sectional analysis of nhanes 2015–2018. BMC Public Health, Jun 2023. URL: https://doi.org/10.1186/s12889-023-16005-y, doi:10.1186/s12889-023-16005-y. This article has 12 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(lanphear2024leadpoisoning. pages 2-3): Bruce Lanphear, Ana Navas-Acien, and David C. Bellinger. Lead poisoning. The New England journal of medicine, 391 17:1621-1631, Oct 2024. URL: https://doi.org/10.1056/nejmra2402527, doi:10.1056/nejmra2402527. This article has 68 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(porterfield2024asnapshotof pages 1-2): Kate Porterfield, Paromita Hore, Stephen G. Whittaker, Katie M. Fellows, Anshu Mohllajee, Shakoora Azimi-Gaylon, Berna Watson, Isabel Grant, and Richard Fuller. A snapshot of lead in consumer products across four us jurisdictions. Environmental Health Perspectives, Jul 2024. URL: https://doi.org/10.1289/ehp14336, doi:10.1289/ehp14336. This article has 10 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(porterfield2024asnapshotof pages 2-3): Kate Porterfield, Paromita Hore, Stephen G. Whittaker, Katie M. Fellows, Anshu Mohllajee, Shakoora Azimi-Gaylon, Berna Watson, Isabel Grant, and Richard Fuller. A snapshot of lead in consumer products across four us jurisdictions. Environmental Health Perspectives, Jul 2024. URL: https://doi.org/10.1289/ehp14336, doi:10.1289/ehp14336. This article has 10 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(porterfield2024asnapshotof pages 5-6): Kate Porterfield, Paromita Hore, Stephen G. Whittaker, Katie M. Fellows, Anshu Mohllajee, Shakoora Azimi-Gaylon, Berna Watson, Isabel Grant, and Richard Fuller. A snapshot of lead in consumer products across four us jurisdictions. Environmental Health Perspectives, Jul 2024. URL: https://doi.org/10.1289/ehp14336, doi:10.1289/ehp14336. This article has 10 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(cuomo2022systemicreviewof pages 1-3): Danila Cuomo, Margaret J. Foster, and David Threadgill. Systemic review of genetic and epigenetic factors underlying differential toxicity to environmental lead (pb) exposure. Environmental Science and Pollution Research, 29:35583-35598, Mar 2022. URL: https://doi.org/10.1007/s11356-022-19333-5, doi:10.1007/s11356-022-19333-5. This article has 62 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(jacobs2023childhoodleadpoisoning pages 4-6): David E. Jacobs and Mary Jean Brown. Childhood lead poisoning 1970-2022: charting progress and needed reforms. Journal of Public Health Management and Practice, 29:230-240, Nov 2023. URL: https://doi.org/10.1097/phh.0000000000001664, doi:10.1097/phh.0000000000001664. This article has 48 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(obeng2023thecontributionof pages 1-2): Alexander Obeng, Taehyun Roh, Anisha Aggarwal, Kido Uyasmasi, and Genny Carrillo. The contribution of secondhand tobacco smoke to blood lead levels in us children and adolescents: a cross-sectional analysis of nhanes 2015–2018. BMC Public Health, Jun 2023. URL: https://doi.org/10.1186/s12889-023-16005-y, doi:10.1186/s12889-023-16005-y. This article has 12 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(lowry2010oralchelationtherapy pages 6-9): JA Lowry. Oral chelation therapy for patients with lead poisoning. Unknown journal, 2010.</p>
+</li>
+<li>
+<p>(ou2024interplayanalysisof pages 1-2): Xiao-yan Ou, Chen Xiao, Jun Jiang, Xin-xia Liu, Lili Liu, Yao Lu, Weipeng Zhang, Yun-Shao He, and Zhiqiang Zhao. Interplay analysis of lead exposure with key cardiovascular gene polymorphisms on blood pressure in a cross-sectional study of occupational workers. Scientific Reports, Nov 2024. URL: https://doi.org/10.1038/s41598-024-77194-z, doi:10.1038/s41598-024-77194-z. This article has 1 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(cuomo2022systemicreviewof pages 6-7): Danila Cuomo, Margaret J. Foster, and David Threadgill. Systemic review of genetic and epigenetic factors underlying differential toxicity to environmental lead (pb) exposure. Environmental Science and Pollution Research, 29:35583-35598, Mar 2022. URL: https://doi.org/10.1007/s11356-022-19333-5, doi:10.1007/s11356-022-19333-5. This article has 62 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(kamal2024leadencephalopathypresenting pages 1-2): Iqra J. Kamal, Trevor Cerbini, Amanda Clouser, Aileen Hernandez, and Diane P. Calello. Lead encephalopathy presenting as status epilepticus: a case report. BMC Pediatrics, Oct 2024. URL: https://doi.org/10.1186/s12887-024-04871-3, doi:10.1186/s12887-024-04871-3. This article has 4 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(kamal2024leadencephalopathypresenting pages 2-4): Iqra J. Kamal, Trevor Cerbini, Amanda Clouser, Aileen Hernandez, and Diane P. Calello. Lead encephalopathy presenting as status epilepticus: a case report. BMC Pediatrics, Oct 2024. URL: https://doi.org/10.1186/s12887-024-04871-3, doi:10.1186/s12887-024-04871-3. This article has 4 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(jimenezgarza2023toxicomethylomicsrevisiteda pages 1-2): Octavio Jiménez-Garza, Manosij Ghosh, Timothy M. Barrow, and Lode Godderis. Toxicomethylomics revisited: a state-of-the-science review about dna methylation modifications in blood cells from workers exposed to toxic agents. Frontiers in Public Health, Feb 2023. URL: https://doi.org/10.3389/fpubh.2023.1073658, doi:10.3389/fpubh.2023.1073658. This article has 7 citations.</p>
+</li>
+<li>
+<p>(sobin2023improvingequitabilityand pages 3-3): CHRISTINA SOBIN, MARISELA GUTIéRREZ‐VEGA, GISEL FLORES‐MONTOYA, MICHELLE DEL RIO, JUAN M. ALVAREZ, ALEXANDER OBENG, JALEEN AVILA, and GANGA HETTIARACHCHI. Improving equitability and inclusion for testing and detection of lead poisoning in us children. The Milbank Quarterly, 101:48-73, Jan 2023. URL: https://doi.org/10.1111/1468-0009.12596, doi:10.1111/1468-0009.12596. This article has 11 citations.</p>
+</li>
+<li>
+<p>(rogan2001theeffectof pages 5-6): Walter J. Rogan, Kim N. Dietrich, James H. Ware, Douglas W. Dockery, Mikhail Salganik, Jerilynn Radcliffe, Robert L. Jones, N. Beth Ragan, J. Julian Chisolm, and George G. Rhoads. The effect of chelation therapy with succimer on neuropsychological development in children exposed to lead. The New England journal of medicine, 344 19:1421-6, May 2001. URL: https://doi.org/10.1056/nejm200105103441902, doi:10.1056/nejm200105103441902. This article has 493 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(rogan2001theeffectof pages 3-5): Walter J. Rogan, Kim N. Dietrich, James H. Ware, Douglas W. Dockery, Mikhail Salganik, Jerilynn Radcliffe, Robert L. Jones, N. Beth Ragan, J. Julian Chisolm, and George G. Rhoads. The effect of chelation therapy with succimer on neuropsychological development in children exposed to lead. The New England journal of medicine, 344 19:1421-6, May 2001. URL: https://doi.org/10.1056/nejm200105103441902, doi:10.1056/nejm200105103441902. This article has 493 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(whitledge2024trendsinshortages pages 4-5): James D. Whitledge, Pelayia Soto, Kieran M Glowacki, D. Calello, Erin R Fox, and M. Mazer-Amirshahi. Trends in shortages of lead chelators from 2001 to 2022. The journal of pediatric pharmacology and therapeutics : JPPT : the official journal of PPAG, 29 3:306-315, Jun 2024. URL: https://doi.org/10.5863/1551-6776-29.3.306, doi:10.5863/1551-6776-29.3.306. This article has 7 citations.</p>
+</li>
+<li>
+<p>(porterfield2024asnapshotof pages 3-5): Kate Porterfield, Paromita Hore, Stephen G. Whittaker, Katie M. Fellows, Anshu Mohllajee, Shakoora Azimi-Gaylon, Berna Watson, Isabel Grant, and Richard Fuller. A snapshot of lead in consumer products across four us jurisdictions. Environmental Health Perspectives, Jul 2024. URL: https://doi.org/10.1289/ehp14336, doi:10.1289/ehp14336. This article has 10 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(stangle2004reductionsinblood pages 5-6): Diane E Stangle, Myla S Strawderman, Donald Smith, Mareike Kuypers, and Barbara J Strupp. Reductions in blood lead overestimate reductions in brain lead following repeated succimer regimens in a rodent model of childhood lead exposure. Environmental Health Perspectives, 112:302-308, Mar 2004. URL: https://doi.org/10.1289/ehp.6517, doi:10.1289/ehp.6517. This article has 41 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(whitledge2024trendsinshortages pages 1-2): James D. Whitledge, Pelayia Soto, Kieran M Glowacki, D. Calello, Erin R Fox, and M. Mazer-Amirshahi. Trends in shortages of lead chelators from 2001 to 2022. The journal of pediatric pharmacology and therapeutics : JPPT : the official journal of PPAG, 29 3:306-315, Jun 2024. URL: https://doi.org/10.5863/1551-6776-29.3.306, doi:10.5863/1551-6776-29.3.306. This article has 7 citations.</p>
+</li>
+<li>
+<p>(whitledge2024trendsinshortages pages 2-4): James D. Whitledge, Pelayia Soto, Kieran M Glowacki, D. Calello, Erin R Fox, and M. Mazer-Amirshahi. Trends in shortages of lead chelators from 2001 to 2022. The journal of pediatric pharmacology and therapeutics : JPPT : the official journal of PPAG, 29 3:306-315, Jun 2024. URL: https://doi.org/10.5863/1551-6776-29.3.306, doi:10.5863/1551-6776-29.3.306. This article has 7 citations.</p>
+</li>
+<li>
+<p>(whitledge2024trendsinshortages pages 8-10): James D. Whitledge, Pelayia Soto, Kieran M Glowacki, D. Calello, Erin R Fox, and M. Mazer-Amirshahi. Trends in shortages of lead chelators from 2001 to 2022. The journal of pediatric pharmacology and therapeutics : JPPT : the official journal of PPAG, 29 3:306-315, Jun 2024. URL: https://doi.org/10.5863/1551-6776-29.3.306, doi:10.5863/1551-6776-29.3.306. This article has 7 citations.</p>
+</li>
+<li>
+<p>(lanphear2024leadpoisoning. media 5797edb2): Bruce Lanphear, Ana Navas-Acien, and David C. Bellinger. Lead poisoning. The New England journal of medicine, 391 17:1621-1631, Oct 2024. URL: https://doi.org/10.1056/nejmra2402527, doi:10.1056/nejmra2402527. This article has 68 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+</ol>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </div>
         
 
         <footer class="page-footer">
@@ -8664,7 +10373,7 @@ clinical_trials:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Lead Poisoning", "mondoId": "MONDO:0018019", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Lead_Poisoning", "yamlRevision": "8c10a63f0710"};
+        const OS_CONFIG = {"diseaseName": "Lead Poisoning", "mondoId": "MONDO:0018019", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Lead_Poisoning", "yamlRevision": "ebd78619c833"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

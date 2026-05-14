@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,7 +2570,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Mitochondrial lipoylation defect</span>
@@ -2579,7 +2732,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">8</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3243,7 +3396,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Brain glycine accumulation with NMDA receptor overactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired glycine cleavage elevates CNS glycine, which can potentiate excitatory neurotransmission through NMDA receptor co-agonism and increase cortical network hyperexcitability. This provides a mechanistic bridge from glycine cleavage dysfunction to neonatal seizures.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Combined alpha-ketoacid dehydrogenase deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective lipoylation of the E2 subunits of pyruvate dehydrogenase (PDHc), alpha-ketoglutarate dehydrogenase (alpha-KGDHc), and branched-chain ketoacid dehydrogenase (BCKDHc) impairs oxidative metabolism of pyruvate, alpha-ketoglutarate, and branched-chain amino acids. Loss of PDHc blocks entry of glycolytic end products into the TCA cycle, causing pyruvate and lactate accumulation and energy failure. Loss of alpha-KGDHc disrupts the TCA cycle at its midpoint. The brain is particularly vulnerable due to its high dependence on oxidative metabolism.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Tricarboxylic acid cycle\"]}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe to profound global developmental delay with minimal or absent psychomotor development.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0012736\"}}, {\"id\": \"Glycine cleavage system dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Unlike LIPT1 deficiency which spares the glycine cleavage system, LIPT2 deficiency impairs lipoylation of GCSH itself, leading to defective glycine cleavage and elevated glycine levels. Glycine accumulation in the brain contributes to neurological impairment including seizures and encephalopathy.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hyperglycinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mildly elevated plasma glycine due to impaired glycine cleavage system function from defective GCSH lipoylation. Distinguishes LIPT2 deficiency from LIPT1 deficiency, which spares the glycine cleavage system.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002154\"}}, {\"id\": \"Impaired mitochondrial lipoylation via LIPT2 deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LIPT2 encodes lipoyltransferase 2, which transfers octanoyl groups from octanoyl-ACP (synthesized by the mitochondrial fatty acid synthesis system) to the glycine cleavage system H protein (GCSH). This is the first committed step in the mitochondrial lipoylation pathway. The octanoyl-GCSH is then converted to lipoyl-GCSH by lipoic acid synthetase (LIAS), and LIPT1 relays lipoyl groups from GCSH to the E2 subunits of alpha-ketoacid dehydrogenases. Loss-of-function mutations in LIPT2 abolish this initial transfer, leading to deficient lipoylation of all lipoic acid-dependent enzyme complexes and disruption of the glycine cleavage system. Unlike LIPT1 deficiency which spares glycine cleavage, LIPT2 deficiency affects all lipoylated proteins.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Protein lipoylation\"], \"genes\": [\"LIPT2\"]}}, {\"id\": \"Lactic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent elevation of serum lactate, pyruvate, and alanine due to impaired oxidative metabolism from defective lipoylation of mitochondrial enzyme complexes.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0004902\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}], \"edges\": [{\"source\": \"Impaired mitochondrial lipoylation via LIPT2 deficiency\", \"target\": \"Combined alpha-ketoacid dehydrogenase deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial lipoylation via LIPT2 deficiency\", \"target\": \"Glycine cleavage system dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Combined alpha-ketoacid dehydrogenase deficiency\", \"target\": \"Lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Combined alpha-ketoacid dehydrogenase deficiency\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Glycine cleavage system dysfunction\", \"target\": \"Hyperglycinemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Glycine cleavage system dysfunction\", \"target\": \"Brain glycine accumulation with NMDA receptor overactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Brain glycine accumulation with NMDA receptor overactivation\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Brain glycine accumulation with NMDA receptor overactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired glycine cleavage elevates CNS glycine, which can potentiate excitatory neurotransmission through NMDA receptor co-agonism and increase cortical network hyperexcitability. This provides a mechanistic bridge from glycine cleavage dysfunction to neonatal seizures.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Combined alpha-ketoacid dehydrogenase deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective lipoylation of the E2 subunits of pyruvate dehydrogenase (PDHc), alpha-ketoglutarate dehydrogenase (alpha-KGDHc), and branched-chain ketoacid dehydrogenase (BCKDHc) impairs oxidative metabolism of pyruvate, alpha-ketoglutarate, and branched-chain amino acids. Loss of PDHc blocks entry of glycolytic end products into the TCA cycle, causing pyruvate and lactate accumulation and energy failure. Loss of alpha-KGDHc disrupts the TCA cycle at its midpoint. The brain is particularly vulnerable due to its high dependence on oxidative metabolism.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Tricarboxylic acid cycle\"]}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe to profound global developmental delay with minimal or absent psychomotor development.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0012736\"}}, {\"id\": \"Glycine cleavage system dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Unlike LIPT1 deficiency which spares the glycine cleavage system, LIPT2 deficiency impairs lipoylation of GCSH itself, leading to defective glycine cleavage and elevated glycine levels. Glycine accumulation in the brain contributes to neurological impairment including seizures and encephalopathy.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hyperglycinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mildly elevated plasma glycine due to impaired glycine cleavage system function from defective GCSH lipoylation. Distinguishes LIPT2 deficiency from LIPT1 deficiency, which spares the glycine cleavage system.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002154\"}}, {\"id\": \"Impaired mitochondrial lipoylation via LIPT2 deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LIPT2 encodes lipoyltransferase 2, which transfers octanoyl groups from octanoyl-ACP (synthesized by the mitochondrial fatty acid synthesis system) to the glycine cleavage system H protein (GCSH). This is the first committed step in the mitochondrial lipoylation pathway. The octanoyl-GCSH is then converted to lipoyl-GCSH by lipoic acid synthetase (LIAS), and LIPT1 relays lipoyl groups from GCSH to the E2 subunits of alpha-ketoacid dehydrogenases. Loss-of-function mutations in LIPT2 abolish this initial transfer, leading to deficient lipoylation of all lipoic acid-dependent enzyme complexes and disruption of the glycine cleavage system. Unlike LIPT1 deficiency which spares glycine cleavage, LIPT2 deficiency affects all lipoylated proteins.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Protein lipoylation\"], \"genes\": [\"LIPT2\"]}}, {\"id\": \"LIPT2 loss-of-function variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"LIPT2\"], \"association\": \"Causative\"}}, {\"id\": \"Lactic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent elevation of serum lactate, pyruvate, and alanine due to impaired oxidative metabolism from defective lipoylation of mitochondrial enzyme complexes.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0004902\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}], \"edges\": [{\"source\": \"Impaired mitochondrial lipoylation via LIPT2 deficiency\", \"target\": \"Combined alpha-ketoacid dehydrogenase deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial lipoylation via LIPT2 deficiency\", \"target\": \"Glycine cleavage system dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Combined alpha-ketoacid dehydrogenase deficiency\", \"target\": \"Lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Combined alpha-ketoacid dehydrogenase deficiency\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Glycine cleavage system dysfunction\", \"target\": \"Hyperglycinemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Glycine cleavage system dysfunction\", \"target\": \"Brain glycine accumulation with NMDA receptor overactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Brain glycine accumulation with NMDA receptor overactivation\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"LIPT2 loss-of-function variants\", \"target\": \"Impaired mitochondrial lipoylation via LIPT2 deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4268,6 +4421,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4311,6 +4465,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4352,6 +4507,7 @@
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(INCREASED)</span>
                     
                 </div>
+                
                 
                 
     
@@ -4420,7 +4576,7 @@
                 <pre class="yaml-preview">name: Neonatal Severe Encephalopathy with Lactic Acidosis and Brain
   Abnormalities
 creation_date: &#39;2026-02-13T00:59:22Z&#39;
-updated_date: &#39;2026-02-17T21:53:14Z&#39;
+updated_date: &#39;2026-05-09T13:00:30Z&#39;
 category: Mendelian
 description: &gt;
   NELABA (Encephalopathy, Neonatal Severe, with Lactic Acidosis and Brain
@@ -4911,6 +5067,11 @@ biochemical:
       combined dehydrogenase deficiency.
 genetic:
 - name: LIPT2 loss-of-function variants
+  gene_term:
+    preferred_term: LIPT2
+    term:
+      id: hgnc:37216
+      label: LIPT2
   association: Causative
   notes: &gt;
     Biallelic loss-of-function mutations in LIPT2 cause NELABA. The first reported
@@ -5192,7 +5353,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Neonatal Severe Encephalopathy with Lactic Acidosis and Brain Abnormalities", "mondoId": "MONDO:0060562", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Neonatal_Severe_Encephalopathy_with_Lactic_Acidosis_and_Brain_Abnormalities", "yamlRevision": "49fb928bb30f"};
+        const OS_CONFIG = {"diseaseName": "Neonatal Severe Encephalopathy with Lactic Acidosis and Brain Abnormalities", "mondoId": "MONDO:0060562", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Neonatal_Severe_Encephalopathy_with_Lactic_Acidosis_and_Brain_Abnormalities", "yamlRevision": "09bbbbca4b5f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

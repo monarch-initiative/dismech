@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2416,6 +2569,8 @@
                     </a>
                 </span>
                 
+                
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 14</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Metabolic Bone Disorders</span>
@@ -2567,16 +2722,18 @@
             
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
-                <div class="stat-value">7</div>
+                <div class="stat-value">11</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
             
             
+            <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">14</div>
                 <div class="stat-label">Pathograph</div>
             </div>
+            </a>
             
             
             <a class="stat-link" href="#genetic">
@@ -2685,6 +2842,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"X-linked hypophosphatemic rickets (HYP) is a dominant disorder characterised by impaired phosphate uptake in the kidney"</div>
@@ -2771,6 +2930,17 @@
                 </div>
                 
                 
+                <div class="item-meta">
+                    
+                    <span class="tag tag-gene">
+                        PHEX
+                        
+                        <a href="https://bioregistry.io/hgnc:8918" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
                 <div class="item-meta">
@@ -2784,6 +2954,10 @@
                     
     
     
+    
+    <span class="tag tag-modifier">
+        ⚠ ABNORMAL
+    </span>
     
     
     
@@ -2805,6 +2979,10 @@
     
     
     
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
     
     
     
@@ -2823,6 +3001,27 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hypophosphatemia</span>
+	                            
+	                            <span class="crosslink-desc">Excess FGF23 drives renal phosphate wasting, producing the hallmark low serum phosphate phenotype.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Defective Bone Mineralization</span>
+	                            
+	                            <span class="crosslink-desc">Lifelong renal phosphate wasting leaves insufficient phosphate for normal skeletal mineralization.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
@@ -2839,6 +3038,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -2858,6 +3059,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"impaired phosphate uptake in the kidney, which is likely to be caused by abnormal regulation of sodium phosphate cotransport in the proximal tubules"</div>
@@ -2875,6 +3078,8 @@
                     
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
                     
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -2921,17 +3126,10 @@
     
     
                     
-                </div>
-                
-                
-                
-                
-                <div class="item-meta">
-                    
-                    <span class="tag tag-bio">
-                        Ossification
+                    <span class="tag tag-cell">
+                        Chondrocyte
                         
-                        <a href="http://purl.obolibrary.org/obo/GO_0001503" target="_blank" class="linkout">link</a>
+                        <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="linkout">link</a>
                         
                     </span>
                     
@@ -2953,8 +3151,102 @@
                 
                 
                 
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        bone mineralization
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0030282" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
                 
 	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Rickets</span>
+	                            
+	                            <span class="crosslink-desc">Impaired growth-plate mineralization produces rachitic skeletal changes in children.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Osteomalacia</span>
+	                            
+	                            <span class="crosslink-desc">Impaired adult bone mineralization manifests as osteomalacia.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Short Stature</span>
+	                            
+	                            <span class="crosslink-desc">Persistent childhood rickets and growth-plate dysfunction contribute to impaired linear growth.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Lower Limb Bowing</span>
+	                            
+	                            <span class="crosslink-desc">Rachitic mineralization defects cause lower-extremity bowing during weight bearing.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Pseudofractures and Fractures</span>
+	                            
+	                            <span class="crosslink-desc">Osteomalacia from impaired mineralization increases adult fracture and pseudofracture burden.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Dental Abscesses</span>
+	                            
+	                            <span class="crosslink-desc">Defective dentin mineralization predisposes to spontaneous dental abscesses.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Enthesitis</span>
+	                            
+	                            <span class="crosslink-desc">Adult skeletal mineralization disease is associated with progressive enthesopathy through incompletely resolved joint and enthesis intermediates.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Craniosynostosis</span>
+	                            
+	                            <span class="crosslink-desc">Abnormal bone growth in pediatric XLH is associated with skull abnormalities including craniosynostosis.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
 	                
 	                
     
@@ -2972,6 +3264,8 @@
                     
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
                     
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -2997,6 +3291,29 @@
 
         <!-- Causal Graph (Pathograph) -->
         
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
+                <h2 class="card-title">Pathograph</h2>
+            </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
+            
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for X-Linked Hypophosphatemia</title>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
+            </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Burosumab (Crysvita)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-FGF23 monoclonal antibody. Directly targets the pathogenic mechanism by neutralizing excess FGF23, normalizing phosphate homeostasis. FDA approved 2018 for pediatric and adult XLH. Administered subcutaneously every 2-4 weeks.\\n\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"burosumab\"]}}, {\"id\": \"Conventional Therapy (Phosphate/Calcitriol)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral phosphate supplementation combined with active vitamin D (calcitriol or alfacalcidol). Previously standard of care but limited by GI side effects, secondary hyperparathyroidism, and nephrocalcinosis risk.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"phosphate salts\", \"calcitriol\"]}}, {\"id\": \"Craniosynostosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Premature cranial suture fusion occurs in a subset of pediatric patients, with systematic review evidence indicating higher prevalence in XLH than in the general pediatric population.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001363\"}}, {\"id\": \"Defective Bone Mineralization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic hypophosphatemia results in insufficient phosphate for hydroxyapatite crystal formation. This causes rickets at the growth plate in children (disorganized hypertrophic zone, widened physis) and osteomalacia in adults (undermineralized osteoid). The mineralization defect persists despite growth plate closure in adults.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Osteoblast\", \"Chondrocyte\"], \"biological_processes\": [\"bone mineralization\"]}}, {\"id\": \"Dental Abscesses\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spontaneous dental abscesses and periapical lucencies from defective dentin mineralization, without caries. May be the presenting feature.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0030757\"}}, {\"id\": \"Enthesitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Calcification and ossification of tendons, ligaments, and joint capsules in adults. Progressive and often disabling, affecting spine and major joints.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100686\"}}, {\"id\": \"Hypophosphatemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic low serum phosphate due to renal phosphate wasting. The biochemical hallmark of the disease.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002148\"}}, {\"id\": \"Lower Limb Bowing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive bowing of the legs (genu varum), worse with ambulation. May require surgical correction (osteotomy).\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002970\"}}, {\"id\": \"Osteomalacia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Adult defective bone mineralization with undermineralized osteoid, clinically associated with fractures and pseudofractures in XLH.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002749\"}}, {\"id\": \"PHEX Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"PHEX\"], \"association\": \"Causative\"}}, {\"id\": \"Pseudofractures and Fractures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Adult XLH includes fractures and pseudofractures as consequences of osteomalacia, with fracture healing improved by burosumab in clinical trial follow-up.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002757\"}}, {\"id\": \"Renal Phosphate Wasting via FGF23 Excess\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss-of-function mutations in PHEX lead to elevated circulating FGF23 (fibroblast growth factor 23), a phosphaturic hormone produced by osteocytes. Elevated FGF23 acts on the kidney to downregulate sodium- phosphate cotransporters (NaPi-IIa/IIc) in the proximal tubule, causing renal phosphate wasting. FGF23 also suppresses 1-alpha-hydroxylase (CYP27B1), reducing conversion of 25-hydroxyvitamin D to active 1,25-dihydroxyvitamin D, further impairing phosphate absorption.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Osteocyte\", \"Kidney Proximal Tubule Cell\"], \"biological_processes\": [\"Phosphate Ion Homeostasis\", \"Vitamin D Metabolism\"], \"genes\": [\"PHEX\"]}}, {\"id\": \"Rickets\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rachitic changes at the growth plate, bowing of lower extremities (genu varum), and metaphyseal irregularities. Typically presents in the first two years of life when the child begins weight-bearing.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002748\"}}, {\"id\": \"Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disproportionate short stature with relatively short lower limbs. Adult height is typically -2 to -3 SD below mean.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004322\"}}], \"edges\": [{\"source\": \"Renal Phosphate Wasting via FGF23 Excess\", \"target\": \"Hypophosphatemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Renal Phosphate Wasting via FGF23 Excess\", \"target\": \"Defective Bone Mineralization\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Defective Bone Mineralization\", \"target\": \"Rickets\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Defective Bone Mineralization\", \"target\": \"Osteomalacia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Defective Bone Mineralization\", \"target\": \"Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Defective Bone Mineralization\", \"target\": \"Lower Limb Bowing\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Defective Bone Mineralization\", \"target\": \"Pseudofractures and Fractures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Defective Bone Mineralization\", \"target\": \"Dental Abscesses\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Defective Bone Mineralization\", \"target\": \"Enthesitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Defective Bone Mineralization\", \"target\": \"Craniosynostosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Burosumab (Crysvita)\", \"target\": \"Renal Phosphate Wasting via FGF23 Excess\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Conventional Therapy (Phosphate/Calcitriol)\", \"target\": \"Defective Bone Mineralization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"PHEX Mutations\", \"target\": \"Renal Phosphate Wasting via FGF23 Excess\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
+        </div>
+        
 
         <!-- Phenotypes -->
         
@@ -3004,27 +3321,94 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">7</span>
+                <span class="card-count">11</span>
             </div>
             
             
             <div class="pheno-toc">
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Head and Neck<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Limbs<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(2)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Limbs<span class="pill-count">(1)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(1)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(4)</span></button>
+                
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(1)</span></button>
+                
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(1)</span></button>
                 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
             
             
             <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Ear
+                    <span class="cat-count">1</span>
+                </summary>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Hearing Impairment
+                        
+                    
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank">
+                            Hearing impairment
+                        </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000365)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29460029" target="_blank">PMID:29460029</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Dental disease (63%), nephrocalcinosis (42%), and hearing impairment (14%) were also common"</div>
+                
+                
+                <div class="evidence-explanation">Adult XLH cohort reported hearing impairment in 14% of patients.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+            </details>
+            
+            <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
@@ -3051,7 +3435,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -3063,6 +3447,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -3082,30 +3468,14 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"Dental disease (63%), nephrocalcinosis (42%), and hearing impairment (14%) were also common"</div>
                 
                 
                 <div class="evidence-explanation">63% prevalence of dental disease in adult XLH cohort.</div>
-                
-            </div>
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11062477" target="_blank">PMID:11062477</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                </div>
-                
-                <div class="evidence-snippet">"rickets, osteomalacia, lower extremity deformities, short stature, bone pain and dental abscesses"</div>
-                
-                
-                <div class="evidence-explanation">Dental abscesses listed as core clinical feature of phosphate wasting disorders.</div>
                 
             </div>
             
@@ -3137,6 +3507,36 @@
                     
                     
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40220947" target="_blank">PMID:40220947</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The pooled prevalence of craniosynostosis among children with XLH was 22 % (95 % confidence interval (CI) 9.0 % to 44 %)"</div>
+                
+                
+                <div class="evidence-explanation">Systematic review and meta-analysis directly supports craniosynostosis as a pediatric XLH manifestation.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
                     
     
@@ -3145,7 +3545,7 @@
                 
             </details>
             
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
@@ -3185,6 +3585,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"short stature, lower limb deformities, fractures, and pseudofractures due to osteomalacia"</div>
@@ -3202,6 +3604,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -3224,7 +3628,7 @@
                 
             </details>
             
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
@@ -3264,6 +3668,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"X-linked hypophosphatemia (XLH) is the most common monogenic disorder causing hypophosphatemia"</div>
@@ -3281,6 +3687,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -3303,11 +3711,11 @@
                 
             </details>
             
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">4</span>
                 </summary>
                 
                 <div class="item-box phenotype-box">
@@ -3330,7 +3738,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
             
@@ -3343,6 +3751,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"X-linked hypophosphataemia in children is characterised by elevated serum concentrations of fibroblast growth factor 23 (FGF23), hypophosphataemia, rickets, lower extremity bowing, and growth impairment"</div>
@@ -3352,21 +3762,111 @@
                 
             </div>
             
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Osteomalacia
+                        
+                    
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0002749" target="_blank">
+                            Osteomalacia
+                        </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002749)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11062477" target="_blank">PMID:11062477</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29947083" target="_blank">PMID:29947083</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
-                <div class="evidence-snippet">"characterized by low serum phosphorus concentrations, rickets, osteomalacia, lower extremity deformities, short stature, bone pain and dental abscesses"</div>
+                <div class="evidence-snippet">"fractures, and pseudofractures due to osteomalacia"</div>
                 
                 
-                <div class="evidence-explanation">Rickets listed as core clinical feature of phosphate wasting disorders.</div>
+                <div class="evidence-explanation">Adult XLH trial background directly links fractures and pseudofractures to osteomalacia.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Pseudofractures and Fractures
+                        
+                    
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0002757" target="_blank">
+                            Recurrent fractures
+                        </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002757)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29947083" target="_blank">PMID:29947083</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"fractures, and pseudofractures due to osteomalacia"</div>
+                
+                
+                <div class="evidence-explanation">Adult XLH trial background explicitly lists fractures and pseudofractures due to osteomalacia.</div>
                 
             </div>
             
@@ -3413,6 +3913,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"dental abscesses, and enthesopathy"</div>
@@ -3430,6 +3932,8 @@
                     
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
                     
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -3452,7 +3956,7 @@
                 
             </details>
             
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -3479,7 +3983,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
             
@@ -3492,6 +3996,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"Adults with XLH present with chronic musculoskeletal pain and stiffness, short stature, lower limb deformities"</div>
@@ -3501,21 +4007,66 @@
                 
             </div>
             
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+            </details>
+            
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Nephrocalcinosis
+                        
+                    
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0000121" target="_blank">
+                            Nephrocalcinosis
+                        </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000121)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11062477" target="_blank">PMID:11062477</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29460029" target="_blank">PMID:29460029</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
-                <div class="evidence-snippet">"rickets, osteomalacia, lower extremity deformities, short stature, bone pain and dental abscesses"</div>
+                <div class="evidence-snippet">"Dental disease (63%), nephrocalcinosis (42%), and hearing impairment (14%) were also common"</div>
                 
                 
-                <div class="evidence-explanation">Short stature listed as core clinical feature.</div>
+                <div class="evidence-explanation">Adult XLH cohort reported nephrocalcinosis in 42% of patients.</div>
                 
             </div>
             
@@ -3580,7 +4131,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (4 references)
+            Show evidence (5 references)
         </summary>
         <div class="evidence-list">
             
@@ -3592,6 +4143,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -3611,6 +4164,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"Intragenic non-overlapping deletions from four different families and three mutations (two splice sites and one frameshift) have been detected in HYP patients"</div>
@@ -3629,6 +4184,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"XLH is associated with a large number of private mutations; 37 different mutations in the PHEX gene were identified in this cohort"</div>
@@ -3639,7 +4196,7 @@
             </div>
             
             
-            <div class="evidence-more">+ 1 more reference</div>
+            <div class="evidence-more">+ 2 more references</div>
             
         </div>
     </details>
@@ -3664,13 +4221,101 @@
                     Burosumab (Crysvita)
                 </div>
                 
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                </div>
                 
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        burosumab
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C119744" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
                 
                 
                 
                 <div class="item-desc">Anti-FGF23 monoclonal antibody. Directly targets the pathogenic mechanism by neutralizing excess FGF23, normalizing phosphate homeostasis. FDA approved 2018 for pediatric and adult XLH. Administered subcutaneously every 2-4 weeks.
 </div>
                 
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Renal Phosphate Wasting via FGF23 Excess</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Burosumab binds and inhibits pathogenic FGF23 excess, reducing renal phosphate wasting and correcting hypophosphatemia.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29947083" target="_blank">PMID:29947083</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Burosumab, a fully human monoclonal antibody, binds and inhibits FGF23 to correct hypophosphatemia"</div>
+                
+                
+                <div class="evidence-explanation">Directly supports burosumab inhibition of the FGF23-driven phosphate-wasting mechanism.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
                 
                 
                 
@@ -3691,6 +4336,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"Burosumab, a fully human monoclonal antibody, binds and inhibits FGF23 to correct hypophosphatemia"</div>
@@ -3709,6 +4356,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"94.1% of burosumab-treated participants attained mean serum phosphate concentration above the lower limit of normal compared with 7.6% of those receiving placebo"</div>
@@ -3726,6 +4375,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -3750,7 +4401,54 @@
                     Conventional Therapy (Phosphate/Calcitriol)
                 </div>
                 
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                </div>
                 
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        phosphate salts
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_26020" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-treatment">
+                        calcitriol
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_17823" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
                 
                 
                 
@@ -3758,9 +4456,18 @@
 </div>
                 
                 
-                
-                
-                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+                        <strong style="color: #5b21b6;">Defective Bone Mineralization</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Oral phosphate and active vitamin D partially modulate the downstream mineralization defect without fully correcting FGF23-driven hypophosphatemia.</span>
+                        
+                        
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3771,11 +4478,72 @@
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37321578" target="_blank">PMID:37321578</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"oral phosphate salts and activated vitamin D cannot completely control chronic hypophosphatemia, leaving patients with incomplete healing and residual skeletal deformity"</div>
+                
+                
+                <div class="evidence-explanation">Review supports conventional therapy as partial downstream management that does not fully correct chronic hypophosphatemia.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31104833" target="_blank">PMID:31104833</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"conventional therapy, consisting of oral phosphate and active vitamin D"</div>
+                
+                
+                <div class="evidence-explanation">Trial explicitly defines conventional pediatric XLH therapy as oral phosphate plus active vitamin D.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29460029" target="_blank">PMID:29460029</a>
                     </span>
                     
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
                     
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -3834,10 +4602,10 @@
                     
                     
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Located in:</strong>
-                    <span class="tag tag-bio">hindlimb</span>
+                    <span class="tag tag-bio">leg</span>
                     
                     
-                    <a href="http://purl.obolibrary.org/obo/UBERON_0002103" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">UBERON:0002103</a>
+                    <a href="http://purl.obolibrary.org/obo/UBERON_0000978" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">UBERON:0000978</a>
                     
                     
                     
@@ -3868,6 +4636,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -3922,7 +4692,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: X-Linked Hypophosphatemia
 creation_date: &#39;2026-02-13T00:31:42Z&#39;
-updated_date: &#39;2026-02-16T20:19:38Z&#39;
+updated_date: &#39;2026-05-06T08:10:58Z&#39;
 category: Mendelian
 description: &gt;
   X-linked hypophosphatemia (XLH) is the most common hereditary form of rickets,
@@ -3948,6 +4718,7 @@ inheritance:
   - reference: PMID:7550339
     reference_title: &#34;A gene (PEX) with homologies to endopeptidases is mutated in patients with X-linked hypophosphatemic rickets. The HYP Consortium.&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;X-linked hypophosphatemic rickets (HYP) is a dominant disorder characterised by impaired phosphate uptake in the kidney&#34;
     explanation: &#34;Confirms X-linked dominant inheritance pattern of XLH.&#34;
 prevalence:
@@ -3996,10 +4767,23 @@ pathophysiology:
     term:
       id: GO:0055062
       label: phosphate ion homeostasis
+    modifier: ABNORMAL
   - preferred_term: Vitamin D Metabolism
     term:
       id: GO:0042359
       label: vitamin D metabolic process
+    modifier: DECREASED
+  chemical_entities:
+  - preferred_term: serum phosphate
+    term:
+      id: CHEBI:26020
+      label: phosphate
+    modifier: DECREASED
+  genes:
+  - preferred_term: PHEX
+    term:
+      id: hgnc:8918
+      label: PHEX
   cell_types:
   - preferred_term: Osteocyte
     term:
@@ -4009,20 +4793,32 @@ pathophysiology:
     term:
       id: CL:0002306
       label: epithelial cell of proximal tubule
+  downstream:
+  - target: Hypophosphatemia
+    description: Excess FGF23 drives renal phosphate wasting, producing the hallmark low serum phosphate phenotype.
+    causal_link_type: DIRECT
+  - target: Defective Bone Mineralization
+    description: Lifelong renal phosphate wasting leaves insufficient phosphate for normal skeletal mineralization.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - chronic hypophosphatemia
   evidence:
   - reference: PMID:29947083
     reference_title: &#34;A Randomized, Double-Blind, Placebo-Controlled, Phase 3 Trial Evaluating the Efficacy of Burosumab, an Anti-FGF23 Antibody, in Adults With X-Linked Hypophosphatemia: Week 24 Primary Analysis.&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;inherited loss-of-function mutations in the PHEX gene cause excess circulating levels of fibroblast growth factor 23 (FGF23), leading to lifelong renal phosphate wasting and hypophosphatemia&#34;
     explanation: &#34;Directly describes the FGF23-mediated phosphate wasting mechanism in XLH.&#34;
   - reference: PMID:7550339
     reference_title: &#34;A gene (PEX) with homologies to endopeptidases is mutated in patients with X-linked hypophosphatemic rickets. The HYP Consortium.&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;impaired phosphate uptake in the kidney, which is likely to be caused by abnormal regulation of sodium phosphate cotransport in the proximal tubules&#34;
     explanation: &#34;Early evidence linking PHEX to renal proximal tubule phosphate transport defect.&#34;
   - reference: PMID:11062477
     reference_title: &#34;Autosomal dominant hypophosphataemic rickets is associated with mutations in FGF23.&#34;
     supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;We identified missense mutations in a gene encoding a new member of the fibroblast growth factor (FGF) family, FGF23&#34;
     explanation: &#34;Discovery of FGF23 as the phosphaturic factor, providing the mechanistic link between PHEX and phosphate wasting.&#34;
 - name: Defective Bone Mineralization
@@ -4034,19 +4830,56 @@ pathophysiology:
     The mineralization defect persists despite growth plate closure
     in adults.
   biological_processes:
-  - preferred_term: Ossification
+  - preferred_term: bone mineralization
     term:
-      id: GO:0001503
-      label: ossification
+      id: GO:0030282
+      label: bone mineralization
+    modifier: DECREASED
   cell_types:
   - preferred_term: Osteoblast
     term:
       id: CL:0000062
       label: osteoblast
+  - preferred_term: Chondrocyte
+    term:
+      id: CL:0000138
+      label: chondrocyte
+  downstream:
+  - target: Rickets
+    description: Impaired growth-plate mineralization produces rachitic skeletal changes in children.
+    causal_link_type: DIRECT
+  - target: Osteomalacia
+    description: Impaired adult bone mineralization manifests as osteomalacia.
+    causal_link_type: DIRECT
+  - target: Short Stature
+    description: Persistent childhood rickets and growth-plate dysfunction contribute to impaired linear growth.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - rickets and growth impairment
+  - target: Lower Limb Bowing
+    description: Rachitic mineralization defects cause lower-extremity bowing during weight bearing.
+    causal_link_type: DIRECT
+  - target: Pseudofractures and Fractures
+    description: Osteomalacia from impaired mineralization increases adult fracture and pseudofracture burden.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - osteomalacia
+  - target: Dental Abscesses
+    description: Defective dentin mineralization predisposes to spontaneous dental abscesses.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - defective dentin mineralization
+  - target: Enthesitis
+    description: Adult skeletal mineralization disease is associated with progressive enthesopathy through incompletely resolved joint and enthesis intermediates.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+  - target: Craniosynostosis
+    description: Abnormal bone growth in pediatric XLH is associated with skull abnormalities including craniosynostosis.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
   evidence:
   - reference: PMID:29947083
     reference_title: &#34;A Randomized, Double-Blind, Placebo-Controlled, Phase 3 Trial Evaluating the Efficacy of Burosumab, an Anti-FGF23 Antibody, in Adults With X-Linked Hypophosphatemia: Week 24 Primary Analysis.&#34;
     supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;fractures, and pseudofractures due to osteomalacia&#34;
     explanation: &#34;Pseudofractures and fractures reflect defective mineralization (osteomalacia) in adults with XLH.&#34;
 phenotypes:
@@ -4064,13 +4897,25 @@ phenotypes:
   - reference: PMID:31104833
     reference_title: &#34;Burosumab versus conventional therapy in children with X-linked hypophosphataemia: a randomised, active-controlled, open-label, phase 3 trial.&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;X-linked hypophosphataemia in children is characterised by elevated serum concentrations of fibroblast growth factor 23 (FGF23), hypophosphataemia, rickets, lower extremity bowing, and growth impairment&#34;
     explanation: &#34;Phase 3 trial confirms rickets and lower extremity bowing as cardinal pediatric features of XLH.&#34;
-  - reference: PMID:11062477
-    reference_title: &#34;Autosomal dominant hypophosphataemic rickets is associated with mutations in FGF23.&#34;
+- name: Osteomalacia
+  description: &gt;
+    Adult defective bone mineralization with undermineralized osteoid,
+    clinically associated with fractures and pseudofractures in XLH.
+  phenotype_term:
+    preferred_term: Osteomalacia
+    term:
+      id: HP:0002749
+      label: Osteomalacia
+  evidence:
+  - reference: PMID:29947083
+    reference_title: &#34;A Randomized, Double-Blind, Placebo-Controlled, Phase 3 Trial Evaluating the Efficacy of Burosumab, an Anti-FGF23 Antibody, in Adults With X-Linked Hypophosphatemia: Week 24 Primary Analysis.&#34;
     supports: SUPPORT
-    snippet: &#34;characterized by low serum phosphorus concentrations, rickets, osteomalacia, lower extremity deformities, short stature, bone pain and dental abscesses&#34;
-    explanation: &#34;Rickets listed as core clinical feature of phosphate wasting disorders.&#34;
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;fractures, and pseudofractures due to osteomalacia&#34;
+    explanation: &#34;Adult XLH trial background directly links fractures and pseudofractures to osteomalacia.&#34;
 - name: Short Stature
   description: &gt;
     Disproportionate short stature with relatively short lower limbs.
@@ -4084,13 +4929,9 @@ phenotypes:
   - reference: PMID:29947083
     reference_title: &#34;A Randomized, Double-Blind, Placebo-Controlled, Phase 3 Trial Evaluating the Efficacy of Burosumab, an Anti-FGF23 Antibody, in Adults With X-Linked Hypophosphatemia: Week 24 Primary Analysis.&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;Adults with XLH present with chronic musculoskeletal pain and stiffness, short stature, lower limb deformities&#34;
     explanation: &#34;Short stature confirmed as characteristic adult XLH feature.&#34;
-  - reference: PMID:11062477
-    reference_title: &#34;Autosomal dominant hypophosphataemic rickets is associated with mutations in FGF23.&#34;
-    supports: SUPPORT
-    snippet: &#34;rickets, osteomalacia, lower extremity deformities, short stature, bone pain and dental abscesses&#34;
-    explanation: &#34;Short stature listed as core clinical feature.&#34;
 - name: Lower Limb Bowing
   description: &gt;
     Progressive bowing of the legs (genu varum), worse with ambulation.
@@ -4104,13 +4945,32 @@ phenotypes:
   - reference: PMID:29947083
     reference_title: &#34;A Randomized, Double-Blind, Placebo-Controlled, Phase 3 Trial Evaluating the Efficacy of Burosumab, an Anti-FGF23 Antibody, in Adults With X-Linked Hypophosphatemia: Week 24 Primary Analysis.&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;short stature, lower limb deformities, fractures, and pseudofractures due to osteomalacia&#34;
     explanation: &#34;Lower limb deformities confirmed as characteristic feature in adults with XLH.&#34;
   - reference: PMID:29460029
     reference_title: &#34;Outcome of adult patients with X-linked hypophosphatemia caused by PHEX gene mutations.&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;Orthopaedic involvement requiring surgical intervention (osteotomy) was frequent&#34;
     explanation: &#34;Confirms that lower limb bowing frequently requires surgical correction in adult XLH patients.&#34;
+- name: Pseudofractures and Fractures
+  description: &gt;
+    Adult XLH includes fractures and pseudofractures as consequences of
+    osteomalacia, with fracture healing improved by burosumab in clinical trial
+    follow-up.
+  phenotype_term:
+    preferred_term: recurrent fractures
+    term:
+      id: HP:0002757
+      label: Recurrent fractures
+  evidence:
+  - reference: PMID:29947083
+    reference_title: &#34;A Randomized, Double-Blind, Placebo-Controlled, Phase 3 Trial Evaluating the Efficacy of Burosumab, an Anti-FGF23 Antibody, in Adults With X-Linked Hypophosphatemia: Week 24 Primary Analysis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;fractures, and pseudofractures due to osteomalacia&#34;
+    explanation: &#34;Adult XLH trial background explicitly lists fractures and pseudofractures due to osteomalacia.&#34;
 - name: Dental Abscesses
   description: &gt;
     Spontaneous dental abscesses and periapical lucencies from
@@ -4125,18 +4985,15 @@ phenotypes:
   - reference: PMID:29947083
     reference_title: &#34;A Randomized, Double-Blind, Placebo-Controlled, Phase 3 Trial Evaluating the Efficacy of Burosumab, an Anti-FGF23 Antibody, in Adults With X-Linked Hypophosphatemia: Week 24 Primary Analysis.&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;accelerated osteoarthritis, dental abscesses, and enthesopathy&#34;
     explanation: &#34;Dental abscesses confirmed as characteristic adult XLH feature.&#34;
   - reference: PMID:29460029
     reference_title: &#34;Outcome of adult patients with X-linked hypophosphatemia caused by PHEX gene mutations.&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;Dental disease (63%), nephrocalcinosis (42%), and hearing impairment (14%) were also common&#34;
     explanation: &#34;63% prevalence of dental disease in adult XLH cohort.&#34;
-  - reference: PMID:11062477
-    reference_title: &#34;Autosomal dominant hypophosphataemic rickets is associated with mutations in FGF23.&#34;
-    supports: SUPPORT
-    snippet: &#34;rickets, osteomalacia, lower extremity deformities, short stature, bone pain and dental abscesses&#34;
-    explanation: &#34;Dental abscesses listed as core clinical feature of phosphate wasting disorders.&#34;
 - name: Enthesitis
   description: &gt;
     Calcification and ossification of tendons, ligaments, and joint
@@ -4151,11 +5008,13 @@ phenotypes:
   - reference: PMID:29947083
     reference_title: &#34;A Randomized, Double-Blind, Placebo-Controlled, Phase 3 Trial Evaluating the Efficacy of Burosumab, an Anti-FGF23 Antibody, in Adults With X-Linked Hypophosphatemia: Week 24 Primary Analysis.&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;dental abscesses, and enthesopathy&#34;
     explanation: &#34;Enthesopathy confirmed as characteristic adult XLH feature.&#34;
   - reference: PMID:29460029
     reference_title: &#34;Outcome of adult patients with X-linked hypophosphatemia caused by PHEX gene mutations.&#34;
     supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;Joint replacement and decompressive laminectomy were observed in those older than 40 years&#34;
     explanation: &#34;Progressive enthesopathy leads to need for joint replacement and spinal surgery in older adults.&#34;
 - name: Hypophosphatemia
@@ -4171,25 +5030,76 @@ phenotypes:
   - reference: PMID:29460029
     reference_title: &#34;Outcome of adult patients with X-linked hypophosphatemia caused by PHEX gene mutations.&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;X-linked hypophosphatemia (XLH) is the most common monogenic disorder causing hypophosphatemia&#34;
     explanation: &#34;XLH confirmed as the most common hereditary cause of hypophosphatemia.&#34;
   - reference: PMID:29947083
     reference_title: &#34;A Randomized, Double-Blind, Placebo-Controlled, Phase 3 Trial Evaluating the Efficacy of Burosumab, an Anti-FGF23 Antibody, in Adults With X-Linked Hypophosphatemia: Week 24 Primary Analysis.&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;leading to lifelong renal phosphate wasting and hypophosphatemia&#34;
     explanation: &#34;Lifelong hypophosphatemia confirmed as the biochemical hallmark.&#34;
+- name: Nephrocalcinosis
+  description: &gt;
+    Renal parenchymal calcium deposition is common in adult XLH cohorts and is
+    clinically relevant as a complication in patients treated with conventional
+    phosphate and active vitamin D therapy.
+  phenotype_term:
+    preferred_term: Nephrocalcinosis
+    term:
+      id: HP:0000121
+      label: Nephrocalcinosis
+  evidence:
+  - reference: PMID:29460029
+    reference_title: &#34;Outcome of adult patients with X-linked hypophosphatemia caused by PHEX gene mutations.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Dental disease (63%), nephrocalcinosis (42%), and hearing impairment (14%) were also common&#34;
+    explanation: &#34;Adult XLH cohort reported nephrocalcinosis in 42% of patients.&#34;
+- name: Hearing Impairment
+  description: &gt;
+    Hearing impairment is reported in adult XLH cohorts. The direct mechanism is
+    not modeled here because the cached cohort abstract supports the association
+    but does not specify the inner-ear pathophysiology.
+  phenotype_term:
+    preferred_term: Hearing impairment
+    term:
+      id: HP:0000365
+      label: Hearing impairment
+  evidence:
+  - reference: PMID:29460029
+    reference_title: &#34;Outcome of adult patients with X-linked hypophosphatemia caused by PHEX gene mutations.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Dental disease (63%), nephrocalcinosis (42%), and hearing impairment (14%) were also common&#34;
+    explanation: &#34;Adult XLH cohort reported hearing impairment in 14% of patients.&#34;
 - name: Craniosynostosis
   description: &gt;
-    Premature cranial suture fusion occurs in a subset of patients,
-    particularly those with more severe disease.
+    Premature cranial suture fusion occurs in a subset of pediatric patients,
+    with systematic review evidence indicating higher prevalence in XLH than
+    in the general pediatric population.
   phenotype_term:
     preferred_term: Craniosynostosis
     term:
       id: HP:0001363
       label: Craniosynostosis
+  evidence:
+  - reference: PMID:40220947
+    reference_title: &#34;Craniosynostosis among children with X-linked hypophosphatemia: A systematic review and meta-analysis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The pooled prevalence of craniosynostosis among children with XLH was 22 % (95 % confidence interval (CI) 9.0 % to 44 %)&#34;
+    explanation: &#34;Systematic review and meta-analysis directly supports craniosynostosis as a pediatric XLH manifestation.&#34;
 genetic:
 - name: PHEX Mutations
+  gene_term:
+    preferred_term: PHEX
+    term:
+      id: hgnc:8918
+      label: PHEX
   association: Causative
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
   notes: &gt;
     Loss-of-function mutations in PHEX (phosphate-regulating endopeptidase
     homolog, X-linked) on Xp22.1. Over 300 mutations described including
@@ -4200,23 +5110,33 @@ genetic:
   - reference: PMID:7550339
     reference_title: &#34;A gene (PEX) with homologies to endopeptidases is mutated in patients with X-linked hypophosphatemic rickets. The HYP Consortium.&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;By positional cloning, we have isolated a candidate gene from the HYP region in Xp22.1. This gene exhibits homology to a family of endopeptidase genes&#34;
     explanation: &#34;Original cloning of the PHEX gene from Xp22.1 with endopeptidase homology.&#34;
   - reference: PMID:7550339
     reference_title: &#34;A gene (PEX) with homologies to endopeptidases is mutated in patients with X-linked hypophosphatemic rickets. The HYP Consortium.&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;Intragenic non-overlapping deletions from four different families and three mutations (two splice sites and one frameshift) have been detected in HYP patients&#34;
     explanation: &#34;Early evidence of diverse mutation types in PHEX causing XLH.&#34;
   - reference: PMID:29460029
     reference_title: &#34;Outcome of adult patients with X-linked hypophosphatemia caused by PHEX gene mutations.&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;XLH is associated with a large number of private mutations; 37 different mutations in the PHEX gene were identified in this cohort&#34;
     explanation: &#34;37 distinct PHEX mutations in a single cohort confirms extensive allelic heterogeneity.&#34;
   - reference: PMID:11062477
     reference_title: &#34;Autosomal dominant hypophosphataemic rickets is associated with mutations in FGF23.&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;Inactivating mutations of the gene PHEX, encoding a member of the neutral endopeptidase family of proteins, are responsible for XLH&#34;
     explanation: &#34;Confirms inactivating PHEX mutations as the cause of XLH.&#34;
+  - reference: CGGV:assertion_7b966545-e9dc-4a75-8d6a-91b328bc4854-2025-05-15T060000.000Z
+    reference_title: &#34;PHEX / X-linked dominant hypophosphatemic rickets (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;PHEX | HGNC:8918 | X-linked dominant hypophosphatemic rickets | MONDO:0010619 | XL | Definitive&#34;
+    explanation: ClinGen classifies the PHEX-X-linked dominant hypophosphatemic rickets gene-disease relationship as definitive with X-linked inheritance.
 treatments:
 - name: Burosumab (Crysvita)
   description: &gt;
@@ -4224,25 +5144,50 @@ treatments:
     mechanism by neutralizing excess FGF23, normalizing phosphate
     homeostasis. FDA approved 2018 for pediatric and adult XLH.
     Administered subcutaneously every 2-4 weeks.
+  treatment_term:
+    preferred_term: pharmacotherapy
+    term:
+      id: MAXO:0000058
+      label: pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: burosumab
+      term:
+        id: NCIT:C119744
+        label: Burosumab
+  target_mechanisms:
+  - target: Renal Phosphate Wasting via FGF23 Excess
+    treatment_effect: INHIBITS
+    description: Burosumab binds and inhibits pathogenic FGF23 excess, reducing renal phosphate wasting and correcting hypophosphatemia.
+    evidence:
+    - reference: PMID:29947083
+      reference_title: &#34;A Randomized, Double-Blind, Placebo-Controlled, Phase 3 Trial Evaluating the Efficacy of Burosumab, an Anti-FGF23 Antibody, in Adults With X-Linked Hypophosphatemia: Week 24 Primary Analysis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Burosumab, a fully human monoclonal antibody, binds and inhibits FGF23 to correct hypophosphatemia&#34;
+      explanation: &#34;Directly supports burosumab inhibition of the FGF23-driven phosphate-wasting mechanism.&#34;
   evidence:
   - reference: PMID:29947083
     reference_title: &#34;A Randomized, Double-Blind, Placebo-Controlled, Phase 3 Trial Evaluating the Efficacy of Burosumab, an Anti-FGF23 Antibody, in Adults With X-Linked Hypophosphatemia: Week 24 Primary Analysis.&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;Burosumab, a fully human monoclonal antibody, binds and inhibits FGF23 to correct hypophosphatemia&#34;
     explanation: &#34;Describes burosumab mechanism as anti-FGF23 antibody.&#34;
   - reference: PMID:29947083
     reference_title: &#34;A Randomized, Double-Blind, Placebo-Controlled, Phase 3 Trial Evaluating the Efficacy of Burosumab, an Anti-FGF23 Antibody, in Adults With X-Linked Hypophosphatemia: Week 24 Primary Analysis.&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;94.1% of burosumab-treated participants attained mean serum phosphate concentration above the lower limit of normal compared with 7.6% of those receiving placebo&#34;
     explanation: &#34;Phase 3 adult trial demonstrates robust phosphate normalization with burosumab.&#34;
   - reference: PMID:29947083
     reference_title: &#34;A Randomized, Double-Blind, Placebo-Controlled, Phase 3 Trial Evaluating the Efficacy of Burosumab, an Anti-FGF23 Antibody, in Adults With X-Linked Hypophosphatemia: Week 24 Primary Analysis.&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;43.1% (burosumab) and 7.7% (placebo) of baseline active fractures were fully healed; the odds of healed fracture in the burosumab group was 16.8-fold greater than that in the placebo group&#34;
     explanation: &#34;Burosumab dramatically improves fracture healing in adults with XLH.&#34;
   - reference: PMID:31104833
     reference_title: &#34;Burosumab versus conventional therapy in children with X-linked hypophosphataemia: a randomised, active-controlled, open-label, phase 3 trial.&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;Significantly greater clinical improvements were shown in rickets severity, growth, and biochemistries among children with X-linked hypophosphataemia treated with burosumab compared with those continuing conventional therapy&#34;
     explanation: &#34;Phase 3 pediatric trial confirms burosumab superiority over conventional therapy for rickets, growth, and biochemistry.&#34;
 - name: Conventional Therapy (Phosphate/Calcitriol)
@@ -4251,10 +5196,42 @@ treatments:
     (calcitriol or alfacalcidol). Previously standard of care but
     limited by GI side effects, secondary hyperparathyroidism, and
     nephrocalcinosis risk.
+  treatment_term:
+    preferred_term: pharmacotherapy
+    term:
+      id: MAXO:0000058
+      label: pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: phosphate salts
+      term:
+        id: CHEBI:26020
+        label: phosphate
+    - preferred_term: calcitriol
+      term:
+        id: CHEBI:17823
+        label: calcitriol
+  target_mechanisms:
+  - target: Defective Bone Mineralization
+    treatment_effect: MODULATES
+    description: Oral phosphate and active vitamin D partially modulate the downstream mineralization defect without fully correcting FGF23-driven hypophosphatemia.
+    evidence:
+    - reference: PMID:37321578
+      reference_title: &#34;X-linked hypophosphatemic rickets: from diagnosis to management.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;oral phosphate salts and activated vitamin D cannot completely control chronic hypophosphatemia, leaving patients with incomplete healing and residual skeletal deformity&#34;
+      explanation: &#34;Review supports conventional therapy as partial downstream management that does not fully correct chronic hypophosphatemia.&#34;
   evidence:
+  - reference: PMID:31104833
+    reference_title: &#34;Burosumab versus conventional therapy in children with X-linked hypophosphataemia: a randomised, active-controlled, open-label, phase 3 trial.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;conventional therapy, consisting of oral phosphate and active vitamin D&#34;
+    explanation: &#34;Trial explicitly defines conventional pediatric XLH therapy as oral phosphate plus active vitamin D.&#34;
   - reference: PMID:29460029
     reference_title: &#34;Outcome of adult patients with X-linked hypophosphatemia caused by PHEX gene mutations.&#34;
     supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;Dental disease (63%), nephrocalcinosis (42%), and hearing impairment (14%) were also common&#34;
     explanation: &#34;42% nephrocalcinosis rate reflects a known complication of conventional phosphate/calcitriol therapy.&#34;
 - name: Orthopedic Management
@@ -4268,14 +5245,15 @@ treatments:
       id: MAXO:0000004
       label: surgical procedure
     located_in:
-      preferred_term: hindlimb
+      preferred_term: leg
       term:
-        id: UBERON:0002103
-        label: hindlimb
+        id: UBERON:0000978
+        label: leg
   evidence:
   - reference: PMID:29460029
     reference_title: &#34;Outcome of adult patients with X-linked hypophosphatemia caused by PHEX gene mutations.&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;Orthopaedic involvement requiring surgical intervention (osteotomy) was frequent. Joint replacement and decompressive laminectomy were observed in those older than 40 years&#34;
     explanation: &#34;Confirms frequent need for osteotomy and joint replacement in adult XLH patients.&#34;
 datasets: []
@@ -4572,7 +5550,7 @@ XLH is an X-linked dominant, phosphate-wasting osteomalacic/rickets disorder dri
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "X-Linked Hypophosphatemia", "mondoId": "MONDO:0010619", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "X-Linked_Hypophosphatemia", "yamlRevision": "cd05bd8bc079"};
+        const OS_CONFIG = {"diseaseName": "X-Linked Hypophosphatemia", "mondoId": "MONDO:0010619", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "X-Linked_Hypophosphatemia", "yamlRevision": "c0773b6bdbb4"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

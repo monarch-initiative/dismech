@@ -2,7 +2,20 @@
 
 import json
 
-from dismech.graph import build_causal_graph, graph_to_json
+from dismech.graph import (
+    _genetic_item_infers_mechanism_edges,
+    build_causal_graph,
+    graph_to_json,
+)
+
+
+def test_genetic_item_infers_mechanism_edges_respects_relationship_type() -> None:
+    assert _genetic_item_infers_mechanism_edges({"relationship_type": "CAUSATIVE"})
+    assert _genetic_item_infers_mechanism_edges({"association": "Risk factor"})
+
+    assert not _genetic_item_infers_mechanism_edges({"relationship_type": "MODIFIER"})
+    assert not _genetic_item_infers_mechanism_edges({"association": "Disease modifier"})
+    assert not _genetic_item_infers_mechanism_edges({"relationship_type": "PROTECTIVE"})
 
 
 def test_graph_to_json_includes_experimental_and_computational_model_links() -> None:
@@ -96,7 +109,15 @@ def test_build_causal_graph_includes_linked_models_treatments_and_genetics() -> 
                 "name": "CFTR",
                 "association": "Causative",
                 "variants": [{"name": "F508del"}],
-            }
+            },
+            {
+                "name": "CFTR modifier locus",
+                "association": "Disease modifier",
+                "gene_term": {
+                    "preferred_term": "CFTR",
+                    "term": {"id": "hgnc:1884", "label": "CFTR"},
+                },
+            },
         ],
         "treatments": [
             {
@@ -134,6 +155,7 @@ def test_build_causal_graph_includes_linked_models_treatments_and_genetics() -> 
     assert ("Ivacaftor", "CFTR Dysfunction", "targets") in edges
     assert ("Ivacaftor", "Bronchiectasis", "treats") in edges
     assert ("CFTR", "CFTR Dysfunction", "contributes_to") in edges
+    assert ("CFTR modifier locus", "CFTR Dysfunction", "contributes_to") not in edges
     assert ("F508del", "CFTR", "variant_of") in edges
 
     data = json.loads(graph_to_json(graph, disorder))
@@ -143,6 +165,73 @@ def test_build_causal_graph_includes_linked_models_treatments_and_genetics() -> 
     assert node_types["Ivacaftor"] == "treatment"
     assert node_types["CFTR"] == "genetic"
     assert node_types["F508del"] == "genetic"
+
+
+def test_build_causal_graph_includes_biomarker_readout_links() -> None:
+    """Biochemical marker readouts should add observational pathograph edges."""
+    disorder = {
+        "name": "Example Disease",
+        "pathophysiology": [
+            {
+                "name": "Membrane Injury",
+                "downstream": [{"target": "Muscle Weakness"}],
+            }
+        ],
+        "phenotypes": [{"name": "Muscle Weakness"}],
+        "biochemical": [
+            {
+                "name": "Creatine Kinase",
+                "presence": "Elevated",
+                "biomarker_term": {
+                    "preferred_term": "creatine kinase measurement",
+                    "term": {
+                        "id": "NCIT:C64489",
+                        "label": "Creatine Kinase Measurement",
+                    },
+                },
+                "readouts": [
+                    {
+                        "target": "Membrane Injury",
+                        "relationship": "READOUT_OF",
+                        "direction": "POSITIVE",
+                        "endpoint_context": "MONITORING",
+                        "regulatory_endpoint_refs": ["FDA-SE-test-001"],
+                        "interpretation": "Higher CK reflects greater membrane injury.",
+                    }
+                ],
+            }
+        ],
+    }
+
+    graph = build_causal_graph(disorder)
+    edges = {(edge.source, edge.target, edge.predicate) for edge in graph.edges}
+
+    assert ("Membrane Injury", "Creatine Kinase", "readout") in edges
+
+    data = json.loads(graph_to_json(graph, disorder))
+    edge = next(
+        edge
+        for edge in data["edges"]
+        if edge["source"] == "Membrane Injury" and edge["target"] == "Creatine Kinase"
+    )
+    assert edge["predicate"] == "readout"
+    assert edge["relationship"] == "READOUT_OF"
+    assert edge["direction"] == "POSITIVE"
+    assert edge["endpoint_context"] == "MONITORING"
+
+    node = next(node for node in data["nodes"] if node["id"] == "Creatine Kinase")
+    assert node["node_type"] == "biochemical"
+    assert node["meta"]["presence"] == "Elevated"
+    assert node["meta"]["readouts"] == [
+        {
+            "target": "Membrane Injury",
+            "relationship": "READOUT_OF",
+            "direction": "POSITIVE",
+            "endpoint_context": "MONITORING",
+            "regulatory_endpoint_refs": ["FDA-SE-test-001"],
+            "interpretation": "Higher CK reflects greater membrane injury.",
+        }
+    ]
 
 
 def test_graph_to_json_includes_matching_histopathology_terms() -> None:
