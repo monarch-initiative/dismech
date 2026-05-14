@@ -2872,7 +2872,7 @@ window.searchData = [
       "Pilosebaceous unit disorder"
     ],
     "creation_date": "2026-01-23T23:13:39Z",
-    "updated_date": "2026-02-16T20:19:38Z",
+    "updated_date": "2026-05-14T14:00:00Z",
     "subtypes": [],
     "description": "Dysregulated keratinocyte differentiation and desquamation within the follicular epithelium promotes retention hyperkeratosis.\n",
     "pathophysiology": [
@@ -8554,6 +8554,87 @@ window.searchData = [
     "num_genes": 21,
     "num_treatments": 8,
     "causal_graph_edges": "1",
+    "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "Anal Canal Adenocarcinoma",
+    "disease_id": "MONDO:0002735",
+    "category": "",
+    "parents": [
+      "anus adenocarcinoma",
+      "anal canal carcinoma",
+      "adenocarcinoma"
+    ],
+    "creation_date": "2026-05-14T18:23:55Z",
+    "updated_date": "2026-05-14T18:23:55Z",
+    "subtypes": [
+      "Anal Gland/Transitional Type",
+      "Colorectal Type",
+      "Fistula-Associated Mucinous Type"
+    ],
+    "description": "Anal canal adenocarcinoma is a rare, aggressive gland-forming malignancy of the anal canal region. It is biologically heterogeneous: some tumors resemble colorectal-type adenocarcinoma, some arise from anal gland or transitional epithelium, and fistula-associated mucinous tumors can emerge in chronic anorectal inflammatory tracts. The evidence base is dominated by population registry cohorts, retrospective treatment studies, molecular cohort profiling, and case reports rather than randomized disease-specific trials.",
+    "pathophysiology": [
+      "Chronic fistula-associated mucinous carcinogenesis",
+      "Dualistic HPV-dependent and HPV-independent tumor lineages",
+      "PD-1/PD-L1-enriched immune microenvironment"
+    ],
+    "cell_types": [
+      "fistula tract glandular epithelial cell",
+      "glandular epithelial cell of anal canal",
+      "CD8-positive, alpha-beta T cell",
+      "regulatory T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000066",
+      "CL:0000625",
+      "CL:0000815"
+    ],
+    "biological_processes": [
+      "chronic inflammation-driven cell population proliferation",
+      "immune response",
+      "cell surface receptor protein tyrosine kinase signaling pathway"
+    ],
+    "phenotypes": [
+      "Anal pain with palpable tumor",
+      "Rectal bleeding or serosanguineous anal discharge",
+      "Anal stenosis from pelvic mass"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive"
+    ],
+    "phenotype_ids": [
+      "HP:0500005",
+      "HP:0002573",
+      "HP:0002025"
+    ],
+    "frequencies": [],
+    "genes": [
+      "KRAS and NRAS pathway mutation context",
+      "MSI-high biomarker in individual case"
+    ],
+    "treatments": [
+      "Surgery for localized or resectable disease",
+      "Preoperative chemoradiation with surgical resection",
+      "Pembrolizumab for MSI-high disease"
+    ],
+    "environmental": [
+      "Chronic anorectal fistula and perianal abscess history",
+      "Crohn disease-associated anorectal fistula"
+    ],
+    "biochemical": [],
+    "source_file": "Anal_Canal_Adenocarcinoma.yaml",
+    "page_url": "../pages/disorders/Anal_Canal_Adenocarcinoma.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 3,
+    "num_genes": 2,
+    "num_treatments": 3,
+    "causal_graph_edges": "3",
     "causal_graph_longest_path": "1"
   },
   {
@@ -20503,6 +20584,88 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "COG1-congenital disorder of glycosylation",
+    "disease_id": "MONDO:0012637",
+    "category": "Mendelian",
+    "parents": [
+      "congenital disorder of glycosylation type II",
+      "developmental anomaly of metabolic origin",
+      "defect in conserved oligomeric Golgi complex"
+    ],
+    "creation_date": "2026-05-14T18:24:41Z",
+    "updated_date": "2026-05-14T19:22:56Z",
+    "subtypes": [],
+    "description": "COG1-congenital disorder of glycosylation is an extremely rare autosomal recessive congenital disorder of glycosylation type II caused by biallelic COG1 variants. COG1 deficiency disrupts the conserved oligomeric Golgi complex, impairs intra-Golgi trafficking and glycosylation-enzyme localization, and causes a multisystem neurodevelopmental syndrome with abnormal N- and O-glycosylation.",
+    "pathophysiology": [
+      "COG1 Deficiency Disrupts the Conserved Oligomeric Golgi Complex",
+      "Defective N- and O-glycosylation"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "Golgi vesicle transport",
+      "intra-Golgi vesicle-mediated transport",
+      "protein N-linked glycosylation",
+      "protein O-linked glycosylation"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Seizures",
+      "Hypotonia",
+      "Progressive microcephaly",
+      "Dysmorphism",
+      "Hepatitis",
+      "Hypoglycemia",
+      "Strabismus"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Craniofacial",
+      "Hepatic",
+      "Endocrine",
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Head and Neck",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001250",
+      "HP:0001252",
+      "HP:0000253",
+      "HP:0001999",
+      "HP:0012115",
+      "HP:0001943",
+      "HP:0000486"
+    ],
+    "frequencies": [],
+    "genes": [
+      "COG1 biallelic pathogenic variants"
+    ],
+    "treatments": [
+      "Supportive and symptomatic care"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Type II serum transferrin isoelectric focusing pattern",
+      "Combined N- and O-glycosylation defect"
+    ],
+    "source_file": "COG1-congenital_disorder_of_glycosylation.yaml",
+    "page_url": "../pages/disorders/COG1-congenital_disorder_of_glycosylation.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "COG7-congenital disorder of glycosylation",
@@ -50706,6 +50869,86 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "6",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Hereditary intrinsic factor deficiency",
+    "disease_id": "MONDO:0009852",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary anemia",
+      "inborn disorder of cobalamin metabolism and transport"
+    ],
+    "creation_date": "2026-05-14T18:22:33Z",
+    "updated_date": "2026-05-14T19:18:19Z",
+    "subtypes": [],
+    "description": "Hereditary intrinsic factor deficiency is a rare autosomal recessive disorder of selective cobalamin absorption caused by pathogenic variants in CBLIF (historically GIF), the gastric intrinsic factor gene. Deficient intrinsic factor prevents normal vitamin B12 uptake, leading to low cobalamin, methylmalonic aciduria and hyperhomocysteinemia, megaloblastic anemia, and risk of neurologic injury if treatment is delayed. Lifelong vitamin B12 replacement is disease modifying and can normalize clinical, hematologic, and biochemical parameters.",
+    "pathophysiology": [
+      "CBLIF-related intrinsic factor loss",
+      "Impaired intrinsic factor-dependent cobalamin absorption",
+      "Biochemical cobalamin deficiency pattern",
+      "Megaloblastic erythropoietic failure"
+    ],
+    "cell_types": [
+      "gastric parietal cell",
+      "ileal enterocyte",
+      "erythroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000162",
+      "CL:0000584",
+      "CL:0000765"
+    ],
+    "biological_processes": [
+      "cobalamin transport",
+      "one-carbon metabolic process",
+      "cobalamin metabolic process",
+      "erythrocyte differentiation"
+    ],
+    "phenotypes": [
+      "Megaloblastic anemia",
+      "Macrocytic anemia",
+      "Pancytopenia",
+      "Gastrointestinal symptoms",
+      "Neurological abnormalities"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Gastrointestinal",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Digestive",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001889",
+      "HP:0001972",
+      "HP:0001876",
+      "HP:0011458",
+      "HP:0000707"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CBLIF/GIF pathogenic variants"
+    ],
+    "treatments": [
+      "Lifelong vitamin B12 replacement"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum cobalamin",
+      "Methylmalonic acid",
+      "Homocysteine"
+    ],
+    "source_file": "Hereditary_Intrinsic_Factor_Deficiency.yaml",
+    "page_url": "../pages/disorders/Hereditary_intrinsic_factor_deficiency.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Hereditary methemoglobinemia",
@@ -107035,11 +107278,11 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1088,
-  "total_unique_evidence_sources": 19538,
+  "total_disorder_pages": 1091,
+  "total_unique_evidence_sources": 19556,
   "total_unique_disease_categories": 44,
   "total_unique_phenotype_categories": 189,
-  "total_pathographs": 1081,
-  "total_unique_pathological_events": 5119
+  "total_pathographs": 1084,
+  "total_unique_pathological_events": 5128
 };
 window.dispatchEvent(new Event('searchDataReady'));
