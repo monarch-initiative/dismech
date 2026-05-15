@@ -2056,7 +2056,7 @@ window.searchData = [
       "acute myeloid leukemia"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-05-05T07:45:37Z",
+    "updated_date": "2026-05-15T12:30:00Z",
     "subtypes": [],
     "description": "Acute promyelocytic leukemia (APL) with PML-RARA is a distinct subtype of acute myeloid leukemia characterized by the t(15;17)(q24;q21) translocation creating the PML-RARA fusion oncogene. This fusion blocks myeloid differentiation at the promyelocyte stage and confers sensitivity to differentiation therapy with all-trans retinoic acid (ATRA) and arsenic trioxide (ATO). APL was historically the most fatal AML subtype due to severe coagulopathy, but is now the most curable, with ATRA plus ATO achieving greater than 90% cure rates without conventional chemotherapy. APL represents the paradigm of differentiation therapy in cancer.",
     "pathophysiology": [
@@ -5683,7 +5683,7 @@ window.searchData = [
       "hepatocellular carcinoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-05-05T11:34:04Z",
+    "updated_date": "2026-05-15T11:30:00Z",
     "subtypes": [],
     "description": "Aflatoxin-related hepatocellular carcinoma (HCC) is a form of liver cancer strongly associated with dietary exposure to aflatoxin B1 (AFB1), a mycotoxin produced by Aspergillus fungi that contaminate stored grains and nuts in tropical regions. Aflatoxin exposure synergizes dramatically with chronic hepatitis B virus (HBV) infection, increasing HCC risk approximately 60-fold compared to either factor alone. The molecular signature of aflatoxin-related HCC is the TP53 R249S mutation, resulting from AFB1-DNA adduct formation at codon 249. This disease exemplifies gene-environment interaction in cancer etiology and is most prevalent in sub-Saharan Africa and Southeast Asia where both aflatoxin exposure and HBV infection are endemic.",
     "pathophysiology": [
@@ -7851,7 +7851,7 @@ window.searchData = [
       "rhabdomyosarcoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-05-05T11:34:04Z",
+    "updated_date": "2026-05-15T13:20:00Z",
     "subtypes": [
       "PAX3-FOXO1 Fusion-Positive",
       "PAX7-FOXO1 Fusion-Positive",
@@ -7860,6 +7860,7 @@ window.searchData = [
     "description": "Alveolar rhabdomyosarcoma (ARMS) is an aggressive pediatric soft tissue sarcoma characterized by skeletal muscle differentiation and distinctive chromosomal translocations involving PAX3 or PAX7 fused to FOXO1. Among fusion-positive tumors, PAX3-FOXO1 arising from t(2;13)(q35;q14) is the dominant fusion subtype, reported in roughly 70-90% of cases, and confers a worse prognosis. PAX7-FOXO1 from t(1;13)(p36;q14) accounts for most of the remaining fusion-positive cases and is generally associated with somewhat better outcomes. Approximately 20% are fusion-negative and behave more like embryonal rhabdomyosarcoma. The PAX-FOXO1 fusion proteins function as aberrant transcription factors driving myogenic differentiation arrest and proliferation.",
     "pathophysiology": [
       "PAX-FOXO1 Fusion Oncogene",
+      "RTK/RAS/PIK3CA Pathway Activation",
       "Blocked Myogenic Differentiation",
       "Aberrant Cell Proliferation"
     ],
@@ -7910,7 +7911,9 @@ window.searchData = [
     "treatments": [
       "Multi-Agent Chemotherapy",
       "Surgical Resection",
-      "Radiation Therapy"
+      "Radiation Therapy",
+      "FGFR Inhibitor Therapy",
+      "Histone Deacetylase Inhibitor Therapy"
     ],
     "environmental": [],
     "biochemical": [
@@ -7920,11 +7923,11 @@ window.searchData = [
     "source_file": "Alveolar_Rhabdomyosarcoma.yaml",
     "page_url": "../pages/disorders/Alveolar_Rhabdomyosarcoma.html",
     "num_phenotypes": 4,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 4,
     "num_genes": 3,
-    "num_treatments": 3,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "1"
+    "num_treatments": 5,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Alveolar Soft Part Sarcoma",
@@ -10542,7 +10545,7 @@ window.searchData = [
       "carcinoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-05-05T16:40:30Z",
+    "updated_date": "2026-05-15T13:05:00Z",
     "subtypes": [],
     "description": "Arsenic-related cancers comprise a spectrum of malignancies caused by chronic exposure to inorganic arsenic, a Group 1 human carcinogen. The primary sites affected include skin (squamous cell and basal cell carcinomas), lung, and urinary bladder. Arsenic exposure occurs through contaminated drinking water, occupational exposure (mining, smelting), and certain traditional medicines. The carcinogenic mechanisms involve oxidative stress, epigenetic alterations, genomic instability, and impaired DNA repair without direct DNA adduct formation. Arsenic-related skin cancers are preceded by characteristic premalignant lesions including palmar/plantar keratoses and Bowen disease. Endemic regions include Bangladesh, West Bengal, Taiwan, Chile, and Argentina where groundwater contamination affects millions.",
     "pathophysiology": [
@@ -10550,7 +10553,7 @@ window.searchData = [
       "Oxidative Stress and DNA Damage",
       "Epigenetic Dysregulation",
       "Impaired DNA Repair",
-      "Tumor Suppressor Gene Silencing",
+      "Tumor Suppressor Pathway Dysfunction",
       "Genomic Instability",
       "Uncontrolled Cell Proliferation"
     ],
@@ -10567,7 +10570,7 @@ window.searchData = [
       "DNA methylation",
       "DNA repair",
       "cell cycle checkpoint signaling",
-      "signal transduction",
+      "chromosome segregation",
       "cell population proliferation"
     ],
     "phenotypes": [
@@ -14035,6 +14038,80 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "8",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Autosomal dominant striatal neurodegeneration",
+    "disease_id": "MONDO:0000211",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodegenerative Disease",
+      "Movement Disorder"
+    ],
+    "creation_date": "2026-05-11T21:02:17Z",
+    "updated_date": "2026-05-11T21:44:11Z",
+    "subtypes": [],
+    "description": "Autosomal dominant striatal neurodegeneration is an ultra-rare adult-onset movement disorder caused by heterozygous PDE8B pathogenic variants. Reported families show slowly progressive parkinsonism with bradykinesia, rigidity, dysarthria, gait disturbance, dysphagia, dysdiadochokinesis, and characteristic striatal MRI abnormalities involving the putamen, caudate nucleus, or striatum.",
+    "pathophysiology": [
+      "PDE8B Cyclic Nucleotide Phosphodiesterase Loss",
+      "Striatal Degeneration"
+    ],
+    "cell_types": [
+      "medium spiny neuron"
+    ],
+    "cell_type_ids": [
+      "CL:1001474"
+    ],
+    "biological_processes": [
+      "cAMP catabolic process"
+    ],
+    "phenotypes": [
+      "Dysarthria",
+      "Gait disturbance",
+      "Dysphagia",
+      "Rigidity",
+      "Bradykinesia",
+      "Dysdiadochokinesis",
+      "Ataxia",
+      "Abnormality of movement",
+      "Parkinsonism"
+    ],
+    "phenotype_categories": [
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001260",
+      "HP:0001288",
+      "HP:0002015",
+      "HP:0002063",
+      "HP:0002067",
+      "HP:0002075",
+      "HP:0001251",
+      "HP:0100022",
+      "HP:0001300"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "PDE8B pathogenic variants"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Autosomal_Dominant_Striatal_Neurodegeneration.yaml",
+    "page_url": "../pages/disorders/Autosomal_dominant_striatal_neurodegeneration.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Autosomal Recessive Ataxia Due to Ubiquinone Deficiency",
@@ -20583,6 +20660,98 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 5,
     "causal_graph_edges": "5",
+    "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "COFS Syndrome",
+    "disease_id": "MONDO:0008926",
+    "category": "Genetic",
+    "parents": [
+      "DNA Repair Disorder",
+      "Neurodevelopmental Disorder"
+    ],
+    "creation_date": "2026-05-14T00:00:00Z",
+    "updated_date": "2026-05-14T00:00:00Z",
+    "subtypes": [
+      "COFS1",
+      "COFS2",
+      "COFS3",
+      "COFS4"
+    ],
+    "description": "Cerebro-oculo-facio-skeletal (COFS) syndrome is a severe autosomal recessive nucleotide excision repair (NER) disorder in the Cockayne syndrome / xeroderma pigmentosum spectrum. It is characterized by prenatal-onset microcephaly, congenital cataracts, microphthalmia, arthrogryposis, severe growth failure, facial dysmorphism, and progressive neurodegeneration with early death. Genetically distinct subtypes are caused by biallelic loss-of-function variants in NER genes ERCC6 (CSB), ERCC2 (XPD), ERCC5 (XPG), and ERCC1.",
+    "pathophysiology": [
+      "NER Gene Biallelic Loss-of-Function",
+      "Defective Transcription-Coupled Nucleotide Excision Repair",
+      "Accumulation of Transcription-Blocking DNA Lesions",
+      "Transcriptional Arrest and Neurodegeneration"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "transcription-coupled nucleotide-excision repair"
+    ],
+    "phenotypes": [
+      "Microcephaly",
+      "Congenital Cataracts",
+      "Arthrogryposis",
+      "Growth Failure",
+      "Microphthalmia",
+      "Cutaneous Photosensitivity",
+      "Cerebellar Hypoplasia",
+      "Optic Atrophy",
+      "Sensorineural Hearing Loss",
+      "Severe Psychomotor Retardation"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Ophthalmologic",
+      "Musculoskeletal",
+      "Growth",
+      "Cutaneous",
+      "Otologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000252",
+      "HP:0000519",
+      "HP:0002804",
+      "HP:0001510",
+      "HP:0000568",
+      "HP:0000992",
+      "HP:0001321",
+      "HP:0000648",
+      "HP:0000407",
+      "HP:0011344"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ERCC6",
+      "ERCC2",
+      "ERCC5",
+      "ERCC1"
+    ],
+    "treatments": [
+      "Sun and UV Protection",
+      "Multidisciplinary Supportive Care",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "COFS_Syndrome.yaml",
+    "page_url": "../pages/disorders/COFS_Syndrome.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 4,
+    "num_genes": 4,
+    "num_treatments": 3,
+    "causal_graph_edges": "3",
     "causal_graph_longest_path": "3"
   },
   {
@@ -30285,6 +30454,111 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Coronary Artery Congenital Malformation",
+    "disease_id": "MONDO:0015203",
+    "category": "Congenital",
+    "parents": [
+      "Cardiovascular Disease",
+      "Congenital Heart Disease"
+    ],
+    "creation_date": "2026-05-14T10:00:00Z",
+    "updated_date": "2026-05-15T16:30:00Z",
+    "subtypes": [
+      "AAOCA",
+      "ALCAPA",
+      "Coronary Artery Fistula",
+      "Congenital Coronary Atresia"
+    ],
+    "description": "Coronary artery congenital malformations are a heterogeneous group of congenital structural anomalies of the coronary arterial tree characterized by abnormal origin, course, termination, atresia, or fistulous connection of one or more coronary arteries. Clinical consequences depend on subtype and range from incidental imaging findings to myocardial ischemia, sudden cardiac death in young athletes, infantile heart failure, and arrhythmia. The category encompasses anomalous aortic origin of a coronary artery (AAOCA), anomalous origin of the left coronary artery from the pulmonary artery (ALCAPA / Bland-White-Garland syndrome), coronary artery fistula, and congenital coronary artery atresia or ostial stenosis.",
+    "pathophysiology": [
+      "Aberrant coronary artery embryologic development",
+      "AAOCA interarterial/intramural coronary compression",
+      "ALCAPA coronary steal and low-pressure perfusion",
+      "Congenital ostial obstruction",
+      "Exertional ischemia and arrhythmogenic substrate"
+    ],
+    "cell_types": [
+      "endothelial cell of coronary artery",
+      "smooth muscle cell of the coronary artery",
+      "cardiac muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:2000018",
+      "CL:0002592",
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "coronary vasculature morphogenesis",
+      "coronary artery morphogenesis",
+      "outflow tract morphogenesis",
+      "cardiac muscle contraction"
+    ],
+    "phenotypes": [
+      "Abnormal coronary artery origin",
+      "Abnormal coronary artery course",
+      "Anomalous coronary artery arising from the opposite sinus",
+      "Sudden cardiac death",
+      "Anomalous origin of left coronary artery from the pulmonary artery",
+      "Congestive heart failure",
+      "Mitral regurgitation",
+      "Cardiomyopathy",
+      "Coronary artery fistula",
+      "Coronary artery stenosis",
+      "Syncope",
+      "Chest pain",
+      "Arrhythmia"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0011636",
+      "HP:0011686",
+      "HP:0025503",
+      "HP:0001645",
+      "HP:0011638",
+      "HP:0001635",
+      "HP:0001653",
+      "HP:0001638",
+      "HP:0011641",
+      "HP:0005145",
+      "HP:0001279",
+      "HP:0100749",
+      "HP:0011675"
+    ],
+    "frequencies": [],
+    "genes": [
+      "GDF1",
+      "LRP6",
+      "MEF2A",
+      "KALRN",
+      "RYR2",
+      "LDB3"
+    ],
+    "treatments": [
+      "Surgical coronary re-implantation (ALCAPA)",
+      "Surgical unroofing or re-implantation for AAOCA",
+      "Exercise restriction in high-risk AAOCA",
+      "Transcatheter or surgical fistula closure",
+      "Revascularization for congenital ostial stenosis"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Coronary_Artery_Congenital_Malformation.yaml",
+    "page_url": "../pages/disorders/Coronary_Artery_Congenital_Malformation.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 5,
+    "num_genes": 6,
+    "num_treatments": 5,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "Coronary Artery Disease",
     "disease_id": "MONDO:1060134",
     "category": "Complex",
@@ -34490,6 +34764,96 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Diffuse Astrocytoma",
+    "disease_id": "MONDO:0016686",
+    "category": "",
+    "parents": [
+      "diffuse glioma"
+    ],
+    "creation_date": "2026-05-14T10:00:00Z",
+    "updated_date": "2026-05-14T10:00:00Z",
+    "subtypes": [
+      "IDH-mutant",
+      "DMG H3K27-altered",
+      "DHG H3G34-mutant",
+      "Paediatric HGG"
+    ],
+    "description": "Diffuse astrocytoma is an infiltrative glial neoplasm of the central nervous system characterised by diffuse parenchymal invasion of astrocytic tumour cells, with a strong tendency toward malignant progression to higher-grade glioma. Under the WHO 2021/CNS5 classification, \"diffuse astrocytoma\" is no longer a single morphologic grade-2 entity; it is now an umbrella for molecularly defined diffuse gliomas of astrocytic lineage, including IDH-mutant astrocytoma (adult-type, grades 2-4), diffuse midline glioma H3 K27-altered (paediatric-type, grade 4), diffuse hemispheric glioma H3 G34-mutant, and diffuse paediatric-type high-grade glioma H3-wildtype and IDH-wildtype. The defining biological feature across subtypes is diffuse infiltration of brain parenchyma along white-matter tracts, contrasted with the circumscribed growth of pilocytic astrocytoma. Common driver mechanisms include IDH1/2 neomorphic mutations producing the oncometabolite D-2-hydroxyglutarate (2-HG) with downstream global hypermethylation (G-CIMP), cooperating loss of ATRX and TP53 (adult astrocytic lineage), histone H3 oncomutations (K27M, G34R/V) acting as dominant-negative epigenetic drivers in paediatric tumours, and MGMT promoter methylation as a predictor of temozolomide response. Chromosome 1p/19q codeletion status is used here only to distinguish astrocytic from oligodendroglial lineage; the codeleted oligodendroglial entity is curated separately.",
+    "pathophysiology": [
+      "Diffuse Parenchymal Infiltration",
+      "IDH1/2 Neomorphic Mutation and 2-HG Accumulation",
+      "G-CIMP Hypermethylation and Blocked Differentiation",
+      "ATRX/TP53 Cooperative Loss",
+      "H3 K27M Oncohistone Dominant-Negative PRC2 Inhibition",
+      "H3 G34R/V Hemispheric Oncohistone",
+      "MGMT Promoter Methylation as a Therapy-Response Axis",
+      "Chromosome 1p/19q Status Defines Astrocytic vs Oligodendroglial Lineage"
+    ],
+    "cell_types": [
+      "astrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000127"
+    ],
+    "biological_processes": [
+      "tricarboxylic acid cycle",
+      "DNA methylation",
+      "glial cell differentiation",
+      "DNA repair"
+    ],
+    "phenotypes": [
+      "Seizures",
+      "Headache",
+      "Cognitive Impairment",
+      "Hemiparesis"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001250",
+      "HP:0002315",
+      "HP:0100543",
+      "HP:0001269"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "IDH1",
+      "IDH2",
+      "ATRX",
+      "TP53",
+      "H3F3A",
+      "HIST1H3B",
+      "CDKN2A",
+      "MGMT",
+      "Chromosome 1p/19q"
+    ],
+    "treatments": [
+      "Maximal Safe Resection",
+      "Radiation Therapy",
+      "Temozolomide Chemotherapy",
+      "Vorasidenib (Mutant-IDH Inhibitor)"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "2-Hydroxyglutarate (2-HG)"
+    ],
+    "source_file": "Diffuse_Astrocytoma.yaml",
+    "page_url": "../pages/disorders/Diffuse_Astrocytoma.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 8,
+    "num_genes": 9,
+    "num_treatments": 4,
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Diffuse Large B-Cell Lymphoma",
@@ -46976,7 +47340,7 @@ window.searchData = [
       "Musculoskeletal Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-05-09T16:35:30Z",
+    "updated_date": "2026-05-12T00:25:12Z",
     "subtypes": [],
     "description": "Elevated serum uric acid from increased purine metabolism or decreased renal excretion leads to supersaturation and crystal formation. Urate is the end product of purine catabolism in humans.\n",
     "pathophysiology": [
@@ -47057,8 +47421,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 3,
     "num_treatments": 7,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Grange syndrome",
@@ -55014,7 +55378,7 @@ window.searchData = [
       "Lung Disease"
     ],
     "creation_date": "2026-04-11T00:00:00Z",
-    "updated_date": "2026-04-22T20:13:21Z",
+    "updated_date": "2026-05-11T22:36:18Z",
     "subtypes": [],
     "description": "A chronic progressive fibrosing interstitial pneumonia of unknown cause, characterized by usual interstitial pneumonia pattern, irreversible loss of lung architecture, and worsening respiratory failure.",
     "pathophysiology": [
@@ -55072,15 +55436,17 @@ window.searchData = [
       "Nintedanib"
     ],
     "environmental": [],
-    "biochemical": [],
+    "biochemical": [
+      "Forced Vital Capacity"
+    ],
     "source_file": "Idiopathic_Pulmonary_Fibrosis.yaml",
     "page_url": "../pages/disorders/Idiopathic_Pulmonary_Fibrosis.html",
     "num_phenotypes": 3,
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Idiopathic Spontaneous Coronary Artery Dissection",
@@ -60966,6 +61332,109 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Langerhans Cell Histiocytosis",
+    "disease_id": "MONDO:0018310",
+    "category": "Complex",
+    "parents": [
+      "Histiocytosis"
+    ],
+    "creation_date": "2026-05-14T16:00:00Z",
+    "updated_date": "2026-05-14T16:00:00Z",
+    "subtypes": [
+      "SS-unifocal",
+      "SS-multifocal",
+      "MS-RO-negative",
+      "MS-RO-positive",
+      "Pulmonary LCH",
+      "LCH-ND"
+    ],
+    "description": "Langerhans cell histiocytosis (LCH) is a rare clonal neoplastic disorder characterized by accumulation of CD1a+/CD207(Langerin)+ histiocytes resembling epidermal Langerhans cells in one or more organs. Now classified as a myeloid/dendritic-cell neoplasm, LCH is driven by activating somatic mutations of the MAPK/ERK signaling pathway, most commonly BRAF V600E (about 50-60% of cases) and MAP2K1 (about 25%), with additional MAPK pathway mutations (NRAS, ARAF, MAP3K1) in many remaining cases. Clinical presentation ranges from a single self-limited bone lesion to multisystem disease with risk-organ (liver, spleen, hematopoietic) involvement, isolated pulmonary disease in adults (typically smoking-associated), and late CNS neurodegeneration (LCH-associated neurodegeneration, LCH-ND).",
+    "pathophysiology": [
+      "MAPK/ERK Pathway Activation",
+      "Clonal histiocyte accumulation and tissue infiltration",
+      "T cell exhaustion and immune checkpoint evasion"
+    ],
+    "cell_types": [
+      "Langerhans cell",
+      "CD8-positive, alpha-beta T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000453",
+      "CL:0000625"
+    ],
+    "biological_processes": [
+      "MAPK cascade",
+      "ERK1 and ERK2 cascade",
+      "cell population proliferation",
+      "Exhausted T cell differentiation"
+    ],
+    "phenotypes": [
+      "Lytic bone lesion",
+      "Central diabetes insipidus",
+      "Seborrheic-like skin rash",
+      "Hepatomegaly",
+      "Sclerosing cholangitis",
+      "Splenomegaly",
+      "Cytopenias",
+      "Pulmonary cysts",
+      "Cerebellar neurodegeneration"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Endocrine",
+      "Dermatologic",
+      "Hepatobiliary",
+      "Hematologic",
+      "Respiratory",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Endocrine",
+      "Immune",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002797",
+      "HP:0000863",
+      "HP:0000988",
+      "HP:0002240",
+      "HP:0030991",
+      "HP:0001744",
+      "HP:0001876",
+      "HP:0032445",
+      "HP:0001272"
+    ],
+    "frequencies": [],
+    "genes": [
+      "BRAF V600E",
+      "MAP2K1",
+      "ARAF"
+    ],
+    "treatments": [
+      "Vinblastine and Prednisone",
+      "BRAF inhibitor therapy",
+      "MEK inhibitor therapy",
+      "Cladribine and cytarabine",
+      "Smoking cessation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Langerhans_Cell_Histiocytosis.yaml",
+    "page_url": "../pages/disorders/Langerhans_Cell_Histiocytosis.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 3,
+    "num_genes": 3,
+    "num_treatments": 5,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Larsen Syndrome",
@@ -69161,15 +69630,17 @@ window.searchData = [
     "environmental": [
       "Older age"
     ],
-    "biochemical": [],
+    "biochemical": [
+      "Plasma testosterone"
+    ],
     "source_file": "Metastatic_Prostate_Cancer.yaml",
     "page_url": "../pages/disorders/Metastatic_Prostate_Cancer.html",
     "num_phenotypes": 4,
     "num_pathophysiology": 7,
     "num_genes": 4,
     "num_treatments": 3,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Metastatic Renal Cell Carcinoma",
@@ -98168,13 +98639,14 @@ window.searchData = [
       "Connective Tissue Disease"
     ],
     "creation_date": "2025-12-19T01:12:52Z",
-    "updated_date": "2026-02-17T21:53:14Z",
+    "updated_date": "2026-05-11T22:36:18Z",
     "subtypes": [],
     "description": "A chronic autoimmune connective tissue disease characterized by vasculopathy, immune dysregulation, and progressive fibrosis of the skin and internal organs. Classified into limited cutaneous and diffuse cutaneous subtypes based on extent of skin involvement.",
     "pathophysiology": [
       "Vascular Injury and Endothelial Dysfunction",
       "Immune Activation and Autoantibody Production",
-      "Fibroblast Activation and Fibrosis"
+      "Fibroblast Activation and Fibrosis",
+      "Systemic Sclerosis-Associated Interstitial Lung Disease"
     ],
     "cell_types": [
       "Endothelial Cell",
@@ -98194,7 +98666,8 @@ window.searchData = [
       "Blood Vessel Development",
       "Immunoglobulin Production",
       "Extracellular Matrix Organization",
-      "TGF-beta Signaling"
+      "TGF-beta Signaling",
+      "extracellular matrix organization"
     ],
     "phenotypes": [
       "Raynaud Phenomenon",
@@ -98240,16 +98713,17 @@ window.searchData = [
     "biochemical": [
       "Anti-Scl-70 (Anti-Topoisomerase I)",
       "Anti-Centromere Antibodies",
-      "Anti-RNA Polymerase III"
+      "Anti-RNA Polymerase III",
+      "Forced Vital Capacity"
     ],
     "source_file": "Systemic_Sclerosis.yaml",
     "page_url": "../pages/disorders/Systemic_Sclerosis.html",
     "num_phenotypes": 4,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 4,
     "num_genes": 3,
     "num_treatments": 4,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "TARP syndrome",
@@ -99771,7 +100245,7 @@ window.searchData = [
       "heavy metal poisoning"
     ],
     "creation_date": "2026-03-17T21:02:44Z",
-    "updated_date": "2026-04-14T20:55:00Z",
+    "updated_date": "2026-05-15T12:00:00Z",
     "subtypes": [
       "Acute Thallium Poisoning",
       "Delayed neurocutaneous thallium poisoning"
@@ -107278,11 +107752,11 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1091,
-  "total_unique_evidence_sources": 19556,
+  "total_disorder_pages": 1096,
+  "total_unique_evidence_sources": 19595,
   "total_unique_disease_categories": 44,
   "total_unique_phenotype_categories": 189,
-  "total_pathographs": 1084,
-  "total_unique_pathological_events": 5128
+  "total_pathographs": 1089,
+  "total_unique_pathological_events": 5151
 };
 window.dispatchEvent(new Event('searchDataReady'));
