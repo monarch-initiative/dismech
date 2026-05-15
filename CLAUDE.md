@@ -812,7 +812,11 @@ requesting repository access.
 
 ### Use worktrees
 
-Allows for parallel work. Canonical location is ~/worktrees/
+Use worktrees for parallel feature work. The **primary checkout** (wherever you cloned the repo) must always stay on `main`. Feature branches go in worktrees only.
+
+- Never check out `main` in a worktree — `main` belongs to the primary checkout.
+- Never leave the primary checkout on a feature branch.
+- If `git checkout main` fails with "already checked out at …", find which worktree holds `main` (`git worktree list | grep '\[main\]'`), switch that worktree to a feature branch, then retry.
 
 ### What to commit
 
