@@ -23927,6 +23927,107 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Cerebellar Ataxia, Intellectual Disability, and Dysequilibrium Syndrome",
+    "disease_id": "MONDO:0009133",
+    "category": "Mendelian",
+    "parents": [
+      "Mendelian Disorder",
+      "Cerebellar disorder",
+      "Cerebellar Hypoplasia"
+    ],
+    "creation_date": "2026-05-13T00:00:00Z",
+    "updated_date": "2026-05-13T12:00:00Z",
+    "subtypes": [
+      "CAMRQ1",
+      "CAMRQ2",
+      "CAMRQ3",
+      "CAMRQ4"
+    ],
+    "description": "Cerebellar ataxia, mental retardation, and dysequilibrium syndrome (CAMRQ) is a clinically and genetically heterogeneous group of rare autosomal-recessive non-progressive cerebellar disorders characterized by congenital ataxia, intellectual disability, severely delayed ambulation, and, in a subset of patients, quadrupedal locomotion. Cerebellar hypoplasia (predominantly of the inferior cerebellum and vermis) is the cardinal neuroimaging finding and pathologic substrate. Four genetic subtypes have been delineated: CAMRQ1 (VLDLR; Reelin signaling defect), CAMRQ2 (WDR81; BEACH-domain protein implicated in endolysosomal/autophagy regulation), CAMRQ3 (CA8; cerebellar carbonic anhydrase 8), and CAMRQ4 (ATP8A2; phosphatidylserine flippase). The syndrome was first described in consanguineous Hutterite and Turkish families. Management is supportive, with no disease-modifying therapy available.\n",
+    "pathophysiology": [
+      "Cerebellar Hypoplasia and Purkinje Cell Dysfunction",
+      "Disrupted Reelin Signaling (CAMRQ1)",
+      "Endolysosomal Trafficking and Autophagy Defect (CAMRQ2)",
+      "Dysregulated Purkinje Cell Calcium Signaling (CAMRQ3)",
+      "Impaired Phospholipid Translocation in Neuronal Membranes (CAMRQ4)",
+      "Cerebellar Motor and Cognitive Dysfunction"
+    ],
+    "cell_types": [
+      "Purkinje cell",
+      "cerebellar granule cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000121",
+      "CL:0001031"
+    ],
+    "biological_processes": [
+      "cerebellum development",
+      "cerebellar cortex development",
+      "reelin-mediated signaling pathway",
+      "neuron migration",
+      "endosome organization",
+      "autophagy",
+      "calcium-mediated signaling",
+      "phospholipid translocation"
+    ],
+    "phenotypes": [
+      "Cerebellar Ataxia",
+      "Intellectual Disability",
+      "Cerebellar Hypoplasia",
+      "Delayed Ambulation",
+      "Global Developmental Delay",
+      "Hypotonia",
+      "Quadrupedal Locomotion",
+      "Progressive Cerebellar Vermis Atrophy",
+      "Chorea",
+      "Tremor",
+      "Optic Atrophy"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001251",
+      "HP:0001249",
+      "HP:0001321",
+      "HP:0001288",
+      "HP:0001263",
+      "HP:0001290",
+      "HP:0009878",
+      "HP:0006855",
+      "HP:0002072",
+      "HP:0001337",
+      "HP:0000648"
+    ],
+    "frequencies": [],
+    "genes": [
+      "VLDLR mutations (CAMRQ1)",
+      "WDR81 mutations (CAMRQ2)",
+      "CA8 mutations (CAMRQ3)",
+      "ATP8A2 mutations (CAMRQ4)"
+    ],
+    "treatments": [
+      "Supportive Care",
+      "Physical Therapy",
+      "Genetic Counselling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cerebellar_Ataxia_Intellectual_Disability_and_Dysequilibrium.yaml",
+    "page_url": "../pages/disorders/Cerebellar_Ataxia,_Intellectual_Disability,_and_Dysequilibrium_Syndrome.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 6,
+    "num_genes": 4,
+    "num_treatments": 3,
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "Cerebral Cavernous Malformation",
     "disease_id": "MONDO:0000820",
     "category": "Mendelian",
@@ -27745,7 +27846,7 @@ window.searchData = [
       "Healthcare-associated infections"
     ],
     "creation_date": "2025-12-19T01:18:09Z",
-    "updated_date": "2026-02-19T17:30:29Z",
+    "updated_date": "2026-05-15T00:00:00Z",
     "subtypes": [
       "Acute Clostridioides difficile infection",
       "Recurrent Clostridioides difficile infection",
@@ -107752,11 +107853,11 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1096,
-  "total_unique_evidence_sources": 19595,
+  "total_disorder_pages": 1097,
+  "total_unique_evidence_sources": 19601,
   "total_unique_disease_categories": 44,
   "total_unique_phenotype_categories": 189,
-  "total_pathographs": 1089,
-  "total_unique_pathological_events": 5151
+  "total_pathographs": 1090,
+  "total_unique_pathological_events": 5157
 };
 window.dispatchEvent(new Event('searchDataReady'));
