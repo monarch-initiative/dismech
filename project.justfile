@@ -1470,6 +1470,11 @@ check-research disorder:
 list-research:
     @for f in research/*-deep-research-*.md; do [ -f "$f" ] && basename "$f"; done | grep -v '\.citations\.md$$' | sort || echo "No research files found"
 
+# Generate a deterministic Europe PMC literature-scan packet for recent papers
+[group('Research')]
+literature-scan days='7' max_records='100':
+    uv run python scripts/literature_scan.py --days {{days}} --max-records {{max_records}}
+
 # Generate a disorder review report (markdown + PDF) for expert review
 # Example: just disorder-report kb/disorders/Kleefstra_Syndrome.yaml
 # Output: Kleefstra_Syndrome_review.md and Kleefstra_Syndrome_review.pdf

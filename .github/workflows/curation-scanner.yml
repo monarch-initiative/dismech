@@ -5,28 +5,40 @@ on:
     - cron: "0 */8 * * *"
   workflow_dispatch:
     inputs:
-      model:
-        description: "Claude model to use"
-        default: claude-opus-4-7
-        type: choice
-        options:
-          - claude-sonnet-4-6
-          - claude-haiku-4-5-20251001
-          - claude-opus-4-7
-
-concurrency:
-  group: curation-scanner
-  cancel-in-progress: true
+      note:
+        description: "Optional note for the manual scanner run"
+        required: false
+        default: ""
+        type: string
 
 jobs:
   curation-scan:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - effort: low_effort
+            model: claude-haiku-4-5-20251001
+            selector: "label:curation label:low_effort"
+          - effort: medium_effort
+            model: claude-sonnet-4-6
+            selector: "label:curation label:medium_effort -label:low_effort"
+          - effort: high_effort
+            model: claude-opus-4-7
+            selector: "label:curation -label:low_effort -label:medium_effort"
+    concurrency:
+      group: curation-scanner-${{ matrix.effort }}
+      cancel-in-progress: true
     permissions:
       contents: write
       pull-requests: write
       issues: write
       id-token: write
+    env:
+      EFFORT_TIER: ${{ matrix.effort }}
+      EFFORT_SELECTOR: ${{ matrix.selector }}
 
     steps:
       - name: Checkout repository
@@ -58,16 +70,35 @@ jobs:
           claude_args: |
             --dangerously-skip-permissions
             --mcp-config '{"mcpServers": {"ols": {"command": "uvx", "args": ["ols-mcp"]}}}'
-            --model ${{ inputs.model || 'claude-opus-4-7' }}
+            --model ${{ matrix.model }}
           prompt: |
             REPO: ${{ github.repository }}
             TRIGGER: ${{ github.event_name }}
+            EFFORT TIER: ${{ matrix.effort }}
+            EFFORT SELECTOR: ${{ matrix.selector }}
+            MANUAL NOTE: ${{ inputs.note || '' }}
 
             You are running an automated curation scanner for the dismech repository.
 
-            Scan for open issues and pull requests labeled `curation` that are unassigned.
-            Start by gathering candidate items with `gh issue list` and `gh pr list`, including
-            metadata such as labels, assignees, updated time, review state, and reaction counts.
+            Scan only for open issues and pull requests that are unassigned and match
+            EFFORT SELECTOR. Start by gathering candidate items with `gh issue list`
+            and `gh pr list`, including metadata such as labels, assignees, updated
+            time, review state, and reaction counts.
+
+            Use searches equivalent to:
+            - `is:open is:issue no:assignee label:curation ...effort selector...`
+            - `is:open is:pr no:assignee label:curation ...effort selector...`
+
+            Effort tier routing:
+            - `low_effort`: suitable for bounded augmentation of existing disease
+              entries and low-risk issue follow-up. Do not create new disease
+              entries from this tier. If a task requires new disease curation,
+              leave a brief comment and ensure the work is routed to `high_effort`.
+            - `medium_effort`: suitable for bounded but less mechanical updates.
+            - `high_effort`: default for curation work without lower-effort labels
+              and for new disease entry creation.
+
+            If an item has more than one effort label, skip it rather than guessing.
 
             You may scan multiple candidates, but you must choose exactly one issue or pull request
             to actively work on in this run. Leave all other items untouched.

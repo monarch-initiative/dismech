@@ -1,0 +1,149 @@
+name: Literature Scan
+
+on:
+  schedule:
+    # Weekly Friday scan after the UTC publication week has mostly settled.
+    - cron: "0 13 * * 5"
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "Number of days back to scan"
+        required: false
+        default: "7"
+        type: string
+      max_records:
+        description: "Maximum Europe PMC records to include in the packet"
+        required: false
+        default: "100"
+        type: string
+      max_issues:
+        description: "Maximum GitHub issues to create"
+        required: false
+        default: "5"
+        type: string
+      model:
+        description: "Claude model to use for issue handoff"
+        required: false
+        default: claude-haiku-4-5-20251001
+        type: choice
+        options:
+          - claude-haiku-4-5-20251001
+          - claude-sonnet-4-6
+          - claude-opus-4-7
+      create_issues:
+        description: "Create GitHub handoff issues after generating the packet"
+        required: false
+        default: true
+        type: boolean
+
+concurrency:
+  group: literature-scan
+  cancel-in-progress: true
+
+jobs:
+  literature-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+
+    env:
+      SCAN_DAYS: ${{ inputs.days || '7' }}
+      MAX_RECORDS: ${{ inputs.max_records || '100' }}
+      MAX_ISSUES: ${{ inputs.max_issues || '5' }}
+      ISSUE_HANDOFF_MODEL: ${{ inputs.model || 'claude-haiku-4-5-20251001' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install python tools
+        run: uv sync
+
+      - name: Generate deterministic literature packet
+        run: |
+          uv run python scripts/literature_scan.py \
+            --days "$SCAN_DAYS" \
+            --max-records "$MAX_RECORDS" \
+            --output-json output/literature_scan/literature_scan.json \
+            --output-md output/literature_scan/literature_scan.md
+
+      - name: Upload literature packet
+        uses: actions/upload-artifact@v4
+        with:
+          name: literature-scan-packet
+          path: |
+            output/literature_scan/literature_scan.json
+            output/literature_scan/literature_scan.md
+
+      - name: Create literature scan handoff issues
+        if: ${{ github.event_name == 'schedule' || inputs.create_issues }}
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          show_full_output: true
+          claude_args: |
+            --model ${{ env.ISSUE_HANDOFF_MODEL }}
+            --allowedTools "Bash(gh label list:*),Bash(gh issue list:*),Bash(gh issue create:*),Bash(cat:*),Bash(sed:*),Bash(rg:*),Bash(head:*)"
+          prompt: |
+            REPO: ${{ github.repository }}
+            MAX ISSUES: ${{ env.MAX_ISSUES }}
+            MODEL: ${{ env.ISSUE_HANDOFF_MODEL }}
+
+            You are running the low-effort literature-scan handoff for dismech.
+
+            Read `CLAUDE.md` and `output/literature_scan/literature_scan.md`.
+            You may inspect relevant `kb/disorders/*.yaml` files that the packet names.
+
+            Your only allowed write action is creating GitHub issues. Do not edit files.
+            Do not create pull requests. Do not fetch or edit `references_cache/*.md`.
+            Do not use the `@dragon-ai-agent please` phrase.
+
+            For each candidate, first check for an existing open issue that already
+            mentions the PMID:
+
+            `gh issue list --repo "$REPO" --search "PMID:<ID> in:body is:open" --json number,title`
+
+            Skip candidates that already have an open issue.
+
+            Create at most MAX ISSUES total, prioritizing:
+            - papers with a deterministic existing disease-file match
+              where the disease name or synonym appears in the title
+            - papers whose abstract suggests disease mechanism, genetics, treatment,
+              trial, or clinically relevant therapeutic resistance
+            - papers not already cited in the matched YAML file
+
+            The deterministic candidate-file matches are suggestions, not proof.
+            Skip candidate matches that are only secondary phenotypes, broad disease
+            categories, treatment settings, or incidental abstract mentions.
+
+            For an existing disease augmentation issue:
+            - labels: `curation,low_effort`
+            - title: `[lit-scan] <Disease name>: <short paper title>`
+            - body must include the publication details from the packet verbatim:
+              PMID, title, journal/date, DOI, Europe PMC/PubMed links, and abstract
+            - body must include a clearly separated `Low-Effort Assessment` section
+              explaining the likely YAML file, potential update area, and why this
+              may or may not add information beyond the current entry
+            - body must include this instruction:
+              `Augment only the existing disease entry. If this requires creating
+              a new disease entry, stop and open a separate curation + high_effort
+              issue instead.`
+
+            For a missing-disease issue:
+            - create it only when the publication clearly concerns a disease not
+              already represented in `kb/disorders`
+            - labels: `curation,high_effort`
+            - title: `[lit-scan:new] <Disease name>: recent literature signal`
+            - body must include the same publication details and say that new disease
+              entry creation is high effort by default
+
+            If no candidate is strong enough, create no issues and finish quietly.
