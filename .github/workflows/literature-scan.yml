@@ -1,4 +1,4 @@
-name: Haiku Literature Scan
+name: Literature Scan
 
 on:
   schedule:
@@ -21,6 +21,15 @@ on:
         required: false
         default: "5"
         type: string
+      model:
+        description: "Claude model to use for issue handoff"
+        required: false
+        default: claude-haiku-4-5-20251001
+        type: choice
+        options:
+          - claude-haiku-4-5-20251001
+          - claude-sonnet-4-6
+          - claude-opus-4-7
       create_issues:
         description: "Create GitHub handoff issues after generating the packet"
         required: false
@@ -28,7 +37,7 @@ on:
         type: boolean
 
 concurrency:
-  group: haiku-literature-scan
+  group: literature-scan
   cancel-in-progress: true
 
 jobs:
@@ -44,6 +53,7 @@ jobs:
       SCAN_DAYS: ${{ inputs.days || '7' }}
       MAX_RECORDS: ${{ inputs.max_records || '100' }}
       MAX_ISSUES: ${{ inputs.max_issues || '5' }}
+      ISSUE_HANDOFF_MODEL: ${{ inputs.model || 'claude-haiku-4-5-20251001' }}
 
     steps:
       - name: Checkout repository
@@ -73,7 +83,7 @@ jobs:
             output/literature_scan/literature_scan.json
             output/literature_scan/literature_scan.md
 
-      - name: Create low-effort curation handoff issues
+      - name: Create literature scan handoff issues
         if: ${{ github.event_name == 'schedule' || inputs.create_issues }}
         uses: anthropics/claude-code-action@v1
         with:
@@ -81,11 +91,12 @@ jobs:
           github_token: ${{ github.token }}
           show_full_output: true
           claude_args: |
-            --model claude-haiku-4-5-20251001
+            --model ${{ env.ISSUE_HANDOFF_MODEL }}
             --allowedTools "Bash(gh label list:*),Bash(gh issue list:*),Bash(gh issue create:*),Bash(cat:*),Bash(sed:*),Bash(rg:*),Bash(head:*)"
           prompt: |
             REPO: ${{ github.repository }}
             MAX ISSUES: ${{ env.MAX_ISSUES }}
+            MODEL: ${{ env.ISSUE_HANDOFF_MODEL }}
 
             You are running the low-effort literature-scan handoff for dismech.
 
