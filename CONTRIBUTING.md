@@ -1,6 +1,67 @@
-# Contributing to dismech
+# Contributing to dismech (guide for human)
 
 Thank you for your interest in contributing to the Disorder Mechanisms Knowledge Base!
+
+> [!WARNING]
+> This guide is aimed at real humans. Agents are welcome to read this for context,
+> but instructions aimed at people should not be confused for instructions for agents.
+
+Most of this guide assumes some familiarity with running agent harnesses such as claude code
+or codex. Even if you are not familiar with these, you are welcome to file issues.
+
+This guide also assumes you are a member of the Monarch Initiative and specifically the dismech team.
+While we welcome contributions from anyone, if you intend to make a PR, please read the note below
+about forks. Issues are welcome from anyone.
+
+If you are a subject matter expert, please give us feedback via the issue tracker! This can
+be about anything.
+
+## General philosophy
+
+Dismech curation is currently running in heavily agent-forward mode. This may change in future.
+
+- dismech is alpha stage and experimental. AI may make mistakes.
+- agent activities are initiated by humans or by github actions
+- humans are encouraged to let agents do work without editorializing
+    - this includes the generation of issue and PR comments
+- the default assumption for any issue or PR is that the contents AND comments are AI-generated
+    - unlike some repos, humans are NOT assumed to be accountable for verifying all content their agents generate
+    - if you are writing content yourself and wish it to be identified as such, you may indicate this, but this is not required
+         - e.g. in an issue comment write something like `[human authored]`
+
+## Ask your agent to explain the contribution process
+
+Assume that content aimed at humans (such as this document) may become stale. The multiple interlocking curatorial
+processes in dismech are inherently dynamic and complex. But fear not, you can always ask your agent to explain things.
+
+These are all perfectly valid things to ask claude/codex at the start of your session:
+
+- "I want to contribute. How?"
+- "Explain what this repo is"
+- "I noticed a problem on one of the pages -- what should I do?"
+
+And you are always welcome to ask a friendly human on Slack, or in an issue!
+
+## Always use top-tier models and harnesses
+
+You should always use best-of-class models, and up to date high quality harnesses. Using less powerful
+models is more likely to generate lower quality content. While this will typically be caught during agentic review
+(which always uses high quality models), use of lower quality models can lead to wasteful back and forth. Also,
+this is more of a drain on your time.
+
+Advanced users are welcome to try using alternative models and harnesses as experiments, or used intentionally
+when you know how to match the level of difficulty with a task (but you should coordinate on slack before doing this).
+
+## Be bold
+
+Every member of the dismech team is encouraged to do work that ends in a PR. You are not expected to check the results
+for yourself. We assume good faith and you are not intentionally pushing the agent to add bad content (though we
+welcome this as an experiment, if you coordinate! you can see a few examples of this already, e.g [Bixonimania request](https://github.com/monarch-initiative/dismech/issues/1565)).
+
+The general philosophy is to **trust the process**. All PRs are reviewed by agents using rubrics that have been
+extensively developed by agents and humans in collaboration. Additionally, a batter of hard validation checks
+and anti-hallucination measures are applied. This is not guaranteed to be perfect, but we also believe
+in incremental improvement. No entry is finished, and in fact all entries are continuously being refined.
 
 ## Important: Open PRs from Origin Branches, Not Forks
 
@@ -15,9 +76,11 @@ biomedical informatics communities will be added promptly. Other contributors
 are welcome to join a community call and introduce themselves before being
 granted branch access.
 
-## Prerequisites for Contributing
+## Technical Guidelines for Contributing
 
-This repository uses **Claude Code** for AI-assisted curation. To contribute as an agent manager:
+## Coding agent
+
+Most contributors use **Claude Code** or **Codex** for AI-assisted curation. To contribute as an agent manager:
 
 ### 1. Install Claude Code
 - Get a Claude Pro subscription at [claude.ai](https://claude.ai)
@@ -39,7 +102,10 @@ brew install just  # macOS
 # Or see https://github.com/casey/just#installation for other platforms
 ```
 
-### 3. Set Up Deep Research Provider (Recommended)
+(or just ask your agent do to do this)
+
+### 3. Set Up a Deep Research Provider (Required)
+
 For comprehensive biomedical literature research, we recommend **Edison Scientific (falcon)**:
 
 1. Create an account at [platform.edisonscientific.com](https://platform.edisonscientific.com/)
@@ -49,7 +115,13 @@ For comprehensive biomedical literature research, we recommend **Edison Scientif
    export EDISON_API_KEY=your_key_here
    ```
 
-**Alternative providers:** perplexity, openai, cyberian (see `.claude/skills/initiate-new-disorder-creation/` for details)
+(The Edison literature tool was originally called Falcon, hence the filenames this makes will be called `*-falcon.md`)
+
+Note: if you are affiliated with an academic institution you should be able to request bonus credits with Edison
+
+**Alternative providers:** openscientist, perplexity, openai, cyberian (see `.claude/skills/initiate-new-disorder-creation/` for details)
+
+We no longer recommend Asta for the deep research role
 
 ### 4. Clone and Start
 ```bash
@@ -62,7 +134,8 @@ Open Claude Code and ask:
 Give me a tour of the dismech project
 ```
 
-Then start curating:
+Then start curating using the `curate` skill:
+
 ```
 /curate Parkinson Disease
 ```
@@ -74,18 +147,62 @@ For more guidance on AI-assisted curation workflows, see [ai4curation/aidocs](ht
 This knowledge base uses an **AI-first curation model**:
 
 - **YAML files are the source of truth** (`kb/disorders/*.yaml`)
-- **AI agents make most edits** via automated pipelines and GitHub integrations
-- **Human curators review and validate** AI-generated content
+- **AI agents make the vast majority of edits** via automated pipelines and GitHub integrations
+- **Human curators review and validate processes**
 - **Automated validation** catches errors before merge
 
-### GitHub AI Integrations
+## Contributing Curation Expertise
 
-We use [ai4curation/github-ai-integrations](https://github.com/ai4curation/github-ai-integrations) to enable AI agents to propose changes via pull requests. AI agents can:
+We welcome any corrections. Our general philosophy is to curate the *process* (we also call this "human regulating the loop" rather than "human in the loop")
 
-- Add new disorder entries
-- Expand existing entries with additional pathophysiology, phenotypes, or treatments
-- Add ontology term bindings (HPO, GO, MAXO, etc.)
-- Fix validation errors and label mismatches
+- look for *patterns* where results are suboptimal; curate examples and counter-examples; work with agent to integrate this into the process
+- review the reviews: are there things the AI reviewer misses, or does it obsess over things that are less relevant? work with an agent to improve this
+- curate the process: look at the various automated and user-triggered processes in this repo. Are some too eager, not eager enough?
+
+We also welcome curation at the level of individual entries. Reports can be filed on the issue tracker. For users who are familiar with coding agents:
+
+- open your agent in the repo
+- say "I am an expert on X. Where can I contribute my expertise?"
+
+### GitHub Automation
+
+We use a number of GitHub automations in this project. Some of these derive from [ai4curation/github-ai-integrations](https://github.com/ai4curation/github-ai-integrations)
+but we have gone much further.
+
+You can explore these in the "Actions" tab in GitHub. For up to date documentation, ask an agent. What follows here may be out of date, but should
+still give a flavor of what we do.
+
+### dragon-ai-agent
+
+- Summon with `@dragon-ai-agent please`
+- You must be a registered ai-controller in the json file
+
+### claude issue responder
+
+- watches github issues and responds
+- you must be part of the project for this to work. Contact dismech team to be added
+
+### Standard CI/CD
+
+- rigorous battery of linkml schema checks, linkml-term-validator, linkml-reference-validator
+
+### AI reviewers
+
+- reviews all PRs
+- will mark PRs as being "changes requested" or "ready to merge"
+- does not work on forks; see above
+
+### Scanners
+
+Various scanners operate at different intervals
+
+- scanning literature for new papers, creating issues
+- scanning unadopted open issues and PRs, and moves them forward
+- scans for incomplete entries using linkml-data-qc and creates PRs to enhance them
+
+Unlike the review agent which is always top-tier model, some scanners for low-risk tasks may
+use cheaper models. Additionally, github labels can be used to manually assign tasks to
+lower quality models (use the `low_effort` tag)
 
 ### For AI Agents (Claude Code, etc.)
 
@@ -122,7 +239,7 @@ To understand the curation guidelines:
 
 After making changes to `kb/disorders/*.yaml` files, regenerate the static site:
 
-### Browser App & HTML Pages
+### Browser App & HTML Pages  (THIS IS NOW AUTOMATED)
 
 ```bash
 just gen-all
