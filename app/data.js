@@ -3684,6 +3684,115 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Acute Disseminated Encephalomyelitis",
+    "disease_id": "MONDO:0019383",
+    "category": "Neurological Disorder",
+    "parents": [
+      "Autoimmune Disorder",
+      "Demyelinating Disease"
+    ],
+    "creation_date": "2026-05-16T04:09:27Z",
+    "updated_date": "2026-05-16T05:45:20Z",
+    "subtypes": [
+      "Monophasic ADEM",
+      "Multiphasic ADEM",
+      "MOG-IgG-associated ADEM"
+    ],
+    "description": "Acute disseminated encephalomyelitis (ADEM) is an acute immune-mediated demyelinating disorder of the central nervous system, most common in children, defined clinically by encephalopathy with polyfocal neurologic deficits and MRI evidence of inflammatory CNS demyelination. Most cases are monophasic and follow an infection or other immune trigger, but multiphasic and MOG-IgG-associated relapsing presentations are recognized.",
+    "pathophysiology": [
+      "Postinfectious CNS Autoimmunity",
+      "Molecular Mimicry",
+      "BBB Disruption and Antigen Release",
+      "Perivenous Inflammatory Demyelination",
+      "MOG-IgG-Associated Demyelination"
+    ],
+    "cell_types": [
+      "macrophage",
+      "lymphocyte",
+      "microglial cell",
+      "oligodendrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000542",
+      "CL:0000129",
+      "CL:0000128"
+    ],
+    "biological_processes": [
+      "immune response",
+      "inflammatory response",
+      "defense response to virus",
+      "myelination",
+      "complement activation"
+    ],
+    "phenotypes": [
+      "Encephalopathy",
+      "Reduced Consciousness",
+      "CNS Demyelination",
+      "Thalamic Involvement",
+      "Basal Ganglia Involvement",
+      "Diffuse White Matter Abnormalities",
+      "Myelitis",
+      "Optic Neuritis",
+      "Ataxia",
+      "Seizures",
+      "Fever",
+      "Headache",
+      "Muscle Weakness",
+      "CSF Pleocytosis",
+      "Cognitive Impairment"
+    ],
+    "phenotype_categories": [
+      "Symptoms",
+      "Clinical Signs"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001298",
+      "HP:0004372",
+      "HP:0007305",
+      "HP:0010663",
+      "HP:0002134",
+      "HP:0007204",
+      "HP:0012486",
+      "HP:0100653",
+      "HP:0001251",
+      "HP:0001250",
+      "HP:0001945",
+      "HP:0002315",
+      "HP:0001324",
+      "HP:0012229",
+      "HP:0100543"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "High-Dose Corticosteroids",
+      "Intravenous Immunoglobulin",
+      "Plasma Exchange",
+      "Supportive and Empiric Anti-Infective Care"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "CSF inflammatory profile",
+      "MOG-IgG seropositivity"
+    ],
+    "source_file": "Acute_Disseminated_Encephalomyelitis.yaml",
+    "page_url": "../pages/disorders/Acute_Disseminated_Encephalomyelitis.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Acute Hepatitis C Virus Infection",
     "disease_id": "MONDO:0100371",
     "category": "Infectious",
@@ -9088,7 +9197,7 @@ window.searchData = [
       "soft tissue sarcoma"
     ],
     "creation_date": "2026-04-12T05:11:04Z",
-    "updated_date": "2026-05-05T11:34:04Z",
+    "updated_date": "2026-05-16T00:00:00Z",
     "subtypes": [
       "Cutaneous Head and Neck Angiosarcoma",
       "Radiation-Associated Angiosarcoma",
@@ -9460,6 +9569,114 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "1",
     "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "Anti-NMDA Receptor Encephalitis",
+    "disease_id": "MONDO:0021081",
+    "category": "Autoimmune",
+    "parents": [
+      "Autoimmune Encephalitis",
+      "Neurological Disease",
+      "Autoimmune Disease"
+    ],
+    "creation_date": "2026-05-16T06:56:16Z",
+    "updated_date": "2026-05-16T08:02:25Z",
+    "subtypes": [
+      "Teratoma-associated anti-NMDA receptor encephalitis",
+      "Post-herpes simplex encephalitis anti-NMDA receptor encephalitis"
+    ],
+    "description": "Anti-NMDA receptor encephalitis is an antibody-mediated autoimmune encephalitis caused by IgG autoantibodies against the GluN1/NR1 subunit of the NMDA receptor. It usually presents subacutely with psychiatric or cognitive and speech-language symptoms, seizures, movement disorder, decreased consciousness, autonomic dysfunction, and central hypoventilation. Ovarian teratoma and herpes simplex encephalitis are recognized triggers, CSF antibody testing is a core diagnostic marker, and early immunotherapy plus tumor removal when indicated improves outcome.",
+    "pathophysiology": [
+      "Triggered Anti-GluN1 Autoimmunity",
+      "Intrathecal Anti-NMDAR Antibody Production",
+      "Synaptic NMDAR Cluster Loss",
+      "Glutamatergic Synaptic Hypofunction",
+      "Blood-Brain Barrier and Immune Trafficking",
+      "Neuropsychiatric and Seizure Syndrome"
+    ],
+    "cell_types": [
+      "B cell",
+      "plasma cell",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000236",
+      "CL:0000786",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "B cell mediated immunity",
+      "immunoglobulin production",
+      "receptor internalization",
+      "glutamate receptor signaling pathway",
+      "regulation of synaptic plasticity",
+      "maintenance of blood-brain barrier"
+    ],
+    "phenotypes": [
+      "Psychosis",
+      "Seizure",
+      "Dyskinesia",
+      "Memory Impairment",
+      "Speech and Language Dysfunction",
+      "Coma",
+      "Autonomic Dysfunction",
+      "Central Hypoventilation",
+      "EEG Abnormality",
+      "CSF Pleocytosis"
+    ],
+    "phenotype_categories": [
+      "Psychiatric",
+      "Neurologic",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0000709",
+      "HP:0001250",
+      "HP:0100660",
+      "HP:0002354",
+      "HP:0002463",
+      "HP:0001259",
+      "HP:0002270",
+      "HP:0007110",
+      "HP:0002353",
+      "HP:0012229"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "COMMON"
+    ],
+    "genes": [],
+    "treatments": [
+      "First-Line Immunotherapy",
+      "High-Dose Corticosteroid Therapy",
+      "Plasma Exchange",
+      "Intravenous Immunoglobulin",
+      "Rituximab or Cyclophosphamide Second-Line Immunotherapy",
+      "Long-Term Mycophenolate or Azathioprine Immunotherapy",
+      "Tumor Removal"
+    ],
+    "environmental": [
+      "Ovarian teratoma",
+      "Herpes simplex encephalitis",
+      "Geographic and climatic factors"
+    ],
+    "biochemical": [
+      "CSF Anti-NMDAR IgG",
+      "CSF White Blood Cell Count",
+      "Serum Anti-NMDAR IgG"
+    ],
+    "source_file": "Anti-NMDA_Receptor_Encephalitis.yaml",
+    "page_url": "../pages/disorders/Anti-NMDA_Receptor_Encephalitis.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 7,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Antiphospholipid Syndrome",
@@ -12313,7 +12530,7 @@ window.searchData = [
       "Complement Disorder"
     ],
     "creation_date": "2026-04-22T12:00:00Z",
-    "updated_date": "2026-05-05T16:40:30Z",
+    "updated_date": "2026-05-16T00:00:00Z",
     "subtypes": [
       "CFH-aHUS",
       "MCP-aHUS",
@@ -12405,6 +12622,7 @@ window.searchData = [
     "treatments": [
       "Eculizumab",
       "Ravulizumab",
+      "Iptacopan",
       "Plasma Exchange/Infusion",
       "Renal Transplantation",
       "Immunosuppression for Anti-Factor H Antibodies"
@@ -12421,7 +12639,7 @@ window.searchData = [
     "num_phenotypes": 12,
     "num_pathophysiology": 4,
     "num_genes": 8,
-    "num_treatments": 5,
+    "num_treatments": 6,
     "causal_graph_edges": "3",
     "causal_graph_longest_path": "3"
   },
@@ -17909,7 +18127,7 @@ window.searchData = [
       "urothelial carcinoma"
     ],
     "creation_date": "2026-04-12T05:10:24Z",
-    "updated_date": "2026-04-27T22:00:00Z",
+    "updated_date": "2026-05-15T00:00:00Z",
     "subtypes": [
       "Non-Muscle-Invasive",
       "Muscle-Invasive"
@@ -17919,18 +18137,22 @@ window.searchData = [
       "Urothelial-Origin Disease Spectrum",
       "Tumor Suppressor Pathway Inactivation",
       "Epithelial Plasticity and Invasion",
-      "Molecularly Stratified Therapeutic Vulnerabilities"
+      "Molecularly Stratified Therapeutic Vulnerabilities",
+      "Adaptive Immune Resistance and PD-L1-Mediated Immune Evasion"
     ],
     "cell_types": [
-      "bladder urothelial cell"
+      "bladder urothelial cell",
+      "CD8-positive, alpha-beta T cell"
     ],
     "cell_type_ids": [
-      "CL:1001428"
+      "CL:1001428",
+      "CL:0000625"
     ],
     "biological_processes": [
       "negative regulation of G1/S transition of mitotic cell cycle",
       "epithelial to mesenchymal transition",
-      "cell population proliferation"
+      "cell population proliferation",
+      "Negative Regulation of T Cell Mediated Immunity"
     ],
     "phenotypes": [
       "Hematuria",
@@ -17974,10 +18196,10 @@ window.searchData = [
     "source_file": "Bladder_Urothelial_Carcinoma.yaml",
     "page_url": "../pages/disorders/Bladder_Urothelial_Carcinoma.html",
     "num_phenotypes": 3,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 5,
     "num_genes": 4,
     "num_treatments": 6,
-    "causal_graph_edges": "4",
+    "causal_graph_edges": "5",
     "causal_graph_longest_path": "3"
   },
   {
@@ -23927,6 +24149,107 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Cerebellar Ataxia, Intellectual Disability, and Dysequilibrium Syndrome",
+    "disease_id": "MONDO:0009133",
+    "category": "Mendelian",
+    "parents": [
+      "Mendelian Disorder",
+      "Cerebellar disorder",
+      "Cerebellar Hypoplasia"
+    ],
+    "creation_date": "2026-05-13T00:00:00Z",
+    "updated_date": "2026-05-13T12:00:00Z",
+    "subtypes": [
+      "CAMRQ1",
+      "CAMRQ2",
+      "CAMRQ3",
+      "CAMRQ4"
+    ],
+    "description": "Cerebellar ataxia, mental retardation, and dysequilibrium syndrome (CAMRQ) is a clinically and genetically heterogeneous group of rare autosomal-recessive non-progressive cerebellar disorders characterized by congenital ataxia, intellectual disability, severely delayed ambulation, and, in a subset of patients, quadrupedal locomotion. Cerebellar hypoplasia (predominantly of the inferior cerebellum and vermis) is the cardinal neuroimaging finding and pathologic substrate. Four genetic subtypes have been delineated: CAMRQ1 (VLDLR; Reelin signaling defect), CAMRQ2 (WDR81; BEACH-domain protein implicated in endolysosomal/autophagy regulation), CAMRQ3 (CA8; cerebellar carbonic anhydrase 8), and CAMRQ4 (ATP8A2; phosphatidylserine flippase). The syndrome was first described in consanguineous Hutterite and Turkish families. Management is supportive, with no disease-modifying therapy available.\n",
+    "pathophysiology": [
+      "Cerebellar Hypoplasia and Purkinje Cell Dysfunction",
+      "Disrupted Reelin Signaling (CAMRQ1)",
+      "Endolysosomal Trafficking and Autophagy Defect (CAMRQ2)",
+      "Dysregulated Purkinje Cell Calcium Signaling (CAMRQ3)",
+      "Impaired Phospholipid Translocation in Neuronal Membranes (CAMRQ4)",
+      "Cerebellar Motor and Cognitive Dysfunction"
+    ],
+    "cell_types": [
+      "Purkinje cell",
+      "cerebellar granule cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000121",
+      "CL:0001031"
+    ],
+    "biological_processes": [
+      "cerebellum development",
+      "cerebellar cortex development",
+      "reelin-mediated signaling pathway",
+      "neuron migration",
+      "endosome organization",
+      "autophagy",
+      "calcium-mediated signaling",
+      "phospholipid translocation"
+    ],
+    "phenotypes": [
+      "Cerebellar Ataxia",
+      "Intellectual Disability",
+      "Cerebellar Hypoplasia",
+      "Delayed Ambulation",
+      "Global Developmental Delay",
+      "Hypotonia",
+      "Quadrupedal Locomotion",
+      "Progressive Cerebellar Vermis Atrophy",
+      "Chorea",
+      "Tremor",
+      "Optic Atrophy"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001251",
+      "HP:0001249",
+      "HP:0001321",
+      "HP:0001288",
+      "HP:0001263",
+      "HP:0001290",
+      "HP:0009878",
+      "HP:0006855",
+      "HP:0002072",
+      "HP:0001337",
+      "HP:0000648"
+    ],
+    "frequencies": [],
+    "genes": [
+      "VLDLR mutations (CAMRQ1)",
+      "WDR81 mutations (CAMRQ2)",
+      "CA8 mutations (CAMRQ3)",
+      "ATP8A2 mutations (CAMRQ4)"
+    ],
+    "treatments": [
+      "Supportive Care",
+      "Physical Therapy",
+      "Genetic Counselling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cerebellar_Ataxia_Intellectual_Disability_and_Dysequilibrium.yaml",
+    "page_url": "../pages/disorders/Cerebellar_Ataxia,_Intellectual_Disability,_and_Dysequilibrium_Syndrome.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 6,
+    "num_genes": 4,
+    "num_treatments": 3,
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "Cerebral Cavernous Malformation",
     "disease_id": "MONDO:0000820",
     "category": "Mendelian",
@@ -27745,7 +28068,7 @@ window.searchData = [
       "Healthcare-associated infections"
     ],
     "creation_date": "2025-12-19T01:18:09Z",
-    "updated_date": "2026-02-19T17:30:29Z",
+    "updated_date": "2026-05-15T00:00:00Z",
     "subtypes": [
       "Acute Clostridioides difficile infection",
       "Recurrent Clostridioides difficile infection",
@@ -63572,7 +63895,7 @@ window.searchData = [
       "COVID-19 complications"
     ],
     "creation_date": "2026-01-12T22:00:21Z",
-    "updated_date": "2026-05-08T20:00:00Z",
+    "updated_date": "2026-05-16T00:00:00Z",
     "subtypes": [
       "Pain-dominant long COVID phenotype",
       "Cardiopulmonary-dominant long COVID phenotype",
@@ -65359,6 +65682,101 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "26",
     "causal_graph_longest_path": "8"
+  },
+  {
+    "name": "MOGAD",
+    "disease_id": "MONDO:1040024",
+    "category": "Neurological Disorder",
+    "parents": [
+      "Autoimmune Disorder",
+      "Demyelinating Disease"
+    ],
+    "creation_date": "2026-05-03T00:00:00Z",
+    "updated_date": "2026-05-16T03:56:08Z",
+    "subtypes": [
+      "Monophasic MOGAD",
+      "Relapsing MOGAD"
+    ],
+    "description": "Myelin oligodendrocyte glycoprotein antibody-associated disease (MOGAD) is an autoimmune inflammatory demyelinating disorder of the central nervous system defined by serum IgG autoantibodies against conformational epitopes of MOG. MOGAD typically presents as acute disseminated encephalomyelitis (ADEM, more common in children), optic neuritis, or transverse myelitis, and less commonly as cerebral cortical encephalitis, brainstem, or cerebellar syndromes. It is clinically and pathologically distinct from multiple sclerosis (MS) and aquaporin-4 antibody-positive neuromyelitis optica spectrum disorder (AQP4-IgG NMOSD). Disease course can be monophasic or relapsing, and diagnosis relies on cell-based assays detecting MOG-IgG with full-length human MOG in its native conformation.\n",
+    "pathophysiology": [
+      "Anti-MOG Autoimmunity",
+      "Complement-Dependent Cytotoxicity",
+      "Antibody-Dependent Cellular Cytotoxicity",
+      "Cognate T-Cell Mediated Inflammation",
+      "Oligodendrocyte Cytoskeleton Disruption and Demyelination"
+    ],
+    "cell_types": [
+      "oligodendrocyte",
+      "CD4-positive T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000128",
+      "CL:0000624"
+    ],
+    "biological_processes": [
+      "complement activation",
+      "antibody-dependent cellular cytotoxicity",
+      "myelination"
+    ],
+    "phenotypes": [
+      "Optic Neuritis",
+      "Visual Loss",
+      "Optic Disc Swelling",
+      "Transverse Myelitis",
+      "Spinal Cord Lesion",
+      "Acute Disseminated Encephalomyelitis",
+      "Encephalopathy",
+      "Cerebral Cortical Encephalitis",
+      "Seizure",
+      "Headache",
+      "Brainstem Syndrome",
+      "Ataxia",
+      "Paraparesis"
+    ],
+    "phenotype_categories": [
+      "Symptoms",
+      "Clinical Signs",
+      "Imaging"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Immune",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0100653",
+      "HP:0000572",
+      "HP:0001085",
+      "HP:0012486",
+      "HP:0100561",
+      "HP:0007305",
+      "HP:0001298",
+      "HP:0001250",
+      "HP:0002315",
+      "HP:0001251",
+      "HP:0002385"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Acute Attack Treatment - High-Dose Corticosteroids",
+      "Acute Attack Treatment - Plasma Exchange",
+      "Maintenance - Intravenous Immunoglobulin",
+      "Maintenance - Rituximab",
+      "Maintenance - Tocilizumab",
+      "Maintenance - Mycophenolate Mofetil",
+      "Maintenance - Azathioprine"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "MOGAD.yaml",
+    "page_url": "../pages/disorders/MOGAD.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 7,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "MPDU1-congenital disorder of glycosylation",
@@ -107752,11 +108170,11 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1096,
-  "total_unique_evidence_sources": 19595,
+  "total_disorder_pages": 1100,
+  "total_unique_evidence_sources": 19664,
   "total_unique_disease_categories": 44,
-  "total_unique_phenotype_categories": 189,
-  "total_pathographs": 1089,
-  "total_unique_pathological_events": 5151
+  "total_unique_phenotype_categories": 191,
+  "total_pathographs": 1093,
+  "total_unique_pathological_events": 5174
 };
 window.dispatchEvent(new Event('searchDataReady'));
